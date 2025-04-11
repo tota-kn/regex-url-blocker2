@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  /* 基本カラー */
+  --color-background: #ffffff;
+  --color-foreground: #1f2937;
+
+  /* プライマリカラー（メインアクション、選択状態） */
+  --color-primary: #3b82f6;         /* ブルー500 - メインボタン、アクティブ要素 */
+  --color-primary-hover: #2563eb;   /* ブルー600 - ホバー時 */
+  --color-primary-foreground: #ffffff;
+
+  /* セカンダリカラー（サブアクション、非強調UI） */
+  --color-secondary: #f3f4f6;       /* グレー100 - 二次的な要素 */
+  --color-secondary-hover: #e5e7eb; /* グレー200 - ホバー時 */
+  --color-secondary-foreground: #4b5563; /* グレー600 */
+
+  /* 警告・危険アクション */
+  --color-destructive: #ef4444;     /* レッド500 - 削除ボタンなど */
+  --color-destructive-hover: #dc2626; /* レッド600 - ホバー時 */
+  --color-destructive-foreground: #ffffff;
+
+  /* ボーダー、ディバイダー */
+  --color-border: #e5e7eb;          /* グレー200 - 境界線 */
+  --color-border-hover: #d1d5db;    /* グレー300 - フォーカス時など */
+
+  /* 入力フィールド */
+  --color-input: #f9fafb;           /* グレー50 - 入力欄背景 */
+  --color-input-border: #e5e7eb;    /* グレー200 - 入力欄境界線 */
+  --color-input-foreground: #1f2937; /* グレー800 - 入力テキスト */
+
+  /* タグ関連 */
+  --color-tag-selected-bg: #dbeafe;  /* ブルー100 - 選択タグ背景 */
+  --color-tag-selected-text: #1e40af; /* ブルー800 - 選択タグテキスト */
+  --color-tag-selected-border: #93c5fd; /* ブルー300 - 選択タグ境界線 */
+
+  --color-tag-default-bg: #f3f4f6;   /* グレー100 - 通常タグ背景 */
+  --color-tag-default-text: #4b5563; /* グレー600 - 通常タグテキスト */
+  --color-tag-default-border: #e5e7eb; /* グレー200 - 通常タグ境界線 */
+
+  /* フォーカスとアウトライン */
+  --color-ring: #93c5fd;            /* ブルー300 - フォーカスリング */
+
+  /* その他のUI要素 */
+  --color-muted: #9ca3af;           /* グレー400 - 薄いテキスト、アイコン */
+  --color-accent: #eff6ff;          /* ブルー50 - アクセント背景 */
+
+  /* 角丸半径 */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.5rem;
+}

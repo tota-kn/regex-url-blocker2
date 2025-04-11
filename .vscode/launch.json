@@ -1,0 +1,24 @@
+{
+    "version": "2.0.0",
+    "configurations": [
+      {
+        "name": "dev",
+        "type": "node-terminal",
+        "command": "pnpm run dev", // package.jsonの起動したいscript
+        "request": "launch",
+      },
+      {
+        "name": "test",
+        "type": "node-terminal",
+        "command": "pnpm run test", // package.jsonの起動したいscript
+        "request": "launch",
+      }
+    ],
+    "compounds": [
+        {
+            "name": "dev & test",
+            "configurations": ["dev","test"]
+        }
+    ]
+  }
+  
