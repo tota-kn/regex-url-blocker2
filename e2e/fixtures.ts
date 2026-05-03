@@ -11,7 +11,7 @@ export const test = base.extend<{
   context: BrowserContext
   extensionId: string
 }>({
-  context: async (_, use) => {
+  context: async ({}, use) => {
     const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3')
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',

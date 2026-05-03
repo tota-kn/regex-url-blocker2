@@ -1,8 +1,8 @@
 import { defineConfig } from 'wxt'
-import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  modules: ['@wxt-dev/module-vue'],
   manifest: {
     name: 'Regex URL Blocker',
     description: '正規表現で指定したURLをブロックする拡張機能',
@@ -13,9 +13,7 @@ export default defineConfig({
     },
   },
   vite: () => ({
-    plugins: [
-      vue(),
-      tailwindcss(),
-    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    plugins: [tailwindcss() as any],
   }),
 })
