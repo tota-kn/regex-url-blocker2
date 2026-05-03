@@ -10,8 +10,8 @@
     "zip": "wxt zip",
     "postinstall": "wxt prepare",
     "typecheck": "vue-tsc --noEmit",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "pnpm run lint --fix",
     "test:unit": "vitest",
     "test:e2e": "wxt build && playwright test",
     "test:e2e:ui": "wxt build && playwright test --ui"

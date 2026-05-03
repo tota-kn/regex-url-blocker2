@@ -44,6 +44,35 @@ pnpm dev
 pnpm build
 ```
 
+## 動作確認
+
+コード変更後は以下のコマンドを順番に実行し、すべてパスすることを確認してください。
+
+```bash
+# 型チェック
+pnpm typecheck
+
+# Lint（warningもエラー扱い）
+pnpm lint
+
+# ユニットテスト
+pnpm test:unit
+
+# ビルド確認（E2Eテストの前提）
+pnpm build
+```
+
+### 自律的な検証ルール
+
+実装完了の判断基準:
+1. `pnpm typecheck` — TypeScriptエラーが0件
+2. `pnpm lint` — ESLintエラー・warningが0件
+3. `pnpm test:unit --run` — すべてのユニットテストがパス
+4. `pnpm build` — ビルドが成功する
+
+> `pnpm dev` はインタラクティブな開発サーバーのため自律チェックには使用しない。
+> E2Eテスト（`pnpm test:e2e`）はブラウザ環境が必要な場合のみ実行する。
+
 
 ## TypeScript
 各変数、関数の先頭にその機能を説明するTSDocコメントを使用しましょう
@@ -54,9 +83,6 @@ pnpm build
 - 変数や関数/定数には説明的な名前を使用してください。また、イベント関数には「handle」を接頭辞として付けてください。例えば、onClickには「handleClick」、onKeyDownには「handleKeyDown」などです。
 - 要素にはアクセシビリティ機能を実装してください。例えば、aタグにはtabindex="0"、aria-label、on:click、on:keydownなどの属性を設定してください。
 - 関数ではなく定数を使用してください。例えば「const toggle = () =>」のようにします。また、可能であれば型も定義してください。
-
-# ペルソナ
-あなたはシニアフルスタック開発者です。並外れた知識を持つ、稀な10倍の生産性を発揮する開発者の一人です。
 
 ---
 
