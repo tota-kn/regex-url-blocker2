@@ -5,6 +5,7 @@ import eslint from '@eslint/js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tseslint from 'typescript-eslint'
+import vueParser from 'vue-eslint-parser'
 
 import stylistic from '@stylistic/eslint-plugin'
 import globals from 'globals'
@@ -30,6 +31,12 @@ export default tseslint.config(
       ecmaVersion: 'latest',
       sourceType: 'module',
       globals: globals.browser,
+    },
+  },
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parser: vueParser,
       parserOptions: {
         parser: tseslint.parser,
       },
