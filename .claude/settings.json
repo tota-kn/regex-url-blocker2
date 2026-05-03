@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(pnpm test *)",
-      "Bash(pnpm lint *)"
+      "Bash(pnpm lint *)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build)"
     ]
   },
   "hooks": {
@@ -15,6 +18,12 @@
             "command": "pnpm lint:fix 1>&2 || exit 2",
             "timeout": 120,
             "statusMessage": "Running pnpm lint:fix"
+          },
+          {
+            "type": "command",
+            "command": "pnpm typecheck 1>&2 || exit 2",
+            "timeout": 120,
+            "statusMessage": "Running pnpm typecheck"
           }
         ]
       }
