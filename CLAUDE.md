@@ -4,9 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-正規表現で指定したURLの表示をブロックするChrome拡張機能。WXT + Vue 3 + TypeScript + Tailwind CSS v4 で構築。要件詳細は [README.md](README.md) 参照（ブロックパターン管理、代替表示、URLごとの1日利用可能時間制限）。
-
-現状は WXT スキャフォールドと UI コンポーネント（[BlockRuleForm](components/BlockRuleForm.vue)、[BlockRuleList](components/BlockRuleList.vue)、[BlockRuleItem](components/BlockRuleItem.vue)）のみ存在。永続化・ブロック判定・時間計測ロジックは未実装で、これらコンポーネントは [OptionsPage.vue](entrypoints/options/OptionsPage.vue) に未接続。
+正規表現で指定した URL の表示をブロックする Chrome 拡張機能。WXT + Vue 3 + TypeScript + Tailwind CSS v4 で構築。要件詳細は [README.md](README.md) 参照。
 
 ## 主要コマンド
 
@@ -25,66 +23,49 @@ pnpm test:e2e          # wxt build → playwright test
 pnpm test:e2e:ui       # Playwright UI モード
 ```
 
-E2E テストは `.output/chrome-mv3` に既ビルド成果物が必要なため、`pnpm test:e2e` は内部で `wxt build` を先に実行する。E2E のみ単独で動かす場合も先にビルドすること。
+E2E は `.output/chrome-mv3` の既ビルド成果物に依存する。`pnpm test:e2e` は内部で `wxt build` を先に走らせるが、Playwright を単独実行する場合は手動でビルドが必要。
 
 ## ディレクトリ構成
 
-[WXT の標準](https://wxt.dev/guide/essentials/project-structure.html#project-structure) に従う。
+[WXT の標準](https://wxt.dev/guide/essentials/project-structure.html#project-structure) に従う。`entrypoints/` 配下のディレクトリ／ファイル名が manifest のエントリ種別を決定する。
 
 ```
 regex-url-blocker2/
-├─ entrypoints/         # 拡張機能のエントリポイント（命名規則で manifest 種別が決定）
-│  ├─ background.ts     # Service Worker
-│  ├─ content.ts        # コンテンツスクリプト
-│  ├─ options/          # オプション画面（Vue アプリ）
-│  └─ popup/            # ポップアップ画面（Vue アプリ）
+├─ entrypoints/         # 拡張機能のエントリポイント
+│  ├─ background.ts     # Service Worker（defineBackground を export）
+│  ├─ content.ts        # コンテンツスクリプト（matches で対象 URL を指定）
+│  ├─ options/          # オプション画面（Vue アプリ、main.ts で createApp）
+│  └─ popup/            # ポップアップ画面（Vue アプリ、main.ts で createApp）
 ├─ components/          # 再利用可能な Vue コンポーネント
 ├─ utils/               # 汎用ロジック（現状空）
-├─ assets/              # ビルドにバンドルされる静的ファイル
-│  └─ css/tailwind.css  # Tailwind v4 エントリ
-├─ public/              # そのまま配布物に出力される静的ファイル（アイコンなど）
+├─ assets/css/tailwind.css  # Tailwind v4 エントリ（各 main.ts から import）
+├─ public/              # 配布物にそのまま出力される静的ファイル
 ├─ test/                # Vitest ユニットテスト
 ├─ e2e/                 # Playwright E2E テスト（fixtures.ts で拡張機能ロード）
-├─ wxt.config.ts        # WXT / manifest 設定
-├─ eslint.config.js     # ESLint flat config
-├─ playwright.config.ts # Playwright 設定
-└─ tailwind.config.js   # Tailwind v3 互換の残骸（v4 では実質未使用）
+└─ wxt.config.ts        # WXT / manifest 設定
 ```
-
-`composables/` は現状未使用。Vue Composition API の共有関数を追加する場合は WXT 標準に従い同名ディレクトリを新設する。
 
 ## アーキテクチャ要点
 
-### WXT のエントリポイント方式
-
-`entrypoints/` 配下のディレクトリ／ファイル名が manifest のエントリ種別を決定する（WXT の規約）。新しい画面やスクリプトは命名で追加する：
-
-- [entrypoints/background.ts](entrypoints/background.ts) — Service Worker。`defineBackground` を export する
-- [entrypoints/content.ts](entrypoints/content.ts) — content script。`matches` で対象 URL を指定（現在は `*://*.google.com/*` のみ）
-- [entrypoints/options/](entrypoints/options/) — オプション画面（Vue アプリ）。manifest の `options_ui.page` で参照
-- [entrypoints/popup/](entrypoints/popup/) — ポップアップ画面（Vue アプリ）
-
-各 Vue エントリは `main.ts` で `createApp` し、Tailwind CSS を [assets/css/tailwind.css](assets/css/) から import する。
-
 ### manifest 設定
 
-[wxt.config.ts](wxt.config.ts) の `manifest` セクションが Chrome manifest を生成する。permissions は現状空。ストレージや tabs API を使う機能を追加する際は、ここに `storage`、`tabs` などを追加する必要がある。
+[wxt.config.ts](wxt.config.ts) の `manifest` セクションが Chrome manifest を生成する。`permissions` は現状空。ストレージや tabs API を使う機能を追加する際は `storage`、`tabs` などを追加する必要がある。
 
 ### Tailwind CSS v4
 
-Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。ルートの `tailwind.config.js` は v3 互換の残骸でほぼ未使用。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合は [smoke.spec.ts](e2e/smoke.spec.ts) のように oklch 値で比較する。
+Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合は [smoke.spec.ts](e2e/smoke.spec.ts) のように oklch 値で比較する。ルート [tailwind.config.js](tailwind.config.js) は v3 互換の残骸で実質未使用。
 
 ### E2E テスト基盤
 
-[e2e/fixtures.ts](e2e/fixtures.ts) で `chromium.launchPersistentContext` により拡張機能をロード。`extensionId` フィクスチャは Service Worker URL から拡張 ID を抽出する。テスト内では `chrome-extension://${extensionId}/options.html` 等で各画面を開く。Playwright は `workers: 1`、`fullyParallel: false`（[playwright.config.ts](playwright.config.ts)）。
+[e2e/fixtures.ts](e2e/fixtures.ts) で `chromium.launchPersistentContext` により拡張機能をロード。`extensionId` フィクスチャは Service Worker URL から拡張 ID を抽出する。テスト内では `chrome-extension://${extensionId}/options.html` 等で各画面を開く。Playwright は `workers: 1`、`fullyParallel: false`。
 
 ## 自動実行されるフック
 
-[.claude/settings.json](.claude/settings.json) で Write/Edit/MultiEdit 後に **`pnpm lint:fix` と `pnpm typecheck`** が PostToolUse フックとして自動実行される。失敗時は exit 2 で編集が止まる。コード編集後に手動で lint/typecheck を回す必要は通常ない。
+[.claude/settings.json](.claude/settings.json) で Write/Edit/MultiEdit 後に **`pnpm lint:fix` と `pnpm typecheck`** が PostToolUse フックとして自動実行される。失敗時は exit 2 で編集が止まる。
 
 ## コーディング規約
 
-- ESLint は `eslint.configs.recommended` + `typescript-eslint` recommended + `eslint-plugin-vue` flat/recommended + `@stylistic/eslint-plugin` recommended。`.gitignore` を ESLint の ignore 元に再利用している（[eslint.config.js](eslint.config.js)）。
+- TSDoc コメントは必須。関数／クラス／インターフェースなどの宣言には、JSDoc スタイルの TSDoc コメントで説明を付与すること。
 - **lint エラーは `eslint-disable` で抑制せず、コードを直して解消する**。
 - パスエイリアス `@/` はプロジェクトルート（WXT 自動生成の [.wxt/tsconfig.json](.wxt/) を継承）。
 
