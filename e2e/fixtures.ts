@@ -11,6 +11,7 @@ export const test = base.extend<{
   context: BrowserContext
   extensionId: string
 }>({
+  // eslint-disable-next-line no-empty-pattern
   context: async ({}, use) => {
     const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3')
     const context = await chromium.launchPersistentContext('', {
