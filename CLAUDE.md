@@ -66,7 +66,6 @@ Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は 
 ## コーディング規約
 
 - TSDoc コメントは必須。関数／クラス／インターフェースなどの宣言には、JSDoc スタイルの TSDoc コメントで説明を付与すること。
-- **lint エラーは `eslint-disable` で抑制せず、コードを直して解消する**。
 - パスエイリアス `@/` はプロジェクトルート（WXT 自動生成の [.wxt/tsconfig.json](.wxt/) を継承）。
 
 ## 実装ワークフロー

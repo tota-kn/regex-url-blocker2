@@ -5,7 +5,9 @@
       "Bash(pnpm lint *)",
       "Bash(pnpm typecheck)",
       "Bash(pnpm dev)",
-      "Bash(pnpm build)"
+      "Bash(pnpm build)",
+      "Read(//home/yt/.claude/skills/**)",
+      "Read(//home/yt/.agents/skills/**)"
     ]
   },
   "hooks": {
