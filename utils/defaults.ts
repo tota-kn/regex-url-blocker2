@@ -16,6 +16,7 @@ export function createEmptyGroup(name = ''): Group {
   return {
     id: crypto.randomUUID(),
     name,
+    mode: 'blacklist',
     patterns: [],
     schedules: [],
   }

@@ -137,4 +137,27 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByLabel('リダイレクト先 URL')).toHaveValue('https://blocked.example.test')
   })
+
+  test('モード切替（ホワイトリスト）が永続化される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: '+ グループを追加' }).click()
+    await page.getByLabel('名前').fill('AllowOnly')
+
+    // デフォルトはブラックリスト
+    await expect(page.getByRole('button', { name: 'ブラックリスト' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'ホワイトリスト' })).toHaveAttribute('aria-pressed', 'false')
+
+    // ホワイトリストに切替
+    await page.getByRole('button', { name: 'ホワイトリスト' }).click()
+    await expect(page.getByRole('button', { name: 'ホワイトリスト' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText('マッチしないURLをブロックします')).toBeVisible()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    // リロード後も保持
+    await expect(page.getByRole('button', { name: 'ホワイトリスト' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'ブラックリスト' })).toHaveAttribute('aria-pressed', 'false')
+  })
 })

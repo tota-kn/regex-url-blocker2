@@ -12,6 +12,7 @@ describe('createEmptyGroup', () => {
   it('SPEC.md 準拠の空グループを返す', () => {
     const g = createEmptyGroup()
     expect(g.name).toBe('')
+    expect(g.mode).toBe('blacklist')
     expect(g.patterns).toEqual([])
     expect(g.schedules).toEqual([])
   })

@@ -26,6 +26,15 @@ export interface Schedule {
 }
 
 /**
+ * グループの動作モード。
+ * - `'blacklist'`: patterns にマッチした URL を制限対象とする（既定）。
+ * - `'whitelist'`: patterns にマッチしない URL を制限対象とする。
+ *
+ * いずれのモードでも schedules（許可時間帯・上限）の解釈は変わらない。
+ */
+export type GroupMode = 'blacklist' | 'whitelist'
+
+/**
  * ブロック対象グループ。SPEC.md「グループ」節に対応する。
  */
 export interface Group {
@@ -33,6 +42,10 @@ export interface Group {
   id: string
   /** ユーザー入力の表示名（必須・非空）。 */
   name: string
+  /**
+   * グループの動作モード。省略時は `'blacklist'`（既存データとの互換のため loadSettings で補完）。
+   */
+  mode: GroupMode
   /** 正規表現文字列の配列。`new RegExp()` で構文チェックを通る必要がある。 */
   patterns: string[]
   /** 許可スケジュールの配列。空配列=24時間・上限なし。 */

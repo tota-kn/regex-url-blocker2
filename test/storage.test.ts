@@ -35,3 +35,21 @@ describe('saveSettings', () => {
     expect(loaded).toEqual(settings)
   })
 })
+
+describe('loadSettings のマイグレーション', () => {
+  it('groups の mode 欠損は blacklist で補完される', async () => {
+    await browser.storage.sync.set({
+      groups: [{ id: 'x', name: 'old', patterns: [], schedules: [] }],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].mode).toBe('blacklist')
+  })
+
+  it('whitelist は保持される', async () => {
+    await browser.storage.sync.set({
+      groups: [{ id: 'y', name: 'wl', mode: 'whitelist', patterns: [], schedules: [] }],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].mode).toBe('whitelist')
+  })
+})

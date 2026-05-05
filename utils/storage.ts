@@ -10,9 +10,15 @@ export async function loadSettings(): Promise<Settings> {
     global?: Partial<GlobalSettings>
     groups?: unknown
   }
+  const groups: Group[] = Array.isArray(raw.groups)
+    ? (raw.groups as Partial<Group>[]).map(g => ({
+        ...g,
+        mode: g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist',
+      } as Group))
+    : []
   return {
     global: { ...DEFAULT_GLOBAL_SETTINGS, ...(raw.global ?? {}) },
-    groups: Array.isArray(raw.groups) ? raw.groups as Group[] : [],
+    groups,
   }
 }
 

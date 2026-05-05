@@ -99,6 +99,10 @@ function validateSchedule(s: Schedule, prefix: string): ValidationError[] {
 export function validateGroup(group: Group): ValidationError[] {
   const errors: ValidationError[] = []
 
+  if (group.mode !== 'blacklist' && group.mode !== 'whitelist') {
+    errors.push({ field: 'mode', message: 'モードが不正です' })
+  }
+
   if (group.name.trim().length === 0) {
     errors.push({ field: 'name', message: '名前は必須です' })
   }

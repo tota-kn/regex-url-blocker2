@@ -176,13 +176,42 @@ onMounted(async () => {
           :key="g.id"
           class="border border-border rounded-md p-4 space-y-4"
         >
-          <label class="block">
-            <span class="block text-sm">名前</span>
-            <input
-              v-model="g.name"
-              class="w-full border border-input-border bg-input rounded-md px-2 py-1"
-            >
-          </label>
+          <div class="flex flex-wrap items-start gap-3">
+            <label class="block flex-1 min-w-0">
+              <span class="block text-sm">名前</span>
+              <input
+                v-model="g.name"
+                class="w-full border border-input-border bg-input rounded-md px-2 py-1"
+              >
+            </label>
+            <div class="flex flex-col gap-1 pt-5">
+              <div class="flex rounded-md border border-border overflow-hidden text-sm">
+                <button
+                  type="button"
+                  :aria-pressed="g.mode === 'blacklist'"
+                  :class="g.mode === 'blacklist'
+                    ? 'bg-primary text-primary-foreground px-3 py-1'
+                    : 'bg-input text-foreground px-3 py-1 hover:bg-muted'"
+                  @click="g.mode = 'blacklist'"
+                >
+                  ブラックリスト
+                </button>
+                <button
+                  type="button"
+                  :aria-pressed="g.mode === 'whitelist'"
+                  :class="g.mode === 'whitelist'
+                    ? 'bg-primary text-primary-foreground px-3 py-1'
+                    : 'bg-input text-foreground px-3 py-1 hover:bg-muted'"
+                  @click="g.mode = 'whitelist'"
+                >
+                  ホワイトリスト
+                </button>
+              </div>
+            </div>
+          </div>
+          <p class="text-muted text-xs">
+            {{ g.mode === 'blacklist' ? 'マッチしたURLをブロックします' : 'マッチしないURLをブロックします（スケジュール許可内のみ）' }}
+          </p>
           <p
             v-if="groupError(g, 'name')"
             class="text-destructive text-sm"

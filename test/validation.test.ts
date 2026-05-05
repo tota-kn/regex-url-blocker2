@@ -56,6 +56,7 @@ describe('validateGroup', () => {
     const errors = validateGroup({
       id: 'x',
       name: '   ',
+      mode: 'blacklist',
       patterns: ['['],
       schedules: [
         { daysOfWeek: [], start: '00:00', end: '24:00', dailyTimeLimitMinutes: -1 },
@@ -103,6 +104,16 @@ describe('validateGroup', () => {
   it('schedules が空配列でも valid（24時間・上限なし）', () => {
     const g = { ...createEmptyGroup(), name: 'X' }
     expect(validateGroup(g)).toEqual([])
+  })
+
+  it('mode が whitelist も valid', () => {
+    const g = { ...createEmptyGroup(), name: 'X', mode: 'whitelist' as const }
+    expect(validateGroup(g)).toEqual([])
+  })
+
+  it('mode が不正値だとエラー', () => {
+    const g = { ...createEmptyGroup(), name: 'X', mode: 'invalid' as 'blacklist' }
+    expect(validateGroup(g).some(e => e.field === 'mode')).toBe(true)
   })
 
   it('特定曜日のみのスケジュールは valid', () => {
