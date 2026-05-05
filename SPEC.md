@@ -20,7 +20,7 @@
   - `patterns`: 正規表現文字列の配列
   - `dailyTimeLimitMinutes`: 1日あたり閲覧上限（分）。`null` で「上限なし」、`0` で「即ブロック」を表現
   - `allowedHours`: 許可時間帯の配列。各要素は `{ start: "HH:MM", end: "HH:MM" }`
-- グループの並び順はユーザーがドラッグ&ドロップで変更可能（**表示用途のみ**、判定ロジックには影響しない）。
+- グループは追加順に表示する（v1 では並び替え非対応）。
 
 ### グローバル設定
 
@@ -70,7 +70,7 @@
 
 ### Options 画面（編集）
 
-- グループの追加・編集・削除・並び替え
+- グループの追加・編集・削除
 - 各グループ：`name`、`patterns[]`、`dailyTimeLimitMinutes`、`allowedHours[]`
 - 許可時間帯は `<input type="time">` を1組とし、複数組を `+追加` で増やす
 - グローバル設定（`redirectUrl`、`dailyResetHour`）の編集

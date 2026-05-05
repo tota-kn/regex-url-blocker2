@@ -1,3 +1,288 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
+import { debounce } from '@/utils/debounce'
+import { loadSettings, saveSettings } from '@/utils/storage'
+import { validateGlobalSettings, validateGroup } from '@/utils/validation'
+import type { Group, Settings } from '@/utils/types'
+
+const settings = ref<Settings>({
+  global: { ...DEFAULT_GLOBAL_SETTINGS },
+  groups: [],
+})
+const isLoaded = ref(false)
+
+const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
+const groupsErrors = computed(() =>
+  new Map(settings.value.groups.map(g => [g.id, validateGroup(g)])),
+)
+const totalErrors = computed(() => {
+  let n = globalErrors.value.length
+  for (const errs of groupsErrors.value.values()) n += errs.length
+  return n
+})
+
+/** 指定フィールドのグローバル設定エラーメッセージを返す。 */
+function globalError(field: string): string | undefined {
+  return globalErrors.value.find(e => e.field === field)?.message
+}
+
+/** 指定グループ・指定フィールドのエラーメッセージを返す。 */
+function groupError(g: Group, field: string): string | undefined {
+  return groupsErrors.value.get(g.id)?.find(e => e.field === field)?.message
+}
+
+/** 指定グループ・パターン番号のエラーメッセージを返す。 */
+function patternError(g: Group, i: number): string | undefined {
+  return groupError(g, `patterns[${i}]`)
+}
+
+function addGroup(): void {
+  const n = settings.value.groups.length + 1
+  settings.value.groups.push(createEmptyGroup(`グループ${n}`))
+}
+
+function removeGroup(id: string): void {
+  if (!window.confirm('このグループを削除しますか？')) return
+  settings.value.groups = settings.value.groups.filter(g => g.id !== id)
+}
+
+/** number input の文字列値を `dailyTimeLimitMinutes`（null|number）に反映する。 */
+function setLimit(g: Group, value: string): void {
+  g.dailyTimeLimitMinutes = value === '' ? null : Number(value)
+}
+
+const debouncedSave = debounce((s: Settings) => {
+  void saveSettings(s)
+}, 300)
+
+watch(settings, (s) => {
+  if (!isLoaded.value) return
+  if (totalErrors.value > 0) return
+  debouncedSave(JSON.parse(JSON.stringify(s)) as Settings)
+}, { deep: true })
+
+onMounted(async () => {
+  settings.value = await loadSettings()
+  isLoaded.value = true
+})
+</script>
+
 <template>
-  <div>option</div>
+  <main class="max-w-3xl mx-auto p-6 space-y-8 text-foreground">
+    <h1 class="text-2xl font-bold">
+      Regex URL Blocker - 設定
+    </h1>
+
+    <p v-if="!isLoaded">
+      読み込み中…
+    </p>
+
+    <template v-else>
+      <section class="space-y-3">
+        <h2 class="text-lg font-semibold">
+          グローバル設定
+        </h2>
+
+        <label class="block">
+          <span class="block text-sm">リダイレクト先 URL</span>
+          <input
+            v-model="settings.global.redirectUrl"
+            type="url"
+            class="w-full border border-input-border bg-input rounded-md px-2 py-1"
+          >
+        </label>
+        <p
+          v-if="globalError('redirectUrl')"
+          class="text-destructive text-sm"
+        >
+          {{ globalError('redirectUrl') }}
+        </p>
+
+        <label class="block">
+          <span class="block text-sm">リセット時刻</span>
+          <input
+            v-model="settings.global.dailyResetHour"
+            type="time"
+            class="border border-input-border bg-input rounded-md px-2 py-1"
+          >
+        </label>
+        <p
+          v-if="globalError('dailyResetHour')"
+          class="text-destructive text-sm"
+        >
+          {{ globalError('dailyResetHour') }}
+        </p>
+      </section>
+
+      <section class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">
+            グループ
+          </h2>
+          <button
+            type="button"
+            class="bg-primary text-primary-foreground rounded-md px-3 py-1 hover:bg-primary-hover"
+            @click="addGroup"
+          >
+            + グループを追加
+          </button>
+        </div>
+
+        <p
+          v-if="settings.groups.length === 0"
+          class="text-muted"
+        >
+          グループがありません。
+        </p>
+
+        <div
+          v-for="g in settings.groups"
+          :key="g.id"
+          class="border border-border rounded-md p-4 space-y-4"
+        >
+          <label class="block">
+            <span class="block text-sm">名前</span>
+            <input
+              v-model="g.name"
+              class="w-full border border-input-border bg-input rounded-md px-2 py-1"
+            >
+          </label>
+          <p
+            v-if="groupError(g, 'name')"
+            class="text-destructive text-sm"
+          >
+            {{ groupError(g, 'name') }}
+          </p>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-medium">
+                正規表現パターン
+              </h3>
+              <button
+                type="button"
+                class="text-primary text-sm"
+                @click="g.patterns.push('https?://')"
+              >
+                + パターン追加
+              </button>
+            </div>
+            <div
+              v-for="(_, i) in g.patterns"
+              :key="i"
+              class="space-y-1"
+            >
+              <div class="flex gap-2">
+                <input
+                  v-model="g.patterns[i]"
+                  aria-label="正規表現"
+                  class="flex-1 border border-input-border bg-input rounded-md px-2 py-1 font-mono text-sm"
+                >
+                <button
+                  type="button"
+                  class="text-destructive text-sm"
+                  @click="g.patterns.splice(i, 1)"
+                >
+                  削除
+                </button>
+              </div>
+              <p
+                v-if="patternError(g, i)"
+                class="text-destructive text-sm"
+              >
+                {{ patternError(g, i) }}
+              </p>
+            </div>
+          </div>
+
+          <label class="block">
+            <span class="block text-sm">1日の上限（分）</span>
+            <input
+              type="number"
+              min="0"
+              :value="g.dailyTimeLimitMinutes ?? ''"
+              placeholder="上限なし"
+              class="border border-input-border bg-input rounded-md px-2 py-1"
+              @input="setLimit(g, ($event.target as HTMLInputElement).value)"
+            >
+          </label>
+          <p
+            v-if="groupError(g, 'dailyTimeLimitMinutes')"
+            class="text-destructive text-sm"
+          >
+            {{ groupError(g, 'dailyTimeLimitMinutes') }}
+          </p>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-medium">
+                許可時間帯
+              </h3>
+              <button
+                type="button"
+                class="text-primary text-sm"
+                @click="g.allowedHours.push({ start: '00:00', end: '00:00' })"
+              >
+                + 許可時間帯追加
+              </button>
+            </div>
+            <p
+              v-if="g.allowedHours.length === 0"
+              class="text-muted text-sm"
+            >
+              24時間許可
+            </p>
+            <div
+              v-for="(r, i) in g.allowedHours"
+              :key="i"
+              class="flex items-center gap-2"
+            >
+              <label class="flex items-center gap-1">
+                <span class="text-sm">開始時刻</span>
+                <input
+                  v-model="r.start"
+                  type="time"
+                  aria-label="開始時刻"
+                  class="border border-input-border bg-input rounded-md px-2 py-1"
+                >
+              </label>
+              <span>-</span>
+              <label class="flex items-center gap-1">
+                <span class="text-sm">終了時刻</span>
+                <input
+                  v-model="r.end"
+                  type="time"
+                  aria-label="終了時刻"
+                  class="border border-input-border bg-input rounded-md px-2 py-1"
+                >
+              </label>
+              <button
+                type="button"
+                class="text-destructive text-sm"
+                @click="g.allowedHours.splice(i, 1)"
+              >
+                削除
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="text-destructive"
+            @click="removeGroup(g.id)"
+          >
+            グループを削除
+          </button>
+        </div>
+      </section>
+
+      <p
+        v-if="totalErrors > 0"
+        class="text-destructive"
+      >
+        未保存のエラー: {{ totalErrors }}
+      </p>
+    </template>
+  </main>
 </template>
