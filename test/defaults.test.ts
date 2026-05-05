@@ -13,8 +13,7 @@ describe('createEmptyGroup', () => {
     const g = createEmptyGroup()
     expect(g.name).toBe('')
     expect(g.patterns).toEqual([])
-    expect(g.dailyTimeLimitMinutes).toBeNull()
-    expect(g.allowedHours).toEqual([])
+    expect(g.schedules).toEqual([])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {

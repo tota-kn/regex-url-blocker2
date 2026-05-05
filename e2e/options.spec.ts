@@ -61,25 +61,26 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('[invalid')).not.toBeVisible()
   })
 
-  test('上限分数を編集して永続化される', async ({ page, extensionId }) => {
+  test('スケジュールの上限分数を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: '+ グループを追加' }).click()
     await page.getByLabel('名前').fill('LimitedSite')
-    await page.getByLabel('1日の上限（分）').fill('30')
+    await page.getByRole('button', { name: '+ スケジュール追加' }).click()
+    await page.getByLabel('上限分数').fill('30')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('1日の上限（分）')).toHaveValue('30')
+    await expect(page.getByLabel('上限分数')).toHaveValue('30')
   })
 
-  test('許可時間帯を日跨ぎで追加して永続化される', async ({ page, extensionId }) => {
+  test('スケジュールを日跨ぎで追加して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: '+ グループを追加' }).click()
     await page.getByLabel('名前').fill('NightOnly')
-    await page.getByRole('button', { name: '+ 許可時間帯追加' }).click()
+    await page.getByRole('button', { name: '+ スケジュール追加' }).click()
     await page.getByLabel('開始時刻').fill('22:00')
     await page.getByLabel('終了時刻').fill('06:00')
 
@@ -88,6 +89,25 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByLabel('開始時刻')).toHaveValue('22:00')
     await expect(page.getByLabel('終了時刻')).toHaveValue('06:00')
+  })
+
+  test('スケジュールに曜日を選んで永続化される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: '+ グループを追加' }).click()
+    await page.getByLabel('名前').fill('WeekdayOnly')
+    await page.getByRole('button', { name: '+ スケジュール追加' }).click()
+    await page.getByRole('checkbox', { name: '月' }).check()
+    await page.getByRole('checkbox', { name: '火' }).check()
+    await page.getByLabel('上限分数').fill('60')
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByRole('checkbox', { name: '月' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: '火' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: '水' })).not.toBeChecked()
+    await expect(page.getByLabel('上限分数')).toHaveValue('60')
   })
 
   test('グループを削除して永続化される', async ({ page, extensionId }) => {

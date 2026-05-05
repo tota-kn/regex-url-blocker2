@@ -45,8 +45,9 @@ describe('validateGroup', () => {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://(www\\.)?twitter\\.com'],
-      dailyTimeLimitMinutes: 30,
-      allowedHours: [{ start: '09:00', end: '18:00' }],
+      schedules: [
+        { daysOfWeek: [], start: '09:00', end: '18:00', dailyTimeLimitMinutes: 30 },
+      ],
     }
     expect(validateGroup(g)).toEqual([])
   })
@@ -56,36 +57,90 @@ describe('validateGroup', () => {
       id: 'x',
       name: '   ',
       patterns: ['['],
-      dailyTimeLimitMinutes: -1,
-      allowedHours: [],
+      schedules: [
+        { daysOfWeek: [], start: '00:00', end: '24:00', dailyTimeLimitMinutes: -1 },
+      ],
     })
     expect(errors.some(e => e.field === 'name')).toBe(true)
     expect(errors.some(e => e.field === 'patterns[0]')).toBe(true)
-    expect(errors.some(e => e.field === 'dailyTimeLimitMinutes')).toBe(true)
+    expect(errors.some(e => e.field === 'schedules[0].dailyTimeLimitMinutes')).toBe(true)
   })
 
-  it('日跨ぎの許可時間帯（end <= start）は valid', () => {
+  it('日跨ぎのスケジュール（end <= start）は valid', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'NightOnly',
-      allowedHours: [{ start: '22:00', end: '06:00' }],
+      schedules: [
+        { daysOfWeek: [], start: '22:00', end: '06:00', dailyTimeLimitMinutes: null },
+      ],
     }
     expect(validateGroup(g)).toEqual([])
   })
 
-  it('許可時間帯の start/end が HH:MM 違反だとエラー', () => {
+  it('スケジュールの start/end が HH:MM 違反だとエラー', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      allowedHours: [{ start: '99:99', end: '06:00' }],
+      schedules: [
+        { daysOfWeek: [], start: '99:99', end: '06:00', dailyTimeLimitMinutes: null },
+      ],
     }
     const errors = validateGroup(g)
-    expect(errors.some(e => e.field === 'allowedHours[0].start')).toBe(true)
+    expect(errors.some(e => e.field === 'schedules[0].start')).toBe(true)
   })
 
   it('dailyTimeLimitMinutes が null は valid', () => {
-    const g = { ...createEmptyGroup(), name: 'X', dailyTimeLimitMinutes: null }
+    const g = {
+      ...createEmptyGroup(),
+      name: 'X',
+      schedules: [
+        { daysOfWeek: [], start: '00:00', end: '23:59', dailyTimeLimitMinutes: null },
+      ],
+    }
     expect(validateGroup(g)).toEqual([])
+  })
+
+  it('schedules が空配列でも valid（24時間・上限なし）', () => {
+    const g = { ...createEmptyGroup(), name: 'X' }
+    expect(validateGroup(g)).toEqual([])
+  })
+
+  it('特定曜日のみのスケジュールは valid', () => {
+    const g = {
+      ...createEmptyGroup(),
+      name: 'WeekdayOnly',
+      schedules: [
+        { daysOfWeek: [1, 2, 3, 4, 5] as const, start: '09:00', end: '18:00', dailyTimeLimitMinutes: 60 },
+      ],
+    }
+    expect(validateGroup({
+      ...g,
+      schedules: g.schedules.map(s => ({ ...s, daysOfWeek: [...s.daysOfWeek] })),
+    })).toEqual([])
+  })
+
+  it('daysOfWeek の値が範囲外（7）だとエラー', () => {
+    const g = {
+      ...createEmptyGroup(),
+      name: 'X',
+      schedules: [
+        { daysOfWeek: [7] as unknown as (0 | 1 | 2 | 3 | 4 | 5 | 6)[], start: '00:00', end: '24:00', dailyTimeLimitMinutes: null },
+      ],
+    }
+    const errors = validateGroup(g)
+    expect(errors.some(e => e.field === 'schedules[0].daysOfWeek')).toBe(true)
+  })
+
+  it('daysOfWeek に重複があるとエラー', () => {
+    const g = {
+      ...createEmptyGroup(),
+      name: 'X',
+      schedules: [
+        { daysOfWeek: [1, 1] as (0 | 1 | 2 | 3 | 4 | 5 | 6)[], start: '00:00', end: '24:00', dailyTimeLimitMinutes: null },
+      ],
+    }
+    const errors = validateGroup(g)
+    expect(errors.some(e => e.field === 'schedules[0].daysOfWeek')).toBe(true)
   })
 })
 

@@ -1,7 +1,7 @@
 import type { GlobalSettings, Group } from './types'
 
 /**
- * 未設定時に使用するグローバル設定の既定値。SPEC.md L27-28 準拠。
+ * 未設定時に使用するグローバル設定の既定値。SPEC.md 準拠。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   redirectUrl: 'https://example.com',
@@ -17,7 +17,6 @@ export function createEmptyGroup(name = ''): Group {
     id: crypto.randomUUID(),
     name,
     patterns: [],
-    dailyTimeLimitMinutes: null,
-    allowedHours: [],
+    schedules: [],
   }
 }

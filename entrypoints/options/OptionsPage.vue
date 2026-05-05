@@ -4,7 +4,7 @@ import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
 import { loadSettings, saveSettings } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
-import type { Group, Settings } from '@/utils/types'
+import type { DayOfWeek, Group, Schedule, Settings } from '@/utils/types'
 
 const settings = ref<Settings>({
   global: { ...DEFAULT_GLOBAL_SETTINGS },
@@ -37,6 +37,11 @@ function patternError(g: Group, i: number): string | undefined {
   return groupError(g, `patterns[${i}]`)
 }
 
+/** 指定グループ・スケジュール番号・サブフィールドのエラーメッセージを返す。 */
+function scheduleError(g: Group, i: number, sub: string): string | undefined {
+  return groupError(g, `schedules[${i}].${sub}`)
+}
+
 function addGroup(): void {
   const n = settings.value.groups.length + 1
   settings.value.groups.push(createEmptyGroup(`グループ${n}`))
@@ -47,10 +52,40 @@ function removeGroup(id: string): void {
   settings.value.groups = settings.value.groups.filter(g => g.id !== id)
 }
 
-/** number input の文字列値を `dailyTimeLimitMinutes`（null|number）に反映する。 */
-function setLimit(g: Group, value: string): void {
-  g.dailyTimeLimitMinutes = value === '' ? null : Number(value)
+function addSchedule(g: Group): void {
+  g.schedules.push({
+    daysOfWeek: [],
+    start: '00:00',
+    end: '00:00',
+    dailyTimeLimitMinutes: null,
+  })
 }
+
+/** number input の文字列値を schedule の `dailyTimeLimitMinutes` に反映する。 */
+function setScheduleLimit(s: Schedule, value: string): void {
+  s.dailyTimeLimitMinutes = value === '' ? null : Number(value)
+}
+
+/** チェックボックスのトグルで `daysOfWeek` を昇順に保ったまま追加/削除する。 */
+function toggleDay(s: Schedule, day: DayOfWeek): void {
+  const idx = s.daysOfWeek.indexOf(day)
+  if (idx >= 0) {
+    s.daysOfWeek.splice(idx, 1)
+  }
+  else {
+    s.daysOfWeek = [...s.daysOfWeek, day].sort((a, b) => a - b)
+  }
+}
+
+const DAY_LABELS: { value: DayOfWeek, label: string }[] = [
+  { value: 0, label: '日' },
+  { value: 1, label: '月' },
+  { value: 2, label: '火' },
+  { value: 3, label: '水' },
+  { value: 4, label: '木' },
+  { value: 5, label: '金' },
+  { value: 6, label: '土' },
+]
 
 const debouncedSave = debounce((s: Settings) => {
   void saveSettings(s)
@@ -196,74 +231,115 @@ onMounted(async () => {
             </div>
           </div>
 
-          <label class="block">
-            <span class="block text-sm">1日の上限（分）</span>
-            <input
-              type="number"
-              min="0"
-              :value="g.dailyTimeLimitMinutes ?? ''"
-              placeholder="上限なし"
-              class="border border-input-border bg-input rounded-md px-2 py-1"
-              @input="setLimit(g, ($event.target as HTMLInputElement).value)"
-            >
-          </label>
-          <p
-            v-if="groupError(g, 'dailyTimeLimitMinutes')"
-            class="text-destructive text-sm"
-          >
-            {{ groupError(g, 'dailyTimeLimitMinutes') }}
-          </p>
-
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <h3 class="text-sm font-medium">
-                許可時間帯
+                スケジュール
               </h3>
               <button
                 type="button"
                 class="text-primary text-sm"
-                @click="g.allowedHours.push({ start: '00:00', end: '00:00' })"
+                @click="addSchedule(g)"
               >
-                + 許可時間帯追加
+                + スケジュール追加
               </button>
             </div>
             <p
-              v-if="g.allowedHours.length === 0"
+              v-if="g.schedules.length === 0"
               class="text-muted text-sm"
             >
-              24時間許可
+              制限なし（24時間・上限なし）
             </p>
             <div
-              v-for="(r, i) in g.allowedHours"
+              v-for="(s, i) in g.schedules"
               :key="i"
-              class="flex items-center gap-2"
+              class="border border-border rounded-md p-3 space-y-2"
             >
-              <label class="flex items-center gap-1">
-                <span class="text-sm">開始時刻</span>
-                <input
-                  v-model="r.start"
-                  type="time"
-                  aria-label="開始時刻"
-                  class="border border-input-border bg-input rounded-md px-2 py-1"
-                >
-              </label>
-              <span>-</span>
-              <label class="flex items-center gap-1">
-                <span class="text-sm">終了時刻</span>
-                <input
-                  v-model="r.end"
-                  type="time"
-                  aria-label="終了時刻"
-                  class="border border-input-border bg-input rounded-md px-2 py-1"
-                >
-              </label>
-              <button
-                type="button"
+              <fieldset class="space-y-1">
+                <legend class="text-sm">
+                  曜日（未選択=毎日）
+                </legend>
+                <div class="flex flex-wrap gap-2">
+                  <label
+                    v-for="d in DAY_LABELS"
+                    :key="d.value"
+                    class="flex items-center gap-1 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      :aria-label="d.label"
+                      :checked="s.daysOfWeek.includes(d.value)"
+                      @change="toggleDay(s, d.value)"
+                    >
+                    <span>{{ d.label }}</span>
+                  </label>
+                </div>
+              </fieldset>
+              <p
+                v-if="scheduleError(g, i, 'daysOfWeek')"
                 class="text-destructive text-sm"
-                @click="g.allowedHours.splice(i, 1)"
               >
-                削除
-              </button>
+                {{ scheduleError(g, i, 'daysOfWeek') }}
+              </p>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="flex items-center gap-1">
+                  <span class="text-sm">開始時刻</span>
+                  <input
+                    v-model="s.start"
+                    type="time"
+                    aria-label="開始時刻"
+                    class="border border-input-border bg-input rounded-md px-2 py-1"
+                  >
+                </label>
+                <span>-</span>
+                <label class="flex items-center gap-1">
+                  <span class="text-sm">終了時刻</span>
+                  <input
+                    v-model="s.end"
+                    type="time"
+                    aria-label="終了時刻"
+                    class="border border-input-border bg-input rounded-md px-2 py-1"
+                  >
+                </label>
+                <label class="flex items-center gap-1">
+                  <span class="text-sm">上限（分）</span>
+                  <input
+                    type="number"
+                    min="0"
+                    aria-label="上限分数"
+                    placeholder="上限なし"
+                    :value="s.dailyTimeLimitMinutes ?? ''"
+                    class="border border-input-border bg-input rounded-md px-2 py-1 w-28"
+                    @input="setScheduleLimit(s, ($event.target as HTMLInputElement).value)"
+                  >
+                </label>
+                <button
+                  type="button"
+                  class="text-destructive text-sm ml-auto"
+                  @click="g.schedules.splice(i, 1)"
+                >
+                  削除
+                </button>
+              </div>
+              <p
+                v-if="scheduleError(g, i, 'start')"
+                class="text-destructive text-sm"
+              >
+                {{ scheduleError(g, i, 'start') }}
+              </p>
+              <p
+                v-if="scheduleError(g, i, 'end')"
+                class="text-destructive text-sm"
+              >
+                {{ scheduleError(g, i, 'end') }}
+              </p>
+              <p
+                v-if="scheduleError(g, i, 'dailyTimeLimitMinutes')"
+                class="text-destructive text-sm"
+              >
+                {{ scheduleError(g, i, 'dailyTimeLimitMinutes') }}
+              </p>
             </div>
           </div>
 

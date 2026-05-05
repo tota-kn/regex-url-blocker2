@@ -1,4 +1,4 @@
-import type { GlobalSettings, Group } from './types'
+import type { DayOfWeek, GlobalSettings, Group, Schedule } from './types'
 
 /**
  * バリデーションエラーの単位。`field` はフィールドへのドット区切りパス。
@@ -57,6 +57,43 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
 }
 
 /**
+ * 値が `DayOfWeek` の範囲（0..6 の整数）であるかを返す。
+ */
+function isValidDayOfWeek(value: unknown): value is DayOfWeek {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 6
+}
+
+/**
+ * 1つのスケジュールをバリデーションし、エラー配列を返す。
+ * `prefix` は `schedules[0]` のようなフィールドパスのプレフィックス。
+ */
+function validateSchedule(s: Schedule, prefix: string): ValidationError[] {
+  const errors: ValidationError[] = []
+
+  const days = s.daysOfWeek
+  if (days.some(d => !isValidDayOfWeek(d))) {
+    errors.push({ field: `${prefix}.daysOfWeek`, message: '曜日は 0〜6 で指定してください' })
+  }
+  if (new Set(days).size !== days.length) {
+    errors.push({ field: `${prefix}.daysOfWeek`, message: '曜日が重複しています' })
+  }
+
+  if (!isValidHHMM(s.start)) {
+    errors.push({ field: `${prefix}.start`, message: 'HH:MM 形式で入力してください' })
+  }
+  if (!isValidHHMM(s.end)) {
+    errors.push({ field: `${prefix}.end`, message: 'HH:MM 形式で入力してください' })
+  }
+
+  const limit = s.dailyTimeLimitMinutes
+  if (limit !== null && (!Number.isInteger(limit) || limit < 0)) {
+    errors.push({ field: `${prefix}.dailyTimeLimitMinutes`, message: '0 以上の整数を入力してください' })
+  }
+
+  return errors
+}
+
+/**
  * グループをバリデーションし、エラー配列を返す。エラーがなければ空配列。
  */
 export function validateGroup(group: Group): ValidationError[] {
@@ -72,18 +109,8 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   })
 
-  const limit = group.dailyTimeLimitMinutes
-  if (limit !== null && (!Number.isInteger(limit) || limit < 0)) {
-    errors.push({ field: 'dailyTimeLimitMinutes', message: '0 以上の整数を入力してください' })
-  }
-
-  group.allowedHours.forEach((r, i) => {
-    if (!isValidHHMM(r.start)) {
-      errors.push({ field: `allowedHours[${i}].start`, message: 'HH:MM 形式で入力してください' })
-    }
-    if (!isValidHHMM(r.end)) {
-      errors.push({ field: `allowedHours[${i}].end`, message: 'HH:MM 形式で入力してください' })
-    }
+  group.schedules.forEach((s, i) => {
+    errors.push(...validateSchedule(s, `schedules[${i}]`))
   })
 
   return errors

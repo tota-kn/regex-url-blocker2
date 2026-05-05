@@ -4,11 +4,25 @@
 export type HHMM = string
 
 /**
- * 許可時間帯1組。`end <= start` の場合は日跨ぎ（例 22:00–06:00）として扱う。
+ * 曜日番号。JS の `Date.getDay()` 互換で 0=日, 1=月, ..., 6=土。
  */
-export interface AllowedHourRange {
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+/**
+ * グループの許可スケジュール1組。曜日・時間帯・上限分数をひとまとめにする。
+ *
+ * - `daysOfWeek` が空配列なら全曜日に適用。
+ * - `end <= start` のときは日跨ぎ（例 22:00–06:00）として扱う。
+ * - `dailyTimeLimitMinutes` は null=上限なし、0=即ブロック、正数=分数。
+ *
+ * 同じ曜日・時刻で複数スケジュールがマッチした場合の有効上限は、`null` を「上限なし=∞」とみなした
+ * 最も厳しい値（最小）を採用する。
+ */
+export interface Schedule {
+  daysOfWeek: DayOfWeek[]
   start: HHMM
   end: HHMM
+  dailyTimeLimitMinutes: number | null
 }
 
 /**
@@ -21,10 +35,8 @@ export interface Group {
   name: string
   /** 正規表現文字列の配列。`new RegExp()` で構文チェックを通る必要がある。 */
   patterns: string[]
-  /** 1日あたり閲覧上限（分）。null=上限なし、0=即ブロック、正数=分数。 */
-  dailyTimeLimitMinutes: number | null
-  /** 許可時間帯。空配列なら24時間 OK。 */
-  allowedHours: AllowedHourRange[]
+  /** 許可スケジュールの配列。空配列=24時間・上限なし。 */
+  schedules: Schedule[]
 }
 
 /**
