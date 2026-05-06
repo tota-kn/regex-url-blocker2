@@ -12,7 +12,8 @@ export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6
  * ブロック時間帯。この時間帯はアクセスを即座にブロックする。
  *
  * - `daysOfWeek` が空配列なら全曜日に適用。
- * - `end <= start` のときは日跨ぎ（例 22:00–06:00）として扱う。
+ * - `end < start` のときは日跨ぎ（例 22:00–06:00）として扱う。
+ * - `end === start` のときは 24 時間ブロックとして扱う。
  */
 export interface BlockedTimeSlot {
   daysOfWeek: DayOfWeek[]
@@ -75,4 +76,22 @@ export interface GlobalSettings {
 export interface Settings {
   global: GlobalSettings
   groups: Group[]
+}
+
+/**
+ * 1グループ・1論理日分の閲覧秒数カウンタ。
+ */
+export interface UsageCounter {
+  /** `dailyResetHour` を起点に算出した論理日の識別子。 */
+  logicalDate: string
+  /** 当該論理日の累積閲覧秒数。 */
+  consumedSec: number
+}
+
+/**
+ * chrome.storage.local に保存する閲覧秒数カウンタ全体。
+ */
+export interface UsageCountersState {
+  /** group id を key とするカウンタ辞書。 */
+  counters: Record<string, UsageCounter>
 }

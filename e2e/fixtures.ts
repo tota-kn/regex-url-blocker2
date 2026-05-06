@@ -17,6 +17,8 @@ export const test = base.extend<{
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
       args: [
+        '--disable-crash-reporter',
+        '--disable-crashpad',
         `--disable-extensions-except=${pathToExtension}`,
         `--load-extension=${pathToExtension}`,
       ],

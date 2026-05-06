@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadSettings, saveSettings } from '../utils/storage'
+import { loadCounters, loadSettings, saveCounters, saveSettings } from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('loadSettings', () => {
@@ -67,5 +67,36 @@ describe('loadSettings のマイグレーション', () => {
     expect(s.groups[0].blockedTimeSlots).toEqual([])
     expect(s.groups[0].timeLimits).toEqual([])
     expect((s.groups[0] as unknown as Record<string, unknown>).schedules).toBeUndefined()
+  })
+})
+
+describe('counter storage', () => {
+  it('未設定時は空カウンタを返す', async () => {
+    expect(await loadCounters()).toEqual({ counters: {} })
+  })
+
+  it('save → load でカウンタをラウンドトリップする', async () => {
+    const counters = {
+      counters: {
+        group1: { logicalDate: '2026-05-06', consumedSec: 10 },
+      },
+    }
+    await saveCounters(counters)
+    expect(await loadCounters()).toEqual(counters)
+  })
+
+  it('不正なカウンタ値は読み込み時に除外する', async () => {
+    await browser.storage.local.set({
+      counters: {
+        ok: { logicalDate: '2026-05-06', consumedSec: 10.9 },
+        badDate: { logicalDate: 123, consumedSec: 10 },
+        badSec: { logicalDate: '2026-05-06', consumedSec: 'x' },
+      },
+    })
+    expect(await loadCounters()).toEqual({
+      counters: {
+        ok: { logicalDate: '2026-05-06', consumedSec: 10 },
+      },
+    })
   })
 })

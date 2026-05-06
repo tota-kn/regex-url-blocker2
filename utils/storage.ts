@@ -1,5 +1,5 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
-import type { BlockedTimeSlot, GlobalSettings, Group, GroupMode, Settings, TimeLimit } from './types'
+import type { BlockedTimeSlot, GlobalSettings, Group, GroupMode, Settings, TimeLimit, UsageCountersState } from './types'
 
 /**
  * browser.storage.sync から `Settings` 全体を読み込む。
@@ -34,5 +34,40 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await browser.storage.sync.set({
     global: settings.global,
     groups: settings.groups,
+  })
+}
+
+/**
+ * browser.storage.local から閲覧秒数カウンタを読み込む。
+ * 不正な保存値は空のカウンタにフォールバックする。
+ */
+export async function loadCounters(): Promise<UsageCountersState> {
+  const raw = await browser.storage.local.get(['counters']) as {
+    counters?: unknown
+  }
+  if (!raw.counters || typeof raw.counters !== 'object' || Array.isArray(raw.counters)) {
+    return { counters: {} }
+  }
+
+  const counters: UsageCountersState['counters'] = {}
+  for (const [groupId, value] of Object.entries(raw.counters as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+    const counter = value as Record<string, unknown>
+    if (typeof counter.logicalDate !== 'string') continue
+    if (!Number.isFinite(counter.consumedSec)) continue
+    counters[groupId] = {
+      logicalDate: counter.logicalDate,
+      consumedSec: Math.max(0, Math.floor(counter.consumedSec as number)),
+    }
+  }
+  return { counters }
+}
+
+/**
+ * browser.storage.local に閲覧秒数カウンタを書き込む。
+ */
+export async function saveCounters(state: UsageCountersState): Promise<void> {
+  await browser.storage.local.set({
+    counters: state.counters,
   })
 }
