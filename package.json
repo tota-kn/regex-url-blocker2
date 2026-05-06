@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "wxt",
+    "dev:browser": "node scripts/open-dev-browser.mjs",
     "build": "wxt build",
     "zip": "wxt zip",
     "postinstall": "wxt prepare",

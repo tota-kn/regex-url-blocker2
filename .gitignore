@@ -25,3 +25,4 @@ web-ext.config.ts
 .playwright
 playwright-report
 test-results
+.dev-browser-profile
