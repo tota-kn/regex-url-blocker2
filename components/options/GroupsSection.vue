@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
 
@@ -14,6 +15,8 @@ interface Props {
   blockedTimeSlotError: (group: Group, index: number, subField: string) => string | undefined
   /** 指定グループ・上限番号・サブフィールドのエラーメッセージを返す関数。 */
   timeLimitError: (group: Group, index: number, subField: string) => string | undefined
+  /** 指定グループの今日の上限利用状況を返す関数。 */
+  timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
 }
 
 /**
@@ -65,6 +68,7 @@ const groups = defineModel<Group[]>({ required: true })
       :pattern-error="index => patternError(groups[i], index)"
       :blocked-time-slot-error="(index, subField) => blockedTimeSlotError(groups[i], index, subField)"
       :time-limit-error="(index, subField) => timeLimitError(groups[i], index, subField)"
+      :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
       @remove="$emit('removeGroup', groups[i].id)"
     />
   </section>

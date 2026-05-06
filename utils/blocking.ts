@@ -25,6 +25,20 @@ export interface UrlEvaluation {
 }
 
 /**
+ * 1グループの今日の閲覧上限と消費状況。
+ */
+export interface TimeLimitUsageSummary {
+  /** `dailyResetHour` を起点に算出した論理日の識別子。 */
+  logicalDate: string
+  /** 今日有効な最小上限分数。 */
+  limitMinutes: number
+  /** 今日の累積閲覧秒数。 */
+  consumedSec: number
+  /** 今日の残り閲覧秒数。0 未満にはしない。 */
+  remainingSec: number
+}
+
+/**
  * "HH:MM" を日内分に変換する。不正値は 0 として扱う。
  */
 function minuteOfDay(value: string): number {
@@ -141,6 +155,27 @@ function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Da
   const effectiveLimit = Math.min(...limits)
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
   return consumedSec >= effectiveLimit * 60
+}
+
+/**
+ * group に今日有効な閲覧上限があれば、上限・消費・残り時間を返す。
+ */
+export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): TimeLimitUsageSummary | undefined {
+  const logicalDate = getLogicalDate(now, global.dailyResetHour)
+  const limits = group.timeLimits
+    .filter(limit => dayMatches(limit.daysOfWeek, logicalDate.dayOfWeek))
+    .map(limit => limit.dailyMinutes)
+  if (limits.length === 0) return undefined
+
+  const limitMinutes = Math.min(...limits)
+  const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
+  const limitSec = limitMinutes * 60
+  return {
+    logicalDate: logicalDate.logicalDate,
+    limitMinutes,
+    consumedSec,
+    remainingSec: Math.max(0, limitSec - consumedSec),
+  }
 }
 
 /**

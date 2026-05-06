@@ -3,6 +3,7 @@ import {
   evaluateUrl,
   getLogicalDate,
   getTargetGroupIds,
+  getTimeLimitUsageSummary,
   incrementCounters,
   normalizeCounters,
   shouldSkipUrl,
@@ -140,6 +141,62 @@ describe('blocking evaluation', () => {
 })
 
 describe('counters', () => {
+  it('今日の曜日に該当する上限から残り秒数を算出する', () => {
+    const s = settings([group({
+      timeLimits: [{ daysOfWeek: [3] as DayOfWeek[], dailyMinutes: 30 }],
+    })])
+    const summary = getTimeLimitUsageSummary(
+      s.groups[0],
+      { logicalDate: '2026-05-06', consumedSec: 75 },
+      new Date('2026-05-06T12:00:00+09:00'),
+      s.global,
+    )
+    expect(summary).toEqual({
+      logicalDate: '2026-05-06',
+      limitMinutes: 30,
+      consumedSec: 75,
+      remainingSec: 1725,
+    })
+  })
+
+  it('複数上限の残り時間は最小値を採用する', () => {
+    const s = settings([group({
+      timeLimits: [
+        { daysOfWeek: [] as DayOfWeek[], dailyMinutes: 60 },
+        { daysOfWeek: [3] as DayOfWeek[], dailyMinutes: 20 },
+      ],
+    })])
+    const summary = getTimeLimitUsageSummary(
+      s.groups[0],
+      { logicalDate: '2026-05-06', consumedSec: 300 },
+      new Date('2026-05-06T12:00:00+09:00'),
+      s.global,
+    )
+    expect(summary?.limitMinutes).toBe(20)
+    expect(summary?.remainingSec).toBe(900)
+  })
+
+  it('残り時間算出では論理日が違う counter を 0 秒消費として扱う', () => {
+    const s = settings([group({
+      timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 10 }],
+    })])
+    const summary = getTimeLimitUsageSummary(
+      s.groups[0],
+      { logicalDate: '2026-05-05', consumedSec: 600 },
+      new Date('2026-05-06T12:00:00+09:00'),
+      s.global,
+    )
+    expect(summary?.consumedSec).toBe(0)
+    expect(summary?.remainingSec).toBe(600)
+  })
+
+  it('今日有効な上限がなければ残り時間を返さない', () => {
+    const s = settings([group({
+      timeLimits: [{ daysOfWeek: [1] as DayOfWeek[], dailyMinutes: 10 }],
+    })])
+    expect(getTimeLimitUsageSummary(s.groups[0], undefined, new Date('2026-05-06T12:00:00+09:00'), s.global)).toBeUndefined()
+  })
+
   it('URL に該当するすべての group に加算する', () => {
     const s = settings([
       group({ id: 'a', patterns: ['example'] }),

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
-import { loadSettings, saveSettings } from '@/utils/storage'
+import { loadCounters, loadSettings, saveSettings } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
-import type { Group, Settings } from '@/utils/types'
+import type { Group, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
@@ -13,6 +14,8 @@ const settings = ref<Settings>({
   global: { ...DEFAULT_GLOBAL_SETTINGS },
   groups: [],
 })
+const counters = ref<UsageCountersState>({ counters: {} })
+const now = ref(new Date())
 const isLoaded = ref(false)
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
@@ -50,6 +53,17 @@ function timeLimitError(g: Group, i: number, sub: string): string | undefined {
   return groupError(g, `timeLimits[${i}].${sub}`)
 }
 
+/** 指定グループの今日の有効上限と残り時間を返す。 */
+function timeLimitUsageSummary(g: Group): TimeLimitUsageSummary | undefined {
+  return getTimeLimitUsageSummary(g, counters.value.counters[g.id], now.value, settings.value.global)
+}
+
+/** storage.local のカウンタを再読み込みする。 */
+async function refreshCounters(): Promise<void> {
+  counters.value = await loadCounters()
+  now.value = new Date()
+}
+
 const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
 
 function addGroup(): void {
@@ -73,9 +87,22 @@ watch(settings, (s) => {
   debouncedSave(JSON.parse(JSON.stringify(s)) as Settings)
 }, { deep: true })
 
+const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, areaName) => {
+  if (areaName !== 'local') return
+  if (!changes.counters) return
+  void refreshCounters()
+}
+
 onMounted(async () => {
-  settings.value = await loadSettings()
+  const [loadedSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
+  settings.value = loadedSettings
+  counters.value = loadedCounters
   isLoaded.value = true
+  browser.storage.onChanged.addListener(handleStorageChanged)
+})
+
+onUnmounted(() => {
+  browser.storage.onChanged.removeListener(handleStorageChanged)
 })
 </script>
 
@@ -102,6 +129,7 @@ onMounted(async () => {
         :pattern-error="patternError"
         :blocked-time-slot-error="blockedTimeSlotError"
         :time-limit-error="timeLimitError"
+        :time-limit-usage-summary="timeLimitUsageSummary"
         @add-group="addGroup"
         @remove-group="removeGroup"
       />

@@ -75,6 +75,157 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('上限分数')).toHaveValue('30')
   })
 
+  test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+            local: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          redirectUrl: 'https://example.com',
+          dailyResetHour: '00:00',
+        },
+        groups: [{
+          id: 'limited',
+          name: 'Limited',
+          mode: 'blacklist',
+          patterns: ['example\\.com'],
+          blockedTimeSlots: [],
+          timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
+        }],
+      })
+    })
+    await page.waitForTimeout(500)
+    await serviceWorker.evaluate(async () => {
+      const date = new Date()
+      const logicalDate = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+      ].join('-')
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.local.set({
+        counters: {
+          limited: {
+            logicalDate,
+            consumedSec: 25 * 60,
+          },
+        },
+      })
+    })
+
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 5 分 / 上限 30 分')
+  })
+
+  test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+            local: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          redirectUrl: 'https://example.com',
+          dailyResetHour: '00:00',
+        },
+        groups: [{
+          id: 'limited',
+          name: 'Limited',
+          mode: 'blacklist',
+          patterns: ['example\\.com'],
+          blockedTimeSlots: [],
+          timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
+        }],
+      })
+    })
+    await page.waitForTimeout(500)
+    await serviceWorker.evaluate(async () => {
+      const date = new Date()
+      const logicalDate = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+      ].join('-')
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.local.set({
+        counters: {
+          limited: {
+            logicalDate,
+            consumedSec: 25 * 60,
+          },
+        },
+      })
+    })
+
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 5 分 / 上限 30 分')
+
+    await page.evaluate(async () => {
+      const date = new Date()
+      const logicalDate = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+      ].join('-')
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.local.set({
+        counters: {
+          limited: {
+            logicalDate,
+            consumedSec: 28 * 60,
+          },
+        },
+      })
+    })
+
+    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 2 分 / 上限 30 分')
+  })
+
   test('ブロック時間帯を日跨ぎで追加して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 

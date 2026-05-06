@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import BlockedTimeSlotListEditor from './BlockedTimeSlotListEditor.vue'
 import PatternListEditor from './PatternListEditor.vue'
@@ -16,6 +17,8 @@ interface Props {
   blockedTimeSlotError: (index: number, subField: string) => string | undefined
   /** 指定上限番号・サブフィールドのエラーメッセージを返す関数。 */
   timeLimitError: (index: number, subField: string) => string | undefined
+  /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
+  timeLimitUsageSummary?: TimeLimitUsageSummary
 }
 
 /**
@@ -33,6 +36,14 @@ defineEmits<Emits>()
  * Options 画面で編集するグループ。
  */
 const group = defineModel<Group>({ required: true })
+
+/**
+ * 残り秒数を表示用の分数に変換する。
+ */
+function formatRemainingMinutes(seconds: number): number {
+  if (seconds <= 0) return 0
+  return Math.ceil(seconds / 60)
+}
 </script>
 
 <template>
@@ -72,6 +83,13 @@ const group = defineModel<Group>({ required: true })
     </div>
     <p class="text-muted text-xs">
       {{ group.mode === 'blacklist' ? 'マッチしたURLをブロックします' : 'マッチしないURLをブロックします' }}
+    </p>
+    <p
+      v-if="timeLimitUsageSummary"
+      aria-label="今日の残り時間"
+      class="text-sm text-muted"
+    >
+      残り {{ formatRemainingMinutes(timeLimitUsageSummary.remainingSec) }} 分 / 上限 {{ timeLimitUsageSummary.limitMinutes }} 分
     </p>
     <p
       v-if="error('name')"
