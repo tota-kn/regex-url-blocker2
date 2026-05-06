@@ -8,9 +8,13 @@ import type { GroupMode } from '@/utils/types'
 interface Props {
   /** 指定パターン番号のエラーメッセージを返す関数。 */
   error: (index: number) => string | undefined
+  /** 編集モードかどうか。false のとき追加・削除ボタンと未選択モードを隠す。 */
+  isEditing?: boolean
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  isEditing: true,
+})
 
 /**
  * グループに属する正規表現パターン配列。
@@ -36,6 +40,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
       <div class="flex flex-wrap items-center gap-2">
         <div class="flex overflow-hidden rounded-md border border-border bg-input text-sm">
           <button
+            v-if="isEditing || mode === 'blacklist'"
             type="button"
             :aria-pressed="mode === 'blacklist'"
             :class="mode === 'blacklist'
@@ -50,6 +55,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             Block matches
           </button>
           <button
+            v-if="isEditing || mode === 'whitelist'"
             type="button"
             :aria-pressed="mode === 'whitelist'"
             :class="mode === 'whitelist'
@@ -65,6 +71,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
           </button>
         </div>
         <button
+          v-if="isEditing"
           type="button"
           aria-label="Add URL pattern"
           class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
@@ -100,6 +107,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             class="h-9 min-w-0 flex-1 rounded-md border border-input-border bg-input px-3 font-mono text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
           >
           <button
+            v-if="isEditing"
             type="button"
             aria-label="Delete pattern"
             title="Delete"

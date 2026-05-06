@@ -11,9 +11,13 @@ interface Props {
   blockedTimeSlotError: (index: number, subField: string) => string | undefined
   /** 指定上限番号・サブフィールドのエラーメッセージを返す関数。 */
   timeLimitError: (index: number, subField: string) => string | undefined
+  /** 編集モードかどうか。false のとき追加・削除ボタンを隠す。 */
+  isEditing?: boolean
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  isEditing: true,
+})
 
 const ALL_DAYS_OF_WEEK: DayOfWeek[] = [0, 1, 2, 3, 4, 5, 6]
 
@@ -55,6 +59,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
       </h3>
       <div class="flex flex-wrap items-center gap-2">
         <button
+          v-if="isEditing"
           type="button"
           aria-label="Add blocked time"
           class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
@@ -67,6 +72,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           Blocked time
         </button>
         <button
+          v-if="isEditing"
           type="button"
           aria-label="Add daily limit"
           class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
@@ -138,6 +144,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             >
           </label>
           <button
+            v-if="isEditing"
             type="button"
             aria-label="Delete blocked time"
             title="Delete"
@@ -196,6 +203,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             >
           </label>
           <button
+            v-if="isEditing"
             type="button"
             aria-label="Delete limit"
             title="Delete"

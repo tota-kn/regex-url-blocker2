@@ -17,6 +17,7 @@ const settings = ref<Settings>({
 const counters = ref<UsageCountersState>({ counters: {} })
 const now = ref(new Date())
 const isLoaded = ref(false)
+const newGroupDrafts = ref<Group[]>([])
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
 const groupsErrors = computed(() =>
@@ -33,26 +34,6 @@ function globalError(field: string): string | undefined {
   return globalErrors.value.find(e => e.field === field)?.message
 }
 
-/** 指定グループ・指定フィールドのエラーメッセージを返す。 */
-function groupError(g: Group, field: string): string | undefined {
-  return groupsErrors.value.get(g.id)?.find(e => e.field === field)?.message
-}
-
-/** 指定グループ・パターン番号のエラーメッセージを返す。 */
-function patternError(g: Group, i: number): string | undefined {
-  return groupError(g, `patterns[${i}]`)
-}
-
-/** 指定グループ・ブロック時間帯番号・サブフィールドのエラーメッセージを返す。 */
-function blockedTimeSlotError(g: Group, i: number, sub: string): string | undefined {
-  return groupError(g, `blockedTimeSlots[${i}].${sub}`)
-}
-
-/** 指定グループ・上限番号・サブフィールドのエラーメッセージを返す。 */
-function timeLimitError(g: Group, i: number, sub: string): string | undefined {
-  return groupError(g, `timeLimits[${i}].${sub}`)
-}
-
 /** 指定グループの今日の有効上限と残り時間を返す。 */
 function timeLimitUsageSummary(g: Group): TimeLimitUsageSummary | undefined {
   return getTimeLimitUsageSummary(g, counters.value.counters[g.id], now.value, settings.value.global)
@@ -67,8 +48,26 @@ async function refreshCounters(): Promise<void> {
 const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
 
 function addGroup(): void {
-  const n = settings.value.groups.length + 1
-  settings.value.groups.push(createEmptyGroup(`Group ${n}`))
+  const n = settings.value.groups.length + newGroupDrafts.value.length + 1
+  newGroupDrafts.value.push(createEmptyGroup(`Group ${n}`))
+}
+
+/** 既存グループの保存済み値を、同じ id の編集ドラフトで置き換える。 */
+function saveGroup(group: Group): void {
+  settings.value.groups = settings.value.groups.map(current =>
+    current.id === group.id ? group : current,
+  )
+}
+
+/** 新規グループドラフトを保存済みグループへ昇格する。 */
+function saveNewGroup(group: Group): void {
+  newGroupDrafts.value = newGroupDrafts.value.filter(current => current.id !== group.id)
+  settings.value.groups.push(group)
+}
+
+/** 新規グループドラフトを破棄する。 */
+function cancelNewGroup(id: string): void {
+  newGroupDrafts.value = newGroupDrafts.value.filter(group => group.id !== id)
 }
 
 /** グループ削除の確認ダイアログを表示し、承認された場合にグループを削除する。 */
@@ -140,12 +139,12 @@ onUnmounted(() => {
 
           <GroupsSection
             v-model="settings.groups"
-            :group-error="groupError"
-            :pattern-error="patternError"
-            :blocked-time-slot-error="blockedTimeSlotError"
-            :time-limit-error="timeLimitError"
+            :new-groups="newGroupDrafts"
             :time-limit-usage-summary="timeLimitUsageSummary"
             @add-group="addGroup"
+            @save-group="saveGroup"
+            @save-new-group="saveNewGroup"
+            @cancel-new-group="cancelNewGroup"
             @remove-group="removeGroup"
           />
         </div>

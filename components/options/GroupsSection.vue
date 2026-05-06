@@ -8,14 +8,8 @@ import GroupCard from './GroupCard.vue'
  * グループ一覧セクションの props。
  */
 interface Props {
-  /** 指定グループ・指定フィールドのエラーメッセージを返す関数。 */
-  groupError: (group: Group, field: string) => string | undefined
-  /** 指定グループ・パターン番号のエラーメッセージを返す関数。 */
-  patternError: (group: Group, index: number) => string | undefined
-  /** 指定グループ・ブロック時間帯番号・サブフィールドのエラーメッセージを返す関数。 */
-  blockedTimeSlotError: (group: Group, index: number, subField: string) => string | undefined
-  /** 指定グループ・上限番号・サブフィールドのエラーメッセージを返す関数。 */
-  timeLimitError: (group: Group, index: number, subField: string) => string | undefined
+  /** 保存前の新規グループドラフト配列。 */
+  newGroups: Group[]
   /** 指定グループの今日の上限利用状況を返す関数。 */
   timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
 }
@@ -26,6 +20,12 @@ interface Props {
 interface Emits {
   /** グループ追加が要求されたときに発火する。 */
   addGroup: []
+  /** 既存グループ保存が要求されたときに対象値を通知する。 */
+  saveGroup: [group: Group]
+  /** 新規グループ保存が要求されたときに対象値を通知する。 */
+  saveNewGroup: [group: Group]
+  /** 新規グループ編集キャンセルが要求されたときに対象 id を通知する。 */
+  cancelNewGroup: [id: string]
   /** グループ削除が要求されたときに対象 id を通知する。 */
   removeGroup: [id: string]
 }
@@ -82,13 +82,20 @@ const groups = defineModel<Group[]>({ required: true })
       <GroupCard
         v-for="(_, i) in groups"
         :key="groups[i].id"
-        v-model="groups[i]"
-        :error="field => groupError(groups[i], field)"
-        :pattern-error="index => patternError(groups[i], index)"
-        :blocked-time-slot-error="(index, subField) => blockedTimeSlotError(groups[i], index, subField)"
-        :time-limit-error="(index, subField) => timeLimitError(groups[i], index, subField)"
+        :group="groups[i]"
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
+        @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"
+      />
+      <GroupCard
+        v-for="group in newGroups"
+        :key="group.id"
+        :group="group"
+        :start-in-edit="true"
+        :is-new="true"
+        @save="$emit('saveNewGroup', $event)"
+        @cancel="$emit('cancelNewGroup', group.id)"
+        @remove="$emit('cancelNewGroup', group.id)"
       />
     </div>
   </section>
