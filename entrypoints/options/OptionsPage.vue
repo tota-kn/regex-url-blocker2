@@ -4,7 +4,7 @@ import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
 import { loadSettings, saveSettings } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
-import type { DayOfWeek, Group, Schedule, Settings } from '@/utils/types'
+import type { BlockedTimeSlot, DayOfWeek, Group, Settings, TimeLimit } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const settings = ref<Settings>({
@@ -38,9 +38,14 @@ function patternError(g: Group, i: number): string | undefined {
   return groupError(g, `patterns[${i}]`)
 }
 
-/** 指定グループ・スケジュール番号・サブフィールドのエラーメッセージを返す。 */
-function scheduleError(g: Group, i: number, sub: string): string | undefined {
-  return groupError(g, `schedules[${i}].${sub}`)
+/** 指定グループ・ブロック時間帯番号・サブフィールドのエラーメッセージを返す。 */
+function blockedTimeSlotError(g: Group, i: number, sub: string): string | undefined {
+  return groupError(g, `blockedTimeSlots[${i}].${sub}`)
+}
+
+/** 指定グループ・上限番号・サブフィールドのエラーメッセージを返す。 */
+function timeLimitError(g: Group, i: number, sub: string): string | undefined {
+  return groupError(g, `timeLimits[${i}].${sub}`)
 }
 
 const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
@@ -56,28 +61,27 @@ async function removeGroup(id: string): Promise<void> {
   settings.value.groups = settings.value.groups.filter(g => g.id !== id)
 }
 
-function addSchedule(g: Group): void {
-  g.schedules.push({
-    daysOfWeek: [],
-    start: '00:00',
-    end: '00:00',
-    dailyTimeLimitMinutes: null,
-  })
+function addBlockedTimeSlot(g: Group): void {
+  g.blockedTimeSlots.push({ daysOfWeek: [], start: '00:00', end: '00:00' })
 }
 
-/** number input の文字列値を schedule の `dailyTimeLimitMinutes` に反映する。 */
-function setScheduleLimit(s: Schedule, value: string): void {
-  s.dailyTimeLimitMinutes = value === '' ? null : Number(value)
+function addTimeLimit(g: Group): void {
+  g.timeLimits.push({ daysOfWeek: [], dailyMinutes: 30 })
+}
+
+/** number input の文字列値を timeLimit の `dailyMinutes` に反映する。 */
+function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
+  limit.dailyMinutes = value === '' ? 0 : Number(value)
 }
 
 /** チェックボックスのトグルで `daysOfWeek` を昇順に保ったまま追加/削除する。 */
-function toggleDay(s: Schedule, day: DayOfWeek): void {
-  const idx = s.daysOfWeek.indexOf(day)
+function toggleDay(entry: BlockedTimeSlot | TimeLimit, day: DayOfWeek): void {
+  const idx = entry.daysOfWeek.indexOf(day)
   if (idx >= 0) {
-    s.daysOfWeek.splice(idx, 1)
+    entry.daysOfWeek.splice(idx, 1)
   }
   else {
-    s.daysOfWeek = [...s.daysOfWeek, day].sort((a, b) => a - b)
+    entry.daysOfWeek = [...entry.daysOfWeek, day].sort((a, b) => a - b)
   }
 }
 
@@ -215,7 +219,7 @@ onMounted(async () => {
             </div>
           </div>
           <p class="text-muted text-xs">
-            {{ g.mode === 'blacklist' ? 'マッチしたURLをブロックします' : 'マッチしないURLをブロックします（スケジュール許可内のみ）' }}
+            {{ g.mode === 'blacklist' ? 'マッチしたURLをブロックします' : 'マッチしないURLをブロックします' }}
           </p>
           <p
             v-if="groupError(g, 'name')"
@@ -265,27 +269,28 @@ onMounted(async () => {
             </div>
           </div>
 
+          <!-- ブロック時間帯 -->
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <h3 class="text-sm font-medium">
-                スケジュール
+                ブロック時間帯
               </h3>
               <button
                 type="button"
                 class="text-primary text-sm"
-                @click="addSchedule(g)"
+                @click="addBlockedTimeSlot(g)"
               >
-                + スケジュール追加
+                + ブロック時間帯追加
               </button>
             </div>
             <p
-              v-if="g.schedules.length === 0"
+              v-if="g.blockedTimeSlots.length === 0"
               class="text-muted text-sm"
             >
-              制限なし（24時間・上限なし）
+              なし
             </p>
             <div
-              v-for="(s, i) in g.schedules"
+              v-for="(slot, i) in g.blockedTimeSlots"
               :key="i"
               class="border border-border rounded-md p-3 space-y-2"
             >
@@ -302,25 +307,24 @@ onMounted(async () => {
                     <input
                       type="checkbox"
                       :aria-label="d.label"
-                      :checked="s.daysOfWeek.includes(d.value)"
-                      @change="toggleDay(s, d.value)"
+                      :checked="slot.daysOfWeek.includes(d.value)"
+                      @change="toggleDay(slot, d.value)"
                     >
                     <span>{{ d.label }}</span>
                   </label>
                 </div>
               </fieldset>
               <p
-                v-if="scheduleError(g, i, 'daysOfWeek')"
+                v-if="blockedTimeSlotError(g, i, 'daysOfWeek')"
                 class="text-destructive text-sm"
               >
-                {{ scheduleError(g, i, 'daysOfWeek') }}
+                {{ blockedTimeSlotError(g, i, 'daysOfWeek') }}
               </p>
-
               <div class="flex flex-wrap items-center gap-2">
                 <label class="flex items-center gap-1">
                   <span class="text-sm">開始時刻</span>
                   <input
-                    v-model="s.start"
+                    v-model="slot.start"
                     type="time"
                     aria-label="開始時刻"
                     class="border border-input-border bg-input rounded-md px-2 py-1"
@@ -330,49 +334,111 @@ onMounted(async () => {
                 <label class="flex items-center gap-1">
                   <span class="text-sm">終了時刻</span>
                   <input
-                    v-model="s.end"
+                    v-model="slot.end"
                     type="time"
                     aria-label="終了時刻"
                     class="border border-input-border bg-input rounded-md px-2 py-1"
                   >
                 </label>
-                <label class="flex items-center gap-1">
-                  <span class="text-sm">上限（分）</span>
-                  <input
-                    type="number"
-                    min="0"
-                    aria-label="上限分数"
-                    placeholder="上限なし"
-                    :value="s.dailyTimeLimitMinutes ?? ''"
-                    class="border border-input-border bg-input rounded-md px-2 py-1 w-28"
-                    @input="setScheduleLimit(s, ($event.target as HTMLInputElement).value)"
-                  >
-                </label>
                 <button
                   type="button"
                   class="text-destructive text-sm ml-auto"
-                  @click="g.schedules.splice(i, 1)"
+                  @click="g.blockedTimeSlots.splice(i, 1)"
                 >
                   削除
                 </button>
               </div>
               <p
-                v-if="scheduleError(g, i, 'start')"
+                v-if="blockedTimeSlotError(g, i, 'start')"
                 class="text-destructive text-sm"
               >
-                {{ scheduleError(g, i, 'start') }}
+                {{ blockedTimeSlotError(g, i, 'start') }}
               </p>
               <p
-                v-if="scheduleError(g, i, 'end')"
+                v-if="blockedTimeSlotError(g, i, 'end')"
                 class="text-destructive text-sm"
               >
-                {{ scheduleError(g, i, 'end') }}
+                {{ blockedTimeSlotError(g, i, 'end') }}
               </p>
+            </div>
+          </div>
+
+          <!-- 上限 -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-medium">
+                上限
+              </h3>
+              <button
+                type="button"
+                class="text-primary text-sm"
+                @click="addTimeLimit(g)"
+              >
+                + 上限追加
+              </button>
+            </div>
+            <p
+              v-if="g.timeLimits.length === 0"
+              class="text-muted text-sm"
+            >
+              なし
+            </p>
+            <div
+              v-for="(limit, i) in g.timeLimits"
+              :key="i"
+              class="border border-border rounded-md p-3 space-y-2"
+            >
+              <fieldset class="space-y-1">
+                <legend class="text-sm">
+                  曜日（未選択=毎日）
+                </legend>
+                <div class="flex flex-wrap gap-2">
+                  <label
+                    v-for="d in DAY_LABELS"
+                    :key="d.value"
+                    class="flex items-center gap-1 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      :aria-label="d.label"
+                      :checked="limit.daysOfWeek.includes(d.value)"
+                      @change="toggleDay(limit, d.value)"
+                    >
+                    <span>{{ d.label }}</span>
+                  </label>
+                </div>
+              </fieldset>
               <p
-                v-if="scheduleError(g, i, 'dailyTimeLimitMinutes')"
+                v-if="timeLimitError(g, i, 'daysOfWeek')"
                 class="text-destructive text-sm"
               >
-                {{ scheduleError(g, i, 'dailyTimeLimitMinutes') }}
+                {{ timeLimitError(g, i, 'daysOfWeek') }}
+              </p>
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="flex items-center gap-1">
+                  <span class="text-sm">上限（分/日）</span>
+                  <input
+                    type="number"
+                    min="0"
+                    aria-label="上限分数"
+                    :value="limit.dailyMinutes"
+                    class="border border-input-border bg-input rounded-md px-2 py-1 w-28"
+                    @input="setTimeLimitMinutes(limit, ($event.target as HTMLInputElement).value)"
+                  >
+                </label>
+                <button
+                  type="button"
+                  class="text-destructive text-sm ml-auto"
+                  @click="g.timeLimits.splice(i, 1)"
+                >
+                  削除
+                </button>
+              </div>
+              <p
+                v-if="timeLimitError(g, i, 'dailyMinutes')"
+                class="text-destructive text-sm"
+              >
+                {{ timeLimitError(g, i, 'dailyMinutes') }}
               </p>
             </div>
           </div>

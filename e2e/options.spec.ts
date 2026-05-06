@@ -61,12 +61,12 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('[invalid')).not.toBeVisible()
   })
 
-  test('スケジュールの上限分数を編集して永続化される', async ({ page, extensionId }) => {
+  test('上限分数を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: '+ グループを追加' }).click()
     await page.getByLabel('名前').fill('LimitedSite')
-    await page.getByRole('button', { name: '+ スケジュール追加' }).click()
+    await page.getByRole('button', { name: '+ 上限追加' }).click()
     await page.getByLabel('上限分数').fill('30')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -75,12 +75,12 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('上限分数')).toHaveValue('30')
   })
 
-  test('スケジュールを日跨ぎで追加して永続化される', async ({ page, extensionId }) => {
+  test('ブロック時間帯を日跨ぎで追加して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: '+ グループを追加' }).click()
-    await page.getByLabel('名前').fill('NightOnly')
-    await page.getByRole('button', { name: '+ スケジュール追加' }).click()
+    await page.getByLabel('名前').fill('NightBlock')
+    await page.getByRole('button', { name: '+ ブロック時間帯追加' }).click()
     await page.getByLabel('開始時刻').fill('22:00')
     await page.getByLabel('終了時刻').fill('06:00')
 
@@ -91,12 +91,12 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('終了時刻')).toHaveValue('06:00')
   })
 
-  test('スケジュールに曜日を選んで永続化される', async ({ page, extensionId }) => {
+  test('上限に曜日を選んで永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: '+ グループを追加' }).click()
     await page.getByLabel('名前').fill('WeekdayOnly')
-    await page.getByRole('button', { name: '+ スケジュール追加' }).click()
+    await page.getByRole('button', { name: '+ 上限追加' }).click()
     await page.getByRole('checkbox', { name: '月' }).check()
     await page.getByRole('checkbox', { name: '火' }).check()
     await page.getByLabel('上限分数').fill('60')

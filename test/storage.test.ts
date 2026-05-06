@@ -39,7 +39,7 @@ describe('saveSettings', () => {
 describe('loadSettings のマイグレーション', () => {
   it('groups の mode 欠損は blacklist で補完される', async () => {
     await browser.storage.sync.set({
-      groups: [{ id: 'x', name: 'old', patterns: [], schedules: [] }],
+      groups: [{ id: 'x', name: 'old', patterns: [], blockedTimeSlots: [], timeLimits: [] }],
     })
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('blacklist')
@@ -47,9 +47,25 @@ describe('loadSettings のマイグレーション', () => {
 
   it('whitelist は保持される', async () => {
     await browser.storage.sync.set({
-      groups: [{ id: 'y', name: 'wl', mode: 'whitelist', patterns: [], schedules: [] }],
+      groups: [{ id: 'y', name: 'wl', mode: 'whitelist', patterns: [], blockedTimeSlots: [], timeLimits: [] }],
     })
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('whitelist')
+  })
+
+  it('旧 schedules フィールドは破棄され blockedTimeSlots/timeLimits で初期化される', async () => {
+    await browser.storage.sync.set({
+      groups: [{
+        id: 'z',
+        name: 'old',
+        mode: 'blacklist',
+        patterns: [],
+        schedules: [{ daysOfWeek: [], start: '09:00', end: '18:00', dailyTimeLimitMinutes: 30 }],
+      }],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].blockedTimeSlots).toEqual([])
+    expect(s.groups[0].timeLimits).toEqual([])
+    expect((s.groups[0] as unknown as Record<string, unknown>).schedules).toBeUndefined()
   })
 })

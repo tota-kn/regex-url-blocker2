@@ -1,4 +1,4 @@
-import type { DayOfWeek, GlobalSettings, Group, Schedule } from './types'
+import type { BlockedTimeSlot, DayOfWeek, GlobalSettings, Group, TimeLimit } from './types'
 
 /**
  * バリデーションエラーの単位。`field` はフィールドへのドット区切りパス。
@@ -64,32 +64,45 @@ function isValidDayOfWeek(value: unknown): value is DayOfWeek {
 }
 
 /**
- * 1つのスケジュールをバリデーションし、エラー配列を返す。
- * `prefix` は `schedules[0]` のようなフィールドパスのプレフィックス。
+ * `daysOfWeek` 配列の共通バリデーション（範囲チェック・重複チェック）。
  */
-function validateSchedule(s: Schedule, prefix: string): ValidationError[] {
+function validateDaysOfWeek(days: DayOfWeek[], prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
-
-  const days = s.daysOfWeek
   if (days.some(d => !isValidDayOfWeek(d))) {
     errors.push({ field: `${prefix}.daysOfWeek`, message: '曜日は 0〜6 で指定してください' })
   }
   if (new Set(days).size !== days.length) {
     errors.push({ field: `${prefix}.daysOfWeek`, message: '曜日が重複しています' })
   }
+  return errors
+}
 
-  if (!isValidHHMM(s.start)) {
+/**
+ * 1つのブロック時間帯をバリデーションし、エラー配列を返す。
+ * `prefix` は `blockedTimeSlots[0]` のようなフィールドパスのプレフィックス。
+ */
+function validateBlockedTimeSlot(slot: BlockedTimeSlot, prefix: string): ValidationError[] {
+  const errors: ValidationError[] = []
+  errors.push(...validateDaysOfWeek(slot.daysOfWeek, prefix))
+  if (!isValidHHMM(slot.start)) {
     errors.push({ field: `${prefix}.start`, message: 'HH:MM 形式で入力してください' })
   }
-  if (!isValidHHMM(s.end)) {
+  if (!isValidHHMM(slot.end)) {
     errors.push({ field: `${prefix}.end`, message: 'HH:MM 形式で入力してください' })
   }
+  return errors
+}
 
-  const limit = s.dailyTimeLimitMinutes
-  if (limit !== null && (!Number.isInteger(limit) || limit < 0)) {
-    errors.push({ field: `${prefix}.dailyTimeLimitMinutes`, message: '0 以上の整数を入力してください' })
+/**
+ * 1つの上限エントリをバリデーションし、エラー配列を返す。
+ * `prefix` は `timeLimits[0]` のようなフィールドパスのプレフィックス。
+ */
+function validateTimeLimit(limit: TimeLimit, prefix: string): ValidationError[] {
+  const errors: ValidationError[] = []
+  errors.push(...validateDaysOfWeek(limit.daysOfWeek, prefix))
+  if (!Number.isInteger(limit.dailyMinutes) || limit.dailyMinutes < 0) {
+    errors.push({ field: `${prefix}.dailyMinutes`, message: '0 以上の整数を入力してください' })
   }
-
   return errors
 }
 
@@ -113,8 +126,12 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   })
 
-  group.schedules.forEach((s, i) => {
-    errors.push(...validateSchedule(s, `schedules[${i}]`))
+  group.blockedTimeSlots.forEach((slot, i) => {
+    errors.push(...validateBlockedTimeSlot(slot, `blockedTimeSlots[${i}]`))
+  })
+
+  group.timeLimits.forEach((limit, i) => {
+    errors.push(...validateTimeLimit(limit, `timeLimits[${i}]`))
   })
 
   return errors

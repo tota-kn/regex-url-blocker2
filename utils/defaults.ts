@@ -18,6 +18,7 @@ export function createEmptyGroup(name = ''): Group {
     name,
     mode: 'blacklist',
     patterns: [],
-    schedules: [],
+    blockedTimeSlots: [],
+    timeLimits: [],
   }
 }

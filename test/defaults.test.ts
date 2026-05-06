@@ -14,7 +14,8 @@ describe('createEmptyGroup', () => {
     expect(g.name).toBe('')
     expect(g.mode).toBe('blacklist')
     expect(g.patterns).toEqual([])
-    expect(g.schedules).toEqual([])
+    expect(g.blockedTimeSlots).toEqual([])
+    expect(g.timeLimits).toEqual([])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {

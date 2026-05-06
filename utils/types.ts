@@ -9,28 +9,33 @@ export type HHMM = string
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
 /**
- * グループの許可スケジュール1組。曜日・時間帯・上限分数をひとまとめにする。
+ * ブロック時間帯。この時間帯はアクセスを即座にブロックする。
  *
  * - `daysOfWeek` が空配列なら全曜日に適用。
  * - `end <= start` のときは日跨ぎ（例 22:00–06:00）として扱う。
- * - `dailyTimeLimitMinutes` は null=上限なし、0=即ブロック、正数=分数。
- *
- * 同じ曜日・時刻で複数スケジュールがマッチした場合の有効上限は、`null` を「上限なし=∞」とみなした
- * 最も厳しい値（最小）を採用する。
  */
-export interface Schedule {
+export interface BlockedTimeSlot {
   daysOfWeek: DayOfWeek[]
   start: HHMM
   end: HHMM
-  dailyTimeLimitMinutes: number | null
+}
+
+/**
+ * 1日の閲覧上限。ブロック時間帯以外の時間に対する1日の累積上限分数。
+ *
+ * - `daysOfWeek` が空配列なら全曜日に適用。
+ * - 同じ曜日に複数エントリが該当する場合、最も厳しい値（最小）を採用する。
+ * - `dailyMinutes` は 0 以上の整数（0 は即ブロック）。
+ */
+export interface TimeLimit {
+  daysOfWeek: DayOfWeek[]
+  dailyMinutes: number
 }
 
 /**
  * グループの動作モード。
  * - `'blacklist'`: patterns にマッチした URL を制限対象とする（既定）。
  * - `'whitelist'`: patterns にマッチしない URL を制限対象とする。
- *
- * いずれのモードでも schedules（許可時間帯・上限）の解釈は変わらない。
  */
 export type GroupMode = 'blacklist' | 'whitelist'
 
@@ -48,8 +53,10 @@ export interface Group {
   mode: GroupMode
   /** 正規表現文字列の配列。`new RegExp()` で構文チェックを通る必要がある。 */
   patterns: string[]
-  /** 許可スケジュールの配列。空配列=24時間・上限なし。 */
-  schedules: Schedule[]
+  /** ブロック時間帯の配列。この時間帯はアクセスを即座にブロックする。 */
+  blockedTimeSlots: BlockedTimeSlot[]
+  /** 閲覧上限の配列。ブロック時間帯以外での1日の累積上限。 */
+  timeLimits: TimeLimit[]
 }
 
 /**
