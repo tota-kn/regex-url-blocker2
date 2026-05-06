@@ -1,0 +1,19 @@
+  project_doc_fallback_filenames = ["CLAUDE.md"]
+
+  [features]
+  codex_hooks = true
+
+  [[hooks.PostToolUse]]
+  matcher = "Edit|Write|apply_patch"
+
+  [[hooks.PostToolUse.hooks]]
+  type = "command"
+  command = "pnpm lint:fix 1>&2 || exit 2"
+  timeout = 120
+  statusMessage = "Running pnpm lint:fix"
+
+  [[hooks.PostToolUse.hooks]]
+  type = "command"
+  command = "pnpm typecheck 1>&2 || exit 2"
+  timeout = 120
+  statusMessage = "Running pnpm typecheck"

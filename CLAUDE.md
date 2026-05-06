@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) and Codex when working with code in this repository.
 
 ## プロジェクト概要
 
@@ -34,11 +34,10 @@ E2E は `.output/chrome-mv3` の既ビルド成果物に依存する。`pnpm tes
 regex-url-blocker2/
 ├─ entrypoints/         # 拡張機能のエントリポイント
 │  ├─ background.ts     # Service Worker（defineBackground を export）
-│  ├─ content.ts        # コンテンツスクリプト（matches で対象 URL を指定）
 │  ├─ options/          # オプション画面（Vue アプリ、main.ts で createApp）
 │  └─ popup/            # ポップアップ画面（Vue アプリ、main.ts で createApp）
 ├─ components/          # 再利用可能な Vue コンポーネント
-├─ utils/               # 汎用ロジック（現状空）
+├─ utils/               # 汎用ロジック
 ├─ assets/css/tailwind.css  # Tailwind v4 エントリ（各 main.ts から import）
 ├─ public/              # 配布物にそのまま出力される静的ファイル
 ├─ test/                # Vitest ユニットテスト
@@ -54,7 +53,7 @@ regex-url-blocker2/
 
 ### Tailwind CSS v4
 
-Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合は [smoke.spec.ts](e2e/smoke.spec.ts) のように oklch 値で比較する。ルート [tailwind.config.js](tailwind.config.js) は v3 互換の残骸で実質未使用。
+Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合はブラウザが返す計算済みスタイルの値に合わせて比較する。ルート [tailwind.config.js](tailwind.config.js) は v3 互換の残骸で実質未使用。
 
 ### E2E テスト基盤
 
@@ -62,7 +61,7 @@ Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は 
 
 ## 自動実行されるフック
 
-[.claude/settings.json](.claude/settings.json) で Write/Edit/MultiEdit 後に **`pnpm lint:fix` と `pnpm typecheck`** が PostToolUse フックとして自動実行される。失敗時は exit 2 で編集が止まる。
+Claude Code は [.claude/settings.json](.claude/settings.json) で Write/Edit/MultiEdit 後に **`pnpm lint:fix` と `pnpm typecheck`** が PostToolUse フックとして自動実行される。Codex でも同等の PostToolUse フックを設定する。失敗時は exit 2 で編集が止まる。
 
 ## コーディング規約
 
