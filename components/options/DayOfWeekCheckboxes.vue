@@ -29,20 +29,23 @@ function toggleDay(day: DayOfWeek): void {
 </script>
 
 <template>
-  <fieldset class="space-y-1">
-    <legend class="text-sm text-muted">
+  <fieldset class="space-y-2">
+    <legend class="text-sm font-medium text-secondary-foreground">
       Days
     </legend>
     <div class="flex flex-wrap gap-2">
       <label
         v-for="d in DAY_LABELS"
         :key="d.value"
-        class="flex items-center gap-1 text-sm"
+        :class="daysOfWeek.includes(d.value)
+          ? 'inline-flex h-8 items-center gap-1.5 rounded-md border border-tag-selected-border bg-tag-selected-bg px-2.5 text-sm font-medium text-tag-selected-text'
+          : 'inline-flex h-8 items-center gap-1.5 rounded-md border border-tag-default-border bg-tag-default-bg px-2.5 text-sm font-medium text-tag-default-text hover:bg-secondary-hover'"
       >
         <input
           type="checkbox"
           :aria-label="d.ariaLabel"
           :checked="daysOfWeek.includes(d.value)"
+          class="size-3.5 accent-primary"
           @change="toggleDay(d.value)"
         >
         <span>{{ d.label }}</span>

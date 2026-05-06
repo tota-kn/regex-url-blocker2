@@ -108,38 +108,44 @@ onUnmounted(() => {
 
 <template>
   <ConfirmDialog ref="confirmDialogRef" />
-  <main class="max-w-3xl mx-auto p-6 space-y-8 text-foreground">
-    <h1 class="text-2xl font-bold">
-      Regex URL Blocker
-    </h1>
-
-    <p v-if="!isLoaded">
-      Loading...
-    </p>
-
-    <template v-else>
-      <GlobalSettingsSection
-        v-model="settings.global"
-        :error="globalError"
-      />
-
-      <GroupsSection
-        v-model="settings.groups"
-        :group-error="groupError"
-        :pattern-error="patternError"
-        :blocked-time-slot-error="blockedTimeSlotError"
-        :time-limit-error="timeLimitError"
-        :time-limit-usage-summary="timeLimitUsageSummary"
-        @add-group="addGroup"
-        @remove-group="removeGroup"
-      />
+  <main class="min-h-screen bg-secondary/40 text-foreground">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <h1 class="text-2xl font-semibold tracking-normal text-foreground">
+        Regex URL Blocker
+      </h1>
 
       <p
-        v-if="totalErrors > 0"
-        class="text-destructive text-sm"
+        v-if="!isLoaded"
+        class="rounded-lg border border-border bg-background p-5 text-sm text-muted shadow-sm"
       >
-        Errors: {{ totalErrors }}
+        Loading...
       </p>
-    </template>
+
+      <template v-else>
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
+          <GlobalSettingsSection
+            v-model="settings.global"
+            :error="globalError"
+          />
+
+          <GroupsSection
+            v-model="settings.groups"
+            :group-error="groupError"
+            :pattern-error="patternError"
+            :blocked-time-slot-error="blockedTimeSlotError"
+            :time-limit-error="timeLimitError"
+            :time-limit-usage-summary="timeLimitUsageSummary"
+            @add-group="addGroup"
+            @remove-group="removeGroup"
+          />
+        </div>
+        <p
+          v-if="totalErrors > 0"
+          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
+        >
+          Errors: {{ totalErrors }}
+        </p>
+      </template>
+    </div>
   </main>
 </template>

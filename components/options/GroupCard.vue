@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { TrashIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
-import BlockedTimeSlotListEditor from './BlockedTimeSlotListEditor.vue'
+import LimitRulesEditor from './LimitRulesEditor.vue'
 import PatternListEditor from './PatternListEditor.vue'
-import TimeLimitListEditor from './TimeLimitListEditor.vue'
 
 /**
  * グループカードの props。
@@ -50,56 +49,70 @@ function formatMinutesSeconds(seconds: number): string {
 </script>
 
 <template>
-  <div class="border border-border rounded-md p-4 space-y-4">
-    <div class="flex flex-wrap items-start gap-3">
-      <label class="block flex-1 min-w-0">
-        <span class="block text-sm">Name</span>
-        <input
-          v-model="group.name"
-          aria-label="Name"
-          class="w-full border border-input-border bg-input rounded-md px-2 py-1"
-        >
-      </label>
+  <article class="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+    <div class="border-b border-border bg-input/60 p-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <label class="group/name block min-w-0 flex-1">
+          <span class="sr-only">Name</span>
+          <span class="flex min-w-0 items-center gap-2 rounded-md border border-transparent px-2 py-1 transition focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border hover:bg-background">
+            <input
+              v-model="group.name"
+              aria-label="Name"
+              class="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none"
+            >
+            <PencilSquareIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-muted opacity-60 transition group-focus-within/name:opacity-100 group-hover/name:opacity-100"
+            />
+          </span>
+        </label>
+
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <p
+            v-if="timeLimitUsageSummary"
+            aria-label="Remaining time today"
+            class="inline-flex h-9 items-center gap-1.5 rounded-md bg-secondary px-3 text-sm text-muted"
+          >
+            <ClockIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+            {{ formatMinutesSeconds(timeLimitUsageSummary.remainingSec) }} / {{ formatMinutesSeconds(timeLimitUsageSummary.limitMinutes * 60) }}
+          </p>
+          <button
+            type="button"
+            aria-label="Delete group"
+            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 text-sm font-medium text-destructive transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+            @click="$emit('remove')"
+          >
+            <TrashIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+            Delete
+          </button>
+        </div>
+      </div>
+      <p
+        v-if="error('name')"
+        class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
+      >
+        {{ error('name') }}
+      </p>
     </div>
-    <p
-      v-if="timeLimitUsageSummary"
-      aria-label="Remaining time today"
-      class="text-sm text-muted"
-    >
-      {{ formatMinutesSeconds(timeLimitUsageSummary.remainingSec) }} / {{ formatMinutesSeconds(timeLimitUsageSummary.limitMinutes * 60) }}
-    </p>
-    <p
-      v-if="error('name')"
-      class="text-destructive text-sm"
-    >
-      {{ error('name') }}
-    </p>
 
-    <PatternListEditor
-      v-model="group.patterns"
-      v-model:mode="group.mode"
-      :error="patternError"
-    />
-    <BlockedTimeSlotListEditor
-      v-model="group.blockedTimeSlots"
-      :error="blockedTimeSlotError"
-    />
-    <TimeLimitListEditor
-      v-model="group.timeLimits"
-      :error="timeLimitError"
-    />
-
-    <button
-      type="button"
-      aria-label="Delete group"
-      class="inline-flex items-center gap-1.5 text-destructive"
-      @click="$emit('remove')"
-    >
-      <TrashIcon
-        aria-hidden="true"
-        class="size-4"
+    <div class="space-y-4 p-4">
+      <PatternListEditor
+        v-model="group.patterns"
+        v-model:mode="group.mode"
+        :error="patternError"
       />
-      Delete
-    </button>
-  </div>
+      <LimitRulesEditor
+        v-model:blocked-time-slots="group.blockedTimeSlots"
+        v-model:time-limits="group.timeLimits"
+        :blocked-time-slot-error="blockedTimeSlotError"
+        :time-limit-error="timeLimitError"
+      />
+    </div>
+  </article>
 </template>

@@ -24,23 +24,23 @@ const mode = defineModel<GroupMode>('mode', { required: true })
 </script>
 
 <template>
-  <div class="space-y-2">
+  <section class="rounded-md border border-border bg-background p-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h3 class="flex items-center gap-1.5 text-sm font-medium">
+      <h3 class="flex items-center gap-1.5 text-sm font-semibold">
         <CodeBracketIcon
           aria-hidden="true"
-          class="size-4"
+          class="size-4 text-muted"
         />
         Patterns
       </h3>
-      <div class="flex items-center gap-2">
-        <div class="flex rounded-md border border-border overflow-hidden text-sm">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex overflow-hidden rounded-md border border-border bg-input text-sm">
           <button
             type="button"
             :aria-pressed="mode === 'blacklist'"
             :class="mode === 'blacklist'
-              ? 'inline-flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1'
-              : 'inline-flex items-center gap-1 bg-input text-foreground px-3 py-1 hover:bg-muted'"
+              ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
+              : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'"
             @click="mode = 'blacklist'"
           >
             <NoSymbolIcon
@@ -53,8 +53,8 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             type="button"
             :aria-pressed="mode === 'whitelist'"
             :class="mode === 'whitelist'
-              ? 'inline-flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1'
-              : 'inline-flex items-center gap-1 bg-input text-foreground px-3 py-1 hover:bg-muted'"
+              ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
+              : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'"
             @click="mode = 'whitelist'"
           >
             <CheckCircleIcon
@@ -67,7 +67,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
         <button
           type="button"
           aria-label="Add pattern"
-          class="inline-flex items-center gap-1 text-primary text-sm"
+          class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
           @click="patterns.push('https?://')"
         >
           <PlusIcon
@@ -78,37 +78,47 @@ const mode = defineModel<GroupMode>('mode', { required: true })
         </button>
       </div>
     </div>
-    <div
-      v-for="(_, i) in patterns"
-      :key="i"
-      class="space-y-1"
-    >
-      <div class="flex gap-2">
-        <input
-          v-model="patterns[i]"
-          aria-label="Regex"
-          placeholder="https?://"
-          class="flex-1 border border-input-border bg-input rounded-md px-2 py-1 font-mono text-sm"
-        >
-        <button
-          type="button"
-          aria-label="Delete pattern"
-          title="Delete"
-          class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-destructive hover:bg-muted"
-          @click="patterns.splice(i, 1)"
-        >
-          <TrashIcon
-            aria-hidden="true"
-            class="size-4"
-          />
-        </button>
-      </div>
+
+    <div class="mt-3 space-y-2">
       <p
-        v-if="error(i)"
-        class="text-destructive text-sm"
+        v-if="patterns.length === 0"
+        aria-label="No patterns"
+        class="rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
       >
-        {{ error(i) }}
+        Empty
       </p>
+      <div
+        v-for="(_, i) in patterns"
+        :key="i"
+        class="space-y-1"
+      >
+        <div class="flex min-w-0 gap-2">
+          <input
+            v-model="patterns[i]"
+            aria-label="Regex"
+            placeholder="https?://"
+            class="h-9 min-w-0 flex-1 rounded-md border border-input-border bg-input px-3 font-mono text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
+          >
+          <button
+            type="button"
+            aria-label="Delete pattern"
+            title="Delete"
+            class="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-destructive transition hover:bg-red-50"
+            @click="patterns.splice(i, 1)"
+          >
+            <TrashIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+          </button>
+        </div>
+        <p
+          v-if="error(i)"
+          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
+        >
+          {{ error(i) }}
+        </p>
+      </div>
     </div>
-  </div>
+  </section>
 </template>

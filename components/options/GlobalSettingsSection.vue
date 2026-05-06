@@ -19,53 +19,57 @@ const globalSettings = defineModel<GlobalSettings>({ required: true })
 </script>
 
 <template>
-  <section class="space-y-3">
-    <h2 class="text-lg font-semibold tracking-normal">
-      Global
-    </h2>
+  <section class="rounded-lg border border-border bg-background p-4 shadow-sm lg:sticky lg:top-6">
+    <div class="border-b border-border pb-3">
+      <h2 class="text-base font-semibold tracking-normal">
+        Global
+      </h2>
+    </div>
 
-    <label class="block">
-      <span class="mb-1 flex items-center gap-1.5 text-sm">
-        <ArrowTopRightOnSquareIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Redirect URL
-      </span>
-      <input
-        v-model="globalSettings.redirectUrl"
-        type="url"
-        aria-label="Redirect URL"
-        class="w-full border border-input-border bg-input rounded-md px-2 py-1"
+    <div class="mt-4 space-y-4">
+      <label class="block">
+        <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
+          <ArrowTopRightOnSquareIcon
+            aria-hidden="true"
+            class="size-4 text-muted"
+          />
+          Redirect URL
+        </span>
+        <input
+          v-model="globalSettings.redirectUrl"
+          type="url"
+          aria-label="Redirect URL"
+          class="h-10 w-full rounded-md border border-input-border bg-input px-3 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
+        >
+      </label>
+      <p
+        v-if="error('redirectUrl')"
+        class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
       >
-    </label>
-    <p
-      v-if="error('redirectUrl')"
-      class="text-destructive text-sm"
-    >
-      {{ error('redirectUrl') }}
-    </p>
+        {{ error('redirectUrl') }}
+      </p>
 
-    <label class="block">
-      <span class="mb-1 flex items-center gap-1.5 text-sm">
-        <ArrowPathIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Reset
-      </span>
-      <input
-        v-model="globalSettings.dailyResetHour"
-        type="time"
-        aria-label="Reset time"
-        class="border border-input-border bg-input rounded-md px-2 py-1"
+      <label class="block">
+        <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
+          <ArrowPathIcon
+            aria-hidden="true"
+            class="size-4 text-muted"
+          />
+          Reset
+        </span>
+        <input
+          v-model="globalSettings.dailyResetHour"
+          type="time"
+          aria-label="Reset time"
+          class="h-10 w-full rounded-md border border-input-border bg-input px-3 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
+        >
+      </label>
+      <p
+        v-if="error('dailyResetHour')"
+        class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
       >
-    </label>
-    <p
-      v-if="error('dailyResetHour')"
-      class="text-destructive text-sm"
-    >
-      {{ error('dailyResetHour') }}
-    </p>
+        {{ error('dailyResetHour') }}
+      </p>
+    </div>
   </section>
 </template>

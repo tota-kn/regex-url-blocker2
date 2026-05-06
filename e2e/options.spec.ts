@@ -232,6 +232,8 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('NightBlock')
     await page.getByRole('button', { name: 'Add slot' }).click()
+    await expect(page.getByRole('checkbox', { name: 'Sunday' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
     await page.getByLabel('Start time').fill('22:00')
     await page.getByLabel('End time').fill('06:00')
 
@@ -242,14 +244,18 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('End time')).toHaveValue('06:00')
   })
 
-  test('上限に曜日を選んで永続化される', async ({ page, extensionId }) => {
+  test('上限の曜日を選択解除して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByLabel('Name').fill('WeekdayOnly')
+    await page.getByLabel('Name').fill('CustomDays')
     await page.getByRole('button', { name: 'Add limit' }).click()
-    await page.getByRole('checkbox', { name: 'Monday' }).check()
-    await page.getByRole('checkbox', { name: 'Tuesday' }).check()
+    await expect(page.getByRole('checkbox', { name: 'Sunday' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Monday' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
+    await page.getByRole('checkbox', { name: 'Wednesday' }).uncheck()
+    await page.getByRole('checkbox', { name: 'Thursday' }).uncheck()
+    await page.getByRole('checkbox', { name: 'Friday' }).uncheck()
     await page.getByLabel('Limit minutes').fill('60')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -258,6 +264,9 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('checkbox', { name: 'Monday' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Tuesday' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Wednesday' })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Thursday' })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Friday' })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
     await expect(page.getByLabel('Limit minutes')).toHaveValue('60')
   })
 
