@@ -102,7 +102,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
       <div
         v-for="(slot, i) in blockedTimeSlots"
         :key="`slot-${i}`"
-        class="space-y-3 rounded-md border border-border bg-input/40 p-3"
+        class="space-y-2 rounded-md border border-border bg-input/40 p-2.5"
       >
         <div class="flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
           <NoSymbolIcon
@@ -118,9 +118,9 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         >
           {{ blockedTimeSlotError(i, 'daysOfWeek') }}
         </p>
-        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <label class="min-w-0">
-            <span class="mb-1 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="flex flex-none items-center gap-2">
+            <span class="flex shrink-0 items-center gap-1.5 text-sm font-medium text-secondary-foreground">
               <ClockIcon
                 aria-hidden="true"
                 class="size-4 text-muted"
@@ -131,16 +131,16 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
               v-model="slot.start"
               type="time"
               aria-label="Start time"
-              class="h-9 w-full rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
+              class="h-8 w-36 rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
             >
           </label>
-          <label class="min-w-0">
-            <span class="mb-1 block text-sm font-medium text-secondary-foreground">End</span>
+          <label class="flex flex-none items-center gap-2">
+            <span class="shrink-0 text-sm font-medium text-secondary-foreground">End</span>
             <input
               v-model="slot.end"
               type="time"
               aria-label="End time"
-              class="h-9 w-full rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
+              class="h-8 w-36 rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
             >
           </label>
           <button
@@ -148,7 +148,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             type="button"
             aria-label="Delete blocked time"
             title="Delete"
-            class="inline-flex size-9 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
+            class="inline-flex size-8 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
             @click="blockedTimeSlots.splice(i, 1)"
           >
             <TrashIcon
@@ -174,7 +174,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
       <div
         v-for="(limit, i) in timeLimits"
         :key="`limit-${i}`"
-        class="space-y-3 rounded-md border border-border bg-input/40 p-3"
+        class="space-y-2 rounded-md border border-border bg-input/40 p-2.5"
       >
         <div class="flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
           <ClockIcon
@@ -190,15 +190,15 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         >
           {{ timeLimitError(i, 'daysOfWeek') }}
         </p>
-        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <label class="min-w-0">
-            <span class="mb-1 block text-sm font-medium text-secondary-foreground">Minutes per day</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="flex flex-none items-center gap-2">
+            <span class="shrink-0 text-sm font-medium text-secondary-foreground">Minutes per day</span>
             <input
               type="number"
               min="0"
               aria-label="Minutes per day"
               :value="limit.dailyMinutes"
-              class="h-9 w-full rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
+              class="h-8 w-20 rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
               @input="setTimeLimitMinutes(limit, ($event.target as HTMLInputElement).value)"
             >
           </label>
@@ -207,7 +207,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             type="button"
             aria-label="Delete limit"
             title="Delete"
-            class="inline-flex size-9 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
+            class="inline-flex size-8 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
             @click="timeLimits.splice(i, 1)"
           >
             <TrashIcon

@@ -29,27 +29,35 @@ function toggleDay(day: DayOfWeek): void {
 </script>
 
 <template>
-  <fieldset class="space-y-2">
-    <legend class="text-sm font-medium text-secondary-foreground">
-      Days
-    </legend>
-    <div class="flex flex-wrap gap-2">
-      <label
-        v-for="d in DAY_LABELS"
-        :key="d.value"
-        :class="daysOfWeek.includes(d.value)
-          ? 'inline-flex h-8 items-center gap-1.5 rounded-md border border-tag-selected-border bg-tag-selected-bg px-2.5 text-sm font-medium text-tag-selected-text'
-          : 'inline-flex h-8 items-center gap-1.5 rounded-md border border-tag-default-border bg-tag-default-bg px-2.5 text-sm font-medium text-tag-default-text hover:bg-secondary-hover'"
+  <fieldset
+    aria-label="Days"
+    class="min-w-0"
+  >
+    <div class="flex min-w-0 items-center gap-x-3">
+      <span
+        aria-hidden="true"
+        class="w-20 shrink-0 text-sm font-medium text-secondary-foreground"
       >
-        <input
-          type="checkbox"
-          :aria-label="d.ariaLabel"
-          :checked="daysOfWeek.includes(d.value)"
-          class="size-3.5 accent-primary"
-          @change="toggleDay(d.value)"
+        Days
+      </span>
+      <div class="flex min-w-0 flex-1 flex-nowrap gap-1.5 overflow-x-auto">
+        <label
+          v-for="d in DAY_LABELS"
+          :key="d.value"
+          :class="daysOfWeek.includes(d.value)
+            ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-selected-border bg-tag-selected-bg px-2 text-sm font-medium text-tag-selected-text'
+            : 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-default-border bg-tag-default-bg px-2 text-sm font-medium text-tag-default-text hover:bg-secondary-hover'"
         >
-        <span>{{ d.label }}</span>
-      </label>
+          <input
+            type="checkbox"
+            :aria-label="d.ariaLabel"
+            :checked="daysOfWeek.includes(d.value)"
+            class="size-3.5 accent-primary"
+            @change="toggleDay(d.value)"
+          >
+          <span>{{ d.label }}</span>
+        </label>
+      </div>
     </div>
   </fieldset>
 </template>
