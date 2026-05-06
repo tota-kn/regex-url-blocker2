@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-
 /**
  * セグメント選択肢。
  */
@@ -11,8 +9,6 @@ interface SegmentOption {
   label: string
   /** aria-label。未指定なら label を使う。 */
   ariaLabel?: string
-  /** 先頭に表示するアイコン。 */
-  icon?: Component
 }
 
 /**
@@ -67,12 +63,6 @@ function selectValue(value: string): void {
         : 'rounded-md border border-border bg-surface text-secondary-foreground'"
       @click="selectValue(option.value)"
     >
-      <component
-        :is="option.icon"
-        v-if="option.icon"
-        aria-hidden="true"
-        class="size-4"
-      />
       {{ option.label }}
     </button>
   </div>
