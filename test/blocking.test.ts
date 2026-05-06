@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   evaluateUrl,
+  formatRemainingMinutesBadge,
   getLogicalDate,
+  getMinimumRemainingTimeLimit,
   getTargetGroupIds,
   getTimeLimitUsageSummary,
   incrementCounters,
@@ -196,6 +198,39 @@ describe('counters', () => {
       timeLimits: [{ daysOfWeek: [1] as DayOfWeek[], dailyMinutes: 10 }],
     })])
     expect(getTimeLimitUsageSummary(s.groups[0], undefined, new Date('2026-05-06T12:00:00+09:00'), s.global)).toBeUndefined()
+  })
+
+  it('残り秒数を切り上げの分単位 badge 文字列にする', () => {
+    expect(formatRemainingMinutesBadge(61)).toBe('2m')
+    expect(formatRemainingMinutesBadge(60)).toBe('1m')
+    expect(formatRemainingMinutesBadge(1)).toBe('1m')
+    expect(formatRemainingMinutesBadge(0)).toBe('0m')
+    expect(formatRemainingMinutesBadge(-1)).toBe('0m')
+  })
+
+  it('対象 URL の有効上限から最短の残り時間を返す', () => {
+    const s = settings([
+      group({ id: 'long', patterns: ['example'], timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 30 }] }),
+      group({ id: 'short', patterns: ['example'], timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 10 }] }),
+      group({ id: 'other', patterns: ['other'], timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 1 }] }),
+    ])
+    const counters = {
+      counters: {
+        long: { logicalDate: '2026-05-06', consumedSec: 60 },
+        short: { logicalDate: '2026-05-06', consumedSec: 540 },
+        other: { logicalDate: '2026-05-06', consumedSec: 0 },
+      },
+    }
+    const result = getMinimumRemainingTimeLimit(s, counters, 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
+    expect(result?.group.id).toBe('short')
+    expect(result?.summary.remainingSec).toBe(60)
+  })
+
+  it('対象 URL に今日有効な上限がなければ最短残り時間を返さない', () => {
+    const s = settings([group({
+      timeLimits: [{ daysOfWeek: [1] as DayOfWeek[], dailyMinutes: 10 }],
+    })])
+    expect(getMinimumRemainingTimeLimit(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))).toBeUndefined()
   })
 
   it('URL に該当するすべての group に加算する', () => {

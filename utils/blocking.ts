@@ -39,6 +39,16 @@ export interface TimeLimitUsageSummary {
 }
 
 /**
+ * URL に該当する閲覧上限のうち、最も残り時間が短いグループの利用状況。
+ */
+export interface MinimumRemainingTimeLimit {
+  /** 残り時間が最短だったグループ。 */
+  group: Group
+  /** 今日の上限利用状況。 */
+  summary: TimeLimitUsageSummary
+}
+
+/**
  * "HH:MM" を日内分に変換する。不正値は 0 として扱う。
  */
 function minuteOfDay(value: string): number {
@@ -176,6 +186,29 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
     consumedSec,
     remainingSec: Math.max(0, limitSec - consumedSec),
   }
+}
+
+/**
+ * URL に該当する今日有効な閲覧上限から、残り時間が最短のものを返す。
+ */
+export function getMinimumRemainingTimeLimit(settings: Settings, counters: UsageCountersState, url: string | undefined, now: Date): MinimumRemainingTimeLimit | undefined {
+  const targetGroupIds = new Set(getTargetGroupIds(settings, url))
+  const summaries = settings.groups
+    .filter(group => targetGroupIds.has(group.id))
+    .flatMap((group) => {
+      const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, settings.global)
+      return summary ? [{ group, summary }] : []
+    })
+    .sort((a, b) => a.summary.remainingSec - b.summary.remainingSec)
+
+  return summaries[0]
+}
+
+/**
+ * 残り秒数を切り上げの分単位 badge 文字列に変換する。
+ */
+export function formatRemainingMinutesBadge(remainingSec: number): string {
+  return `${Math.ceil(Math.max(0, remainingSec) / 60)}m`
 }
 
 /**
