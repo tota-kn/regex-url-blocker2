@@ -338,6 +338,22 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
   })
 
+  test('保存済みグループの削除ボタンはカード左下に配置される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('LeftDelete')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    const cardBox = await page.locator('article').first().boundingBox()
+    const deleteBox = await page.getByRole('button', { name: 'Delete group' }).boundingBox()
+
+    expect(cardBox).not.toBeNull()
+    expect(deleteBox).not.toBeNull()
+    expect(deleteBox!.x).toBeLessThan(cardBox!.x + cardBox!.width / 2)
+    expect(deleteBox!.y).toBeGreaterThan(cardBox!.y + cardBox!.height / 2)
+  })
+
   test('redirectUrl を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 

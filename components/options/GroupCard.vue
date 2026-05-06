@@ -187,7 +187,7 @@ function formatMinutesSeconds(seconds: number): string {
       />
     </fieldset>
 
-    <div class="flex justify-end gap-2 border-t border-border bg-background p-4">
+    <div class="flex items-center justify-between gap-2 border-t border-border bg-background p-4">
       <button
         v-if="!isEditing"
         type="button"
@@ -201,33 +201,35 @@ function formatMinutesSeconds(seconds: number): string {
         />
         Delete
       </button>
-      <button
-        v-if="isEditing"
-        type="button"
-        aria-label="Cancel group"
-        class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-secondary-foreground transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
-        @click="cancelEditing"
-      >
-        <XMarkIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Cancel
-      </button>
-      <button
-        v-if="isEditing"
-        type="button"
-        aria-label="Save group"
-        :disabled="!canSave"
-        class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        @click="saveEditing"
-      >
-        <CheckIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Save
-      </button>
+      <div class="ml-auto flex items-center gap-2">
+        <button
+          v-if="isEditing"
+          type="button"
+          aria-label="Cancel group"
+          class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-secondary-foreground transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
+          @click="cancelEditing"
+        >
+          <XMarkIcon
+            aria-hidden="true"
+            class="size-4"
+          />
+          Cancel
+        </button>
+        <button
+          v-if="isEditing"
+          type="button"
+          aria-label="Save group"
+          :disabled="!canSave"
+          class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          @click="saveEditing"
+        >
+          <CheckIcon
+            aria-hidden="true"
+            class="size-4"
+          />
+          Save
+        </button>
+      </div>
     </div>
   </article>
 </template>
