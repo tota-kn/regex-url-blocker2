@@ -5,6 +5,7 @@ import { debounce } from '@/utils/debounce'
 import { loadSettings, saveSettings } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import type { DayOfWeek, Group, Schedule, Settings } from '@/utils/types'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const settings = ref<Settings>({
   global: { ...DEFAULT_GLOBAL_SETTINGS },
@@ -42,13 +43,16 @@ function scheduleError(g: Group, i: number, sub: string): string | undefined {
   return groupError(g, `schedules[${i}].${sub}`)
 }
 
+const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
+
 function addGroup(): void {
   const n = settings.value.groups.length + 1
   settings.value.groups.push(createEmptyGroup(`グループ${n}`))
 }
 
-function removeGroup(id: string): void {
-  if (!window.confirm('このグループを削除しますか？')) return
+/** グループ削除の確認ダイアログを表示し、承認された場合にグループを削除する。 */
+async function removeGroup(id: string): Promise<void> {
+  if (!await confirmDialogRef.value?.open('このグループを削除しますか？')) return
   settings.value.groups = settings.value.groups.filter(g => g.id !== id)
 }
 
@@ -104,6 +108,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <ConfirmDialog ref="confirmDialogRef" />
   <main class="max-w-3xl mx-auto p-6 space-y-8 text-foreground">
     <h1 class="text-2xl font-bold">
       Regex URL Blocker - 設定

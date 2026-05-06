@@ -118,8 +118,8 @@ test.describe('Options 画面', () => {
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
-    page.on('dialog', d => d.accept())
     await page.getByRole('button', { name: 'グループを削除' }).click()
+    await page.getByRole('button', { name: '削除する' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
