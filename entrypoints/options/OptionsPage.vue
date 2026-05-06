@@ -68,12 +68,12 @@ const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
 
 function addGroup(): void {
   const n = settings.value.groups.length + 1
-  settings.value.groups.push(createEmptyGroup(`グループ${n}`))
+  settings.value.groups.push(createEmptyGroup(`Group ${n}`))
 }
 
 /** グループ削除の確認ダイアログを表示し、承認された場合にグループを削除する。 */
 async function removeGroup(id: string): Promise<void> {
-  if (!await confirmDialogRef.value?.open('このグループを削除しますか？')) return
+  if (!await confirmDialogRef.value?.open('Delete group?')) return
   settings.value.groups = settings.value.groups.filter(g => g.id !== id)
 }
 
@@ -110,11 +110,11 @@ onUnmounted(() => {
   <ConfirmDialog ref="confirmDialogRef" />
   <main class="max-w-3xl mx-auto p-6 space-y-8 text-foreground">
     <h1 class="text-2xl font-bold">
-      Regex URL Blocker - 設定
+      Regex URL Blocker
     </h1>
 
     <p v-if="!isLoaded">
-      読み込み中…
+      Loading...
     </p>
 
     <template v-else>
@@ -136,9 +136,9 @@ onUnmounted(() => {
 
       <p
         v-if="totalErrors > 0"
-        class="text-destructive"
+        class="text-destructive text-sm"
       >
-        未保存のエラー: {{ totalErrors }}
+        Errors: {{ totalErrors }}
       </p>
     </template>
   </main>

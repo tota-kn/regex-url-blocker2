@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PlusIcon, RectangleStackIcon } from '@heroicons/vue/24/outline'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
@@ -41,23 +42,33 @@ const groups = defineModel<Group[]>({ required: true })
 <template>
   <section class="space-y-3">
     <div class="flex items-center justify-between">
-      <h2 class="text-lg font-semibold">
-        グループ
+      <h2 class="flex items-center gap-1.5 text-lg font-semibold">
+        <RectangleStackIcon
+          aria-hidden="true"
+          class="size-5"
+        />
+        Groups
       </h2>
       <button
         type="button"
-        class="bg-primary text-primary-foreground rounded-md px-3 py-1 hover:bg-primary-hover"
+        aria-label="Add group"
+        class="inline-flex items-center gap-1.5 bg-primary text-primary-foreground rounded-md px-3 py-1 hover:bg-primary-hover"
         @click="$emit('addGroup')"
       >
-        + グループを追加
+        <PlusIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Group
       </button>
     </div>
 
     <p
       v-if="groups.length === 0"
-      class="text-muted"
+      aria-label="No groups"
+      class="text-muted text-sm"
     >
-      グループがありません。
+      Empty
     </p>
 
     <GroupCard

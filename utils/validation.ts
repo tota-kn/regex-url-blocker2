@@ -38,19 +38,19 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
   const errors: ValidationError[] = []
 
   if (settings.redirectUrl.trim().length === 0) {
-    errors.push({ field: 'redirectUrl', message: '有効な URL を入力してください' })
+    errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
   }
   else {
     try {
       new URL(settings.redirectUrl)
     }
     catch {
-      errors.push({ field: 'redirectUrl', message: '有効な URL を入力してください' })
+      errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
     }
   }
 
   if (!isValidHHMM(settings.dailyResetHour)) {
-    errors.push({ field: 'dailyResetHour', message: 'HH:MM 形式で入力してください' })
+    errors.push({ field: 'dailyResetHour', message: 'Use HH:MM' })
   }
 
   return errors
@@ -69,10 +69,10 @@ function isValidDayOfWeek(value: unknown): value is DayOfWeek {
 function validateDaysOfWeek(days: DayOfWeek[], prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
   if (days.some(d => !isValidDayOfWeek(d))) {
-    errors.push({ field: `${prefix}.daysOfWeek`, message: '曜日は 0〜6 で指定してください' })
+    errors.push({ field: `${prefix}.daysOfWeek`, message: 'Use days 0-6' })
   }
   if (new Set(days).size !== days.length) {
-    errors.push({ field: `${prefix}.daysOfWeek`, message: '曜日が重複しています' })
+    errors.push({ field: `${prefix}.daysOfWeek`, message: 'Duplicate days' })
   }
   return errors
 }
@@ -85,10 +85,10 @@ function validateBlockedTimeSlot(slot: BlockedTimeSlot, prefix: string): Validat
   const errors: ValidationError[] = []
   errors.push(...validateDaysOfWeek(slot.daysOfWeek, prefix))
   if (!isValidHHMM(slot.start)) {
-    errors.push({ field: `${prefix}.start`, message: 'HH:MM 形式で入力してください' })
+    errors.push({ field: `${prefix}.start`, message: 'Use HH:MM' })
   }
   if (!isValidHHMM(slot.end)) {
-    errors.push({ field: `${prefix}.end`, message: 'HH:MM 形式で入力してください' })
+    errors.push({ field: `${prefix}.end`, message: 'Use HH:MM' })
   }
   return errors
 }
@@ -101,7 +101,7 @@ function validateTimeLimit(limit: TimeLimit, prefix: string): ValidationError[] 
   const errors: ValidationError[] = []
   errors.push(...validateDaysOfWeek(limit.daysOfWeek, prefix))
   if (!Number.isInteger(limit.dailyMinutes) || limit.dailyMinutes < 0) {
-    errors.push({ field: `${prefix}.dailyMinutes`, message: '0 以上の整数を入力してください' })
+    errors.push({ field: `${prefix}.dailyMinutes`, message: 'Use 0+ integer' })
   }
   return errors
 }
@@ -113,16 +113,16 @@ export function validateGroup(group: Group): ValidationError[] {
   const errors: ValidationError[] = []
 
   if (group.mode !== 'blacklist' && group.mode !== 'whitelist') {
-    errors.push({ field: 'mode', message: 'モードが不正です' })
+    errors.push({ field: 'mode', message: 'Invalid mode' })
   }
 
   if (group.name.trim().length === 0) {
-    errors.push({ field: 'name', message: '名前は必須です' })
+    errors.push({ field: 'name', message: 'Required' })
   }
 
   group.patterns.forEach((p, i) => {
     if (!isValidRegex(p)) {
-      errors.push({ field: `patterns[${i}]`, message: '無効な正規表現です' })
+      errors.push({ field: `patterns[${i}]`, message: 'Invalid regex' })
     }
   })
 

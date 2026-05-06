@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ClockIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { TimeLimit } from '@/utils/types'
 import DayOfWeekCheckboxes from './DayOfWeekCheckboxes.vue'
 
@@ -31,22 +32,32 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
 <template>
   <div class="space-y-2">
     <div class="flex items-center justify-between">
-      <h3 class="text-sm font-medium">
-        上限
+      <h3 class="flex items-center gap-1.5 text-sm font-medium">
+        <ClockIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Limits
       </h3>
       <button
         type="button"
-        class="text-primary text-sm"
+        aria-label="Add limit"
+        class="inline-flex items-center gap-1 text-primary text-sm"
         @click="addTimeLimit"
       >
-        + 上限追加
+        <PlusIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Limit
       </button>
     </div>
     <p
       v-if="timeLimits.length === 0"
+      aria-label="No limits"
       class="text-muted text-sm"
     >
-      なし
+      Empty
     </p>
     <div
       v-for="(limit, i) in timeLimits"
@@ -62,11 +73,11 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <label class="flex items-center gap-1">
-          <span class="text-sm">上限（分/日）</span>
+          <span class="text-sm">min/day</span>
           <input
             type="number"
             min="0"
-            aria-label="上限分数"
+            aria-label="Limit minutes"
             :value="limit.dailyMinutes"
             class="border border-input-border bg-input rounded-md px-2 py-1 w-28"
             @input="setTimeLimitMinutes(limit, ($event.target as HTMLInputElement).value)"
@@ -74,10 +85,15 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         </label>
         <button
           type="button"
-          class="text-destructive text-sm ml-auto"
+          aria-label="Delete limit"
+          title="Delete"
+          class="ml-auto inline-flex size-8 items-center justify-center rounded-md text-destructive hover:bg-muted"
           @click="timeLimits.splice(i, 1)"
         >
-          削除
+          <TrashIcon
+            aria-hidden="true"
+            class="size-4"
+          />
         </button>
       </div>
       <p

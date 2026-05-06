@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ClockIcon, NoSymbolIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import type { BlockedTimeSlot } from '@/utils/types'
 import DayOfWeekCheckboxes from './DayOfWeekCheckboxes.vue'
 
@@ -26,22 +27,32 @@ function addBlockedTimeSlot(): void {
 <template>
   <div class="space-y-2">
     <div class="flex items-center justify-between">
-      <h3 class="text-sm font-medium">
-        ブロック時間帯
+      <h3 class="flex items-center gap-1.5 text-sm font-medium">
+        <NoSymbolIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Blocked slots
       </h3>
       <button
         type="button"
-        class="text-primary text-sm"
+        aria-label="Add slot"
+        class="inline-flex items-center gap-1 text-primary text-sm"
         @click="addBlockedTimeSlot"
       >
-        + ブロック時間帯追加
+        <PlusIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Slot
       </button>
     </div>
     <p
       v-if="blockedTimeSlots.length === 0"
+      aria-label="No blocked slots"
       class="text-muted text-sm"
     >
-      なし
+      Empty
     </p>
     <div
       v-for="(slot, i) in blockedTimeSlots"
@@ -57,30 +68,38 @@ function addBlockedTimeSlot(): void {
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <label class="flex items-center gap-1">
-          <span class="text-sm">開始時刻</span>
+          <ClockIcon
+            aria-hidden="true"
+            class="size-4"
+          />
           <input
             v-model="slot.start"
             type="time"
-            aria-label="開始時刻"
+            aria-label="Start time"
             class="border border-input-border bg-input rounded-md px-2 py-1"
           >
         </label>
         <span>-</span>
         <label class="flex items-center gap-1">
-          <span class="text-sm">終了時刻</span>
+          <span class="text-sm">End</span>
           <input
             v-model="slot.end"
             type="time"
-            aria-label="終了時刻"
+            aria-label="End time"
             class="border border-input-border bg-input rounded-md px-2 py-1"
           >
         </label>
         <button
           type="button"
-          class="text-destructive text-sm ml-auto"
+          aria-label="Delete blocked slot"
+          title="Delete"
+          class="ml-auto inline-flex size-8 items-center justify-center rounded-md text-destructive hover:bg-muted"
           @click="blockedTimeSlots.splice(i, 1)"
         >
-          削除
+          <TrashIcon
+            aria-hidden="true"
+            class="size-4"
+          />
         </button>
       </div>
       <p

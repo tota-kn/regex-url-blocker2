@@ -6,14 +6,14 @@ import type { DayOfWeek } from '@/utils/types'
  */
 const daysOfWeek = defineModel<DayOfWeek[]>({ required: true })
 
-const DAY_LABELS: { value: DayOfWeek, label: string }[] = [
-  { value: 0, label: '日' },
-  { value: 1, label: '月' },
-  { value: 2, label: '火' },
-  { value: 3, label: '水' },
-  { value: 4, label: '木' },
-  { value: 5, label: '金' },
-  { value: 6, label: '土' },
+const DAY_LABELS: { value: DayOfWeek, label: string, ariaLabel: string }[] = [
+  { value: 0, label: 'Sun', ariaLabel: 'Sunday' },
+  { value: 1, label: 'Mon', ariaLabel: 'Monday' },
+  { value: 2, label: 'Tue', ariaLabel: 'Tuesday' },
+  { value: 3, label: 'Wed', ariaLabel: 'Wednesday' },
+  { value: 4, label: 'Thu', ariaLabel: 'Thursday' },
+  { value: 5, label: 'Fri', ariaLabel: 'Friday' },
+  { value: 6, label: 'Sat', ariaLabel: 'Saturday' },
 ]
 
 /** チェックボックスのトグルで `daysOfWeek` を昇順に保ったまま追加/削除する。 */
@@ -30,8 +30,8 @@ function toggleDay(day: DayOfWeek): void {
 
 <template>
   <fieldset class="space-y-1">
-    <legend class="text-sm">
-      曜日（未選択=毎日）
+    <legend class="text-sm text-muted">
+      Days
     </legend>
     <div class="flex flex-wrap gap-2">
       <label
@@ -41,7 +41,7 @@ function toggleDay(day: DayOfWeek): void {
       >
         <input
           type="checkbox"
-          :aria-label="d.label"
+          :aria-label="d.ariaLabel"
           :checked="daysOfWeek.includes(d.value)"
           @change="toggleDay(d.value)"
         >

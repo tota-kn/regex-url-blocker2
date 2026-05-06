@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { ref } from 'vue'
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
@@ -45,17 +46,26 @@ defineExpose({ open })
     <div class="flex justify-end gap-2">
       <button
         type="button"
-        class="border border-border rounded-md px-3 py-1 hover:bg-muted"
+        class="inline-flex items-center gap-1.5 border border-border rounded-md px-3 py-1 hover:bg-muted"
         @click="onCancel"
       >
-        キャンセル
+        <XMarkIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Cancel
       </button>
       <button
         type="button"
-        class="text-destructive border border-destructive rounded-md px-3 py-1 hover:bg-muted"
+        aria-label="Confirm delete"
+        class="inline-flex items-center gap-1.5 text-destructive border border-destructive rounded-md px-3 py-1 hover:bg-muted"
         @click="onConfirm"
       >
-        削除する
+        <TrashIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Delete
       </button>
     </div>
   </dialog>

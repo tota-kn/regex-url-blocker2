@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowTopRightOnSquareIcon, ArrowPathIcon } from '@heroicons/vue/24/outline'
 import type { GlobalSettings } from '@/utils/types'
 
 /**
@@ -19,15 +20,22 @@ const globalSettings = defineModel<GlobalSettings>({ required: true })
 
 <template>
   <section class="space-y-3">
-    <h2 class="text-lg font-semibold">
-      グローバル設定
+    <h2 class="text-lg font-semibold tracking-normal">
+      Global
     </h2>
 
     <label class="block">
-      <span class="block text-sm">リダイレクト先 URL</span>
+      <span class="mb-1 flex items-center gap-1.5 text-sm">
+        <ArrowTopRightOnSquareIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Redirect URL
+      </span>
       <input
         v-model="globalSettings.redirectUrl"
         type="url"
+        aria-label="Redirect URL"
         class="w-full border border-input-border bg-input rounded-md px-2 py-1"
       >
     </label>
@@ -39,10 +47,17 @@ const globalSettings = defineModel<GlobalSettings>({ required: true })
     </p>
 
     <label class="block">
-      <span class="block text-sm">リセット時刻</span>
+      <span class="mb-1 flex items-center gap-1.5 text-sm">
+        <ArrowPathIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Reset
+      </span>
       <input
         v-model="globalSettings.dailyResetHour"
         type="time"
+        aria-label="Reset time"
         class="border border-input-border bg-input rounded-md px-2 py-1"
       >
     </label>

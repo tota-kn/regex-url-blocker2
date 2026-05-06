@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { TrashIcon } from '@heroicons/vue/24/outline'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import BlockedTimeSlotListEditor from './BlockedTimeSlotListEditor.vue'
@@ -52,46 +53,20 @@ function formatMinutesSeconds(seconds: number): string {
   <div class="border border-border rounded-md p-4 space-y-4">
     <div class="flex flex-wrap items-start gap-3">
       <label class="block flex-1 min-w-0">
-        <span class="block text-sm">名前</span>
+        <span class="block text-sm">Name</span>
         <input
           v-model="group.name"
+          aria-label="Name"
           class="w-full border border-input-border bg-input rounded-md px-2 py-1"
         >
       </label>
-      <div class="flex flex-col gap-1 pt-5">
-        <div class="flex rounded-md border border-border overflow-hidden text-sm">
-          <button
-            type="button"
-            :aria-pressed="group.mode === 'blacklist'"
-            :class="group.mode === 'blacklist'
-              ? 'bg-primary text-primary-foreground px-3 py-1'
-              : 'bg-input text-foreground px-3 py-1 hover:bg-muted'"
-            @click="group.mode = 'blacklist'"
-          >
-            ブラックリスト
-          </button>
-          <button
-            type="button"
-            :aria-pressed="group.mode === 'whitelist'"
-            :class="group.mode === 'whitelist'
-              ? 'bg-primary text-primary-foreground px-3 py-1'
-              : 'bg-input text-foreground px-3 py-1 hover:bg-muted'"
-            @click="group.mode = 'whitelist'"
-          >
-            ホワイトリスト
-          </button>
-        </div>
-      </div>
     </div>
-    <p class="text-muted text-xs">
-      {{ group.mode === 'blacklist' ? 'マッチしたURLをブロックします' : 'マッチしないURLをブロックします' }}
-    </p>
     <p
       v-if="timeLimitUsageSummary"
-      aria-label="今日の残り時間"
+      aria-label="Remaining time today"
       class="text-sm text-muted"
     >
-      残り {{ formatMinutesSeconds(timeLimitUsageSummary.remainingSec) }} / 上限 {{ formatMinutesSeconds(timeLimitUsageSummary.limitMinutes * 60) }}
+      {{ formatMinutesSeconds(timeLimitUsageSummary.remainingSec) }} / {{ formatMinutesSeconds(timeLimitUsageSummary.limitMinutes * 60) }}
     </p>
     <p
       v-if="error('name')"
@@ -102,6 +77,7 @@ function formatMinutesSeconds(seconds: number): string {
 
     <PatternListEditor
       v-model="group.patterns"
+      v-model:mode="group.mode"
       :error="patternError"
     />
     <BlockedTimeSlotListEditor
@@ -115,10 +91,15 @@ function formatMinutesSeconds(seconds: number): string {
 
     <button
       type="button"
-      class="text-destructive"
+      aria-label="Delete group"
+      class="inline-flex items-center gap-1.5 text-destructive"
       @click="$emit('remove')"
     >
-      グループを削除
+      <TrashIcon
+        aria-hidden="true"
+        class="size-4"
+      />
+      Delete
     </button>
   </div>
 </template>
