@@ -3,6 +3,31 @@ import type { Page, Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
 
 /**
+ * Service Worker 経由で指定タブのアクション badge テキストを取得する。
+ */
+async function getBadgeText(serviceWorker: Worker, tabId: number): Promise<string> {
+  return serviceWorker.evaluate(async (id) => {
+    const chrome = (globalThis as unknown as {
+      chrome: { action: { getBadgeText: (d: { tabId: number }) => Promise<string> } }
+    }).chrome
+    return chrome.action.getBadgeText({ tabId: id })
+  }, tabId)
+}
+
+/**
+ * Service Worker 経由で指定 URL を持つタブの ID を取得する。
+ */
+async function getTabIdByUrl(serviceWorker: Worker, url: string): Promise<number | undefined> {
+  return serviceWorker.evaluate(async (targetUrl) => {
+    const chrome = (globalThis as unknown as {
+      chrome: { tabs: { query: (q: object) => Promise<Array<{ id?: number }>> } }
+    }).chrome
+    const tabs = await chrome.tabs.query({ url: targetUrl })
+    return tabs[0]?.id
+  }, url)
+}
+
+/**
  * テスト用 HTTP サーバーを起動する。
  */
 async function startServer(): Promise<{ origin: string, close: () => Promise<void> }> {
@@ -241,6 +266,129 @@ test.describe('Background blocking', () => {
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
       await expect(page.getByLabel('Blocked groups')).toHaveText('Block local')
+    }
+    finally {
+      await server.close()
+    }
+  })
+})
+
+test.describe('Badge display', () => {
+  test('時間制限のある URL にアクセスするとバッジに残り時間を表示する', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'redirect',
+            redirectUrl: `${settings.origin}/blocked`,
+            dailyResetHour: '00:00',
+          },
+          groups: [{
+            id: 'timed-group',
+            name: 'Timed Group',
+            mode: 'blacklist',
+            patterns: [`^${settings.originEscaped}`],
+            blockedTimeSlots: [],
+            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+          }],
+        })
+      }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/target`)
+      expect(tabId).toBeDefined()
+
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 }).toBe('60m')
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('対象外の URL ではバッジが空になる', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'redirect',
+            redirectUrl: `${settings.origin}/blocked`,
+            dailyResetHour: '00:00',
+          },
+          groups: [{
+            id: 'timed-group',
+            name: 'Timed Group',
+            mode: 'blacklist',
+            patterns: ['example\\.com'],
+            blockedTimeSlots: [],
+            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+          }],
+        })
+      }, { origin: server.origin })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/other`)
+      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/other`)
+      expect(tabId).toBeDefined()
+
+      await page.waitForTimeout(1500)
+      expect(await getBadgeText(serviceWorker, tabId!)).toBe('')
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('消費時間がある場合にバッジが残り時間を正しく反映する', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+              local: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
+          }
+        }
+        const today = new Date().toISOString().slice(0, 10)
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'redirect',
+            redirectUrl: `${settings.origin}/blocked`,
+            dailyResetHour: '00:00',
+          },
+          groups: [{
+            id: 'timed-group',
+            name: 'Timed Group',
+            mode: 'blacklist',
+            patterns: [`^${settings.originEscaped}`],
+            blockedTimeSlots: [],
+            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+          }],
+        })
+        await chromeApi.chrome.storage.local.set({
+          counters: { 'timed-group': { logicalDate: today, consumedSec: 3000 } },
+        })
+      }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/target`)
+      expect(tabId).toBeDefined()
+
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 }).toBe('50m')
     }
     finally {
       await server.close()
