@@ -36,7 +36,7 @@ function toggleDay(day: DayOfWeek): void {
     <div class="flex min-w-0 items-center gap-x-3">
       <span
         aria-hidden="true"
-        class="w-28 shrink-0 text-sm font-medium text-secondary-foreground"
+        class="w-36 shrink-0 whitespace-nowrap text-sm font-medium text-secondary-foreground"
       >
         Days
       </span>

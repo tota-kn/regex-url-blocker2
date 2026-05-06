@@ -109,17 +109,16 @@ function saveEditing(): void {
         <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <label class="group/name block min-w-0 flex-1">
             <span class="sr-only">Name</span>
-            <span class="flex min-w-0 items-center gap-2 rounded-md border border-transparent px-2 py-1 transition focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border hover:bg-background">
+            <span
+              class="flex min-w-0 items-center rounded-md border border-transparent px-2 py-1 transition"
+              :class="isEditing ? 'focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border hover:bg-background' : ''"
+            >
               <input
                 v-model="draft.name"
                 aria-label="Name"
                 :disabled="!isEditing"
                 class="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none disabled:cursor-default disabled:text-foreground"
               >
-              <PencilSquareIcon
-                aria-hidden="true"
-                class="size-4 shrink-0 text-muted opacity-60 transition group-focus-within/name:opacity-100 group-hover/name:opacity-100"
-              />
             </span>
           </label>
 

@@ -120,7 +120,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         </p>
         <div class="flex flex-wrap items-center gap-2">
           <div class="flex min-w-0 flex-1 items-center gap-x-3">
-            <span class="w-28 shrink-0 text-sm font-medium text-secondary-foreground">
+            <span class="w-36 shrink-0 whitespace-nowrap text-sm font-medium text-secondary-foreground">
               Start - End
             </span>
             <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -194,7 +194,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         </p>
         <div class="flex flex-wrap items-center gap-2">
           <label class="flex min-w-0 flex-1 items-center gap-x-3">
-            <span class="w-28 shrink-0 text-sm font-medium text-secondary-foreground">Minutes per day</span>
+            <span class="w-36 shrink-0 whitespace-nowrap text-sm font-medium text-secondary-foreground">Minutes per day</span>
             <input
               type="number"
               min="0"

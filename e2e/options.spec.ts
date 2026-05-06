@@ -88,6 +88,21 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Unsaved')).not.toBeVisible()
   })
 
+  test('グループ名は編集モードでのみ編集でき、名前欄の編集アイコンは表示しない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('ReadonlyName')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await expect(page.locator('label:has(input[aria-label="Name"]) svg')).toHaveCount(0)
+    await expect(page.getByLabel('Name')).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await expect(page.locator('label:has(input[aria-label="Name"]) svg')).toHaveCount(0)
+    await expect(page.getByLabel('Name')).toBeEnabled()
+  })
+
   test('無効な正規表現はエラー表示され、保存されない', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
