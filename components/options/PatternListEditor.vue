@@ -38,14 +38,19 @@ const mode = defineModel<GroupMode>('mode', { required: true })
         URL patterns
       </h3>
       <div class="flex flex-wrap items-center gap-2">
-        <div class="flex overflow-hidden rounded-md border border-border bg-input text-sm">
+        <div
+          class="flex overflow-hidden rounded-md text-sm"
+          :class="isEditing ? 'border border-border bg-input' : 'border border-transparent bg-transparent'"
+        >
           <button
             v-if="isEditing || mode === 'blacklist'"
             type="button"
             :aria-pressed="mode === 'blacklist'"
-            :class="mode === 'blacklist'
-              ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
-              : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'"
+            :class="isEditing
+              ? mode === 'blacklist'
+                ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
+                : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'
+              : 'inline-flex h-8 cursor-default items-center gap-1 rounded-md border border-border bg-background px-3 text-secondary-foreground'"
             @click="mode = 'blacklist'"
           >
             <NoSymbolIcon
@@ -58,9 +63,11 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             v-if="isEditing || mode === 'whitelist'"
             type="button"
             :aria-pressed="mode === 'whitelist'"
-            :class="mode === 'whitelist'
-              ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
-              : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'"
+            :class="isEditing
+              ? mode === 'whitelist'
+                ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
+                : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'
+              : 'inline-flex h-8 cursor-default items-center gap-1 rounded-md border border-border bg-background px-3 text-secondary-foreground'"
             @click="mode = 'whitelist'"
           >
             <CheckCircleIcon
@@ -104,7 +111,10 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             v-model="patterns[i]"
             aria-label="URL regex pattern"
             placeholder="https?://"
-            class="h-9 min-w-0 flex-1 rounded-md border border-input-border bg-input px-3 font-mono text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
+            class="h-9 min-w-0 flex-1 rounded-md px-3 font-mono text-sm outline-none transition"
+            :class="isEditing
+              ? 'border border-input-border bg-input focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50'
+              : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
           >
           <button
             v-if="isEditing"

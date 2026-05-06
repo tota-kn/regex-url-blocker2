@@ -2,6 +2,18 @@
 import type { DayOfWeek } from '@/utils/types'
 
 /**
+ * 曜日チェックボックスの props。
+ */
+interface Props {
+  /** 編集モードかどうか。false のときチェックボックスを静的チップとして表示する。 */
+  isEditing?: boolean
+}
+
+withDefaults(defineProps<Props>(), {
+  isEditing: true,
+})
+
+/**
  * 曜日チェックボックスで編集する曜日番号配列。
  */
 const daysOfWeek = defineModel<DayOfWeek[]>({ required: true })
@@ -45,14 +57,18 @@ function toggleDay(day: DayOfWeek): void {
           v-for="d in DAY_LABELS"
           :key="d.value"
           :class="daysOfWeek.includes(d.value)
-            ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-selected-border bg-tag-selected-bg px-2 text-sm font-medium text-tag-selected-text'
-            : 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-default-border bg-tag-default-bg px-2 text-sm font-medium text-tag-default-text hover:bg-secondary-hover'"
+            ? isEditing
+              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-selected-border bg-tag-selected-bg px-2 text-sm font-medium text-tag-selected-text'
+              : 'inline-flex h-7 shrink-0 items-center rounded-md border border-border bg-background px-2 text-sm font-medium text-secondary-foreground'
+            : isEditing
+              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-default-border bg-tag-default-bg px-2 text-sm font-medium text-tag-default-text hover:bg-secondary-hover'
+              : 'inline-flex h-7 shrink-0 items-center rounded-md border border-transparent bg-transparent px-1 text-sm text-muted'"
         >
           <input
             type="checkbox"
             :aria-label="d.ariaLabel"
             :checked="daysOfWeek.includes(d.value)"
-            class="size-3.5 accent-primary"
+            :class="isEditing ? 'size-3.5 accent-primary' : 'sr-only'"
             @change="toggleDay(d.value)"
           >
           <span>{{ d.label }}</span>

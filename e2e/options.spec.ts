@@ -423,4 +423,42 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Allow only matches' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Block matches' })).not.toBeVisible()
   })
+
+  test('保存済みグループの閲覧時はフォーム部品が操作可能に見えない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('ReadonlyVisuals')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByLabel('URL regex pattern').fill('example\\.com')
+    await page.getByRole('button', { name: 'Add blocked time' }).click()
+    await page.getByLabel('Start time').fill('09:00')
+    await page.getByLabel('End time').fill('17:00')
+    await page.getByRole('button', { name: 'Add daily limit' }).click()
+    await page.getByLabel('Minutes per day').fill('45')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    const pattern = page.getByLabel('URL regex pattern')
+    const start = page.getByLabel('Start time')
+    const minutes = page.getByLabel('Minutes per day')
+    const sunday = page.getByRole('checkbox', { name: 'Sunday' }).first()
+
+    await expect(pattern).toBeDisabled()
+    await expect(start).toBeDisabled()
+    await expect(minutes).toBeDisabled()
+    await expect(sunday).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Block matches' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete blocked time' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete limit' })).not.toBeVisible()
+
+    await expect(pattern).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(pattern).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)')
+    await expect(start).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(minutes).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(sunday).toHaveClass(/sr-only/)
+  })
 })

@@ -102,7 +102,8 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
       <div
         v-for="(slot, i) in blockedTimeSlots"
         :key="`slot-${i}`"
-        class="space-y-2 rounded-md border border-border bg-input/40 p-2.5"
+        class="space-y-2 rounded-md border p-2.5"
+        :class="isEditing ? 'border-border bg-input/40' : 'border-border bg-background'"
       >
         <div class="flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
           <NoSymbolIcon
@@ -111,7 +112,10 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           />
           Blocked time
         </div>
-        <DayOfWeekCheckboxes v-model="slot.daysOfWeek" />
+        <DayOfWeekCheckboxes
+          v-model="slot.daysOfWeek"
+          :is-editing="isEditing"
+        />
         <p
           v-if="blockedTimeSlotError(i, 'daysOfWeek')"
           class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
@@ -130,7 +134,10 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
                   v-model="slot.start"
                   type="time"
                   aria-label="Start time"
-                  class="h-8 w-28 rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50 sm:w-36"
+                  class="h-8 w-28 rounded-md px-2 text-sm outline-none transition sm:w-36"
+                  :class="isEditing
+                    ? 'border border-input-border bg-background focus:border-primary focus:ring-2 focus:ring-ring/50'
+                    : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
                 >
               </label>
               <span class="shrink-0 text-sm font-medium text-secondary-foreground">-</span>
@@ -140,7 +147,10 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
                   v-model="slot.end"
                   type="time"
                   aria-label="End time"
-                  class="h-8 w-28 rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50 sm:w-36"
+                  class="h-8 w-28 rounded-md px-2 text-sm outline-none transition sm:w-36"
+                  :class="isEditing
+                    ? 'border border-input-border bg-background focus:border-primary focus:ring-2 focus:ring-ring/50'
+                    : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
                 >
               </label>
             </div>
@@ -176,7 +186,8 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
       <div
         v-for="(limit, i) in timeLimits"
         :key="`limit-${i}`"
-        class="space-y-2 rounded-md border border-border bg-input/40 p-2.5"
+        class="space-y-2 rounded-md border p-2.5"
+        :class="isEditing ? 'border-border bg-input/40' : 'border-border bg-background'"
       >
         <div class="flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
           <ClockIcon
@@ -185,7 +196,10 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           />
           Daily limit
         </div>
-        <DayOfWeekCheckboxes v-model="limit.daysOfWeek" />
+        <DayOfWeekCheckboxes
+          v-model="limit.daysOfWeek"
+          :is-editing="isEditing"
+        />
         <p
           v-if="timeLimitError(i, 'daysOfWeek')"
           class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
@@ -200,7 +214,10 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
               min="0"
               aria-label="Minutes per day"
               :value="limit.dailyMinutes"
-              class="h-8 w-20 rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
+              class="h-8 w-20 rounded-md px-2 text-sm outline-none transition"
+              :class="isEditing
+                ? 'border border-input-border bg-background focus:border-primary focus:ring-2 focus:ring-ring/50'
+                : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
               @input="setTimeLimitMinutes(limit, ($event.target as HTMLInputElement).value)"
             >
           </label>
