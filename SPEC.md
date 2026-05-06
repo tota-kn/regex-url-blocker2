@@ -18,12 +18,17 @@
 - 各グループは以下の属性を持つ：
   - `id`: UUID（自動採番）
   - `name`: ユーザー入力の表示名（必須）
+  - `mode`: 対象 URL の判定モード。`blacklist`（既定）または `whitelist`
   - `patterns`: 正規表現文字列の配列
   - `blockedTimeSlots`: ブロック時間帯の配列。空配列なら即座ブロックなし
   - `timeLimits`: 閲覧上限の配列。空配列なら上限なし
+- `mode` の意味：
+  - `blacklist`: `patterns` のいずれかにマッチした URL を制限対象とする
+  - `whitelist`: `patterns` のいずれにもマッチしない URL を制限対象とする
+  - 旧データなどで `mode` が欠損している場合は `blacklist` として扱う
 - 各ブロック時間帯は以下の属性を持つ：
   - `daysOfWeek`: 適用曜日の配列。値は 0=日, 1=月, ..., 6=土（JS `Date.getDay()` 互換）。空配列なら全曜日に適用
-  - `start` / `end`: ブロック時間帯の開始/終了時刻（`HH:MM`）。`end <= start` なら日跨ぎ（例 22:00–06:00）
+  - `start` / `end`: ブロック時間帯の開始/終了時刻（`HH:MM`）。`end < start` なら日跨ぎ（例 22:00–06:00）、`end === start` なら 24 時間ブロック
 - 各上限は以下の属性を持つ：
   - `daysOfWeek`: 適用曜日の配列。空配列なら全曜日に適用
   - `dailyMinutes`: 1日あたり閲覧上限（分）。`0` で「即ブロック」を表現
@@ -44,10 +49,12 @@
   - `chrome.idle` の状態が `active`（5分無操作で停止）
 - 同じ URL を複数タブで同時に開いていても、**1秒あたり1回** の加算（アクティブタブのみが意味を持つ）。
 - 1つの URL が複数グループの正規表現にマッチした場合、**マッチしたすべてのグループ** に並列で1秒加算する。
+- `whitelist` グループでは、正規表現にマッチしない URL が「対象グループに該当」とみなされるため、その URL を閲覧している間は同様に1秒加算する。
 
 ### ブロック判定
 
 - グループ単位の判定式（時刻 T、曜日 D）：
+  - まず URL が対象グループに該当するかを `mode` と `patterns` で判定する。該当しないグループは許可状態
   - `blockedTimeSlots` と `timeLimits` がどちらも空配列なら、そのグループは常に許可状態
   - `blockedTimeSlots` のうち D が `daysOfWeek` にマッチし T が `[start, end)` に含まれるものが1つでも存在 → ブロック状態
   - `timeLimits` のうち D が `daysOfWeek` にマッチするものを収集し、`dailyMinutes` の最小値を有効上限とする。`consumedSec >= 有効上限 * 60` ならブロック状態
@@ -58,6 +65,8 @@
 ### 正規表現の評価対象
 
 - `tab.url` 全体（scheme・パス・クエリ・フラグメントを含む）に対して部分一致。
+- `patterns` 配列内のいずれかの正規表現に部分一致すれば「マッチ」とする。
+- 正規表現は Options 保存時に `new RegExp()` で検証する。background は壊れた保存データに含まれる無効な正規表現を無視し、Service Worker 全体を停止させない。
 - 以下の URL は判定スキップ（=絶対にリダイレクトしない）：
   - `chrome://`、`chrome-extension://`、`about:`、`file://` で始まる URL
   - 現在の `redirectUrl` と完全一致する URL（無限ループ防止）
@@ -67,19 +76,22 @@
 - 1日のリセット時刻はグローバルに1つ。
 - 論理日が切り替わったタイミングで `consumedSec` を 0 に上書き。
 - 過去日の履歴は保持しない（今日分のみ）。
-- 日跨ぎのブロック時間帯は `end <= start` で表現する（例 `22:00–06:00`）。
+- 日跨ぎのブロック時間帯は `end < start` で表現する（例 `22:00–06:00`）。`end === start` は 24 時間ブロックとして扱う。
 
 ### リダイレクト動作
 
 - 新規ナビゲーション：`chrome.webNavigation.onBeforeNavigate`（および SPA 用 `onHistoryStateUpdated`）で先回り判定し、`chrome.tabs.update` で `redirectUrl` へ書き換える。
+- `webNavigation` はトップレベルフレームのみを対象とし、`frameId !== 0` のイベントは無視する。
 - 既存タブの状態変化：`chrome.alarms`（1分間隔）と毎秒ティックで再評価し、ブロック状態に切り替わったタブを `tabs.update` で書き換える。
+- `tabs.update` の直前にも判定スキップ URL と `redirectUrl` 完全一致を確認し、リダイレクトループを防止する。
 
 ## 画面要件
 
 ### Options 画面（編集）
 
 - グループの追加・編集・削除
-- 各グループ：`name`、`patterns[]`、`blockedTimeSlots[]`、`timeLimits[]`
+- 各グループ：`name`、`mode`、`patterns[]`、`blockedTimeSlots[]`、`timeLimits[]`
+- `mode` は `blacklist` / `whitelist` を選択できる。
 - ブロック時間帯は1組につき：曜日チェックボックス（日〜土の7つ。未選択=毎日）、`<input type="time">` の開始/終了
 - 上限は1組につき：曜日チェックボックス（日〜土の7つ。未選択=毎日）、`<input type="number">` の上限分数
 - グローバル設定（`redirectUrl`、`dailyResetHour`）の編集
@@ -96,8 +108,10 @@
 ## ストレージ
 
 - `chrome.storage.sync`：グループ定義、グローバル設定（リセット時刻、リダイレクト先）
-- `chrome.storage.local`：グループごとの累積カウンタ（`{ logicalDate, consumedSec }`）
-- background はメモリ上にバッファし、約7秒間隔／heartbeat アラーム／`runtime.onSuspend` でフラッシュ
+- `chrome.storage.local`：グループごとの累積カウンタ（`{ counters: Record<groupId, { logicalDate, consumedSec }> }`）
+- background は起動時にカウンタを読み込み、現在の論理日と異なるカウンタは `consumedSec` を 0 に正規化する。
+- 削除済みグループのカウンタは background のフラッシュ時に破棄してよい。
+- background はメモリ上にバッファし、約7秒間隔／heartbeat アラーム（1分間隔）／`runtime.onSuspend` でフラッシュ
 
 ## 必要 Permissions
 
