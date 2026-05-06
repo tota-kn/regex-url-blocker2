@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "wxt",
     "dev:browser": "node scripts/open-dev-browser.mjs",
+    "dev:all": "node scripts/dev.mjs",
     "build": "wxt build",
     "zip": "wxt zip",
     "postinstall": "wxt prepare",
@@ -27,6 +28,7 @@
     "@vitejs/plugin-vue": "^5.2.4",
     "@vitest/coverage-v8": "^3.2.4",
     "@wxt-dev/module-vue": "^1.0.3",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.9.0",
     "globals": "^16.5.0",

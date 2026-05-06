@@ -1,10 +1,22 @@
 import { chromium } from '@playwright/test'
+import { existsSync } from 'fs'
 import path from 'path'
+import { setTimeout as sleep } from 'timers/promises'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3')
 const userDataDir = path.resolve(__dirname, '../.dev-browser-profile')
+
+const manifestPath = path.join(pathToExtension, 'manifest.json')
+if (!existsSync(manifestPath)) {
+  process.stdout.write('WXT のビルド完了を待っています')
+  while (!existsSync(manifestPath)) {
+    process.stdout.write('.')
+    await sleep(500)
+  }
+  console.log(' 完了')
+}
 
 const context = await chromium.launchPersistentContext(userDataDir, {
   channel: 'chromium',
