@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ClockIcon, NoSymbolIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import type { BlockedTimeSlot, DayOfWeek, TimeLimit } from '@/utils/types'
 import DayOfWeekCheckboxes from './DayOfWeekCheckboxes.vue'
 
@@ -58,11 +62,12 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         Blocking rules
       </h3>
       <div class="flex flex-wrap items-center gap-2">
-        <button
+        <BaseButton
           v-if="isEditing"
           type="button"
           aria-label="Add blocked time"
-          class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
+          size="sm"
+          variant="ghost"
           @click="addBlockedTimeSlot"
         >
           <PlusIcon
@@ -70,12 +75,13 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             class="size-4"
           />
           Blocked time
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           v-if="isEditing"
           type="button"
           aria-label="Add daily limit"
-          class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
+          size="sm"
+          variant="ghost"
           @click="addTimeLimit"
         >
           <PlusIcon
@@ -83,17 +89,16 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             class="size-4"
           />
           Daily limit
-        </button>
+        </BaseButton>
       </div>
     </div>
 
-    <p
+    <EmptyState
       v-if="blockedTimeSlots.length === 0 && timeLimits.length === 0"
       aria-label="No blocking rules"
-      class="rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
     >
       No blocking rules yet
-    </p>
+    </EmptyState>
 
     <div
       v-if="blockedTimeSlots.length > 0 || timeLimits.length > 0"
@@ -103,7 +108,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         v-for="(slot, i) in blockedTimeSlots"
         :key="`slot-${i}`"
         class="space-y-2 rounded-md border p-2.5"
-        :class="isEditing ? 'border-border bg-input/40' : 'border-border bg-background'"
+        :class="isEditing ? 'border-border bg-surface-muted' : 'border-border bg-background'"
       >
         <div class="flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
           <NoSymbolIcon
@@ -116,12 +121,11 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           v-model="slot.daysOfWeek"
           :is-editing="isEditing"
         />
-        <p
+        <AlertMessage
           v-if="blockedTimeSlotError(i, 'daysOfWeek')"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           {{ blockedTimeSlotError(i, 'daysOfWeek') }}
-        </p>
+        </AlertMessage>
         <div class="flex flex-wrap items-center gap-2">
           <div class="flex min-w-0 flex-1 items-center gap-x-3">
             <span class="w-36 shrink-0 whitespace-nowrap text-sm font-medium text-secondary-foreground">
@@ -130,64 +134,64 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             <div class="flex min-w-0 flex-1 items-center gap-2">
               <label class="min-w-0">
                 <span class="sr-only">Start</span>
-                <input
+                <BaseInput
                   v-model="slot.start"
                   type="time"
                   aria-label="Start time"
-                  class="h-8 w-28 rounded-md px-2 text-sm outline-none transition sm:w-36"
-                  :class="isEditing
-                    ? 'border border-input-border bg-background focus:border-primary focus:ring-2 focus:ring-ring/50'
-                    : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
-                >
-              </label>
+                  class="w-28 sm:w-36"
+                  size="sm"
+                  :disabled="!isEditing"
+                  :display="isEditing ? 'editable' : 'readonly'"
+                  :invalid="Boolean(blockedTimeSlotError(i, 'start'))"
+                /></label>
               <span class="shrink-0 text-sm font-medium text-secondary-foreground">-</span>
               <label class="min-w-0">
                 <span class="sr-only">End</span>
-                <input
+                <BaseInput
                   v-model="slot.end"
                   type="time"
                   aria-label="End time"
-                  class="h-8 w-28 rounded-md px-2 text-sm outline-none transition sm:w-36"
-                  :class="isEditing
-                    ? 'border border-input-border bg-background focus:border-primary focus:ring-2 focus:ring-ring/50'
-                    : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
-                >
-              </label>
+                  class="w-28 sm:w-36"
+                  size="sm"
+                  :disabled="!isEditing"
+                  :display="isEditing ? 'editable' : 'readonly'"
+                  :invalid="Boolean(blockedTimeSlotError(i, 'end'))"
+                /></label>
             </div>
           </div>
-          <button
+          <BaseButton
             v-if="isEditing"
             type="button"
             aria-label="Delete blocked time"
             title="Delete"
-            class="inline-flex size-8 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
+            class="self-end"
+            size="icon-sm"
+            variant="danger-ghost"
             @click="blockedTimeSlots.splice(i, 1)"
           >
             <TrashIcon
               aria-hidden="true"
               class="size-4"
             />
-          </button>
+          </BaseButton>
         </div>
-        <p
+        <AlertMessage
           v-if="blockedTimeSlotError(i, 'start')"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           {{ blockedTimeSlotError(i, 'start') }}
-        </p>
-        <p
+        </AlertMessage>
+        <AlertMessage
           v-if="blockedTimeSlotError(i, 'end')"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           {{ blockedTimeSlotError(i, 'end') }}
-        </p>
+        </AlertMessage>
       </div>
 
       <div
         v-for="(limit, i) in timeLimits"
         :key="`limit-${i}`"
         class="space-y-2 rounded-md border p-2.5"
-        :class="isEditing ? 'border-border bg-input/40' : 'border-border bg-background'"
+        :class="isEditing ? 'border-border bg-surface-muted' : 'border-border bg-background'"
       >
         <div class="flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
           <ClockIcon
@@ -200,47 +204,47 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           v-model="limit.daysOfWeek"
           :is-editing="isEditing"
         />
-        <p
+        <AlertMessage
           v-if="timeLimitError(i, 'daysOfWeek')"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           {{ timeLimitError(i, 'daysOfWeek') }}
-        </p>
+        </AlertMessage>
         <div class="flex flex-wrap items-center gap-2">
           <label class="flex min-w-0 flex-1 items-center gap-x-3">
             <span class="w-36 shrink-0 whitespace-nowrap text-sm font-medium text-secondary-foreground">Minutes per day</span>
-            <input
+            <BaseInput
               type="number"
               min="0"
               aria-label="Minutes per day"
-              :value="limit.dailyMinutes"
-              class="h-8 w-20 rounded-md px-2 text-sm outline-none transition"
-              :class="isEditing
-                ? 'border border-input-border bg-background focus:border-primary focus:ring-2 focus:ring-ring/50'
-                : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
-              @input="setTimeLimitMinutes(limit, ($event.target as HTMLInputElement).value)"
-            >
-          </label>
-          <button
+              :model-value="String(limit.dailyMinutes)"
+              class="w-20"
+              size="sm"
+              :disabled="!isEditing"
+              :display="isEditing ? 'editable' : 'readonly'"
+              :invalid="Boolean(timeLimitError(i, 'dailyMinutes'))"
+              @update:model-value="setTimeLimitMinutes(limit, String($event))"
+            /></label>
+          <BaseButton
             v-if="isEditing"
             type="button"
             aria-label="Delete limit"
             title="Delete"
-            class="inline-flex size-8 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
+            class="self-end"
+            size="icon-sm"
+            variant="danger-ghost"
             @click="timeLimits.splice(i, 1)"
           >
             <TrashIcon
               aria-hidden="true"
               class="size-4"
             />
-          </button>
+          </BaseButton>
         </div>
-        <p
+        <AlertMessage
           v-if="timeLimitError(i, 'dailyMinutes')"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           {{ timeLimitError(i, 'dailyMinutes') }}
-        </p>
+        </AlertMessage>
       </div>
     </div>
   </section>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import { getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { loadCounters, loadSettings } from '@/utils/storage'
 import type { Group, Settings, UsageCountersState } from '@/utils/types'
@@ -103,36 +104,36 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="w-80 p-4 space-y-4 text-foreground">
+  <main class="w-80 space-y-4 bg-background p-4 text-foreground">
     <h1 class="text-lg font-bold">
       Regex URL Blocker
     </h1>
 
-    <p v-if="!isLoaded">
+    <p
+      v-if="!isLoaded"
+      class="text-sm text-muted-foreground"
+    >
       Loading...
     </p>
 
     <template v-else>
-      <p
+      <EmptyState
         v-if="isSkippedPage"
-        class="text-sm text-muted"
       >
         This page is excluded from blocking.
-      </p>
+      </EmptyState>
 
-      <p
+      <EmptyState
         v-else-if="targetGroups.length === 0"
-        class="text-sm text-muted"
       >
         No matching groups for this page.
-      </p>
+      </EmptyState>
 
-      <p
+      <EmptyState
         v-else-if="displaySummaries.length === 0"
-        class="text-sm text-muted"
       >
         No daily limits apply to this page.
-      </p>
+      </EmptyState>
 
       <ul
         v-else
@@ -142,7 +143,7 @@ onUnmounted(() => {
         <li
           v-for="{ group, summary } in displaySummaries"
           :key="group.id"
-          class="space-y-2 rounded-md border border-border p-3"
+          class="space-y-2 rounded-md border border-border bg-surface p-3"
         >
           <p class="font-medium truncate">
             {{ group.name }}

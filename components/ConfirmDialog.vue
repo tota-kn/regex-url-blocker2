@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { ref } from 'vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const message = ref('')
@@ -38,15 +39,14 @@ defineExpose({ open })
 <template>
   <dialog
     ref="dialogRef"
-    class="rounded-md border border-border bg-background text-foreground p-6 shadow-lg w-80"
+    class="w-80 rounded-md border border-border bg-background p-6 text-foreground shadow-lg"
   >
     <p class="mb-4">
       {{ message }}
     </p>
     <div class="flex justify-end gap-2">
-      <button
+      <BaseButton
         type="button"
-        class="inline-flex items-center gap-1.5 border border-border rounded-md px-3 py-1 hover:bg-muted"
         @click="onCancel"
       >
         <XMarkIcon
@@ -54,11 +54,11 @@ defineExpose({ open })
           class="size-4"
         />
         Cancel
-      </button>
-      <button
+      </BaseButton>
+      <BaseButton
         type="button"
         aria-label="Confirm delete"
-        class="inline-flex items-center gap-1.5 text-destructive border border-destructive rounded-md px-3 py-1 hover:bg-muted"
+        variant="danger-ghost"
         @click="onConfirm"
       >
         <TrashIcon
@@ -66,7 +66,7 @@ defineExpose({ open })
           class="size-4"
         />
         Delete
-      </button>
+      </BaseButton>
     </div>
   </dialog>
 </template>

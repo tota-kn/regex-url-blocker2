@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { PlusIcon } from '@heroicons/vue/24/outline'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
@@ -45,10 +47,10 @@ const groups = defineModel<Group[]>({ required: true })
       <h2 class="text-base font-semibold tracking-normal">
         Groups
       </h2>
-      <button
+      <BaseButton
         type="button"
         aria-label="Add group"
-        class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring"
+        variant="primary"
         @click="$emit('addGroup')"
       >
         <PlusIcon
@@ -56,16 +58,16 @@ const groups = defineModel<Group[]>({ required: true })
           class="size-4"
         />
         Group
-      </button>
+      </BaseButton>
     </div>
 
-    <p
+    <EmptyState
       v-if="groups.length === 0"
       aria-label="No groups"
-      class="rounded-lg border border-dashed border-border bg-background/70 p-8 text-center text-sm text-muted"
+      spacious
     >
       No groups yet
-    </p>
+    </EmptyState>
 
     <div class="space-y-4">
       <GroupCard

@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { CheckCircleIcon, CodeBracketIcon, NoSymbolIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import type { GroupMode } from '@/utils/types'
 
 /**
@@ -25,6 +30,11 @@ const patterns = defineModel<string[]>({ required: true })
  * パターンの一致結果を制限対象にするか、除外対象にするかを表すモード。
  */
 const mode = defineModel<GroupMode>('mode', { required: true })
+
+const MODE_OPTIONS = [
+  { value: 'blacklist', label: 'Block matches', icon: NoSymbolIcon },
+  { value: 'whitelist', label: 'Allow only matches', icon: CheckCircleIcon },
+]
 </script>
 
 <template>
@@ -38,50 +48,19 @@ const mode = defineModel<GroupMode>('mode', { required: true })
         URL patterns
       </h3>
       <div class="flex flex-wrap items-center gap-2">
-        <div
-          class="flex overflow-hidden rounded-md text-sm"
-          :class="isEditing ? 'border border-border bg-input' : 'border border-transparent bg-transparent'"
-        >
-          <button
-            v-if="isEditing || mode === 'blacklist'"
-            type="button"
-            :aria-pressed="mode === 'blacklist'"
-            :class="isEditing
-              ? mode === 'blacklist'
-                ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
-                : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'
-              : 'inline-flex h-8 cursor-default items-center gap-1 rounded-md border border-border bg-background px-3 text-secondary-foreground'"
-            @click="mode = 'blacklist'"
-          >
-            <NoSymbolIcon
-              aria-hidden="true"
-              class="size-4"
-            />
-            Block matches
-          </button>
-          <button
-            v-if="isEditing || mode === 'whitelist'"
-            type="button"
-            :aria-pressed="mode === 'whitelist'"
-            :class="isEditing
-              ? mode === 'whitelist'
-                ? 'inline-flex h-8 items-center gap-1 bg-primary px-3 text-primary-foreground'
-                : 'inline-flex h-8 items-center gap-1 px-3 text-secondary-foreground hover:bg-secondary-hover'
-              : 'inline-flex h-8 cursor-default items-center gap-1 rounded-md border border-border bg-background px-3 text-secondary-foreground'"
-            @click="mode = 'whitelist'"
-          >
-            <CheckCircleIcon
-              aria-hidden="true"
-              class="size-4"
-            />
-            Allow only matches
-          </button>
-        </div>
-        <button
+        <SegmentedControl
+          :model-value="mode"
+          :options="MODE_OPTIONS"
+          :editable="isEditing"
+          show-selected-only
+          @update:model-value="mode = $event as GroupMode"
+        />
+        <BaseButton
           v-if="isEditing"
           type="button"
           aria-label="Add URL pattern"
-          class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
+          size="sm"
+          variant="ghost"
           @click="patterns.push('https?://')"
         >
           <PlusIcon
@@ -89,53 +68,54 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             class="size-4"
           />
           URL pattern
-        </button>
+        </BaseButton>
       </div>
     </div>
 
     <div class="space-y-2">
-      <p
+      <EmptyState
         v-if="patterns.length === 0"
         aria-label="No URL patterns"
-        class="rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
       >
         No URL patterns yet
-      </p>
+      </EmptyState>
       <div
         v-for="(_, i) in patterns"
         :key="i"
         class="space-y-1"
       >
         <div class="flex min-w-0 gap-2">
-          <input
+          <BaseInput
             v-model="patterns[i]"
             aria-label="URL regex pattern"
             placeholder="https?://"
-            class="h-9 min-w-0 flex-1 rounded-md px-3 font-mono text-sm outline-none transition"
-            :class="isEditing
-              ? 'border border-input-border bg-input focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50'
-              : 'cursor-default border border-transparent bg-transparent text-input-foreground disabled:opacity-100'"
-          >
-          <button
+            class="flex-1"
+            size="md"
+            monospace
+            :disabled="!isEditing"
+            :display="isEditing ? 'editable' : 'readonly'"
+            :invalid="Boolean(error(i))"
+          />
+          <BaseButton
             v-if="isEditing"
             type="button"
             aria-label="Delete pattern"
             title="Delete"
-            class="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border text-destructive transition hover:bg-red-50"
+            size="icon-md"
+            variant="danger-ghost"
             @click="patterns.splice(i, 1)"
           >
             <TrashIcon
               aria-hidden="true"
               class="size-4"
             />
-          </button>
+          </BaseButton>
         </div>
-        <p
+        <AlertMessage
           v-if="error(i)"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           {{ error(i) }}
-        </p>
+        </AlertMessage>
       </div>
     </div>
   </section>

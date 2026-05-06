@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ArrowUturnLeftIcon, ShieldExclamationIcon } from '@heroicons/vue/24/outline'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import InfoValue from '@/components/ui/InfoValue.vue'
 import { loadSettings } from '@/utils/storage'
 import type { Group } from '@/utils/types'
 
@@ -61,15 +63,13 @@ onMounted(async () => {
 
       <div class="mt-6 space-y-4">
         <div>
-          <h2 class="text-sm font-medium text-secondary-foreground">
-            URL
-          </h2>
-          <p
+          <InfoValue
+            label="URL"
             aria-label="Blocked URL"
-            class="mt-1 break-all rounded-md border border-border bg-input px-3 py-2 text-sm"
+            break-all
           >
             {{ blockedUrl || 'Unknown' }}
-          </p>
+          </InfoValue>
         </div>
 
         <div>
@@ -78,31 +78,30 @@ onMounted(async () => {
           </h2>
           <p
             v-if="!isLoaded"
-            class="mt-1 text-sm text-muted"
+            class="mt-1 text-sm text-muted-foreground"
           >
             Loading...
           </p>
-          <p
+          <InfoValue
             v-else-if="blockedGroups.length === 0"
             aria-label="Blocked groups"
-            class="mt-1 rounded-md border border-border bg-input px-3 py-2 text-sm"
           >
             Unknown setting
-          </p>
-          <p
+          </InfoValue>
+          <InfoValue
             v-else
             aria-label="Blocked groups"
-            class="mt-1 rounded-md border border-border bg-input px-3 py-2 text-sm"
           >
             {{ groupNames }}
-          </p>
+          </InfoValue>
         </div>
       </div>
 
       <div class="mt-6 flex justify-end">
-        <button
+        <BaseButton
           type="button"
-          class="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring/60"
+          variant="primary"
+          class="h-10 px-4"
           @click="goBack"
         >
           <ArrowUturnLeftIcon
@@ -110,7 +109,7 @@ onMounted(async () => {
             class="size-4"
           />
           Back
-        </button>
+        </BaseButton>
       </div>
     </section>
   </main>

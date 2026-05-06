@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ArrowPathIcon, ArrowTopRightOnSquareIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
+import BaseField from '@/components/ui/BaseField.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import type { BlockAction, GlobalSettings } from '@/utils/types'
 
 /**
@@ -21,6 +25,11 @@ const emit = defineEmits<{
  * Options 画面で編集するグローバル設定。
  */
 const globalSettings = defineModel<GlobalSettings>({ required: true })
+
+const BLOCK_ACTION_OPTIONS = [
+  { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
+  { value: 'blockedPage', label: 'Blocked page', icon: DocumentTextIcon },
+]
 
 /**
  * ブロック時動作を変更し、background がすぐ参照できるよう即時保存を要求する。
@@ -48,80 +57,57 @@ function setBlockAction(action: BlockAction): void {
           />
           When a page is blocked
         </span>
-        <div class="grid grid-cols-2 rounded-md border border-input-border bg-input p-1">
-          <button
-            type="button"
-            aria-label="Redirect"
-            :aria-pressed="globalSettings.blockAction === 'redirect'"
-            class="h-8 rounded-sm px-2 text-sm font-medium transition aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
-            @click="setBlockAction('redirect')"
-          >
-            Redirect
-          </button>
-          <button
-            type="button"
-            aria-label="Blocked page"
-            :aria-pressed="globalSettings.blockAction === 'blockedPage'"
-            class="h-8 rounded-sm px-2 text-sm font-medium transition aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
-            @click="setBlockAction('blockedPage')"
-          >
-            Blocked page
-          </button>
-        </div>
+        <SegmentedControl
+          :model-value="globalSettings.blockAction"
+          :options="BLOCK_ACTION_OPTIONS"
+          class="grid w-full grid-cols-2"
+          @update:model-value="setBlockAction($event as BlockAction)"
+        />
       </div>
-      <p
+      <AlertMessage
         v-if="error('blockAction')"
-        class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
       >
         {{ error('blockAction') }}
-      </p>
+      </AlertMessage>
 
-      <label
+      <BaseField
         v-if="globalSettings.blockAction === 'redirect'"
-        class="block"
+        label="Redirect URL"
+        :error="error('redirectUrl')"
       >
-        <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
+        <template #icon>
           <ArrowTopRightOnSquareIcon
             aria-hidden="true"
             class="size-4 text-muted"
           />
-          Redirect URL
-        </span>
-        <input
+        </template>
+        <BaseInput
           v-model="globalSettings.redirectUrl"
           type="url"
           aria-label="Redirect URL"
-          class="h-10 w-full rounded-md border border-input-border bg-input px-3 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
-        >
-      </label>
-      <p
-        v-if="globalSettings.blockAction === 'redirect' && error('redirectUrl')"
-        class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
-      >
-        {{ error('redirectUrl') }}
-      </p>
+          class="w-full"
+          :invalid="Boolean(error('redirectUrl'))"
+        />
+      </BaseField>
 
-      <label class="block">
-        <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
+      <BaseField
+        label="Daily reset time"
+        :error="error('dailyResetHour')"
+      >
+        <template #icon>
           <ArrowPathIcon
             aria-hidden="true"
             class="size-4 text-muted"
           />
-          Daily reset time
-        </span>
-        <input
+        </template>
+        <BaseInput
           v-model="globalSettings.dailyResetHour"
           type="time"
           aria-label="Daily reset time"
-          class="h-10 w-full rounded-md border border-input-border bg-input px-3 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
-        >
-      </label>
-      <p
-        v-if="error('dailyResetHour')"
-        class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
-      >
-        {{ error('dailyResetHour') }}
-      </p>
+          class="w-full"
+          :invalid="Boolean(error('dailyResetHour'))"
+        />
+      </BaseField>
     </div>
   </section>
 </template>

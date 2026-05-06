@@ -4,6 +4,9 @@
   /* 基本カラー */
   --color-background: #ffffff;
   --color-foreground: #1f2937;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f9fafb;
+  --color-surface-subtle: #f3f4f6;
 
   /* プライマリカラー（メインアクション、選択状態） */
   --color-primary: #3b82f6;         /* ブルー500 - メインボタン、アクティブ要素 */
@@ -16,8 +19,13 @@
   --color-secondary-foreground: #4b5563; /* グレー600 */
 
   /* 警告・危険アクション */
-  --color-destructive: #ef4444;     /* レッド500 - 削除ボタンなど */
-  --color-destructive-hover: #dc2626; /* レッド600 - ホバー時 */
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-subtle: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-danger-foreground: #ffffff;
+  --color-destructive: #dc2626;     /* 既存互換 */
+  --color-destructive-hover: #b91c1c;
   --color-destructive-foreground: #ffffff;
 
   /* ボーダー、ディバイダー */
@@ -25,8 +33,14 @@
   --color-border-hover: #d1d5db;    /* グレー300 - フォーカス時など */
 
   /* 入力フィールド */
-  --color-input: #f9fafb;           /* グレー50 - 入力欄背景 */
-  --color-input-border: #e5e7eb;    /* グレー200 - 入力欄境界線 */
+  --color-field: #ffffff;
+  --color-field-hover: #f9fafb;
+  --color-field-readonly: transparent;
+  --color-field-disabled: #f3f4f6;
+  --color-field-border: #d1d5db;
+  --color-field-border-hover: #9ca3af;
+  --color-input: #ffffff;           /* 既存互換 */
+  --color-input-border: #d1d5db;    /* 既存互換 */
   --color-input-foreground: #1f2937; /* グレー800 - 入力テキスト */
 
   /* タグ関連 */
@@ -43,6 +57,7 @@
 
   /* その他のUI要素 */
   --color-muted: #9ca3af;           /* グレー400 - 薄いテキスト、アイコン */
+  --color-muted-foreground: #6b7280;
   --color-accent: #eff6ff;          /* ブルー50 - アクセント背景 */
 
   /* 角丸半径 */

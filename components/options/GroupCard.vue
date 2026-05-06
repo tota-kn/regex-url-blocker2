@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { CheckIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
@@ -107,27 +110,25 @@ function saveEditing(): void {
     <div class="border-b border-border bg-background p-4">
       <div class="space-y-2.5">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <label class="group/name block min-w-0 flex-1">
+          <label class="block min-w-0 flex-1">
             <span class="sr-only">Name</span>
-            <span
-              class="flex min-w-0 items-center rounded-md border px-2 py-1 transition"
-              :class="isEditing ? 'border-input-border bg-input focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border-hover' : 'border-transparent bg-transparent px-0'"
-            >
-              <input
-                v-model="draft.name"
-                aria-label="Name"
-                :disabled="!isEditing"
-                class="min-w-0 flex-1 bg-transparent text-base font-semibold tracking-normal outline-none disabled:cursor-default disabled:text-foreground"
-              >
-            </span>
+            <BaseInput
+              v-model="draft.name"
+              aria-label="Name"
+              :disabled="!isEditing"
+              :display="isEditing ? 'editable' : 'readonly'"
+              size="sm"
+              class="w-full text-base font-semibold tracking-normal"
+              :invalid="isEditing && Boolean(draftError('name'))"
+            />
           </label>
 
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
-            <button
+            <BaseButton
               v-if="!isEditing"
               type="button"
               aria-label="Delete group"
-              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 text-sm font-medium text-destructive transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+              variant="danger-ghost"
               @click="$emit('remove')"
             >
               <TrashIcon
@@ -135,12 +136,12 @@ function saveEditing(): void {
                 class="size-4"
               />
               Delete
-            </button>
-            <button
+            </BaseButton>
+            <BaseButton
               v-if="!isEditing"
               type="button"
               aria-label="Edit group"
-              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-background px-3 text-sm font-medium text-primary transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+              variant="ghost"
               @click="startEditing"
             >
               <PencilSquareIcon
@@ -148,7 +149,7 @@ function saveEditing(): void {
                 class="size-4"
               />
               Edit
-            </button>
+            </BaseButton>
           </div>
         </div>
 
@@ -159,12 +160,12 @@ function saveEditing(): void {
           class="w-full"
         />
       </div>
-      <p
+      <AlertMessage
         v-if="isEditing && draftError('name')"
-        class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
+        class="mt-3"
       >
         {{ draftError('name') }}
-      </p>
+      </AlertMessage>
     </div>
 
     <fieldset
@@ -194,10 +195,9 @@ function saveEditing(): void {
       class="flex items-center justify-end gap-2 border-t border-border bg-background p-4"
     >
       <div class="ml-auto flex items-center gap-2">
-        <button
+        <BaseButton
           type="button"
           aria-label="Cancel group"
-          class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-secondary-foreground transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
           @click="cancelEditing"
         >
           <XMarkIcon
@@ -205,12 +205,12 @@ function saveEditing(): void {
             class="size-4"
           />
           Cancel
-        </button>
-        <button
+        </BaseButton>
+        <BaseButton
           type="button"
           aria-label="Save group"
           :disabled="!canSave"
-          class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          variant="primary"
           @click="saveEditing"
         >
           <CheckIcon
@@ -218,7 +218,7 @@ function saveEditing(): void {
             class="size-4"
           />
           Save
-        </button>
+        </BaseButton>
       </div>
     </div>
   </article>

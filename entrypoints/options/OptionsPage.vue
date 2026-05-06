@@ -7,6 +7,7 @@ import { loadCounters, loadSettings, saveSettings } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import type { Group, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
 
@@ -148,12 +149,11 @@ onUnmounted(() => {
             @remove-group="removeGroup"
           />
         </div>
-        <p
+        <AlertMessage
           v-if="totalErrors > 0"
-          class="rounded-md bg-red-50 px-3 py-2 text-sm text-destructive"
         >
           Errors: {{ totalErrors }}
-        </p>
+        </AlertMessage>
       </template>
     </div>
   </main>

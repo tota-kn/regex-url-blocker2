@@ -68,6 +68,7 @@ function toggleDay(day: DayOfWeek): void {
             type="checkbox"
             :aria-label="d.ariaLabel"
             :checked="daysOfWeek.includes(d.value)"
+            :disabled="!isEditing"
             :class="isEditing ? 'size-3.5 accent-primary' : 'sr-only'"
             @change="toggleDay(d.value)"
           >

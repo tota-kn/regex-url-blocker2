@@ -29,6 +29,30 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await expect(page.getByLabel('URL regex pattern')).toHaveValue('https?://')
+    await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
+  })
+
+  test('編集可能な入力欄は共通の field 色で表示される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('button', { name: 'Add blocked time' }).click()
+    await page.getByRole('button', { name: 'Add daily limit' }).click()
+
+    const editableInputs = [
+      page.getByLabel('Redirect URL'),
+      page.getByLabel('Daily reset time'),
+      page.getByLabel('Name'),
+      page.getByLabel('URL regex pattern'),
+      page.getByLabel('Start time'),
+      page.getByLabel('Minutes per day'),
+    ]
+
+    for (const input of editableInputs) {
+      await expect(input).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+      await expect(input).toHaveCSS('border-top-color', 'rgb(209, 213, 219)')
+    }
   })
 
   test('グループを追加して保存→リロード後も保持される', async ({ page, extensionId }) => {
