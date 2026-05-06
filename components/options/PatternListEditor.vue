@@ -28,7 +28,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
 </script>
 
 <template>
-  <section class="rounded-md border border-border bg-background p-3">
+  <section class="space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 class="flex items-center gap-1.5 text-sm font-semibold">
         <CodeBracketIcon
@@ -86,7 +86,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
       </div>
     </div>
 
-    <div class="mt-3 space-y-2">
+    <div class="space-y-2">
       <p
         v-if="patterns.length === 0"
         aria-label="No URL patterns"

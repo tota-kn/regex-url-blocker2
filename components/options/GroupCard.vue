@@ -126,6 +126,19 @@ function saveEditing(): void {
             <button
               v-if="!isEditing"
               type="button"
+              aria-label="Delete group"
+              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 text-sm font-medium text-destructive transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-destructive/30"
+              @click="$emit('remove')"
+            >
+              <TrashIcon
+                aria-hidden="true"
+                class="size-4"
+              />
+              Delete
+            </button>
+            <button
+              v-if="!isEditing"
+              type="button"
               aria-label="Edit group"
               class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-background px-3 text-sm font-medium text-primary transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
               @click="startEditing"
@@ -176,23 +189,12 @@ function saveEditing(): void {
       />
     </fieldset>
 
-    <div class="flex items-center justify-between gap-2 border-t border-border bg-background p-4">
-      <button
-        v-if="!isEditing"
-        type="button"
-        aria-label="Delete group"
-        class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-background px-3 text-sm font-medium text-destructive transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-destructive/30"
-        @click="$emit('remove')"
-      >
-        <TrashIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Delete
-      </button>
+    <div
+      v-if="isEditing"
+      class="flex items-center justify-end gap-2 border-t border-border bg-background p-4"
+    >
       <div class="ml-auto flex items-center gap-2">
         <button
-          v-if="isEditing"
           type="button"
           aria-label="Cancel group"
           class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-secondary-foreground transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
@@ -205,7 +207,6 @@ function saveEditing(): void {
           Cancel
         </button>
         <button
-          v-if="isEditing"
           type="button"
           aria-label="Save group"
           :disabled="!canSave"

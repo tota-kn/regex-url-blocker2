@@ -48,7 +48,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
 </script>
 
 <template>
-  <section class="rounded-md border border-border bg-background p-3">
+  <section class="space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 class="flex items-center gap-1.5 text-sm font-semibold">
         <ClockIcon
@@ -90,14 +90,14 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
     <p
       v-if="blockedTimeSlots.length === 0 && timeLimits.length === 0"
       aria-label="No blocking rules"
-      class="mt-3 rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
+      class="rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
     >
       No blocking rules yet
     </p>
 
     <div
       v-if="blockedTimeSlots.length > 0 || timeLimits.length > 0"
-      class="mt-3 space-y-3"
+      class="space-y-3"
     >
       <div
         v-for="(slot, i) in blockedTimeSlots"
