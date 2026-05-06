@@ -64,6 +64,7 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
     }
     await chromeApi.chrome.storage.sync.set({
       global: {
+        blockAction: 'redirect',
         redirectUrl: 'https://example.com/blocked',
         dailyResetHour: '00:00',
       },

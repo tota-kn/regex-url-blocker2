@@ -7,6 +7,8 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://example.com')
+    await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Extension page' })).toHaveAttribute('aria-pressed', 'false')
     await expect(page.getByLabel('Reset time')).toHaveValue('00:00')
     await expect(page.getByLabel('No groups')).toHaveText('Empty')
   })
@@ -92,6 +94,7 @@ test.describe('Options 画面', () => {
       }
       await chromeApi.chrome.storage.sync.set({
         global: {
+          blockAction: 'redirect',
           redirectUrl: 'https://example.com',
           dailyResetHour: '00:00',
         },
@@ -154,6 +157,7 @@ test.describe('Options 画面', () => {
       }
       await chromeApi.chrome.storage.sync.set({
         global: {
+          blockAction: 'redirect',
           redirectUrl: 'https://example.com',
           dailyResetHour: '00:00',
         },
@@ -296,6 +300,20 @@ test.describe('Options 画面', () => {
     await page.reload()
 
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://blocked.example.test')
+  })
+
+  test('ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Extension page' }).click()
+    await expect(page.getByRole('button', { name: 'Extension page' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByRole('button', { name: 'Extension page' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   test('モード切替（ホワイトリスト）が永続化される', async ({ page, extensionId }) => {

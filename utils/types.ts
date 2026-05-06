@@ -41,6 +41,13 @@ export interface TimeLimit {
 export type GroupMode = 'blacklist' | 'whitelist'
 
 /**
+ * ブロック発生時の遷移先。
+ * - `'redirect'`: ユーザー指定 URL へ遷移する（既定）。
+ * - `'blockedPage'`: 拡張機能が用意するブロックページを表示する。
+ */
+export type BlockAction = 'redirect' | 'blockedPage'
+
+/**
  * ブロック対象グループ。SPEC.md「グループ」節に対応する。
  */
 export interface Group {
@@ -64,6 +71,8 @@ export interface Group {
  * 拡張機能全体のグローバル設定。SPEC.md「グローバル設定」節に対応する。
  */
 export interface GlobalSettings {
+  /** ブロック発生時の遷移先種別。 */
+  blockAction: BlockAction
   /** 制限超過時のリダイレクト先 URL。 */
   redirectUrl: string
   /** 論理日の境界となる時刻（"HH:MM"）。 */

@@ -37,15 +37,21 @@ export function isValidHHMM(value: string): boolean {
 export function validateGlobalSettings(settings: GlobalSettings): ValidationError[] {
   const errors: ValidationError[] = []
 
-  if (settings.redirectUrl.trim().length === 0) {
-    errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+  if (settings.blockAction !== 'redirect' && settings.blockAction !== 'blockedPage') {
+    errors.push({ field: 'blockAction', message: 'Invalid action' })
   }
-  else {
-    try {
-      new URL(settings.redirectUrl)
-    }
-    catch {
+
+  if (settings.blockAction === 'redirect') {
+    if (settings.redirectUrl.trim().length === 0) {
       errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+    }
+    else {
+      try {
+        new URL(settings.redirectUrl)
+      }
+      catch {
+        errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+      }
     }
   }
 

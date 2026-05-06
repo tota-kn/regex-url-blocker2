@@ -3,6 +3,7 @@ import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
   it('SPEC.md の既定値と一致する', () => {
+    expect(DEFAULT_GLOBAL_SETTINGS.blockAction).toBe('redirect')
     expect(DEFAULT_GLOBAL_SETTINGS.redirectUrl).toBe('https://example.com')
     expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('00:00')
   })

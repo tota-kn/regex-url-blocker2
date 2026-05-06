@@ -19,7 +19,14 @@ describe('loadSettings', () => {
     await browser.storage.sync.set({ global: { redirectUrl: 'https://block.test' } })
     const s = await loadSettings()
     expect(s.global.redirectUrl).toBe('https://block.test')
+    expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
     expect(s.global.dailyResetHour).toBe(DEFAULT_GLOBAL_SETTINGS.dailyResetHour)
+  })
+
+  it('global の blockAction が不正な場合は DEFAULT で補完される', async () => {
+    await browser.storage.sync.set({ global: { blockAction: 'invalid' } })
+    const s = await loadSettings()
+    expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
   })
 })
 
@@ -27,7 +34,7 @@ describe('saveSettings', () => {
   it('save → load でラウンドトリップ', async () => {
     const group = { ...createEmptyGroup(), name: 'Twitter', patterns: ['^https?://twitter\\.com'] }
     const settings = {
-      global: { redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
+      global: { blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
       groups: [group],
     }
     await saveSettings(settings)

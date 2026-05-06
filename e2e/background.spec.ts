@@ -63,6 +63,7 @@ async function saveBlockingSettingsWithPattern(serviceWorker: Worker, origin: st
     }
     await chromeApi.chrome.storage.sync.set({
       global: {
+        blockAction: 'redirect',
         redirectUrl: `${settings.origin}/blocked`,
         dailyResetHour: '00:00',
       },
@@ -79,6 +80,38 @@ async function saveBlockingSettingsWithPattern(serviceWorker: Worker, origin: st
 }
 
 /**
+ * Service Worker 上の storage.sync に拡張ページ表示用の即ブロック設定を書き込む。
+ */
+async function saveBlockedPageSettings(serviceWorker: Worker, origin: string, groups: Array<{ id: string, name: string }>): Promise<void> {
+  await serviceWorker.evaluate(async (settings) => {
+    const chromeApi = globalThis as unknown as {
+      chrome: {
+        storage: {
+          sync: {
+            set: (items: Record<string, unknown>) => Promise<void>
+          }
+        }
+      }
+    }
+    await chromeApi.chrome.storage.sync.set({
+      global: {
+        blockAction: 'blockedPage',
+        redirectUrl: `${settings.origin}/blocked`,
+        dailyResetHour: '00:00',
+      },
+      groups: settings.groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        mode: 'blacklist',
+        patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
+        blockedTimeSlots: [],
+        timeLimits: [{ daysOfWeek: [], dailyMinutes: 0 }],
+      })),
+    })
+  }, { origin, groups })
+}
+
+/**
  * redirect で中断されうる navigation を実行する。
  */
 async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
@@ -89,6 +122,25 @@ async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
     if (error instanceof Error && error.message.includes('net::ERR_ABORTED')) return
     throw error
   }
+}
+
+/**
+ * Service Worker 上の storage.sync から現在の blockAction を読む。
+ */
+async function getStoredBlockAction(serviceWorker: Worker): Promise<unknown> {
+  return serviceWorker.evaluate(async () => {
+    const chromeApi = globalThis as unknown as {
+      chrome: {
+        storage: {
+          sync: {
+            get: (keys: string[]) => Promise<{ global?: { blockAction?: unknown } }>
+          }
+        }
+      }
+    }
+    const result = await chromeApi.chrome.storage.sync.get(['global'])
+    return result.global?.blockAction
+  })
 }
 
 test.describe('Background blocking', () => {
@@ -135,6 +187,60 @@ test.describe('Background blocking', () => {
 
       await gotoPossiblyRedirected(page, `${server.origin}/`)
       await expect(page).toHaveURL(`${server.origin}/blocked`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('blockedPage 設定では拡張ページにブロック元 URL とグループ名を表示する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await saveBlockedPageSettings(serviceWorker, server.origin, [{ id: 'block-local', name: 'Block local' }])
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await expect(page.getByLabel('Blocked URL')).toHaveText(`${server.origin}/target`)
+      await expect(page.getByLabel('Blocked groups')).toHaveText('Block local')
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('blockedPage 設定では複数のブロックグループ名を表示する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await saveBlockedPageSettings(serviceWorker, server.origin, [
+        { id: 'work', name: 'Work block' },
+        { id: 'night', name: 'Night block' },
+      ])
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await expect(page.getByLabel('Blocked groups')).toHaveText('Work block, Night block')
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('Options で Extension page に切り替えた後は拡張ページへ遷移する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await saveBlockingSettings(serviceWorker, server.origin)
+      await page.goto(`chrome-extension://${extensionId}/options.html`)
+      await page.getByRole('button', { name: 'Extension page' }).click()
+      await expect.poll(async () => getStoredBlockAction(serviceWorker)).toBe('blockedPage')
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await expect(page.getByLabel('Blocked groups')).toHaveText('Block local')
     }
     finally {
       await server.close()

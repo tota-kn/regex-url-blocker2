@@ -4,6 +4,7 @@ import type { GlobalSettings, Group } from './types'
  * 未設定時に使用するグローバル設定の既定値。SPEC.md 準拠。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
+  blockAction: 'redirect',
   redirectUrl: 'https://example.com',
   dailyResetHour: '00:00',
 }

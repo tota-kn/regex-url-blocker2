@@ -81,6 +81,15 @@ const debouncedSave = debounce((s: Settings) => {
   void saveSettings(s)
 }, 300)
 
+/**
+ * 現在の設定を即時保存する。重大な入力エラーがある場合は既存の自動保存と同じく保存しない。
+ */
+function saveNow(): void {
+  if (!isLoaded.value) return
+  if (totalErrors.value > 0) return
+  void saveSettings(JSON.parse(JSON.stringify(settings.value)) as Settings)
+}
+
 watch(settings, (s) => {
   if (!isLoaded.value) return
   if (totalErrors.value > 0) return
@@ -126,6 +135,7 @@ onUnmounted(() => {
           <GlobalSettingsSection
             v-model="settings.global"
             :error="globalError"
+            @save-now="saveNow"
           />
 
           <GroupsSection

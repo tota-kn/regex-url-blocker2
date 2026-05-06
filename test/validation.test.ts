@@ -200,6 +200,7 @@ describe('validateTimeLimit (validateGroup 経由)', () => {
 describe('validateGlobalSettings', () => {
   it('正常な設定はエラーなし', () => {
     expect(validateGlobalSettings({
+      blockAction: 'redirect',
       redirectUrl: 'https://example.com',
       dailyResetHour: '00:00',
     })).toEqual([])
@@ -207,6 +208,7 @@ describe('validateGlobalSettings', () => {
 
   it('無効 URL と HH:MM で2件のエラー', () => {
     const errors = validateGlobalSettings({
+      blockAction: 'redirect',
       redirectUrl: 'not-a-url',
       dailyResetHour: '99:99',
     })
@@ -216,9 +218,27 @@ describe('validateGlobalSettings', () => {
 
   it('redirectUrl が空でもエラー', () => {
     const errors = validateGlobalSettings({
+      blockAction: 'redirect',
       redirectUrl: '',
       dailyResetHour: '00:00',
     })
     expect(errors.some(e => e.field === 'redirectUrl')).toBe(true)
+  })
+
+  it('blockedPage では redirectUrl が不正でも valid', () => {
+    expect(validateGlobalSettings({
+      blockAction: 'blockedPage',
+      redirectUrl: '',
+      dailyResetHour: '00:00',
+    })).toEqual([])
+  })
+
+  it('blockAction が不正値だとエラー', () => {
+    const errors = validateGlobalSettings({
+      blockAction: 'invalid' as 'redirect',
+      redirectUrl: 'https://example.com',
+      dailyResetHour: '00:00',
+    })
+    expect(errors.some(e => e.field === 'blockAction')).toBe(true)
   })
 })

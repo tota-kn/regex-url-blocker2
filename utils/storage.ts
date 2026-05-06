@@ -1,5 +1,12 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
-import type { BlockedTimeSlot, GlobalSettings, Group, GroupMode, Settings, TimeLimit, UsageCountersState } from './types'
+import type { BlockAction, BlockedTimeSlot, GlobalSettings, Group, GroupMode, Settings, TimeLimit, UsageCountersState } from './types'
+
+/**
+ * 保存済み値を有効なブロック時動作へ正規化する。
+ */
+function normalizeBlockAction(value: unknown): BlockAction {
+  return value === 'redirect' || value === 'blockedPage' ? value : DEFAULT_GLOBAL_SETTINGS.blockAction
+}
 
 /**
  * browser.storage.sync から `Settings` 全体を読み込む。
@@ -21,8 +28,13 @@ export async function loadSettings(): Promise<Settings> {
         timeLimits: Array.isArray(g.timeLimits) ? (g.timeLimits as TimeLimit[]) : [],
       }))
     : []
+  const rawGlobal = raw.global ?? {}
   return {
-    global: { ...DEFAULT_GLOBAL_SETTINGS, ...(raw.global ?? {}) },
+    global: {
+      ...DEFAULT_GLOBAL_SETTINGS,
+      ...rawGlobal,
+      blockAction: normalizeBlockAction(rawGlobal.blockAction),
+    },
     groups,
   }
 }

@@ -1,6 +1,6 @@
 # 仕様
 
-正規表現で指定した URL に対して **1日あたりの閲覧時間** と **時間帯** を制限する Chrome 拡張機能。制限を超過すると別途設定したリダイレクト URL（デフォルト `https://example.com`）へ遷移させる。
+正規表現で指定した URL に対して **1日あたりの閲覧時間** と **時間帯** を制限する Chrome 拡張機能。制限を超過すると別途設定したリダイレクト URL（デフォルト `https://example.com`）へ遷移するか、拡張機能が用意するブロックページを表示する。
 
 ## 用語
 
@@ -37,6 +37,7 @@
 
 ### グローバル設定
 
+- `blockAction`: ブロック時の動作。`redirect`（既定）または `blockedPage`
 - `redirectUrl`: 制限超過時のリダイレクト先 URL。デフォルト `https://example.com`
 - `dailyResetHour`: 論理日の境界となる時刻（`HH:MM`）。デフォルト `00:00`
 
@@ -60,7 +61,7 @@
   - `timeLimits` のうち D が `daysOfWeek` にマッチするものを収集し、`dailyMinutes` の最小値を有効上限とする。`consumedSec >= 有効上限 * 60` ならブロック状態
 - URL 単位の判定：
   - URL がマッチするグループのうち **いずれか1つでもブロック状態** なら、その URL はブロックされる
-- ブロックされた URL は `redirectUrl` へリダイレクトされる。
+- ブロックされた URL は `blockAction` に従って、`redirectUrl` へリダイレクトされるか拡張機能のブロックページへ遷移する。
 
 ### 正規表現の評価対象
 
@@ -78,12 +79,14 @@
 - 過去日の履歴は保持しない（今日分のみ）。
 - 日跨ぎのブロック時間帯は `end < start` で表現する（例 `22:00–06:00`）。`end === start` は 24 時間ブロックとして扱う。
 
-### リダイレクト動作
+### ブロック時の遷移動作
 
-- 新規ナビゲーション：`chrome.webNavigation.onBeforeNavigate`（および SPA 用 `onHistoryStateUpdated`）で先回り判定し、`chrome.tabs.update` で `redirectUrl` へ書き換える。
+- 新規ナビゲーション：`chrome.webNavigation.onBeforeNavigate`（および SPA 用 `onHistoryStateUpdated`）で先回り判定し、`chrome.tabs.update` でブロック先 URL へ書き換える。
 - `webNavigation` はトップレベルフレームのみを対象とし、`frameId !== 0` のイベントは無視する。
 - 既存タブの状態変化：`chrome.alarms`（1分間隔）と毎秒ティックで再評価し、ブロック状態に切り替わったタブを `tabs.update` で書き換える。
 - `tabs.update` の直前にも判定スキップ URL と `redirectUrl` 完全一致を確認し、リダイレクトループを防止する。
+- `blockAction === "redirect"` の場合は `redirectUrl` へ遷移する。
+- `blockAction === "blockedPage"` の場合は `blocked.html` を表示し、ブロックされた URL とブロック状態だったグループ名を表示する。
 
 ## 画面要件
 
@@ -94,7 +97,7 @@
 - `mode` は `blacklist` / `whitelist` を選択できる。
 - ブロック時間帯は1組につき：曜日チェックボックス（日〜土の7つ。未選択=毎日）、`<input type="time">` の開始/終了
 - 上限は1組につき：曜日チェックボックス（日〜土の7つ。未選択=毎日）、`<input type="number">` の上限分数
-- グローバル設定（`redirectUrl`、`dailyResetHour`）の編集
+- グローバル設定（`blockAction`、`redirectUrl`、`dailyResetHour`）の編集
 - 保存時に正規表現の構文を `new RegExp()` で検証し、無効なら保存拒否＋インラインエラー
 - 保存はキー入力のたびではなく debounce（300ms）で `chrome.storage.sync` のレート制限に配慮
 
@@ -107,7 +110,7 @@
 
 ## ストレージ
 
-- `chrome.storage.sync`：グループ定義、グローバル設定（リセット時刻、リダイレクト先）
+- `chrome.storage.sync`：グループ定義、グローバル設定（ブロック時動作、リセット時刻、リダイレクト先）
 - `chrome.storage.local`：グループごとの累積カウンタ（`{ counters: Record<groupId, { logicalDate, consumedSec }> }`）
 - background は起動時にカウンタを読み込み、現在の論理日と異なるカウンタは `consumedSec` を 0 に正規化する。
 - 削除済みグループのカウンタは background のフラッシュ時に破棄してよい。

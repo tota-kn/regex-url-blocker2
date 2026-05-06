@@ -1,4 +1,4 @@
-import { evaluateUrl, incrementCounters, normalizeCounters, shouldSkipUrl } from '@/utils/blocking'
+import { evaluateUrl, incrementCounters, normalizeCounters, shouldSkipUrl, type UrlEvaluation } from '@/utils/blocking'
 import { loadCounters, loadSettings, saveCounters } from '@/utils/storage'
 import type { Settings, UsageCountersState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
@@ -12,6 +12,7 @@ let settings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
 let dirtyCounters = false
 let initPromise: Promise<void> | undefined
+let reloadPromise: Promise<void> | undefined
 
 /**
  * background が利用する設定とカウンタを初期化する。
@@ -36,6 +37,7 @@ function ensureInitialized(): Promise<void> {
  */
 async function currentSettings(): Promise<Settings> {
   await ensureInitialized()
+  await reloadPromise
   if (!settings) {
     throw new Error('Settings are not initialized')
   }
@@ -59,15 +61,36 @@ async function reloadSettings(): Promise<void> {
   counters = normalizeCounters(settings, counters, new Date())
   dirtyCounters = true
   await flushCounters()
-  await reevaluateAllTabs()
 }
 
 /**
- * redirect 直前の安全確認を行ったうえでタブをリダイレクトする。
+ * 拡張機能のブロックページ URL を作る。
  */
-async function redirectTab(tabId: number, url: string | undefined, s: Settings): Promise<void> {
-  if (shouldSkipUrl(url, s.global.redirectUrl)) return
-  await browser.tabs.update(tabId, { url: s.global.redirectUrl })
+function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
+  const target = new URL(`chrome-extension://${browser.runtime.id}/blocked.html`)
+  target.searchParams.set('url', url)
+  for (const groupId of evaluation.blockedGroupIds) {
+    target.searchParams.append('group', groupId)
+  }
+  return target.toString()
+}
+
+/**
+ * ブロック時にタブを書き換える遷移先 URL を作る。
+ */
+function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvaluation): string {
+  if (s.global.blockAction === 'blockedPage') {
+    return buildBlockedPageUrl(url, evaluation)
+  }
+  return s.global.redirectUrl
+}
+
+/**
+ * redirect 直前の安全確認を行ったうえでタブをブロック先へ遷移する。
+ */
+async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation): Promise<void> {
+  if (!url || shouldSkipUrl(url, s.global.redirectUrl)) return
+  await browser.tabs.update(tabId, { url: buildBlockDestinationUrl(url, s, evaluation) })
 }
 
 /**
@@ -76,8 +99,9 @@ async function redirectTab(tabId: number, url: string | undefined, s: Settings):
 async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
   if (typeof tab.id !== 'number') return
   const s = await currentSettings()
-  if (!evaluateUrl(s, counters, tab.url, now).blocked) return
-  await redirectTab(tab.id, tab.url, s)
+  const evaluation = evaluateUrl(s, counters, tab.url, now)
+  if (!evaluation.blocked) return
+  await redirectTab(tab.id, tab.url, s, evaluation)
 }
 
 /**
@@ -124,8 +148,9 @@ async function tick(): Promise<void> {
 async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsType | WebNavigation.OnHistoryStateUpdatedDetailsType): Promise<void> {
   if (details.frameId !== 0) return
   const s = await currentSettings()
-  if (!evaluateUrl(s, counters, details.url, new Date()).blocked) return
-  await redirectTab(details.tabId, details.url, s)
+  const evaluation = evaluateUrl(s, counters, details.url, new Date())
+  if (!evaluation.blocked) return
+  await redirectTab(details.tabId, details.url, s, evaluation)
 }
 
 /**
@@ -147,7 +172,16 @@ export default defineBackground(() => {
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return
     if (!changes.global && !changes.groups) return
-    runAsync(reloadSettings)
+    runAsync(async () => {
+      reloadPromise = reloadSettings()
+      try {
+        await reloadPromise
+      }
+      finally {
+        reloadPromise = undefined
+      }
+      await reevaluateAllTabs()
+    })
   })
 
   browser.webNavigation.onBeforeNavigate.addListener((details) => {
@@ -163,8 +197,9 @@ export default defineBackground(() => {
     if (!url) return
     runAsync(async () => {
       const s = await currentSettings()
-      if (!evaluateUrl(s, counters, url, new Date()).blocked) return
-      await redirectTab(tabId, url, s)
+      const evaluation = evaluateUrl(s, counters, url, new Date())
+      if (!evaluation.blocked) return
+      await redirectTab(tabId, url, s, evaluation)
     })
   })
 

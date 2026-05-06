@@ -31,6 +31,7 @@ function group(overrides: Partial<Group>): Group {
 function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
   return {
     global: {
+      blockAction: 'redirect',
       redirectUrl: 'https://redirect.test/',
       dailyResetHour,
     },
