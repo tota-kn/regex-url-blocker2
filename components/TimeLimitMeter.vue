@@ -13,6 +13,8 @@ interface Props {
   remainingSec?: number
   /** 狭い表示領域向けに余白と文字サイズを抑えるかどうか。 */
   compact?: boolean
+  /** ラベルを表示するかどうか。 */
+  showLabel?: boolean
   /** スクリーンリーダー向けのメーター名。 */
   ariaLabel?: string
 }
@@ -20,6 +22,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   remainingSec: undefined,
   compact: false,
+  showLabel: true,
   ariaLabel: 'Remaining time today',
 })
 
@@ -64,7 +67,10 @@ function formatMinutesSeconds(seconds: number): string {
       compact ? 'px-2.5 py-2' : 'px-3 py-2',
     ]"
   >
-    <p class="flex shrink-0 items-center gap-1.5 text-xs font-medium uppercase text-muted">
+    <p
+      v-if="showLabel"
+      class="flex shrink-0 items-center gap-1.5 text-xs font-medium uppercase text-muted"
+    >
       <ClockIcon
         aria-hidden="true"
         class="size-3.5 shrink-0"

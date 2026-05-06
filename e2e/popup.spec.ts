@@ -162,6 +162,7 @@ test.describe('Popup 画面', () => {
       await expect(popup.getByLabel('Remaining time for this page')).toContainText('Limited A')
       await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('5:00 left')
       await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('25:00 / 30:00')
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).not.toContainText('Daily limit')
       await expect(popup.getByRole('meter', { name: 'Remaining time for Limited A' })).toHaveAttribute('aria-valuenow', String(25 * 60))
       await expect(popup.getByLabel('Remaining time for this page')).toContainText('Limited B')
       await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText('2:00 left')

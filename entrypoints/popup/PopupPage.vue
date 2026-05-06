@@ -151,6 +151,7 @@ onUnmounted(() => {
             :summary="summary"
             :remaining-sec="realtimeRemainingSeconds(summary)"
             :aria-label="`Remaining time for ${group.name}`"
+            :show-label="false"
             compact
           />
         </li>
