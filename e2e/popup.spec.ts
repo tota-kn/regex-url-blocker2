@@ -160,9 +160,13 @@ test.describe('Popup 画面', () => {
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
       await expect(popup.getByLabel('Remaining time for this page')).toContainText('Limited A')
-      await expect(popup.getByLabel('Remaining time for this page')).toContainText('5:00 remaining / 30:00 daily limit')
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('5:00 left')
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('25:00 / 30:00')
+      await expect(popup.getByRole('meter', { name: 'Remaining time for Limited A' })).toHaveAttribute('aria-valuenow', String(25 * 60))
       await expect(popup.getByLabel('Remaining time for this page')).toContainText('Limited B')
-      await expect(popup.getByLabel('Remaining time for this page')).toContainText('2:00 remaining / 10:00 daily limit')
+      await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText('2:00 left')
+      await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText('8:00 / 10:00')
+      await expect(popup.getByRole('meter', { name: 'Remaining time for Limited B' })).toHaveAttribute('aria-valuenow', String(8 * 60))
     }
     finally {
       await server.close()
@@ -176,8 +180,8 @@ test.describe('Popup 画面', () => {
       await savePopupFixture(serviceWorker, server.origin)
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
-      await expect(popup.getByText('5:00 remaining / 30:00 daily limit')).toBeVisible()
-      await expect(popup.getByText(/4:5[89] remaining \/ 30:00 daily limit/)).toBeVisible({ timeout: 2_500 })
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('5:00 left')
+      await expect(popup.getByText(/4:5[89] left/)).toBeVisible({ timeout: 2_500 })
       await popup.evaluate(async (logicalDate) => {
         const chromeApi = globalThis as unknown as {
           chrome: {
@@ -202,7 +206,8 @@ test.describe('Popup 画面', () => {
         })
       }, todayId())
 
-      await expect(popup.getByText('2:00 remaining / 30:00 daily limit')).toBeVisible()
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('2:00 left')
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('28:00 / 30:00')
     }
     finally {
       await server.close()

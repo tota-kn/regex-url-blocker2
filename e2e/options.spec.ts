@@ -181,7 +181,10 @@ test.describe('Options 画面', () => {
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await expect(page.getByLabel('Remaining time today')).toHaveText('5:00 / 30:00')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('Daily limit')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('5:00 left')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('25:00 / 30:00')
+    await expect(page.getByRole('meter', { name: 'Remaining time today' })).toHaveAttribute('aria-valuenow', String(25 * 60))
   })
 
   test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
@@ -243,7 +246,8 @@ test.describe('Options 画面', () => {
     })
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
-    await expect(page.getByLabel('Remaining time today')).toHaveText('5:00 / 30:00')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('5:00 left')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('25:00 / 30:00')
 
     await page.evaluate(async () => {
       const date = new Date()
@@ -271,7 +275,9 @@ test.describe('Options 画面', () => {
       })
     })
 
-    await expect(page.getByLabel('Remaining time today')).toHaveText('2:00 / 30:00')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('2:00 left')
+    await expect(page.getByLabel('Remaining time today summary')).toContainText('28:00 / 30:00')
+    await expect(page.getByRole('meter', { name: 'Remaining time today' })).toHaveAttribute('aria-valuenow', String(28 * 60))
   })
 
   test('ブロック時間帯を日跨ぎで追加して永続化される', async ({ page, extensionId }) => {

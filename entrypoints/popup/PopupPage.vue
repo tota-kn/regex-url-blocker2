@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import { getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { loadCounters, loadSettings } from '@/utils/storage'
 import type { Group, Settings, UsageCountersState } from '@/utils/types'
@@ -37,16 +38,6 @@ const displaySummaries = computed<DisplaySummary[]>(() => {
     return summary ? [{ group, summary }] : []
   })
 })
-
-/**
- * 秒数を mm:ss 形式に変換する。
- */
-function formatMinutesSeconds(seconds: number): string {
-  const roundedSeconds = Math.max(0, Math.ceil(seconds))
-  const minutes = Math.floor(roundedSeconds / 60)
-  const remainingSeconds = String(roundedSeconds % 60).padStart(2, '0')
-  return `${minutes}:${remainingSeconds}`
-}
 
 /**
  * counter 読み込み後の経過秒数を反映した残り秒数を返す。
@@ -151,14 +142,17 @@ onUnmounted(() => {
         <li
           v-for="{ group, summary } in displaySummaries"
           :key="group.id"
-          class="border border-border rounded-md p-3 space-y-1"
+          class="space-y-2 rounded-md border border-border p-3"
         >
           <p class="font-medium truncate">
             {{ group.name }}
           </p>
-          <p class="text-sm text-muted">
-            {{ formatMinutesSeconds(realtimeRemainingSeconds(summary)) }} remaining / {{ formatMinutesSeconds(summary.limitMinutes * 60) }} daily limit
-          </p>
+          <TimeLimitMeter
+            :summary="summary"
+            :remaining-sec="realtimeRemainingSeconds(summary)"
+            :aria-label="`Remaining time for ${group.name}`"
+            compact
+          />
         </li>
       </ul>
     </template>

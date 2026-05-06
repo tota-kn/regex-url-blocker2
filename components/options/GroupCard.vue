@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { CheckIcon, ClockIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
+import TimeLimitMeter from '../TimeLimitMeter.vue'
 import LimitRulesEditor from './LimitRulesEditor.vue'
 import PatternListEditor from './PatternListEditor.vue'
 
@@ -99,63 +100,52 @@ function saveEditing(): void {
   isEditing.value = false
 }
 
-/**
- * 秒数を mm:ss 形式に変換する。
- */
-function formatMinutesSeconds(seconds: number): string {
-  const roundedSeconds = Math.max(0, Math.ceil(seconds))
-  const minutes = Math.floor(roundedSeconds / 60)
-  const remainingSeconds = String(roundedSeconds % 60).padStart(2, '0')
-  return `${minutes}:${remainingSeconds}`
-}
 </script>
 
 <template>
   <article class="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
     <div class="border-b border-border bg-input/60 p-4">
-      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <label class="group/name block min-w-0 flex-1">
-          <span class="sr-only">Name</span>
-          <span class="flex min-w-0 items-center gap-2 rounded-md border border-transparent px-2 py-1 transition focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border hover:bg-background">
-            <input
-              v-model="draft.name"
-              aria-label="Name"
-              :disabled="!isEditing"
-              class="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none disabled:cursor-default disabled:text-foreground"
-            >
-            <PencilSquareIcon
-              aria-hidden="true"
-              class="size-4 shrink-0 text-muted opacity-60 transition group-focus-within/name:opacity-100 group-hover/name:opacity-100"
-            />
-          </span>
-        </label>
+      <div class="space-y-3">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <label class="group/name block min-w-0 flex-1">
+            <span class="sr-only">Name</span>
+            <span class="flex min-w-0 items-center gap-2 rounded-md border border-transparent px-2 py-1 transition focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border hover:bg-background">
+              <input
+                v-model="draft.name"
+                aria-label="Name"
+                :disabled="!isEditing"
+                class="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none disabled:cursor-default disabled:text-foreground"
+              >
+              <PencilSquareIcon
+                aria-hidden="true"
+                class="size-4 shrink-0 text-muted opacity-60 transition group-focus-within/name:opacity-100 group-hover/name:opacity-100"
+              />
+            </span>
+          </label>
 
-        <div class="flex shrink-0 flex-wrap items-center gap-2">
-          <p
-            v-if="timeLimitUsageSummary"
-            aria-label="Remaining time today"
-            class="inline-flex h-9 items-center gap-1.5 rounded-md bg-secondary px-3 text-sm text-muted"
-          >
-            <ClockIcon
-              aria-hidden="true"
-              class="size-4"
-            />
-            {{ formatMinutesSeconds(timeLimitUsageSummary.remainingSec) }} / {{ formatMinutesSeconds(timeLimitUsageSummary.limitMinutes * 60) }}
-          </p>
-          <button
-            v-if="!isEditing"
-            type="button"
-            aria-label="Edit group"
-            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-background px-3 text-sm font-medium text-primary transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-            @click="startEditing"
-          >
-            <PencilSquareIcon
-              aria-hidden="true"
-              class="size-4"
-            />
-            Edit
-          </button>
+          <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
+            <button
+              v-if="!isEditing"
+              type="button"
+              aria-label="Edit group"
+              class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-background px-3 text-sm font-medium text-primary transition hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+              @click="startEditing"
+            >
+              <PencilSquareIcon
+                aria-hidden="true"
+                class="size-4"
+              />
+              Edit
+            </button>
+          </div>
         </div>
+
+        <TimeLimitMeter
+          v-if="timeLimitUsageSummary"
+          :summary="timeLimitUsageSummary"
+          aria-label="Remaining time today"
+          class="w-full"
+        />
       </div>
       <p
         v-if="isEditing && draftError('name')"
