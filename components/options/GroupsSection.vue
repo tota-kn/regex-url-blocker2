@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, RectangleStackIcon } from '@heroicons/vue/24/outline'
+import { PlusIcon } from '@heroicons/vue/24/outline'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
@@ -40,40 +40,29 @@ const groups = defineModel<Group[]>({ required: true })
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="rounded-lg border border-border bg-background p-4 shadow-sm">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="min-w-0">
-          <h2 class="flex items-center gap-2 text-base font-semibold">
-            <RectangleStackIcon
-              aria-hidden="true"
-              class="size-5 text-muted"
-            />
-            Groups
-          </h2>
-          <p class="mt-1 text-sm text-muted">
-            {{ groups.length }} configured
-          </p>
-        </div>
-        <button
-          type="button"
-          aria-label="Add group"
-          class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring"
-          @click="$emit('addGroup')"
-        >
-          <PlusIcon
-            aria-hidden="true"
-            class="size-4"
-          />
-          Group
-        </button>
-      </div>
+  <section class="space-y-3">
+    <div class="flex h-12 items-center justify-between gap-3 border-b border-border">
+      <h2 class="text-base font-semibold tracking-normal">
+        Groups
+      </h2>
+      <button
+        type="button"
+        aria-label="Add group"
+        class="inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring"
+        @click="$emit('addGroup')"
+      >
+        <PlusIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Group
+      </button>
     </div>
 
     <p
       v-if="groups.length === 0"
       aria-label="No groups"
-      class="rounded-lg border border-dashed border-border bg-background p-8 text-center text-sm text-muted"
+      class="rounded-lg border border-dashed border-border bg-background/70 p-8 text-center text-sm text-muted"
     >
       No groups yet
     </p>

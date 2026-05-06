@@ -104,20 +104,20 @@ function saveEditing(): void {
 
 <template>
   <article class="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-    <div class="border-b border-border bg-input/60 p-4">
-      <div class="space-y-3">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div class="border-b border-border bg-background p-4">
+      <div class="space-y-2.5">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <label class="group/name block min-w-0 flex-1">
             <span class="sr-only">Name</span>
             <span
-              class="flex min-w-0 items-center rounded-md border border-transparent px-2 py-1 transition"
-              :class="isEditing ? 'focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border hover:bg-background' : ''"
+              class="flex min-w-0 items-center rounded-md border px-2 py-1 transition"
+              :class="isEditing ? 'border-input-border bg-input focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/50 hover:border-border-hover' : 'border-transparent bg-transparent px-0'"
             >
               <input
                 v-model="draft.name"
                 aria-label="Name"
                 :disabled="!isEditing"
-                class="min-w-0 flex-1 bg-transparent text-lg font-semibold outline-none disabled:cursor-default disabled:text-foreground"
+                class="min-w-0 flex-1 bg-transparent text-base font-semibold tracking-normal outline-none disabled:cursor-default disabled:text-foreground"
               >
             </span>
           </label>
