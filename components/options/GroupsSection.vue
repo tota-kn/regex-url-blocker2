@@ -75,7 +75,7 @@ const groups = defineModel<Group[]>({ required: true })
       aria-label="No groups"
       class="rounded-lg border border-dashed border-border bg-background p-8 text-center text-sm text-muted"
     >
-      Empty
+      No groups yet
     </p>
 
     <div class="space-y-4">

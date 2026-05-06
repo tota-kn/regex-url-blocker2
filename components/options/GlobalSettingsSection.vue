@@ -35,7 +35,7 @@ function setBlockAction(action: BlockAction): void {
   <section class="rounded-lg border border-border bg-background p-4 shadow-sm lg:sticky lg:top-6">
     <div class="border-b border-border pb-3">
       <h2 class="text-base font-semibold tracking-normal">
-        Global
+        General settings
       </h2>
     </div>
 
@@ -46,7 +46,7 @@ function setBlockAction(action: BlockAction): void {
             aria-hidden="true"
             class="size-4 text-muted"
           />
-          Block action
+          When a page is blocked
         </span>
         <div class="grid grid-cols-2 rounded-md border border-input-border bg-input p-1">
           <button
@@ -60,12 +60,12 @@ function setBlockAction(action: BlockAction): void {
           </button>
           <button
             type="button"
-            aria-label="Extension page"
+            aria-label="Blocked page"
             :aria-pressed="globalSettings.blockAction === 'blockedPage'"
             class="h-8 rounded-sm px-2 text-sm font-medium transition aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
             @click="setBlockAction('blockedPage')"
           >
-            Extension page
+            Blocked page
           </button>
         </div>
       </div>
@@ -107,12 +107,12 @@ function setBlockAction(action: BlockAction): void {
             aria-hidden="true"
             class="size-4 text-muted"
           />
-          Reset
+          Daily reset time
         </span>
         <input
           v-model="globalSettings.dailyResetHour"
           type="time"
-          aria-label="Reset time"
+          aria-label="Daily reset time"
           class="h-10 w-full rounded-md border border-input-border bg-input px-3 text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
         >
       </label>

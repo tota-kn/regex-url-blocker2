@@ -229,13 +229,13 @@ test.describe('Background blocking', () => {
     }
   })
 
-  test('Options で Extension page に切り替えた後は拡張ページへ遷移する', async ({ page, context, extensionId }) => {
+  test('Options で Blocked page に切り替えた後は拡張ページへ遷移する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
       await saveBlockingSettings(serviceWorker, server.origin)
       await page.goto(`chrome-extension://${extensionId}/options.html`)
-      await page.getByRole('button', { name: 'Extension page' }).click()
+      await page.getByRole('button', { name: 'Blocked page' }).click()
       await expect.poll(async () => getStoredBlockAction(serviceWorker)).toBe('blockedPage')
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)

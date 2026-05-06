@@ -51,12 +51,12 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           aria-hidden="true"
           class="size-4 text-muted"
         />
-        Limits
+        Blocking rules
       </h3>
       <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          aria-label="Add slot"
+          aria-label="Add blocked time"
           class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
           @click="addBlockedTimeSlot"
         >
@@ -64,11 +64,11 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             aria-hidden="true"
             class="size-4"
           />
-          Slot
+          Blocked time
         </button>
         <button
           type="button"
-          aria-label="Add limit"
+          aria-label="Add daily limit"
           class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
           @click="addTimeLimit"
         >
@@ -76,17 +76,17 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             aria-hidden="true"
             class="size-4"
           />
-          Limit
+          Daily limit
         </button>
       </div>
     </div>
 
     <p
       v-if="blockedTimeSlots.length === 0 && timeLimits.length === 0"
-      aria-label="No limits"
+      aria-label="No blocking rules"
       class="mt-3 rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
     >
-      Empty
+      No blocking rules yet
     </p>
 
     <div
@@ -103,7 +103,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
             aria-hidden="true"
             class="size-4 text-muted"
           />
-          Blocked slot
+          Blocked time
         </div>
         <DayOfWeekCheckboxes v-model="slot.daysOfWeek" />
         <p
@@ -139,7 +139,7 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
           </label>
           <button
             type="button"
-            aria-label="Delete blocked slot"
+            aria-label="Delete blocked time"
             title="Delete"
             class="inline-flex size-9 items-center justify-center self-end rounded-md border border-border bg-background text-destructive transition hover:bg-red-50"
             @click="blockedTimeSlots.splice(i, 1)"
@@ -185,11 +185,11 @@ function setTimeLimitMinutes(limit: TimeLimit, value: string): void {
         </p>
         <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
           <label class="min-w-0">
-            <span class="mb-1 block text-sm font-medium text-secondary-foreground">min/day</span>
+            <span class="mb-1 block text-sm font-medium text-secondary-foreground">Minutes per day</span>
             <input
               type="number"
               min="0"
-              aria-label="Limit minutes"
+              aria-label="Minutes per day"
               :value="limit.dailyMinutes"
               class="h-9 w-full rounded-md border border-input-border bg-background px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/50"
               @input="setTimeLimitMinutes(limit, ($event.target as HTMLInputElement).value)"

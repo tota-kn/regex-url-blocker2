@@ -159,10 +159,10 @@ test.describe('Popup 画面', () => {
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
-      await expect(popup.getByLabel('現在ページの残り時間')).toContainText('Limited A')
-      await expect(popup.getByLabel('現在ページの残り時間')).toContainText('残り 5:00 / 上限 30:00')
-      await expect(popup.getByLabel('現在ページの残り時間')).toContainText('Limited B')
-      await expect(popup.getByLabel('現在ページの残り時間')).toContainText('残り 2:00 / 上限 10:00')
+      await expect(popup.getByLabel('Remaining time for this page')).toContainText('Limited A')
+      await expect(popup.getByLabel('Remaining time for this page')).toContainText('5:00 remaining / 30:00 daily limit')
+      await expect(popup.getByLabel('Remaining time for this page')).toContainText('Limited B')
+      await expect(popup.getByLabel('Remaining time for this page')).toContainText('2:00 remaining / 10:00 daily limit')
     }
     finally {
       await server.close()
@@ -176,8 +176,8 @@ test.describe('Popup 画面', () => {
       await savePopupFixture(serviceWorker, server.origin)
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
-      await expect(popup.getByText('残り 5:00 / 上限 30:00')).toBeVisible()
-      await expect(popup.getByText(/残り 4:5[89] \/ 上限 30:00/)).toBeVisible({ timeout: 2_500 })
+      await expect(popup.getByText('5:00 remaining / 30:00 daily limit')).toBeVisible()
+      await expect(popup.getByText(/4:5[89] remaining \/ 30:00 daily limit/)).toBeVisible({ timeout: 2_500 })
       await popup.evaluate(async (logicalDate) => {
         const chromeApi = globalThis as unknown as {
           chrome: {
@@ -202,7 +202,7 @@ test.describe('Popup 画面', () => {
         })
       }, todayId())
 
-      await expect(popup.getByText('残り 2:00 / 上限 30:00')).toBeVisible()
+      await expect(popup.getByText('2:00 remaining / 30:00 daily limit')).toBeVisible()
     }
     finally {
       await server.close()
@@ -217,7 +217,7 @@ test.describe('Popup 画面', () => {
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/other`)
 
-      await expect(popup.getByText('このページに一致するグループはありません')).toBeVisible()
+      await expect(popup.getByText('No matching groups for this page.')).toBeVisible()
     }
     finally {
       await server.close()
@@ -232,7 +232,7 @@ test.describe('Popup 画面', () => {
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/slot-only`)
 
-      await expect(popup.getByText('このページに有効な閲覧上限はありません')).toBeVisible()
+      await expect(popup.getByText('No daily limits apply to this page.')).toBeVisible()
     }
     finally {
       await server.close()

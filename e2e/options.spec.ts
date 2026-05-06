@@ -8,9 +8,9 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://example.com')
     await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Extension page' })).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByLabel('Reset time')).toHaveValue('00:00')
-    await expect(page.getByLabel('No groups')).toHaveText('Empty')
+    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByLabel('Daily reset time')).toHaveValue('00:00')
+    await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
   })
 
   test('グループ追加時に名前がデフォルトで「グループ1」になる', async ({ page, extensionId }) => {
@@ -27,8 +27,8 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByRole('button', { name: 'Add pattern' }).click()
-    await expect(page.getByLabel('Regex')).toHaveValue('https?://')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await expect(page.getByLabel('URL regex pattern')).toHaveValue('https?://')
   })
 
   test('グループを追加して保存→リロード後も保持される', async ({ page, extensionId }) => {
@@ -36,22 +36,22 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('Twitter')
-    await page.getByRole('button', { name: 'Add pattern' }).click()
-    await page.getByLabel('Regex').fill('^https?://(www\\.)?twitter\\.com')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByLabel('URL regex pattern').fill('^https?://(www\\.)?twitter\\.com')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveValue('Twitter')
-    await expect(page.getByLabel('Regex')).toHaveValue('^https?://(www\\.)?twitter\\.com')
+    await expect(page.getByLabel('URL regex pattern')).toHaveValue('^https?://(www\\.)?twitter\\.com')
   })
 
   test('無効な正規表現はエラー表示され、保存されない', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByRole('button', { name: 'Add pattern' }).click()
-    await page.getByLabel('Regex').fill('[invalid')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByLabel('URL regex pattern').fill('[invalid')
     await page.getByLabel('Name').fill('Bad')
 
     await expect(page.getByText('Invalid regex')).toBeVisible()
@@ -68,13 +68,13 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('LimitedSite')
-    await page.getByRole('button', { name: 'Add limit' }).click()
-    await page.getByLabel('Limit minutes').fill('30')
+    await page.getByRole('button', { name: 'Add daily limit' }).click()
+    await page.getByLabel('Minutes per day').fill('30')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Limit minutes')).toHaveValue('30')
+    await expect(page.getByLabel('Minutes per day')).toHaveValue('30')
   })
 
   test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {
@@ -235,7 +235,7 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('NightBlock')
-    await page.getByRole('button', { name: 'Add slot' }).click()
+    await page.getByRole('button', { name: 'Add blocked time' }).click()
     await expect(page.getByRole('checkbox', { name: 'Sunday' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
     await page.getByLabel('Start time').fill('22:00')
@@ -253,14 +253,14 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('CustomDays')
-    await page.getByRole('button', { name: 'Add limit' }).click()
+    await page.getByRole('button', { name: 'Add daily limit' }).click()
     await expect(page.getByRole('checkbox', { name: 'Sunday' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Monday' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
     await page.getByRole('checkbox', { name: 'Wednesday' }).uncheck()
     await page.getByRole('checkbox', { name: 'Thursday' }).uncheck()
     await page.getByRole('checkbox', { name: 'Friday' }).uncheck()
-    await page.getByLabel('Limit minutes').fill('60')
+    await page.getByLabel('Minutes per day').fill('60')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
@@ -271,7 +271,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('checkbox', { name: 'Thursday' })).not.toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Friday' })).not.toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
-    await expect(page.getByLabel('Limit minutes')).toHaveValue('60')
+    await expect(page.getByLabel('Minutes per day')).toHaveValue('60')
   })
 
   test('グループを削除して永続化される', async ({ page, extensionId }) => {
@@ -288,7 +288,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('No groups')).toHaveText('Empty')
+    await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
   })
 
   test('redirectUrl を編集して永続化される', async ({ page, extensionId }) => {
@@ -305,14 +305,14 @@ test.describe('Options 画面', () => {
   test('ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await page.getByRole('button', { name: 'Extension page' }).click()
-    await expect(page.getByRole('button', { name: 'Extension page' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Blocked page' }).click()
+    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByRole('button', { name: 'Extension page' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'false')
   })
 
@@ -323,18 +323,18 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('AllowOnly')
 
     // デフォルトはブラックリスト
-    await expect(page.getByRole('button', { name: 'Block' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Allow' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('button', { name: 'Block matches' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Allow only matches' })).toHaveAttribute('aria-pressed', 'false')
 
     // ホワイトリストに切替
-    await page.getByRole('button', { name: 'Allow' }).click()
-    await expect(page.getByRole('button', { name: 'Allow' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Allow only matches' }).click()
+    await expect(page.getByRole('button', { name: 'Allow only matches' })).toHaveAttribute('aria-pressed', 'true')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     // リロード後も保持
-    await expect(page.getByRole('button', { name: 'Allow' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Block' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('button', { name: 'Allow only matches' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Block matches' })).toHaveAttribute('aria-pressed', 'false')
   })
 })

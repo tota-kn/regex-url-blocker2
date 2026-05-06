@@ -74,7 +74,7 @@ onMounted(async () => {
 
         <div>
           <h2 class="text-sm font-medium text-secondary-foreground">
-            Blocked by
+            Blocking groups
           </h2>
           <p
             v-if="!isLoaded"

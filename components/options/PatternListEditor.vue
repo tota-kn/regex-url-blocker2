@@ -31,7 +31,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
           aria-hidden="true"
           class="size-4 text-muted"
         />
-        Patterns
+        URL patterns
       </h3>
       <div class="flex flex-wrap items-center gap-2">
         <div class="flex overflow-hidden rounded-md border border-border bg-input text-sm">
@@ -47,7 +47,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
               aria-hidden="true"
               class="size-4"
             />
-            Block
+            Block matches
           </button>
           <button
             type="button"
@@ -61,12 +61,12 @@ const mode = defineModel<GroupMode>('mode', { required: true })
               aria-hidden="true"
               class="size-4"
             />
-            Allow
+            Allow only matches
           </button>
         </div>
         <button
           type="button"
-          aria-label="Add pattern"
+          aria-label="Add URL pattern"
           class="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-primary/30 px-2.5 text-sm font-medium text-primary transition hover:bg-accent"
           @click="patterns.push('https?://')"
         >
@@ -74,7 +74,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
             aria-hidden="true"
             class="size-4"
           />
-          Pattern
+          URL pattern
         </button>
       </div>
     </div>
@@ -82,10 +82,10 @@ const mode = defineModel<GroupMode>('mode', { required: true })
     <div class="mt-3 space-y-2">
       <p
         v-if="patterns.length === 0"
-        aria-label="No patterns"
+        aria-label="No URL patterns"
         class="rounded-md border border-dashed border-border bg-input/60 px-3 py-2 text-sm text-muted"
       >
-        Empty
+        No URL patterns yet
       </p>
       <div
         v-for="(_, i) in patterns"
@@ -95,7 +95,7 @@ const mode = defineModel<GroupMode>('mode', { required: true })
         <div class="flex min-w-0 gap-2">
           <input
             v-model="patterns[i]"
-            aria-label="Regex"
+            aria-label="URL regex pattern"
             placeholder="https?://"
             class="h-9 min-w-0 flex-1 rounded-md border border-input-border bg-input px-3 font-mono text-sm outline-none transition focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/50"
           >

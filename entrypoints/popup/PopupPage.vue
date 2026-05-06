@@ -118,7 +118,7 @@ onUnmounted(() => {
     </h1>
 
     <p v-if="!isLoaded">
-      読み込み中…
+      Loading...
     </p>
 
     <template v-else>
@@ -126,26 +126,26 @@ onUnmounted(() => {
         v-if="isSkippedPage"
         class="text-sm text-muted"
       >
-        このページは判定対象外です
+        This page is excluded from blocking.
       </p>
 
       <p
         v-else-if="targetGroups.length === 0"
         class="text-sm text-muted"
       >
-        このページに一致するグループはありません
+        No matching groups for this page.
       </p>
 
       <p
         v-else-if="displaySummaries.length === 0"
         class="text-sm text-muted"
       >
-        このページに有効な閲覧上限はありません
+        No daily limits apply to this page.
       </p>
 
       <ul
         v-else
-        aria-label="現在ページの残り時間"
+        aria-label="Remaining time for this page"
         class="space-y-2"
       >
         <li
@@ -157,7 +157,7 @@ onUnmounted(() => {
             {{ group.name }}
           </p>
           <p class="text-sm text-muted">
-            残り {{ formatMinutesSeconds(realtimeRemainingSeconds(summary)) }} / 上限 {{ formatMinutesSeconds(summary.limitMinutes * 60) }}
+            {{ formatMinutesSeconds(realtimeRemainingSeconds(summary)) }} remaining / {{ formatMinutesSeconds(summary.limitMinutes * 60) }} daily limit
           </p>
         </li>
       </ul>
