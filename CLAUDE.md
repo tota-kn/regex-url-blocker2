@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```sh
 pnpm dev               # 開発モード（拡張機能を自動リロード）
+pnpm dev:all           # 開発モード + Playwright Chromium でブラウザを自動起動（options.html を開く）
 pnpm build             # .output/chrome-mv3 へビルド
 pnpm zip               # ストア提出用 zip 作成
 pnpm typecheck         # vue-tsc --noEmit
