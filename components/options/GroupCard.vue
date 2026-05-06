@@ -38,11 +38,13 @@ defineEmits<Emits>()
 const group = defineModel<Group>({ required: true })
 
 /**
- * 残り秒数を表示用の分数に変換する。
+ * 秒数を mm:ss 形式に変換する。
  */
-function formatRemainingMinutes(seconds: number): number {
-  if (seconds <= 0) return 0
-  return Math.ceil(seconds / 60)
+function formatMinutesSeconds(seconds: number): string {
+  const roundedSeconds = Math.max(0, Math.ceil(seconds))
+  const minutes = Math.floor(roundedSeconds / 60)
+  const remainingSeconds = String(roundedSeconds % 60).padStart(2, '0')
+  return `${minutes}:${remainingSeconds}`
 }
 </script>
 
@@ -89,7 +91,7 @@ function formatRemainingMinutes(seconds: number): number {
       aria-label="今日の残り時間"
       class="text-sm text-muted"
     >
-      残り {{ formatRemainingMinutes(timeLimitUsageSummary.remainingSec) }} 分 / 上限 {{ timeLimitUsageSummary.limitMinutes }} 分
+      残り {{ formatMinutesSeconds(timeLimitUsageSummary.remainingSec) }} / 上限 {{ formatMinutesSeconds(timeLimitUsageSummary.limitMinutes * 60) }}
     </p>
     <p
       v-if="error('name')"

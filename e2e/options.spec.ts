@@ -134,7 +134,7 @@ test.describe('Options 画面', () => {
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 5 分 / 上限 30 分')
+    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 5:00 / 上限 30:00')
   })
 
   test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
@@ -195,7 +195,7 @@ test.describe('Options 画面', () => {
     })
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
-    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 5 分 / 上限 30 分')
+    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 5:00 / 上限 30:00')
 
     await page.evaluate(async () => {
       const date = new Date()
@@ -223,7 +223,7 @@ test.describe('Options 画面', () => {
       })
     })
 
-    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 2 分 / 上限 30 分')
+    await expect(page.getByLabel('今日の残り時間')).toHaveText('残り 2:00 / 上限 30:00')
   })
 
   test('ブロック時間帯を日跨ぎで追加して永続化される', async ({ page, extensionId }) => {
