@@ -21,6 +21,7 @@ if (!existsSync(manifestPath)) {
 const context = await chromium.launchPersistentContext(userDataDir, {
   channel: 'chromium',
   headless: false,
+  viewport: null,
   args: [
     `--disable-extensions-except=${pathToExtension}`,
     `--load-extension=${pathToExtension}`,
