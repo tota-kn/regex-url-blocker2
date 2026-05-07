@@ -28,6 +28,17 @@ async function getTabIdByUrl(serviceWorker: Worker, url: string): Promise<number
 }
 
 /**
+ * Service Worker の console をテスト失敗時に追跡しやすい文字列配列として収集する。
+ */
+function collectWorkerLogs(serviceWorker: Worker): string[] {
+  const logs: string[] = []
+  serviceWorker.on('console', (message) => {
+    logs.push(`${message.type()}: ${message.text()}`)
+  })
+  return logs
+}
+
+/**
  * テスト用 HTTP サーバーを起動する。
  */
 async function startServer(): Promise<{ origin: string, close: () => Promise<void> }> {
@@ -311,6 +322,70 @@ test.describe('Badge display', () => {
     }
   })
 
+  test('時間制限バッジは表示後に消えず、再訪問しても表示される', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const workerLogs = collectWorkerLogs(serviceWorker)
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'redirect',
+            redirectUrl: `${settings.origin}/blocked`,
+            dailyResetHour: '00:00',
+          },
+          groups: [{
+            id: 'timed-group',
+            name: 'Timed Group',
+            mode: 'blacklist',
+            patterns: [`^${settings.originEscaped}`],
+            blockedTimeSlots: [],
+            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+          }],
+        })
+      }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/target`)
+      expect(tabId).toBeDefined()
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
+        message: workerLogs.join('\n'),
+        timeout: 5000,
+      }).toBe('60m')
+
+      await page.waitForTimeout(2500)
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
+        message: workerLogs.join('\n'),
+        timeout: 5000,
+      }).toMatch(/^(59|60)m$/)
+
+      await page.waitForTimeout(6500)
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
+        message: workerLogs.join('\n'),
+        timeout: 5000,
+      }).toMatch(/^(59|60)m$/)
+
+      await page.goto(`${server.origin}/other`)
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
+        message: workerLogs.join('\n'),
+        timeout: 5000,
+      }).toBe('60m')
+
+      await page.goto(`${server.origin}/target`)
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
+        message: workerLogs.join('\n'),
+        timeout: 5000,
+      }).toMatch(/^(59|60)m$/)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
   test('対象外の URL ではバッジが空になる', async ({ page, context }) => {
     const server = await startServer()
     try {
@@ -379,7 +454,7 @@ test.describe('Badge display', () => {
           }],
         })
         await chromeApi.chrome.storage.local.set({
-          counters: { 'timed-group': { logicalDate: today, consumedSec: 3000 } },
+          counters: { 'timed-group': { logicalDate: today, consumedSec: 600 } },
         })
       }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
       await page.waitForTimeout(300)

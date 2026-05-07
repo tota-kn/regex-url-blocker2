@@ -25,7 +25,6 @@ let counters: UsageCountersState = { counters: {} }
 let dirtyCounters = false
 let initPromise: Promise<void> | undefined
 let reloadPromise: Promise<void> | undefined
-const actionStateByTabId = new Map<number, { text: string, title: string, color: string }>()
 
 interface ActionTargetTab {
   /** badge を更新する tab id。 */
@@ -34,25 +33,18 @@ interface ActionTargetTab {
   url?: string
 }
 
-interface ChromeActionApi {
+interface ChromeActionPromiseApi {
   /** action badge に表示する文字列を設定する。 */
-  setBadgeText: (details: { tabId: number, text: string }, callback?: () => void) => void
+  setBadgeText: (details: { tabId: number, text: string }) => Promise<void>
   /** action tooltip の title を設定する。 */
-  setTitle: (details: { tabId: number, title: string }, callback?: () => void) => void
+  setTitle: (details: { tabId: number, title: string }) => Promise<void>
   /** action badge の背景色を設定する。 */
-  setBadgeBackgroundColor: (details: { tabId: number, color: string }, callback?: () => void) => void
+  setBadgeBackgroundColor: (details: { tabId: number, color: string }) => Promise<void>
 }
 
-interface ChromeRuntimeApi {
-  /** callback 型 API の直近エラー。 */
-  lastError?: { message?: string }
-}
-
-interface ChromeApi {
+interface ChromePromiseApi {
   /** MV3 action API。 */
-  action: ChromeActionApi
-  /** Runtime API。 */
-  runtime: ChromeRuntimeApi
+  action: ChromeActionPromiseApi
 }
 
 /**
@@ -62,7 +54,6 @@ async function initializeState(): Promise<void> {
   settings = await loadSettings()
   counters = normalizeCounters(settings, await loadCounters(), new Date())
   dirtyCounters = true
-  await flushCounters()
 }
 
 /**
@@ -95,13 +86,49 @@ async function flushCounters(): Promise<void> {
 }
 
 /**
+ * メモリ上と永続化済みの counter を、同一論理日では大きい消費秒数を優先して統合する。
+ */
+function mergeCounters(current: UsageCountersState, stored: UsageCountersState): UsageCountersState {
+  const merged: UsageCountersState = { counters: { ...stored.counters } }
+  for (const [groupId, counter] of Object.entries(current.counters)) {
+    const storedCounter = merged.counters[groupId]
+    if (!storedCounter || storedCounter.logicalDate !== counter.logicalDate) {
+      merged.counters[groupId] = counter
+      continue
+    }
+    merged.counters[groupId] = {
+      logicalDate: counter.logicalDate,
+      consumedSec: Math.max(counter.consumedSec, storedCounter.consumedSec),
+    }
+  }
+  return merged
+}
+
+/**
  * 設定変更を再読み込みし、counter を現在のグループ定義に合わせて正規化する。
  */
 async function reloadSettings(): Promise<void> {
   settings = await loadSettings()
-  counters = normalizeCounters(settings, counters, new Date())
+  counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), new Date())
   dirtyCounters = true
-  await flushCounters()
+}
+
+/**
+ * storage.local の counter 変更を background のメモリ状態へ取り込む。
+ */
+async function reloadCounters(): Promise<void> {
+  const s = await currentSettings()
+  const storedCounters = await loadCounters()
+  const nextCounters = normalizeCounters(s, mergeCounters(counters, storedCounters), new Date())
+  dirtyCounters = JSON.stringify(nextCounters) !== JSON.stringify(storedCounters)
+  counters = nextCounters
+}
+
+/**
+ * 永続化済み counter を現在のメモリ状態へ取り込む。
+ */
+async function mergeStoredCounters(s: Settings, now: Date): Promise<void> {
+  counters = normalizeCounters(s, mergeCounters(counters, await loadCounters()), now)
 }
 
 /**
@@ -167,50 +194,13 @@ async function updateActionForTab(tab: ActionTargetTab, now = new Date()): Promi
   if (typeof tab.id !== 'number') return
   const s = await currentSettings()
   const next = buildActionState(s, tab, now)
-  const current = actionStateByTabId.get(tab.id)
-  if (current?.text === next.text && current.title === next.title && current.color === next.color) return
 
-  const chromeApi = (globalThis as unknown as { chrome: ChromeApi }).chrome
+  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
   await Promise.all([
-    setActionBadgeText(chromeApi, tab.id, next.text),
-    setActionTitle(chromeApi, tab.id, next.title),
-    setActionBadgeBackgroundColor(chromeApi, tab.id, next.color),
+    chromeApi.action.setBadgeText({ tabId: tab.id, text: next.text }),
+    chromeApi.action.setTitle({ tabId: tab.id, title: next.title }),
+    chromeApi.action.setBadgeBackgroundColor({ tabId: tab.id, color: next.color }),
   ])
-  actionStateByTabId.set(tab.id, next)
-}
-
-/**
- * callback 型の chrome.action API を Promise として扱う。
- */
-function actionCallbackPromise(chromeApi: ChromeApi, executor: (callback: () => void) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    executor(() => {
-      const message = chromeApi.runtime.lastError?.message
-      if (message) reject(new Error(message))
-      else resolve()
-    })
-  })
-}
-
-/**
- * action badge の文字列を設定する。
- */
-function setActionBadgeText(chromeApi: ChromeApi, tabId: number, text: string): Promise<void> {
-  return actionCallbackPromise(chromeApi, callback => chromeApi.action.setBadgeText({ tabId, text }, callback))
-}
-
-/**
- * action title を設定する。
- */
-function setActionTitle(chromeApi: ChromeApi, tabId: number, title: string): Promise<void> {
-  return actionCallbackPromise(chromeApi, callback => chromeApi.action.setTitle({ tabId, title }, callback))
-}
-
-/**
- * action badge の背景色を設定する。
- */
-function setActionBadgeBackgroundColor(chromeApi: ChromeApi, tabId: number, color: string): Promise<void> {
-  return actionCallbackPromise(chromeApi, callback => chromeApi.action.setBadgeBackgroundColor({ tabId, color }, callback))
 }
 
 /**
@@ -269,8 +259,10 @@ async function tick(): Promise<void> {
 async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsType | WebNavigation.OnHistoryStateUpdatedDetailsType): Promise<void> {
   if (details.frameId !== 0) return
   const s = await currentSettings()
-  const evaluation = evaluateUrl(s, counters, details.url, new Date())
-  await updateActionForTab({ id: details.tabId, url: details.url })
+  const now = new Date()
+  await mergeStoredCounters(s, now)
+  const evaluation = evaluateUrl(s, counters, details.url, now)
+  await updateActionForTab({ id: details.tabId, url: details.url }, now)
   if (!evaluation.blocked) return
   await redirectTab(details.tabId, details.url, s, evaluation)
 }
@@ -302,6 +294,15 @@ export default defineBackground(() => {
       finally {
         reloadPromise = undefined
       }
+      await reevaluateAllTabs()
+    })
+  })
+
+  browser.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return
+    if (!changes.counters) return
+    runAsync(async () => {
+      await reloadCounters()
       await reevaluateAllTabs()
     })
   })
@@ -360,8 +361,4 @@ export default defineBackground(() => {
   setInterval(() => {
     runAsync(flushCounters)
   }, FLUSH_INTERVAL_MS)
-
-  browser.tabs.onRemoved.addListener((tabId) => {
-    actionStateByTabId.delete(tabId)
-  })
 })
