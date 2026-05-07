@@ -1,5 +1,21 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
-import type { BlockAction, BlockedTimeSlot, GlobalSettings, Group, GroupMode, Settings, TimeLimit, UsageCountersState } from './types'
+import type { BlockAction, BlockedTimeSlot, Group, GroupMode, Settings, TimeLimit, UsageCountersState } from './types'
+import { validateGlobalSettings, validateGroup } from './validation'
+
+/**
+ * 設定エクスポートファイルの現行スキーマバージョン。
+ */
+export const SETTINGS_EXPORT_VERSION = 1
+
+/**
+ * エクスポートした設定ファイルの JSON 構造。
+ */
+export interface SettingsExportFile {
+  /** 設定ファイル形式のバージョン。 */
+  version: typeof SETTINGS_EXPORT_VERSION
+  /** storage.sync に保存する設定本体。 */
+  settings: Settings
+}
 
 /**
  * 保存済み値を有効なブロック時動作へ正規化する。
@@ -9,34 +25,83 @@ function normalizeBlockAction(value: unknown): BlockAction {
 }
 
 /**
- * browser.storage.sync から `Settings` 全体を読み込む。
- * 未設定キーや欠損フィールドは `DEFAULT_GLOBAL_SETTINGS` で穴埋めする。
- * 旧フォーマット（`schedules`）は破棄し `blockedTimeSlots` / `timeLimits` で初期化する。
+ * object 風の値を安全にレコードとして扱う。
  */
-export async function loadSettings(): Promise<Settings> {
-  const raw = await browser.storage.sync.get(['global', 'groups']) as {
-    global?: Partial<GlobalSettings>
-    groups?: unknown
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+/**
+ * unknown の配列値から曜日配列を生成する。
+ */
+function normalizeDaysOfWeek(value: unknown): BlockedTimeSlot['daysOfWeek'] {
+  return Array.isArray(value) ? value.filter(Number.isInteger) as BlockedTimeSlot['daysOfWeek'] : []
+}
+
+/**
+ * unknown の値からブロック時間帯を生成する。
+ */
+function normalizeBlockedTimeSlot(value: unknown): BlockedTimeSlot {
+  const slot = asRecord(value)
+  return {
+    daysOfWeek: normalizeDaysOfWeek(slot.daysOfWeek),
+    start: typeof slot.start === 'string' ? slot.start : '',
+    end: typeof slot.end === 'string' ? slot.end : '',
   }
-  const groups: Group[] = Array.isArray(raw.groups)
-    ? (raw.groups as Record<string, unknown>[]).map(g => ({
-        id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
-        name: typeof g.name === 'string' ? g.name : '',
-        mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
-        patterns: Array.isArray(g.patterns) ? (g.patterns as string[]) : [],
-        blockedTimeSlots: Array.isArray(g.blockedTimeSlots) ? (g.blockedTimeSlots as BlockedTimeSlot[]) : [],
-        timeLimits: Array.isArray(g.timeLimits) ? (g.timeLimits as TimeLimit[]) : [],
-      }))
-    : []
-  const rawGlobal = raw.global ?? {}
+}
+
+/**
+ * unknown の値から閲覧上限を生成する。
+ */
+function normalizeTimeLimit(value: unknown): TimeLimit {
+  const limit = asRecord(value)
+  return {
+    daysOfWeek: normalizeDaysOfWeek(limit.daysOfWeek),
+    dailyMinutes: typeof limit.dailyMinutes === 'number' ? limit.dailyMinutes : -1,
+  }
+}
+
+/**
+ * unknown の値からグループ設定を生成する。
+ */
+function normalizeGroup(value: unknown): Group {
+  const g = asRecord(value)
+  return {
+    id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
+    name: typeof g.name === 'string' ? g.name : '',
+    mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
+    patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
+    blockedTimeSlots: Array.isArray(g.blockedTimeSlots) ? g.blockedTimeSlots.map(normalizeBlockedTimeSlot) : [],
+    timeLimits: Array.isArray(g.timeLimits) ? g.timeLimits.map(normalizeTimeLimit) : [],
+  }
+}
+
+/**
+ * unknown の値から `Settings` を生成し、欠損フィールドを補完する。
+ */
+function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Settings {
+  const rawGlobal = asRecord(raw.global)
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
       ...rawGlobal,
       blockAction: normalizeBlockAction(rawGlobal.blockAction),
     },
-    groups,
+    groups: Array.isArray(raw.groups) ? raw.groups.map(normalizeGroup) : [],
   }
+}
+
+/**
+ * browser.storage.sync から `Settings` 全体を読み込む。
+ * 未設定キーや欠損フィールドは `DEFAULT_GLOBAL_SETTINGS` で穴埋めする。
+ * 旧フォーマット（`schedules`）は破棄し `blockedTimeSlots` / `timeLimits` で初期化する。
+ */
+export async function loadSettings(): Promise<Settings> {
+  const raw = await browser.storage.sync.get(['global', 'groups']) as {
+    global?: unknown
+    groups?: unknown
+  }
+  return normalizeSettings(raw)
 }
 
 /**
@@ -47,6 +112,56 @@ export async function saveSettings(settings: Settings): Promise<void> {
     global: settings.global,
     groups: settings.groups,
   })
+}
+
+/**
+ * 現在の設定をエクスポート用 JSON 文字列へ変換する。
+ */
+export function serializeSettingsExport(settings: Settings): string {
+  return `${JSON.stringify({
+    version: SETTINGS_EXPORT_VERSION,
+    settings,
+  } satisfies SettingsExportFile, null, 2)}\n`
+}
+
+/**
+ * エクスポート JSON から設定を読み込み、保存可能な設定として検証する。
+ */
+export function parseSettingsExportJson(json: string): Settings {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  }
+  catch {
+    throw new Error('Invalid JSON')
+  }
+
+  const file = asRecord(parsed)
+  if (file.version !== SETTINGS_EXPORT_VERSION) {
+    throw new Error('Unsupported settings file version')
+  }
+  if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {
+    throw new Error('Settings file is missing settings')
+  }
+
+  const rawSettings = file.settings as Record<string, unknown>
+  if (!rawSettings.global || typeof rawSettings.global !== 'object' || Array.isArray(rawSettings.global)) {
+    throw new Error('Settings file is missing global settings')
+  }
+  if (!Array.isArray(rawSettings.groups)) {
+    throw new Error('Settings file is missing groups')
+  }
+
+  const settings = normalizeSettings(rawSettings)
+  const errors = [
+    ...validateGlobalSettings(settings.global),
+    ...settings.groups.flatMap(validateGroup),
+  ]
+  if (errors.length > 0) {
+    throw new Error('Settings file contains invalid settings')
+  }
+
+  return settings
 }
 
 /**

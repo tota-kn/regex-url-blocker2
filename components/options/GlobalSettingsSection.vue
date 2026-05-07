@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ArrowPathIcon, ArrowTopRightOnSquareIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
@@ -12,6 +14,8 @@ import type { BlockAction, GlobalSettings } from '@/utils/types'
 interface Props {
   /** 指定フィールドのエラーメッセージを返す関数。 */
   error: (field: string) => string | undefined
+  /** インポートに失敗したときのエラーメッセージ。 */
+  importError?: string
 }
 
 defineProps<Props>()
@@ -19,12 +23,17 @@ defineProps<Props>()
 const emit = defineEmits<{
   /** 即時保存したいグローバル設定変更を親へ通知する。 */
   saveNow: []
+  /** 現在の設定をエクスポートしたいことを親へ通知する。 */
+  exportSettings: []
+  /** 選択された設定ファイルをインポートしたいことを親へ通知する。 */
+  importSettings: [file: File]
 }>()
 
 /**
  * Options 画面で編集するグローバル設定。
  */
 const globalSettings = defineModel<GlobalSettings>({ required: true })
+const importInput = ref<HTMLInputElement | null>(null)
 
 const BLOCK_ACTION_OPTIONS = [
   { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
@@ -37,6 +46,23 @@ const BLOCK_ACTION_OPTIONS = [
 function setBlockAction(action: BlockAction): void {
   globalSettings.value.blockAction = action
   emit('saveNow')
+}
+
+/**
+ * 設定ファイル選択ダイアログを開く。
+ */
+function openImportFilePicker(): void {
+  importInput.value?.click()
+}
+
+/**
+ * 選択された JSON ファイルを親へ渡す。
+ */
+function handleImportFile(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) emit('importSettings', file)
+  input.value = ''
 }
 </script>
 
@@ -108,6 +134,53 @@ function setBlockAction(action: BlockAction): void {
           :invalid="Boolean(error('dailyResetHour'))"
         />
       </BaseField>
+
+      <div class="border-t border-border pt-4">
+        <p class="mb-2 text-sm font-medium text-secondary-foreground">
+          Settings file
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <BaseButton
+            variant="secondary"
+            aria-label="Export settings"
+            @click="emit('exportSettings')"
+          >
+            <ArrowDownTrayIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+            Export settings
+          </BaseButton>
+          <BaseButton
+            variant="secondary"
+            aria-label="Import settings"
+            @click="openImportFilePicker"
+          >
+            <ArrowUpTrayIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+            Import settings
+          </BaseButton>
+          <input
+            ref="importInput"
+            type="file"
+            accept="application/json,.json"
+            class="sr-only"
+            aria-label="Settings JSON file"
+            @change="handleImportFile"
+          >
+        </div>
+        <p class="mt-2 text-xs text-muted">
+          Import replaces all groups and general settings.
+        </p>
+        <AlertMessage
+          v-if="importError"
+          class="mt-2"
+        >
+          {{ importError }}
+        </AlertMessage>
+      </div>
     </div>
   </section>
 </template>

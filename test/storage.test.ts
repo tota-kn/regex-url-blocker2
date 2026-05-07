@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadCounters, loadSettings, saveCounters, saveSettings } from '../utils/storage'
+import { parseSettingsExportJson, serializeSettingsExport, loadCounters, loadSettings, saveCounters, saveSettings } from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('loadSettings', () => {
@@ -40,6 +40,69 @@ describe('saveSettings', () => {
     await saveSettings(settings)
     const loaded = await loadSettings()
     expect(loaded).toEqual(settings)
+  })
+})
+
+describe('settings export file', () => {
+  it('version と settings を含む JSON に変換する', () => {
+    const settings = {
+      global: DEFAULT_GLOBAL_SETTINGS,
+      groups: [{ ...createEmptyGroup('Exported'), patterns: ['example\\.com'] }],
+    }
+
+    expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
+      version: 1,
+      settings,
+    })
+  })
+
+  it('valid JSON import を Settings に変換する', () => {
+    const settings = {
+      global: { blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
+      groups: [{ ...createEmptyGroup('Imported'), patterns: ['example\\.com'] }],
+    }
+
+    expect(parseSettingsExportJson(JSON.stringify({ version: 1, settings }))).toEqual(settings)
+  })
+
+  it('mode 欠損の互換データは blacklist で補完する', () => {
+    const imported = parseSettingsExportJson(JSON.stringify({
+      version: 1,
+      settings: {
+        global: DEFAULT_GLOBAL_SETTINGS,
+        groups: [{ id: 'old', name: 'Old', patterns: ['example\\.com'], blockedTimeSlots: [], timeLimits: [] }],
+      },
+    }))
+
+    expect(imported.groups[0].mode).toBe('blacklist')
+  })
+
+  it('不正 JSON は reject する', () => {
+    expect(() => parseSettingsExportJson('{')).toThrow('Invalid JSON')
+  })
+
+  it('version 不一致は reject する', () => {
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } })))
+      .toThrow('Unsupported settings file version')
+  })
+
+  it('settings 欠損は reject する', () => {
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 1 }))).toThrow('Settings file is missing settings')
+  })
+
+  it('groups 欠損は reject する', () => {
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 1, settings: { global: DEFAULT_GLOBAL_SETTINGS } })))
+      .toThrow('Settings file is missing groups')
+  })
+
+  it('バリデーションエラーがある設定は reject する', () => {
+    expect(() => parseSettingsExportJson(JSON.stringify({
+      version: 1,
+      settings: {
+        global: { ...DEFAULT_GLOBAL_SETTINGS, dailyResetHour: '99:99' },
+        groups: [],
+      },
+    }))).toThrow('Settings file contains invalid settings')
   })
 })
 

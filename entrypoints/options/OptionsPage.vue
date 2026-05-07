@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
-import { loadCounters, loadSettings, saveSettings } from '@/utils/storage'
+import { loadCounters, loadSettings, parseSettingsExportJson, saveSettings, serializeSettingsExport } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import type { Group, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -19,6 +19,7 @@ const counters = ref<UsageCountersState>({ counters: {} })
 const now = ref(new Date())
 const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
+const importError = ref<string | undefined>(undefined)
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
 const groupsErrors = computed(() =>
@@ -90,6 +91,36 @@ function saveNow(): void {
   void saveSettings(JSON.parse(JSON.stringify(settings.value)) as Settings)
 }
 
+/**
+ * 現在の設定を JSON ファイルとしてダウンロードする。
+ */
+function exportSettings(): void {
+  importError.value = undefined
+  const blob = new Blob([serializeSettingsExport(settings.value)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'regex-url-blocker-settings.json'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * JSON ファイルから設定を読み込み、既存設定を全置換して即時保存する。
+ */
+async function importSettings(file: File): Promise<void> {
+  importError.value = undefined
+  try {
+    const importedSettings = parseSettingsExportJson(await file.text())
+    settings.value = importedSettings
+    newGroupDrafts.value = []
+    await saveSettings(JSON.parse(JSON.stringify(importedSettings)) as Settings)
+  }
+  catch (error) {
+    importError.value = error instanceof Error ? error.message : 'Failed to import settings'
+  }
+}
+
 watch(settings, (s) => {
   if (!isLoaded.value) return
   if (totalErrors.value > 0) return
@@ -135,6 +166,9 @@ onUnmounted(() => {
           <GlobalSettingsSection
             v-model="settings.global"
             :error="globalError"
+            :import-error="importError"
+            @export-settings="exportSettings"
+            @import-settings="importSettings"
             @save-now="saveNow"
           />
 

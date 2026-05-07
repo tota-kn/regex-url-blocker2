@@ -1,6 +1,19 @@
+import { Buffer } from 'node:buffer'
+import fs from 'node:fs/promises'
 import { expect, test } from './fixtures'
 
 const DEBOUNCE_FLUSH_MS = 400
+
+/**
+ * Playwright の file input に渡す JSON ファイル指定を生成する。
+ */
+function jsonUploadFile(name: string, value: unknown): { name: string, mimeType: string, buffer: Buffer } {
+  return {
+    name,
+    mimeType: 'application/json',
+    buffer: Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)),
+  }
+}
 
 test.describe('Options 画面', () => {
   test('デフォルト値が表示される', async ({ page, extensionId }) => {
@@ -11,6 +24,96 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'false')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('00:00')
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
+  })
+
+  test('設定を JSON ファイルとしてエクスポートできる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('Exported')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByLabel('URL regex pattern').fill('example\\.com')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Export settings' }).click()
+    const download = await downloadPromise
+    const path = await download.path()
+
+    expect(download.suggestedFilename()).toBe('regex-url-blocker-settings.json')
+    expect(path).not.toBeNull()
+
+    const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
+    expect(exported.version).toBe(1)
+    expect(exported.settings).toMatchObject({
+      groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
+    })
+  })
+
+  test('設定ファイルをインポートすると既存設定が全置換される', async ({ page, context, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('BeforeImport')
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+
+    await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('settings.json', {
+      version: 1,
+      settings: {
+        global: {
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyResetHour: '04:30',
+        },
+        groups: [{
+          id: 'imported-group',
+          name: 'Imported',
+          mode: 'blacklist',
+          patterns: ['imported\\.example'],
+          blockedTimeSlots: [],
+          timeLimits: [{ daysOfWeek: [], dailyMinutes: 15 }],
+        }],
+      },
+    }))
+
+    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
+    await expect(page.getByLabel('Name')).toHaveValue('Imported')
+    await expect(page.getByLabel('URL regex pattern')).toHaveValue('imported\\.example')
+    await expect(page.getByLabel('Minutes per day')).toHaveValue('15')
+    await expect(page.getByText('BeforeImport')).not.toBeVisible()
+
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    const stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: {
+              get: (keys: string[]) => Promise<Record<string, unknown>>
+            }
+          }
+        }
+      }
+      return chromeApi.chrome.storage.sync.get(['global', 'groups'])
+    }) as { global?: Record<string, unknown>, groups?: Array<Record<string, unknown>> }
+    expect(stored.global?.dailyResetHour).toBe('04:30')
+    expect(stored.groups).toHaveLength(1)
+    expect(stored.groups?.[0].name).toBe('Imported')
+  })
+
+  test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('StillHere')
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+
+    await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('bad.json', '{'))
+
+    await expect(page.getByText('Invalid JSON')).toBeVisible()
+    await expect(page.getByLabel('Name')).toHaveValue('StillHere')
   })
 
   test('グループ追加時に名前がデフォルトで「グループ1」になる', async ({ page, extensionId }) => {
