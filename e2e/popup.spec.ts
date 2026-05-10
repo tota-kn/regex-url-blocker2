@@ -154,6 +154,22 @@ async function openPopupPage(context: BrowserContext, page: Page, extensionId: s
 }
 
 test.describe('Popup 画面', () => {
+  test('オプション画面を開くリンクを表示する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
+
+      const optionsPagePromise = context.waitForEvent('page')
+      await popup.getByRole('button', { name: 'Open options' }).click()
+      const optionsPage = await optionsPagePromise
+
+      await expect(optionsPage).toHaveURL(`chrome-extension://${extensionId}/options.html`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
   test('現在ページに一致する複数グループの残り時間をすべて表示する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {

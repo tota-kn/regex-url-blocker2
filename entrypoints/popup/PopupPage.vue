@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { Cog6ToothIcon } from '@heroicons/vue/24/outline'
 import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { loadCounters, loadSettings } from '@/utils/storage'
@@ -46,6 +48,13 @@ const displaySummaries = computed<DisplaySummary[]>(() => {
 function realtimeRemainingSeconds(summary: TimeLimitUsageSummary): number {
   const elapsedSec = Math.max(0, Math.floor((now.value.getTime() - counterLoadedAt.value.getTime()) / 1000))
   return Math.max(0, summary.remainingSec - elapsedSec)
+}
+
+/**
+ * 拡張機能のオプション画面を開く。
+ */
+async function openOptionsPage(): Promise<void> {
+  await browser.runtime.openOptionsPage()
 }
 
 /**
@@ -105,9 +114,22 @@ onUnmounted(() => {
 
 <template>
   <main class="w-80 space-y-4 bg-background p-4 text-foreground">
-    <h1 class="text-heading-lg">
-      Regex URL Blocker
-    </h1>
+    <header class="flex items-center justify-between gap-3">
+      <h1 class="min-w-0 truncate text-heading-lg">
+        Regex URL Blocker
+      </h1>
+      <BaseButton
+        size="sm"
+        aria-label="Open options"
+        @click="openOptionsPage"
+      >
+        <Cog6ToothIcon
+          class="size-4"
+          aria-hidden="true"
+        />
+        Options
+      </BaseButton>
+    </header>
 
     <p
       v-if="!isLoaded"
