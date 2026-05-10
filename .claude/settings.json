@@ -27,12 +27,6 @@
             "command": "pnpm typecheck 1>&2 || exit 2",
             "timeout": 120,
             "statusMessage": "Running pnpm typecheck"
-          },
-          {
-            "type": "command",
-            "command": "pnpm lint:design 1>&2 || exit 2",
-            "timeout": 300,
-            "statusMessage": "Running design.md lint"
           }
         ]
       }

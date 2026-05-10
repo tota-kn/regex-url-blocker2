@@ -524,7 +524,7 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
             </div>
           </div>
 
-          <div class="col-span-2 mt-2 min-w-0 pl-[3.75rem] sm:col-span-1 sm:mt-0 sm:pl-4">
+          <div class="col-span-2 mt-2 min-w-0 pl-15 sm:col-span-1 sm:mt-0 sm:pl-4">
             <label class="block min-w-0">
               <span class="sr-only">{{ day.label }} blocked time ranges</span>
               <BaseInput
@@ -543,7 +543,7 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
             </label>
           </div>
 
-          <div class="col-span-2 mt-2 flex min-w-0 items-center gap-1.5 pl-[3.75rem] sm:col-span-1 sm:mt-0 sm:pl-3">
+          <div class="col-span-2 mt-2 flex min-w-0 items-center gap-1.5 pl-15 sm:col-span-1 sm:mt-0 sm:pl-3">
             <label class="min-w-0">
               <span class="sr-only">{{ day.label }} daily limit minutes</span>
               <BaseInput
