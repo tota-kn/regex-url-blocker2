@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ClockIcon } from '@heroicons/vue/24/outline'
 import { ref, watch } from 'vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { DailyRule, DayOfWeek, TimeRange } from '@/utils/types'
 
@@ -27,6 +28,29 @@ interface DayOption {
 }
 
 const dailyRules = defineModel<DailyRule[]>('dailyRules', { required: true })
+
+/**
+ * ブロッキングルールテンプレートの識別子。
+ */
+type LimitRuleTemplate = '30min' | 'block-nights' | 'allow-nights'
+
+/**
+ * テンプレートボタンの表示メタデータ。
+ */
+interface LimitRuleTemplateOption {
+  /** テンプレート識別子。 */
+  id: LimitRuleTemplate
+  /** ボタン表示ラベル。 */
+  label: string
+  /** aria-label。 */
+  ariaLabel: string
+}
+
+const TEMPLATES: LimitRuleTemplateOption[] = [
+  { id: '30min', label: '30 min/day', ariaLabel: 'Apply 30 min/day template' },
+  { id: 'block-nights', label: 'Block nights', ariaLabel: 'Apply block nights template' },
+  { id: 'allow-nights', label: 'Allow nights', ariaLabel: 'Apply allow nights template' },
+]
 
 const DAYS: DayOption[] = [
   { value: 0, label: 'Sun' },
@@ -367,6 +391,22 @@ function selectedCellsToRangeText(cells: boolean[]): string {
   return ranges.join(', ')
 }
 
+/**
+ * 指定テンプレートを全曜日に一括適用する。既存ルールは破棄される。
+ */
+function applyLimitRuleTemplate(template: LimitRuleTemplate): void {
+  dailyRules.value = DAYS.map((day): DailyRule => {
+    const base: DailyRule = { dayOfWeek: day.value, blockedTimeRanges: [], dailyLimitMinutes: undefined }
+    if (template === '30min') {
+      return { ...base, dailyLimitMinutes: 30 }
+    }
+    if (template === 'block-nights') {
+      return { ...base, blockedTimeRanges: [{ startMinute: 1260, endMinute: 360 }] }
+    }
+    return { ...base, blockedTimeRanges: [{ startMinute: 360, endMinute: 1260 }] }
+  })
+}
+
 /** 選択済みセルを保存用の分単位時間帯へ変換する。 */
 function cellsToRanges(cells: boolean[]): TimeRange[] {
   const ranges: TimeRange[] = []
@@ -397,6 +437,22 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
         />
         Blocking rules
       </h3>
+      <div
+        v-if="isEditing"
+        class="flex flex-wrap gap-1.5"
+      >
+        <BaseButton
+          v-for="tmpl in TEMPLATES"
+          :key="tmpl.id"
+          type="button"
+          size="sm"
+          variant="secondary"
+          :aria-label="tmpl.ariaLabel"
+          @click="applyLimitRuleTemplate(tmpl.id)"
+        >
+          {{ tmpl.label }}
+        </BaseButton>
+      </div>
     </div>
 
     <div
