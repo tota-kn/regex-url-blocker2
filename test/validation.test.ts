@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { DayOfWeek } from '../utils/types'
 import {
   isValidHHMM,
   isValidRegex,
@@ -46,12 +45,11 @@ describe('validateGroup', () => {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://(www\\.)?twitter\\.com'],
-      blockedTimeSlots: [
-        { daysOfWeek: [] as DayOfWeek[], start: '22:00', end: '06:00' },
-      ],
-      timeLimits: [
-        { daysOfWeek: [1, 2, 3, 4, 5] as DayOfWeek[], dailyMinutes: 30 },
-      ],
+      dailyRules: createEmptyGroup().dailyRules.map(rule =>
+        rule.dayOfWeek === 3
+          ? { ...rule, blockedTimeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }], dailyLimitMinutes: 30 }
+          : rule,
+      ),
     }
     expect(validateGroup(g)).toEqual([])
   })
@@ -62,14 +60,13 @@ describe('validateGroup', () => {
       name: '   ',
       mode: 'blacklist',
       patterns: ['['],
-      blockedTimeSlots: [],
-      timeLimits: [],
+      dailyRules: createEmptyGroup().dailyRules,
     })
     expect(errors.some(e => e.field === 'name')).toBe(true)
     expect(errors.some(e => e.field === 'patterns[0]')).toBe(true)
   })
 
-  it('blockedTimeSlots・timeLimits が空配列でも valid（制限なし）', () => {
+  it('各曜日の制限が空でも valid（制限なし）', () => {
     const g = { ...createEmptyGroup(), name: 'X' }
     expect(validateGroup(g)).toEqual([])
   })
@@ -85,68 +82,76 @@ describe('validateGroup', () => {
   })
 })
 
-describe('validateBlockedTimeSlot (validateGroup 経由)', () => {
-  it('日跨ぎのブロック時間帯（end <= start）は valid', () => {
+describe('validateDailyRule (validateGroup 経由)', () => {
+  it('日跨ぎのブロック時間帯は valid', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'NightBlock',
-      blockedTimeSlots: [{ daysOfWeek: [] as DayOfWeek[], start: '22:00', end: '06:00' }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule =>
+        rule.dayOfWeek === 3 ? { ...rule, blockedTimeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }] } : rule,
+      ),
     }
     expect(validateGroup(g)).toEqual([])
   })
 
-  it('start が HH:MM 違反だとエラー', () => {
+  it('startMinute が範囲外だとエラー', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      blockedTimeSlots: [{ daysOfWeek: [] as DayOfWeek[], start: '99:99', end: '06:00' }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule =>
+        rule.dayOfWeek === 3 ? { ...rule, blockedTimeRanges: [{ startMinute: -1, endMinute: 360 }] } : rule,
+      ),
     }
-    expect(validateGroup(g).some(e => e.field === 'blockedTimeSlots[0].start')).toBe(true)
+    expect(validateGroup(g).some(e => e.field === 'dailyRules[3].blockedTimeRanges[0].startMinute')).toBe(true)
   })
 
-  it('end が HH:MM 違反だとエラー', () => {
+  it('endMinute が範囲外だとエラー', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      blockedTimeSlots: [{ daysOfWeek: [] as DayOfWeek[], start: '22:00', end: '25:00' }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule =>
+        rule.dayOfWeek === 3 ? { ...rule, blockedTimeRanges: [{ startMinute: 1320, endMinute: 1441 }] } : rule,
+      ),
     }
-    expect(validateGroup(g).some(e => e.field === 'blockedTimeSlots[0].end')).toBe(true)
+    expect(validateGroup(g).some(e => e.field === 'dailyRules[3].blockedTimeRanges[0].endMinute')).toBe(true)
   })
 
-  it('daysOfWeek の値が範囲外（7）だとエラー', () => {
+  it('dailyRules が7件未満だとエラー', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      blockedTimeSlots: [{ daysOfWeek: [7] as unknown as DayOfWeek[], start: '00:00', end: '06:00' }],
+      dailyRules: createEmptyGroup().dailyRules.slice(0, 6),
     }
-    expect(validateGroup(g).some(e => e.field === 'blockedTimeSlots[0].daysOfWeek')).toBe(true)
+    expect(validateGroup(g).some(e => e.field === 'dailyRules')).toBe(true)
   })
 
-  it('daysOfWeek に重複があるとエラー', () => {
+  it('dailyRules の曜日が重複するとエラー', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      blockedTimeSlots: [{ daysOfWeek: [1, 1] as DayOfWeek[], start: '00:00', end: '06:00' }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule => rule.dayOfWeek === 6 ? { ...rule, dayOfWeek: 5 as const } : rule),
     }
-    expect(validateGroup(g).some(e => e.field === 'blockedTimeSlots[0].daysOfWeek')).toBe(true)
+    expect(validateGroup(g).some(e => e.field === 'dailyRules')).toBe(true)
   })
 
-  it('特定曜日のみのブロック時間帯は valid', () => {
+  it('24:00 相当の 1440 は valid', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'WeekdayBlock',
-      blockedTimeSlots: [{ daysOfWeek: [1, 2, 3, 4, 5] as DayOfWeek[], start: '22:00', end: '06:00' }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule =>
+        rule.dayOfWeek === 3 ? { ...rule, blockedTimeRanges: [{ startMinute: 0, endMinute: 1440 }] } : rule,
+      ),
     }
     expect(validateGroup(g)).toEqual([])
   })
 })
 
-describe('validateTimeLimit (validateGroup 経由)', () => {
+describe('dailyLimitMinutes (validateGroup 経由)', () => {
   it('正常な上限設定はエラーなし', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      timeLimits: [{ daysOfWeek: [1, 2, 3, 4, 5] as DayOfWeek[], dailyMinutes: 30 }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule => rule.dayOfWeek === 3 ? { ...rule, dailyLimitMinutes: 30 } : rule),
     }
     expect(validateGroup(g)).toEqual([])
   })
@@ -155,7 +160,15 @@ describe('validateTimeLimit (validateGroup 経由)', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 0 }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule => rule.dayOfWeek === 3 ? { ...rule, dailyLimitMinutes: 0 } : rule),
+    }
+    expect(validateGroup(g)).toEqual([])
+  })
+
+  it('dailyLimitMinutes が undefined は valid（上限なし）', () => {
+    const g = {
+      ...createEmptyGroup(),
+      name: 'X',
     }
     expect(validateGroup(g)).toEqual([])
   })
@@ -164,36 +177,18 @@ describe('validateTimeLimit (validateGroup 経由)', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: -1 }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule => rule.dayOfWeek === 3 ? { ...rule, dailyLimitMinutes: -1 } : rule),
     }
-    expect(validateGroup(g).some(e => e.field === 'timeLimits[0].dailyMinutes')).toBe(true)
+    expect(validateGroup(g).some(e => e.field === 'dailyRules[3].dailyLimitMinutes')).toBe(true)
   })
 
   it('dailyMinutes が小数だとエラー', () => {
     const g = {
       ...createEmptyGroup(),
       name: 'X',
-      timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 1.5 }],
+      dailyRules: createEmptyGroup().dailyRules.map(rule => rule.dayOfWeek === 3 ? { ...rule, dailyLimitMinutes: 1.5 } : rule),
     }
-    expect(validateGroup(g).some(e => e.field === 'timeLimits[0].dailyMinutes')).toBe(true)
-  })
-
-  it('daysOfWeek の値が範囲外（7）だとエラー', () => {
-    const g = {
-      ...createEmptyGroup(),
-      name: 'X',
-      timeLimits: [{ daysOfWeek: [7] as unknown as DayOfWeek[], dailyMinutes: 30 }],
-    }
-    expect(validateGroup(g).some(e => e.field === 'timeLimits[0].daysOfWeek')).toBe(true)
-  })
-
-  it('daysOfWeek に重複があるとエラー', () => {
-    const g = {
-      ...createEmptyGroup(),
-      name: 'X',
-      timeLimits: [{ daysOfWeek: [1, 1] as DayOfWeek[], dailyMinutes: 30 }],
-    }
-    expect(validateGroup(g).some(e => e.field === 'timeLimits[0].daysOfWeek')).toBe(true)
+    expect(validateGroup(g).some(e => e.field === 'dailyRules[3].dailyLimitMinutes')).toBe(true)
   })
 })
 

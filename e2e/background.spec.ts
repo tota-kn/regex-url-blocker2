@@ -108,8 +108,11 @@ async function saveBlockingSettingsWithPattern(serviceWorker: Worker, origin: st
         name: 'Block local',
         mode: 'blacklist',
         patterns: [settings.pattern],
-        blockedTimeSlots: [],
-        timeLimits: [{ daysOfWeek: [], dailyMinutes: 0 }],
+        dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+          dayOfWeek,
+          blockedTimeRanges: [],
+          dailyLimitMinutes: 0,
+        })),
       }],
     })
   }, { origin, pattern })
@@ -140,8 +143,11 @@ async function saveBlockedPageSettings(serviceWorker: Worker, origin: string, gr
         name: group.name,
         mode: 'blacklist',
         patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
-        blockedTimeSlots: [],
-        timeLimits: [{ daysOfWeek: [], dailyMinutes: 0 }],
+        dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+          dayOfWeek,
+          blockedTimeRanges: [],
+          dailyLimitMinutes: 0,
+        })),
       })),
     })
   }, { origin, groups })
@@ -304,8 +310,11 @@ test.describe('Badge display', () => {
             name: 'Timed Group',
             mode: 'blacklist',
             patterns: [`^${settings.originEscaped}`],
-            blockedTimeSlots: [],
-            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+              dayOfWeek,
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 60,
+            })),
           }],
         })
       }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
@@ -342,8 +351,11 @@ test.describe('Badge display', () => {
             name: 'Timed Group',
             mode: 'blacklist',
             patterns: [`^${settings.originEscaped}`],
-            blockedTimeSlots: [],
-            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+              dayOfWeek,
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 60,
+            })),
           }],
         })
       }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
@@ -405,8 +417,11 @@ test.describe('Badge display', () => {
             name: 'Timed Group',
             mode: 'blacklist',
             patterns: ['example\\.com'],
-            blockedTimeSlots: [],
-            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+              dayOfWeek,
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 60,
+            })),
           }],
         })
       }, { origin: server.origin })
@@ -449,8 +464,11 @@ test.describe('Badge display', () => {
             name: 'Timed Group',
             mode: 'blacklist',
             patterns: [`^${settings.originEscaped}`],
-            blockedTimeSlots: [],
-            timeLimits: [{ daysOfWeek: [], dailyMinutes: 60 }],
+            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+              dayOfWeek,
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 60,
+            })),
           }],
         })
         await chromeApi.chrome.storage.local.set({

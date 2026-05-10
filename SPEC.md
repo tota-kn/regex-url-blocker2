@@ -8,7 +8,7 @@
 - **正規表現** — URL 文字列全体に対して部分一致を行うパターン。JS の `RegExp` 構文。
 - **論理日** — グローバル設定の「リセット時刻」を起点とする1日。`floor((now - resetHour) / 24h)` で算出。
 - **消費秒数** — グループ単位で計測される、1日に該当グループの URL を閲覧した累積秒数。
-- **ブロック時間帯** — アクセスを即座にブロックする時間帯。曜日・時間帯を1組として定義する。
+- **ブロック時間帯** — アクセスを即座にブロックする時間帯。曜日ごとの分単位範囲として定義する。
 - **上限** — ブロック時間帯以外の時間に対する1日の累積閲覧上限（分）。曜日ごとに設定可能。
 
 ## 機能要件
@@ -20,18 +20,15 @@
   - `name`: ユーザー入力の表示名（必須）
   - `mode`: 対象 URL の判定モード。`blacklist`（既定）または `whitelist`
   - `patterns`: 正規表現文字列の配列
-  - `blockedTimeSlots`: ブロック時間帯の配列。空配列なら即座ブロックなし
-  - `timeLimits`: 閲覧上限の配列。空配列なら上限なし
+  - `dailyRules`: 曜日別ルールの配列。0=日曜から6=土曜まで必ず7件
 - `mode` の意味：
   - `blacklist`: `patterns` のいずれかにマッチした URL を制限対象とする
   - `whitelist`: `patterns` のいずれにもマッチしない URL を制限対象とする
   - 旧データなどで `mode` が欠損している場合は `blacklist` として扱う
-- 各ブロック時間帯は以下の属性を持つ：
-  - `daysOfWeek`: 適用曜日の配列。値は 0=日, 1=月, ..., 6=土（JS `Date.getDay()` 互換）。空配列なら全曜日に適用
-  - `start` / `end`: ブロック時間帯の開始/終了時刻（`HH:MM`）。`end < start` なら日跨ぎ（例 22:00–06:00）、`end === start` なら 24 時間ブロック
-- 各上限は以下の属性を持つ：
-  - `daysOfWeek`: 適用曜日の配列。空配列なら全曜日に適用
-  - `dailyMinutes`: 1日あたり閲覧上限（分）。`0` で「即ブロック」を表現
+- 各 `dailyRules[]` は以下の属性を持つ：
+  - `dayOfWeek`: 0=日, 1=月, ..., 6=土（JS `Date.getDay()` 互換）
+  - `blockedTimeRanges`: ブロック時間帯の配列。各要素は `startMinute` / `endMinute`（0..1440）。`endMinute < startMinute` なら日跨ぎ、`endMinute === startMinute` なら 24 時間ブロック
+  - `dailyLimitMinutes`: 1日あたり閲覧上限（分）。未定義なら上限なし、`0` で「即ブロック」を表現
 - グループは追加順に表示する（v1 では並び替え非対応）。
 - 曜日判定は **論理日切り替え時点の曜日**（リセット時刻起点）で行う。
 
@@ -56,9 +53,10 @@
 
 - グループ単位の判定式（時刻 T、曜日 D）：
   - まず URL が対象グループに該当するかを `mode` と `patterns` で判定する。該当しないグループは許可状態
-  - `blockedTimeSlots` と `timeLimits` がどちらも空配列なら、そのグループは常に許可状態
-  - `blockedTimeSlots` のうち D が `daysOfWeek` にマッチし T が `[start, end)` に含まれるものが1つでも存在 → ブロック状態
-  - `timeLimits` のうち D が `daysOfWeek` にマッチするものを収集し、`dailyMinutes` の最小値を有効上限とする。`consumedSec >= 有効上限 * 60` ならブロック状態
+  - D に該当する `dailyRules[]` を1件取得する
+  - `blockedTimeRanges` が空で `dailyLimitMinutes` も未定義なら、そのグループは常に許可状態
+  - `blockedTimeRanges` のうち T が `[startMinute, endMinute)` に含まれるものが1つでも存在 → ブロック状態
+  - `dailyLimitMinutes` が定義されており、`consumedSec >= dailyLimitMinutes * 60` ならブロック状態
 - URL 単位の判定：
   - URL がマッチするグループのうち **いずれか1つでもブロック状態** なら、その URL はブロックされる
 - ブロックされた URL は `blockAction` に従って、`redirectUrl` へリダイレクトされるか拡張機能のブロックページへ遷移する。
@@ -93,10 +91,10 @@
 ### Options 画面（編集）
 
 - グループの追加・編集・削除
-- 各グループ：`name`、`mode`、`patterns[]`、`blockedTimeSlots[]`、`timeLimits[]`
+- 各グループ：`name`、`mode`、`patterns[]`、`dailyRules[]`
 - `mode` は `blacklist` / `whitelist` を選択できる。
-- ブロック時間帯は1組につき：曜日チェックボックス（日〜土の7つ。未選択=毎日）、`<input type="time">` の開始/終了
-- 上限は1組につき：曜日チェックボックス（日〜土の7つ。未選択=毎日）、`<input type="number">` の上限分数
+- ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する
+- 上限は曜日ごとに上限分数を入力する。空欄なら上限なし
 - グローバル設定（`blockAction`、`redirectUrl`、`dailyResetHour`）の編集
 - 保存時に正規表現の構文を `new RegExp()` で検証し、無効なら保存拒否＋インラインエラー
 - 保存はキー入力のたびではなく debounce（300ms）で `chrome.storage.sync` のレート制限に配慮

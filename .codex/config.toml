@@ -8,7 +8,7 @@
 
   [[hooks.PostToolUse.hooks]]
   type = "command"
-  command = "pnpm lint:fix 1>&2 || exit 2"
+  command = "pnpm lint 1>&2 || exit 2"
   timeout = 120
   statusMessage = "Running pnpm lint:fix"
 

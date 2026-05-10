@@ -128,13 +128,6 @@ export function getTargetGroupIds(settings: Settings, url: string | undefined): 
 }
 
 /**
- * 曜日設定が論理日の曜日に該当するなら true を返す。
- */
-function dayMatches(daysOfWeek: DayOfWeek[], dayOfWeek: DayOfWeek): boolean {
-  return daysOfWeek.length === 0 || daysOfWeek.includes(dayOfWeek)
-}
-
-/**
  * 時刻 T が時間帯に含まれるなら true を返す。
  */
 function timeInRange(nowMinute: number, startMinute: number, endMinute: number): boolean {
@@ -147,24 +140,21 @@ function timeInRange(nowMinute: number, startMinute: number, endMinute: number):
  * group が指定時刻・counter でブロック状態なら true を返す。
  */
 function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): boolean {
-  if (group.blockedTimeSlots.length === 0 && group.timeLimits.length === 0) return false
-
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
+  const dailyRule = group.dailyRules.find(rule => rule.dayOfWeek === logicalDate.dayOfWeek)
+  if (!dailyRule) return false
+  if (dailyRule.blockedTimeRanges.length === 0 && dailyRule.dailyLimitMinutes === undefined) return false
+
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  const blockedBySlot = group.blockedTimeSlots.some(slot =>
-    dayMatches(slot.daysOfWeek, logicalDate.dayOfWeek)
-    && timeInRange(nowMinute, minuteOfDay(slot.start), minuteOfDay(slot.end)),
+  const blockedBySlot = dailyRule.blockedTimeRanges.some(range =>
+    timeInRange(nowMinute, range.startMinute, range.endMinute),
   )
   if (blockedBySlot) return true
 
-  const limits = group.timeLimits
-    .filter(limit => dayMatches(limit.daysOfWeek, logicalDate.dayOfWeek))
-    .map(limit => limit.dailyMinutes)
-  if (limits.length === 0) return false
+  if (dailyRule.dailyLimitMinutes === undefined) return false
 
-  const effectiveLimit = Math.min(...limits)
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
-  return consumedSec >= effectiveLimit * 60
+  return consumedSec >= dailyRule.dailyLimitMinutes * 60
 }
 
 /**
@@ -172,12 +162,10 @@ function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Da
  */
 export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): TimeLimitUsageSummary | undefined {
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  const limits = group.timeLimits
-    .filter(limit => dayMatches(limit.daysOfWeek, logicalDate.dayOfWeek))
-    .map(limit => limit.dailyMinutes)
-  if (limits.length === 0) return undefined
+  const dailyRule = group.dailyRules.find(rule => rule.dayOfWeek === logicalDate.dayOfWeek)
+  if (!dailyRule || dailyRule.dailyLimitMinutes === undefined) return undefined
 
-  const limitMinutes = Math.min(...limits)
+  const limitMinutes = dailyRule.dailyLimitMinutes
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
   const limitSec = limitMinutes * 60
   return {

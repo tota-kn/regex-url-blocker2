@@ -42,7 +42,7 @@ const groups = defineModel<Group[]>({ required: true })
 </script>
 
 <template>
-  <section class="space-y-3">
+  <section class="min-w-0 space-y-3">
     <div class="flex h-12 items-center justify-between gap-3 border-b border-border">
       <h2 class="text-base font-semibold tracking-normal">
         Groups
@@ -69,7 +69,7 @@ const groups = defineModel<Group[]>({ required: true })
       No groups yet
     </EmptyState>
 
-    <div class="space-y-4">
+    <div class="min-w-0 space-y-4">
       <GroupCard
         v-for="(_, i) in groups"
         :key="groups[i].id"

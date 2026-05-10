@@ -70,16 +70,6 @@ function patternError(index: number): string | undefined {
   return draftError(`patterns[${index}]`)
 }
 
-/** 指定ブロック時間帯番号・サブフィールドのドラフト検証エラーメッセージを返す。 */
-function blockedTimeSlotError(index: number, subField: string): string | undefined {
-  return draftError(`blockedTimeSlots[${index}].${subField}`)
-}
-
-/** 指定上限番号・サブフィールドのドラフト検証エラーメッセージを返す。 */
-function timeLimitError(index: number, subField: string): string | undefined {
-  return draftError(`timeLimits[${index}].${subField}`)
-}
-
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
 function startEditing(): void {
   draft.value = cloneGroup(props.group)
@@ -106,7 +96,7 @@ function saveEditing(): void {
 </script>
 
 <template>
-  <article class="overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+  <article class="min-w-0 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
     <div class="border-b border-border bg-background p-4">
       <div class="space-y-2.5">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -170,7 +160,7 @@ function saveEditing(): void {
 
     <fieldset
       :disabled="!isEditing"
-      class="space-y-4 p-4 disabled:cursor-default"
+      class="min-w-0 space-y-4 p-4 disabled:cursor-default"
     >
       <legend class="sr-only">
         Group details
@@ -182,11 +172,8 @@ function saveEditing(): void {
         :error="patternError"
       />
       <LimitRulesEditor
-        v-model:blocked-time-slots="draft.blockedTimeSlots"
-        v-model:time-limits="draft.timeLimits"
+        v-model:daily-rules="draft.dailyRules"
         :is-editing="isEditing"
-        :blocked-time-slot-error="blockedTimeSlotError"
-        :time-limit-error="timeLimitError"
       />
     </fieldset>
 

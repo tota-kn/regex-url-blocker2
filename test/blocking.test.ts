@@ -10,7 +10,8 @@ import {
   normalizeCounters,
   shouldSkipUrl,
 } from '../utils/blocking'
-import type { DayOfWeek, Group, Settings, UsageCountersState } from '../utils/types'
+import { createEmptyDailyRules } from '../utils/defaults'
+import type { DailyRule, DayOfWeek, Group, Settings, UsageCountersState } from '../utils/types'
 
 /**
  * テスト用のグループを生成する。
@@ -21,10 +22,25 @@ function group(overrides: Partial<Group>): Group {
     name: 'Group',
     mode: 'blacklist',
     patterns: ['example\\.com'],
-    blockedTimeSlots: [],
-    timeLimits: [],
+    dailyRules: createEmptyDailyRules(),
     ...overrides,
   }
+}
+
+/**
+ * 指定曜日のルールだけ差し替えた7曜日分のルールを返す。
+ */
+function dailyRule(dayOfWeek: DayOfWeek, override: Partial<DailyRule>): DailyRule[] {
+  return createEmptyDailyRules().map(rule =>
+    rule.dayOfWeek === dayOfWeek ? { ...rule, ...override } : rule,
+  )
+}
+
+/**
+ * すべての曜日へ同じルールを適用した7曜日分のルールを返す。
+ */
+function allDailyRules(override: Partial<DailyRule>): DailyRule[] {
+  return createEmptyDailyRules().map(rule => ({ ...rule, ...override }))
 }
 
 /**
@@ -86,7 +102,7 @@ describe('logical date', () => {
 describe('blocking evaluation', () => {
   it('通常時間帯のブロックを判定する', () => {
     const s = settings([group({
-      blockedTimeSlots: [{ daysOfWeek: [] as DayOfWeek[], start: '09:00', end: '17:00' }],
+      dailyRules: allDailyRules({ blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }),
     })])
     const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T10:00:00+09:00'))
     expect(result.blocked).toBe(true)
@@ -95,7 +111,7 @@ describe('blocking evaluation', () => {
 
   it('日跨ぎ時間帯のブロックを判定する', () => {
     const s = settings([group({
-      blockedTimeSlots: [{ daysOfWeek: [] as DayOfWeek[], start: '22:00', end: '06:00' }],
+      dailyRules: allDailyRules({ blockedTimeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }] }),
     })])
     expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T23:00:00+09:00')).blocked).toBe(true)
     expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T05:59:00+09:00')).blocked).toBe(true)
@@ -104,24 +120,21 @@ describe('blocking evaluation', () => {
 
   it('start と end が同じ時間帯は 24 時間ブロックにする', () => {
     const s = settings([group({
-      blockedTimeSlots: [{ daysOfWeek: [] as DayOfWeek[], start: '00:00', end: '00:00' }],
+      dailyRules: allDailyRules({ blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }] }),
     })])
     expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00')).blocked).toBe(true)
   })
 
   it('曜日指定は論理日開始時点の曜日で判定する', () => {
     const s = settings([group({
-      blockedTimeSlots: [{ daysOfWeek: [2] as DayOfWeek[], start: '00:00', end: '23:59' }],
+      dailyRules: dailyRule(2, { blockedTimeRanges: [{ startMinute: 0, endMinute: 1440 }] }),
     })], '03:00')
     expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T02:00:00+09:00')).blocked).toBe(true)
   })
 
-  it('複数上限は最小値を採用し、0 分は即ブロックにする', () => {
+  it('0 分上限は即ブロックにする', () => {
     const s = settings([group({
-      timeLimits: [
-        { daysOfWeek: [] as DayOfWeek[], dailyMinutes: 30 },
-        { daysOfWeek: [] as DayOfWeek[], dailyMinutes: 0 },
-      ],
+      dailyRules: allDailyRules({ dailyLimitMinutes: 0 }),
     })])
     const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
     expect(result.blocked).toBe(true)
@@ -130,14 +143,14 @@ describe('blocking evaluation', () => {
   it('https?://x.com.* と 0 分上限で x.com をブロックする', () => {
     const s = settings([group({
       patterns: ['https?://x.com.*'],
-      timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 0 }],
+      dailyRules: allDailyRules({ dailyLimitMinutes: 0 }),
     })])
     const result = evaluateUrl(s, emptyCounters(), 'https://x.com/', new Date('2026-05-06T12:00:00+09:00'))
     expect(result.blocked).toBe(true)
   })
 
   it('上限秒数以上のカウンタでブロックする', () => {
-    const s = settings([group({ timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 1 }] })])
+    const s = settings([group({ dailyRules: allDailyRules({ dailyLimitMinutes: 1 }) })])
     const counters = { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 60 } } }
     expect(evaluateUrl(s, counters, 'https://example.com/', new Date('2026-05-06T12:00:00+09:00')).blocked).toBe(true)
   })
@@ -146,7 +159,7 @@ describe('blocking evaluation', () => {
 describe('counters', () => {
   it('今日の曜日に該当する上限から残り秒数を算出する', () => {
     const s = settings([group({
-      timeLimits: [{ daysOfWeek: [3] as DayOfWeek[], dailyMinutes: 30 }],
+      dailyRules: dailyRule(3, { dailyLimitMinutes: 30 }),
     })])
     const summary = getTimeLimitUsageSummary(
       s.groups[0],
@@ -162,12 +175,9 @@ describe('counters', () => {
     })
   })
 
-  it('複数上限の残り時間は最小値を採用する', () => {
+  it('曜日別上限の残り時間を返す', () => {
     const s = settings([group({
-      timeLimits: [
-        { daysOfWeek: [] as DayOfWeek[], dailyMinutes: 60 },
-        { daysOfWeek: [3] as DayOfWeek[], dailyMinutes: 20 },
-      ],
+      dailyRules: dailyRule(3, { dailyLimitMinutes: 20 }),
     })])
     const summary = getTimeLimitUsageSummary(
       s.groups[0],
@@ -181,7 +191,7 @@ describe('counters', () => {
 
   it('残り時間算出では論理日が違う counter を 0 秒消費として扱う', () => {
     const s = settings([group({
-      timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 10 }],
+      dailyRules: allDailyRules({ dailyLimitMinutes: 10 }),
     })])
     const summary = getTimeLimitUsageSummary(
       s.groups[0],
@@ -195,7 +205,7 @@ describe('counters', () => {
 
   it('今日有効な上限がなければ残り時間を返さない', () => {
     const s = settings([group({
-      timeLimits: [{ daysOfWeek: [1] as DayOfWeek[], dailyMinutes: 10 }],
+      dailyRules: dailyRule(1, { dailyLimitMinutes: 10 }),
     })])
     expect(getTimeLimitUsageSummary(s.groups[0], undefined, new Date('2026-05-06T12:00:00+09:00'), s.global)).toBeUndefined()
   })
@@ -210,9 +220,9 @@ describe('counters', () => {
 
   it('対象 URL の有効上限から最短の残り時間を返す', () => {
     const s = settings([
-      group({ id: 'long', patterns: ['example'], timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 30 }] }),
-      group({ id: 'short', patterns: ['example'], timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 10 }] }),
-      group({ id: 'other', patterns: ['other'], timeLimits: [{ daysOfWeek: [] as DayOfWeek[], dailyMinutes: 1 }] }),
+      group({ id: 'long', patterns: ['example'], dailyRules: allDailyRules({ dailyLimitMinutes: 30 }) }),
+      group({ id: 'short', patterns: ['example'], dailyRules: allDailyRules({ dailyLimitMinutes: 10 }) }),
+      group({ id: 'other', patterns: ['other'], dailyRules: allDailyRules({ dailyLimitMinutes: 1 }) }),
     ])
     const counters = {
       counters: {
@@ -228,7 +238,7 @@ describe('counters', () => {
 
   it('対象 URL に今日有効な上限がなければ最短残り時間を返さない', () => {
     const s = settings([group({
-      timeLimits: [{ daysOfWeek: [1] as DayOfWeek[], dailyMinutes: 10 }],
+      dailyRules: dailyRule(1, { dailyLimitMinutes: 10 }),
     })])
     expect(getMinimumRemainingTimeLimit(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))).toBeUndefined()
   })

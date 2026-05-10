@@ -1,4 +1,4 @@
-import type { GlobalSettings, Group } from './types'
+import type { DailyRule, DayOfWeek, GlobalSettings, Group } from './types'
 
 /**
  * 未設定時に使用するグローバル設定の既定値。SPEC.md 準拠。
@@ -7,6 +7,17 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   blockAction: 'redirect',
   redirectUrl: 'https://example.com',
   dailyResetHour: '00:00',
+}
+
+/**
+ * 曜日別ルールを空の状態で7件生成する。
+ */
+export function createEmptyDailyRules(): DailyRule[] {
+  return ([0, 1, 2, 3, 4, 5, 6] as DayOfWeek[]).map(dayOfWeek => ({
+    dayOfWeek,
+    blockedTimeRanges: [],
+    dailyLimitMinutes: undefined,
+  }))
 }
 
 /**
@@ -19,7 +30,6 @@ export function createEmptyGroup(name = ''): Group {
     name,
     mode: 'blacklist',
     patterns: [],
-    blockedTimeSlots: [],
-    timeLimits: [],
+    dailyRules: createEmptyDailyRules(),
   }
 }

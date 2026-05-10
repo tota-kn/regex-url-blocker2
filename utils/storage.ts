@@ -1,11 +1,11 @@
-import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
-import type { BlockAction, BlockedTimeSlot, Group, GroupMode, Settings, TimeLimit, UsageCountersState } from './types'
+import { createEmptyDailyRules, DEFAULT_GLOBAL_SETTINGS } from './defaults'
+import type { BlockAction, DailyRule, DayOfWeek, Group, GroupMode, Settings, TimeRange, UsageCountersState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 1
+export const SETTINGS_EXPORT_VERSION = 2
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
@@ -32,36 +32,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 /**
- * unknown の配列値から曜日配列を生成する。
- */
-function normalizeDaysOfWeek(value: unknown): BlockedTimeSlot['daysOfWeek'] {
-  return Array.isArray(value) ? value.filter(Number.isInteger) as BlockedTimeSlot['daysOfWeek'] : []
-}
-
-/**
- * unknown の値からブロック時間帯を生成する。
- */
-function normalizeBlockedTimeSlot(value: unknown): BlockedTimeSlot {
-  const slot = asRecord(value)
-  return {
-    daysOfWeek: normalizeDaysOfWeek(slot.daysOfWeek),
-    start: typeof slot.start === 'string' ? slot.start : '',
-    end: typeof slot.end === 'string' ? slot.end : '',
-  }
-}
-
-/**
- * unknown の値から閲覧上限を生成する。
- */
-function normalizeTimeLimit(value: unknown): TimeLimit {
-  const limit = asRecord(value)
-  return {
-    daysOfWeek: normalizeDaysOfWeek(limit.daysOfWeek),
-    dailyMinutes: typeof limit.dailyMinutes === 'number' ? limit.dailyMinutes : -1,
-  }
-}
-
-/**
  * unknown の値からグループ設定を生成する。
  */
 function normalizeGroup(value: unknown): Group {
@@ -71,9 +41,39 @@ function normalizeGroup(value: unknown): Group {
     name: typeof g.name === 'string' ? g.name : '',
     mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
-    blockedTimeSlots: Array.isArray(g.blockedTimeSlots) ? g.blockedTimeSlots.map(normalizeBlockedTimeSlot) : [],
-    timeLimits: Array.isArray(g.timeLimits) ? g.timeLimits.map(normalizeTimeLimit) : [],
+    dailyRules: normalizeDailyRules(g.dailyRules),
   }
+}
+
+/**
+ * unknown の値から分単位の時間帯を生成する。
+ */
+function normalizeTimeRange(value: unknown): TimeRange {
+  const range = asRecord(value)
+  return {
+    startMinute: typeof range.startMinute === 'number' ? range.startMinute : -1,
+    endMinute: typeof range.endMinute === 'number' ? range.endMinute : -1,
+  }
+}
+
+/**
+ * unknown の値から曜日別ルールを生成する。
+ */
+function normalizeDailyRule(value: unknown): DailyRule {
+  const rule = asRecord(value)
+  return {
+    dayOfWeek: (Number.isInteger(rule.dayOfWeek) ? rule.dayOfWeek : -1) as DayOfWeek,
+    blockedTimeRanges: Array.isArray(rule.blockedTimeRanges) ? rule.blockedTimeRanges.map(normalizeTimeRange) : [],
+    dailyLimitMinutes: typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined,
+  }
+}
+
+/**
+ * unknown の値から7曜日分のルール配列を生成する。
+ */
+function normalizeDailyRules(value: unknown): DailyRule[] {
+  if (!Array.isArray(value)) return createEmptyDailyRules()
+  return value.map(normalizeDailyRule)
 }
 
 /**
@@ -94,7 +94,7 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
 /**
  * browser.storage.sync から `Settings` 全体を読み込む。
  * 未設定キーや欠損フィールドは `DEFAULT_GLOBAL_SETTINGS` で穴埋めする。
- * 旧フォーマット（`schedules`）は破棄し `blockedTimeSlots` / `timeLimits` で初期化する。
+ * 旧フォーマット（`schedules` / `blockedTimeSlots` / `timeLimits`）は破棄し空の `dailyRules` で初期化する。
  */
 export async function loadSettings(): Promise<Settings> {
   const raw = await browser.storage.sync.get(['global', 'groups']) as {

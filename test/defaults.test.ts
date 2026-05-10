@@ -15,8 +15,15 @@ describe('createEmptyGroup', () => {
     expect(g.name).toBe('')
     expect(g.mode).toBe('blacklist')
     expect(g.patterns).toEqual([])
-    expect(g.blockedTimeSlots).toEqual([])
-    expect(g.timeLimits).toEqual([])
+    expect(g.dailyRules).toEqual([
+      { dayOfWeek: 0, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+      { dayOfWeek: 1, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+      { dayOfWeek: 2, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+      { dayOfWeek: 3, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+      { dayOfWeek: 4, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+      { dayOfWeek: 5, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+      { dayOfWeek: 6, blockedTimeRanges: [], dailyLimitMinutes: undefined },
+    ])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {

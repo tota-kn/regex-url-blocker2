@@ -51,7 +51,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 1,
+      version: 2,
       settings,
     })
   })
@@ -62,15 +62,15 @@ describe('settings export file', () => {
       groups: [{ ...createEmptyGroup('Imported'), patterns: ['example\\.com'] }],
     }
 
-    expect(parseSettingsExportJson(JSON.stringify({ version: 1, settings }))).toEqual(settings)
+    expect(parseSettingsExportJson(JSON.stringify({ version: 2, settings }))).toEqual(settings)
   })
 
   it('mode 欠損の互換データは blacklist で補完する', () => {
     const imported = parseSettingsExportJson(JSON.stringify({
-      version: 1,
+      version: 2,
       settings: {
         global: DEFAULT_GLOBAL_SETTINGS,
-        groups: [{ id: 'old', name: 'Old', patterns: ['example\\.com'], blockedTimeSlots: [], timeLimits: [] }],
+        groups: [{ id: 'old', name: 'Old', patterns: ['example\\.com'], dailyRules: createEmptyGroup().dailyRules }],
       },
     }))
 
@@ -82,22 +82,22 @@ describe('settings export file', () => {
   })
 
   it('version 不一致は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } })))
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 1, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } })))
       .toThrow('Unsupported settings file version')
   })
 
   it('settings 欠損は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({ version: 1 }))).toThrow('Settings file is missing settings')
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2 }))).toThrow('Settings file is missing settings')
   })
 
   it('groups 欠損は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({ version: 1, settings: { global: DEFAULT_GLOBAL_SETTINGS } })))
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2, settings: { global: DEFAULT_GLOBAL_SETTINGS } })))
       .toThrow('Settings file is missing groups')
   })
 
   it('バリデーションエラーがある設定は reject する', () => {
     expect(() => parseSettingsExportJson(JSON.stringify({
-      version: 1,
+      version: 2,
       settings: {
         global: { ...DEFAULT_GLOBAL_SETTINGS, dailyResetHour: '99:99' },
         groups: [],
@@ -109,7 +109,7 @@ describe('settings export file', () => {
 describe('loadSettings のマイグレーション', () => {
   it('groups の mode 欠損は blacklist で補完される', async () => {
     await browser.storage.sync.set({
-      groups: [{ id: 'x', name: 'old', patterns: [], blockedTimeSlots: [], timeLimits: [] }],
+      groups: [{ id: 'x', name: 'old', patterns: [], dailyRules: createEmptyGroup().dailyRules }],
     })
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('blacklist')
@@ -117,13 +117,13 @@ describe('loadSettings のマイグレーション', () => {
 
   it('whitelist は保持される', async () => {
     await browser.storage.sync.set({
-      groups: [{ id: 'y', name: 'wl', mode: 'whitelist', patterns: [], blockedTimeSlots: [], timeLimits: [] }],
+      groups: [{ id: 'y', name: 'wl', mode: 'whitelist', patterns: [], dailyRules: createEmptyGroup().dailyRules }],
     })
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('whitelist')
   })
 
-  it('旧 schedules フィールドは破棄され blockedTimeSlots/timeLimits で初期化される', async () => {
+  it('旧 schedules / blockedTimeSlots / timeLimits フィールドは破棄され空の dailyRules で初期化される', async () => {
     await browser.storage.sync.set({
       groups: [{
         id: 'z',
@@ -131,12 +131,15 @@ describe('loadSettings のマイグレーション', () => {
         mode: 'blacklist',
         patterns: [],
         schedules: [{ daysOfWeek: [], start: '09:00', end: '18:00', dailyTimeLimitMinutes: 30 }],
+        blockedTimeSlots: [{ daysOfWeek: [], start: '09:00', end: '18:00' }],
+        timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
       }],
     })
     const s = await loadSettings()
-    expect(s.groups[0].blockedTimeSlots).toEqual([])
-    expect(s.groups[0].timeLimits).toEqual([])
+    expect(s.groups[0].dailyRules).toEqual(createEmptyGroup().dailyRules)
     expect((s.groups[0] as unknown as Record<string, unknown>).schedules).toBeUndefined()
+    expect((s.groups[0] as unknown as Record<string, unknown>).blockedTimeSlots).toBeUndefined()
+    expect((s.groups[0] as unknown as Record<string, unknown>).timeLimits).toBeUndefined()
   })
 })
 

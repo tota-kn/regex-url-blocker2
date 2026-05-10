@@ -15,6 +15,18 @@ function jsonUploadFile(name: string, value: unknown): { name: string, mimeType:
   }
 }
 
+/**
+ * E2E fixture 用の曜日別ルールを生成する。
+ */
+function dailyRules(override: Record<string, unknown> = {}): Array<Record<string, unknown>> {
+  return [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+    dayOfWeek,
+    blockedTimeRanges: [],
+    dailyLimitMinutes: undefined,
+    ...override,
+  }))
+}
+
 test.describe('Options 画面', () => {
   test('デフォルト値が表示される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -44,7 +56,7 @@ test.describe('Options 画面', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(1)
+    expect(exported.version).toBe(2)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })
@@ -59,7 +71,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('settings.json', {
-      version: 1,
+      version: 2,
       settings: {
         global: {
           blockAction: 'blockedPage',
@@ -71,8 +83,7 @@ test.describe('Options 画面', () => {
           name: 'Imported',
           mode: 'blacklist',
           patterns: ['imported\\.example'],
-          blockedTimeSlots: [],
-          timeLimits: [{ daysOfWeek: [], dailyMinutes: 15 }],
+          dailyRules: dailyRules({ dailyLimitMinutes: 15 }),
         }],
       },
     }))
@@ -81,7 +92,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.getByLabel('URL regex pattern')).toHaveValue('imported\\.example')
-    await expect(page.getByLabel('Minutes per day')).toHaveValue('15')
+    await expect(page.getByLabel('Sun daily limit minutes')).toHaveValue('15')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
 
     const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
@@ -140,16 +151,13 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await page.getByRole('button', { name: 'Add blocked time' }).click()
-    await page.getByRole('button', { name: 'Add daily limit' }).click()
-
     const editableInputs = [
       page.getByLabel('Redirect URL'),
       page.getByLabel('Daily reset time'),
       page.getByLabel('Name'),
       page.getByLabel('URL regex pattern'),
-      page.getByLabel('Start time'),
-      page.getByLabel('Minutes per day'),
+      page.getByLabel('Sun blocked time ranges'),
+      page.getByLabel('Sun daily limit minutes'),
     ]
 
     for (const input of editableInputs) {
@@ -248,19 +256,35 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('[invalid')).not.toBeVisible()
   })
 
-  test('上限分数を編集して永続化される', async ({ page, extensionId }) => {
+  test('曜日別の時間帯と上限分数を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('LimitedSite')
-    await page.getByRole('button', { name: 'Add daily limit' }).click()
-    await page.getByLabel('Minutes per day').fill('30')
+    await page.getByLabel('Wed blocked time ranges').fill('09:15-10:45, 22:00-01:30')
+    await page.getByLabel('Wed daily limit minutes').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Minutes per day')).toHaveValue('30')
+    await expect(page.getByLabel('Wed blocked time ranges')).toHaveValue('09:15-10:45, 22:00-01:30')
+    await expect(page.getByLabel('Wed daily limit minutes')).toHaveValue('30')
+  })
+
+  test('曜日別の上限分数を空欄に戻すと No limit になる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('NoLimitSite')
+    await page.getByLabel('Wed daily limit minutes').fill('30')
+    await page.getByLabel('Wed daily limit minutes').fill('')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByLabel('Wed daily limit minutes')).toHaveValue('No limit')
   })
 
   test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {
@@ -289,8 +313,11 @@ test.describe('Options 画面', () => {
           name: 'Limited',
           mode: 'blacklist',
           patterns: ['example\\.com'],
-          blockedTimeSlots: [],
-          timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
+          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 30,
+          })),
         }],
       })
     })
@@ -355,8 +382,11 @@ test.describe('Options 画面', () => {
           name: 'Limited',
           mode: 'blacklist',
           patterns: ['example\\.com'],
-          blockedTimeSlots: [],
-          timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
+          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 30,
+          })),
         }],
       })
     })
@@ -427,45 +457,28 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('NightBlock')
-    await page.getByRole('button', { name: 'Add blocked time' }).click()
-    await expect(page.getByRole('checkbox', { name: 'Sunday' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
-    await page.getByLabel('Start time').fill('22:00')
-    await page.getByLabel('End time').fill('06:00')
+    await page.getByLabel('Sun blocked time ranges').fill('22:00-06:00')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Start time')).toHaveValue('22:00')
-    await expect(page.getByLabel('End time')).toHaveValue('06:00')
+    await expect(page.getByLabel('Sun blocked time ranges')).toHaveValue('22:00-06:00')
   })
 
-  test('上限の曜日を選択解除して永続化される', async ({ page, extensionId }) => {
+  test('曜日別上限を個別に永続化できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByLabel('Name').fill('CustomDays')
-    await page.getByRole('button', { name: 'Add daily limit' }).click()
-    await expect(page.getByRole('checkbox', { name: 'Sunday' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Monday' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
-    await page.getByRole('checkbox', { name: 'Wednesday' }).uncheck()
-    await page.getByRole('checkbox', { name: 'Thursday' }).uncheck()
-    await page.getByRole('checkbox', { name: 'Friday' }).uncheck()
-    await page.getByLabel('Minutes per day').fill('60')
+    await page.getByLabel('Mon daily limit minutes').fill('60')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByRole('checkbox', { name: 'Monday' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Tuesday' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Wednesday' })).not.toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Thursday' })).not.toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Friday' })).not.toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Saturday' })).toBeChecked()
-    await expect(page.getByLabel('Minutes per day')).toHaveValue('60')
+    await expect(page.getByLabel('Mon daily limit minutes')).toHaveValue('60')
+    await expect(page.getByLabel('Tue daily limit minutes')).toHaveValue('No limit')
   })
 
   test('グループを削除して永続化される', async ({ page, extensionId }) => {
@@ -558,34 +571,28 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('ReadonlyVisuals')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByLabel('URL regex pattern').fill('example\\.com')
-    await page.getByRole('button', { name: 'Add blocked time' }).click()
-    await page.getByLabel('Start time').fill('09:00')
-    await page.getByLabel('End time').fill('17:00')
-    await page.getByRole('button', { name: 'Add daily limit' }).click()
-    await page.getByLabel('Minutes per day').fill('45')
+    await page.getByLabel('Sun blocked time ranges').fill('09:00-17:00')
+    await page.getByLabel('Sun daily limit minutes').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     const pattern = page.getByLabel('URL regex pattern')
-    const start = page.getByLabel('Start time')
-    const minutes = page.getByLabel('Minutes per day')
-    const sunday = page.getByRole('checkbox', { name: 'Sunday' }).first()
+    const ranges = page.getByLabel('Sun blocked time ranges')
+    const minutes = page.getByLabel('Sun daily limit minutes')
+    const sundayCell = page.getByRole('button', { name: 'Sun 09:00-09:30' })
 
     await expect(pattern).toBeDisabled()
-    await expect(start).toBeDisabled()
+    await expect(ranges).toBeDisabled()
     await expect(minutes).toBeDisabled()
-    await expect(sunday).toBeDisabled()
+    await expect(sundayCell).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Block matches' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Delete blocked time' })).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Delete limit' })).not.toBeVisible()
 
     await expect(pattern).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await expect(pattern).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)')
-    await expect(start).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(ranges).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await expect(minutes).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-    await expect(sunday).toHaveClass(/sr-only/)
   })
 })

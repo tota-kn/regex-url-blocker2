@@ -62,6 +62,12 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
         }
       }
     }
+    const dailyRules = (override: Record<string, unknown> = {}) => [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+      dayOfWeek,
+      blockedTimeRanges: [],
+      dailyLimitMinutes: undefined,
+      ...override,
+    }))
     await chromeApi.chrome.storage.sync.set({
       global: {
         blockAction: 'redirect',
@@ -74,24 +80,21 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
           name: 'Limited A',
           mode: 'blacklist',
           patterns: [`^${origin.replaceAll('.', '\\.')}/target`],
-          blockedTimeSlots: [],
-          timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
+          dailyRules: dailyRules({ dailyLimitMinutes: 30 }),
         },
         {
           id: 'limited-b',
           name: 'Limited B',
           mode: 'blacklist',
           patterns: [`^${origin.replaceAll('.', '\\.')}/target`],
-          blockedTimeSlots: [],
-          timeLimits: [{ daysOfWeek: [], dailyMinutes: 10 }],
+          dailyRules: dailyRules({ dailyLimitMinutes: 10 }),
         },
         {
           id: 'slot-only',
           name: 'Slot Only',
           mode: 'blacklist',
           patterns: [`^${origin.replaceAll('.', '\\.')}/slot-only`],
-          blockedTimeSlots: [],
-          timeLimits: [],
+          dailyRules: dailyRules(),
         },
       ],
     })

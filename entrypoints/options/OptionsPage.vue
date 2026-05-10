@@ -148,7 +148,7 @@ onUnmounted(() => {
 
 <template>
   <ConfirmDialog ref="confirmDialogRef" />
-  <main class="min-h-screen bg-secondary/40 text-foreground">
+  <main class="min-h-screen overflow-x-hidden bg-secondary/40 text-foreground">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <h1 class="text-2xl font-semibold tracking-normal text-foreground">
         Regex URL Blocker

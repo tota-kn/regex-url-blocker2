@@ -1,4 +1,4 @@
-import type { BlockedTimeSlot, DayOfWeek, GlobalSettings, Group, TimeLimit } from './types'
+import type { DailyRule, DayOfWeek, GlobalSettings, Group, TimeRange } from './types'
 
 /**
  * バリデーションエラーの単位。`field` はフィールドへのドット区切りパス。
@@ -70,44 +70,39 @@ function isValidDayOfWeek(value: unknown): value is DayOfWeek {
 }
 
 /**
- * `daysOfWeek` 配列の共通バリデーション（範囲チェック・重複チェック）。
+ * 分が日内時刻として有効かを返す。
  */
-function validateDaysOfWeek(days: DayOfWeek[], prefix: string): ValidationError[] {
+function isValidMinute(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 1440
+}
+
+/**
+ * 1つの時間帯をバリデーションし、エラー配列を返す。
+ */
+function validateTimeRange(range: TimeRange, prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
-  if (days.some(d => !isValidDayOfWeek(d))) {
-    errors.push({ field: `${prefix}.daysOfWeek`, message: 'Use days 0-6' })
+  if (!isValidMinute(range.startMinute)) {
+    errors.push({ field: `${prefix}.startMinute`, message: 'Use minute 0-1440' })
   }
-  if (new Set(days).size !== days.length) {
-    errors.push({ field: `${prefix}.daysOfWeek`, message: 'Duplicate days' })
+  if (!isValidMinute(range.endMinute)) {
+    errors.push({ field: `${prefix}.endMinute`, message: 'Use minute 0-1440' })
   }
   return errors
 }
 
 /**
- * 1つのブロック時間帯をバリデーションし、エラー配列を返す。
- * `prefix` は `blockedTimeSlots[0]` のようなフィールドパスのプレフィックス。
+ * 1曜日分の制限ルールをバリデーションし、エラー配列を返す。
  */
-function validateBlockedTimeSlot(slot: BlockedTimeSlot, prefix: string): ValidationError[] {
+function validateDailyRule(rule: DailyRule, prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
-  errors.push(...validateDaysOfWeek(slot.daysOfWeek, prefix))
-  if (!isValidHHMM(slot.start)) {
-    errors.push({ field: `${prefix}.start`, message: 'Use HH:MM' })
+  if (!isValidDayOfWeek(rule.dayOfWeek)) {
+    errors.push({ field: `${prefix}.dayOfWeek`, message: 'Use day 0-6' })
   }
-  if (!isValidHHMM(slot.end)) {
-    errors.push({ field: `${prefix}.end`, message: 'Use HH:MM' })
-  }
-  return errors
-}
-
-/**
- * 1つの上限エントリをバリデーションし、エラー配列を返す。
- * `prefix` は `timeLimits[0]` のようなフィールドパスのプレフィックス。
- */
-function validateTimeLimit(limit: TimeLimit, prefix: string): ValidationError[] {
-  const errors: ValidationError[] = []
-  errors.push(...validateDaysOfWeek(limit.daysOfWeek, prefix))
-  if (!Number.isInteger(limit.dailyMinutes) || limit.dailyMinutes < 0) {
-    errors.push({ field: `${prefix}.dailyMinutes`, message: 'Use 0+ integer' })
+  rule.blockedTimeRanges.forEach((range, i) => {
+    errors.push(...validateTimeRange(range, `${prefix}.blockedTimeRanges[${i}]`))
+  })
+  if (rule.dailyLimitMinutes !== undefined && (!Number.isInteger(rule.dailyLimitMinutes) || rule.dailyLimitMinutes < 0)) {
+    errors.push({ field: `${prefix}.dailyLimitMinutes`, message: 'Use 0+ integer or empty' })
   }
   return errors
 }
@@ -132,12 +127,15 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   })
 
-  group.blockedTimeSlots.forEach((slot, i) => {
-    errors.push(...validateBlockedTimeSlot(slot, `blockedTimeSlots[${i}]`))
-  })
-
-  group.timeLimits.forEach((limit, i) => {
-    errors.push(...validateTimeLimit(limit, `timeLimits[${i}]`))
+  if (group.dailyRules.length !== 7) {
+    errors.push({ field: 'dailyRules', message: 'Use 7 daily rules' })
+  }
+  const days = group.dailyRules.map(rule => rule.dayOfWeek)
+  if (days.some(day => !isValidDayOfWeek(day)) || new Set(days).size !== 7) {
+    errors.push({ field: 'dailyRules', message: 'Use each day 0-6 once' })
+  }
+  group.dailyRules.forEach((rule, i) => {
+    errors.push(...validateDailyRule(rule, `dailyRules[${i}]`))
   })
 
   return errors
