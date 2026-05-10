@@ -44,7 +44,7 @@ const groups = defineModel<Group[]>({ required: true })
 <template>
   <section class="min-w-0 space-y-3">
     <div class="flex h-12 items-center justify-between gap-3 border-b border-border">
-      <h2 class="text-base font-semibold tracking-normal">
+      <h2 class="text-heading-md">
         Groups
       </h2>
       <BaseButton

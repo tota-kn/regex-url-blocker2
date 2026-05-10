@@ -48,7 +48,7 @@ function toggleDay(day: DayOfWeek): void {
     <div class="flex min-w-0 items-center gap-x-3">
       <span
         aria-hidden="true"
-        class="w-36 shrink-0 whitespace-nowrap text-sm font-medium text-secondary-foreground"
+        class="w-36 shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
       >
         Days
       </span>
@@ -58,11 +58,11 @@ function toggleDay(day: DayOfWeek): void {
           :key="d.value"
           :class="daysOfWeek.includes(d.value)
             ? isEditing
-              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-selected-border bg-tag-selected-bg px-2 text-sm font-medium text-tag-selected-text'
-              : 'inline-flex h-7 shrink-0 items-center rounded-md border border-border bg-background px-2 text-sm font-medium text-secondary-foreground'
+              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-tag-selected-border bg-tag-selected-bg px-2 text-label-sm text-tag-selected-text'
+              : 'inline-flex h-7 shrink-0 items-center rounded-sm border border-border bg-background px-2 text-label-sm text-secondary-foreground'
             : isEditing
-              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-tag-default-border bg-tag-default-bg px-2 text-sm font-medium text-tag-default-text hover:bg-secondary-hover'
-              : 'inline-flex h-7 shrink-0 items-center rounded-md border border-transparent bg-transparent px-1 text-sm text-muted'"
+              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-tag-default-border bg-tag-default-bg px-2 text-label-sm text-tag-default-text hover:bg-secondary-hover'
+              : 'inline-flex h-7 shrink-0 items-center rounded-sm border border-transparent bg-transparent px-1 text-label-sm text-muted'"
         >
           <input
             type="checkbox"

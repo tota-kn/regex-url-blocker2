@@ -49,10 +49,10 @@ onMounted(async () => {
       <div class="flex items-start gap-3">
         <ShieldExclamationIcon
           aria-hidden="true"
-          class="mt-0.5 size-7 shrink-0 text-destructive"
+          class="mt-0.5 size-7 shrink-0 text-danger"
         />
         <div class="min-w-0">
-          <h1 class="text-xl font-semibold tracking-normal">
+          <h1 class="text-heading-lg">
             Page blocked
           </h1>
           <p class="mt-1 text-sm text-secondary-foreground">
@@ -73,7 +73,7 @@ onMounted(async () => {
         </div>
 
         <div>
-          <h2 class="text-sm font-medium text-secondary-foreground">
+          <h2 class="text-label-md text-secondary-foreground">
             Blocking groups
           </h2>
           <p

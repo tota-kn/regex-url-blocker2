@@ -23,13 +23,13 @@ withDefaults(defineProps<Props>(), {
   <div>
     <h2
       v-if="label"
-      class="text-sm font-medium text-secondary-foreground"
+      class="text-label-md text-secondary-foreground"
     >
       {{ label }}
     </h2>
     <p
       v-bind="$attrs"
-      class="mt-1 rounded-md border border-border bg-surface-muted px-3 py-2 text-sm text-foreground"
+      class="mt-1 rounded-lg border border-border bg-surface-muted px-3 py-2 text-body-md text-foreground"
       :class="breakAll ? 'break-all' : ''"
     >
       <slot />

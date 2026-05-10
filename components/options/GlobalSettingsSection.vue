@@ -69,14 +69,14 @@ function handleImportFile(event: Event): void {
 <template>
   <section class="space-y-3 lg:sticky lg:top-6">
     <div class="flex h-12 items-center border-b border-border">
-      <h2 class="text-base font-semibold tracking-normal">
+      <h2 class="text-heading-md">
         General settings
       </h2>
     </div>
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
       <div>
-        <span class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground">
+        <span class="mb-1.5 flex items-center gap-1.5 text-label-md text-secondary-foreground">
           <DocumentTextIcon
             aria-hidden="true"
             class="size-4 text-muted"
@@ -136,7 +136,7 @@ function handleImportFile(event: Event): void {
       </BaseField>
 
       <div class="border-t border-border pt-4">
-        <p class="mb-2 text-sm font-medium text-secondary-foreground">
+        <p class="mb-2 text-label-md text-secondary-foreground">
           Settings file
         </p>
         <div class="flex flex-wrap gap-2">
@@ -171,7 +171,7 @@ function handleImportFile(event: Event): void {
             @change="handleImportFile"
           >
         </div>
-        <p class="mt-2 text-xs text-muted">
+        <p class="mt-2 text-body-sm text-muted">
           Import replaces all groups and general settings.
         </p>
         <AlertMessage

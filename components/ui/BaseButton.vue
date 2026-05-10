@@ -32,7 +32,7 @@ const props = withDefaults(defineProps<Props>(), {
   pressed: undefined,
 })
 
-const baseClass = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-medium transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50'
+const baseClass = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg text-label-md transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50'
 
 const sizeClass = computed(() => ({
   'sm': 'h-8 px-2.5',

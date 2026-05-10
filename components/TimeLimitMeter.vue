@@ -38,13 +38,13 @@ const remainingPercent = computed(() => {
   return Math.min(100, Math.max(0, (displayedRemainingSec.value / limitSec.value) * 100))
 })
 const meterToneClass = computed(() => {
-  if (displayedRemainingSec.value <= 0) return 'bg-destructive'
-  if (remainingPercent.value <= 20) return 'bg-amber-500'
+  if (displayedRemainingSec.value <= 0) return 'bg-danger'
+  if (remainingPercent.value <= 20) return 'bg-warning'
   return 'bg-primary'
 })
 const remainingTextClass = computed(() => {
-  if (displayedRemainingSec.value <= 0) return 'text-destructive'
-  if (remainingPercent.value <= 20) return 'text-amber-700'
+  if (displayedRemainingSec.value <= 0) return 'text-danger'
+  if (remainingPercent.value <= 20) return 'text-warning-text'
   return 'text-foreground'
 })
 
@@ -63,13 +63,13 @@ function formatMinutesSeconds(seconds: number): string {
   <section
     :aria-label="`${ariaLabel} summary`"
     :class="[
-      'flex min-w-0 items-center gap-2 rounded-md border border-border bg-background',
+      'flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background',
       compact ? 'px-2.5 py-2' : 'px-3 py-2',
     ]"
   >
     <p
       v-if="showLabel"
-      class="flex shrink-0 items-center gap-1.5 text-xs font-medium uppercase text-muted"
+      class="flex shrink-0 items-center gap-1.5 text-label-sm uppercase text-muted"
     >
       <ClockIcon
         aria-hidden="true"

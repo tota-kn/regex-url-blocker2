@@ -74,7 +74,7 @@ function onInput(event: Event): void {
     :type="type"
     :value="modelValue"
     :disabled="disabled"
-    class="min-w-0 rounded-md border text-sm outline-none transition"
+    class="min-w-0 rounded-lg border text-sm outline-none transition"
     :class="[sizeClass, stateClass, monospace ? 'font-mono' : '']"
     @input="onInput"
   >

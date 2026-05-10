@@ -18,7 +18,7 @@ defineProps<Props>()
   <label class="block min-w-0">
     <span
       v-if="label"
-      class="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-secondary-foreground"
+      class="mb-1.5 flex items-center gap-1.5 text-label-md text-secondary-foreground"
     >
       <slot name="icon" />
       {{ label }}
@@ -26,7 +26,7 @@ defineProps<Props>()
     <slot />
     <span
       v-if="description"
-      class="mt-1 block text-xs text-muted-foreground"
+      class="mt-1 block text-body-sm text-muted-foreground"
     >
       {{ description }}
     </span>

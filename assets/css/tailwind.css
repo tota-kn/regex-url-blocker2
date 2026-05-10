@@ -18,6 +18,10 @@
   --color-secondary-hover: #e5e7eb; /* グレー200 - ホバー時 */
   --color-secondary-foreground: #4b5563; /* グレー600 */
 
+  /* 警告（メーター残り ≤20% 時） */
+  --color-warning: #f59e0b;          /* アンバー500 */
+  --color-warning-text: #b45309;     /* アンバー700 */
+
   /* 警告・危険アクション */
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
@@ -64,4 +68,56 @@
   --radius-sm: 0.125rem;
   --radius-md: 0.25rem;
   --radius-lg: 0.5rem;
+  --radius-full: 9999px;
+}
+
+/* タイポグラフィトークン（DESIGN.md typography 定義に準拠） */
+@utility text-heading-lg {
+  font-family: system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+@utility text-heading-md {
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+@utility text-body-md {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+@utility text-body-sm {
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+@utility text-label-md {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+@utility text-label-sm {
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+@utility text-mono-md {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
 }

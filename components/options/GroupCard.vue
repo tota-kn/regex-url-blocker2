@@ -108,7 +108,7 @@ function saveEditing(): void {
               :disabled="!isEditing"
               :display="isEditing ? 'editable' : 'readonly'"
               size="sm"
-              class="w-full text-base font-semibold tracking-normal"
+              class="w-full text-heading-md"
               :invalid="isEditing && Boolean(draftError('name'))"
             />
           </label>

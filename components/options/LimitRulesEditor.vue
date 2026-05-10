@@ -456,7 +456,7 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
     </div>
 
     <div
-      class="max-w-full overflow-hidden rounded-md border border-border bg-background"
+      class="max-w-full overflow-hidden rounded-lg border border-border bg-background"
       @pointerup="endCellSelection"
       @pointerleave="endCellSelection(); clearHoveredCell()"
     >
@@ -467,19 +467,19 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
         <div
           class="grid w-full grid-cols-[3.75rem_minmax(0,1fr)] border-b border-border bg-background px-2 py-2 sm:grid-cols-[3.75rem_16rem_minmax(15rem,1fr)_7.5rem]"
         >
-          <span class="text-xs font-medium text-muted-foreground">Day</span>
+          <span class="text-label-sm text-muted-foreground">Day</span>
           <div class="relative h-5">
             <span
               v-for="marker in HOUR_MARKERS"
               :key="marker.label"
-              class="absolute top-0 -translate-x-1/2 text-xs font-medium text-muted-foreground"
+              class="absolute top-0 -translate-x-1/2 text-label-sm text-muted-foreground"
               :style="{ left: `${(marker.cell / 48) * 100}%` }"
             >
               {{ marker.label }}
             </span>
           </div>
-          <span class="hidden whitespace-nowrap pl-4 text-xs font-medium text-muted-foreground sm:block">Blocked time</span>
-          <span class="hidden whitespace-nowrap pl-3 text-xs font-medium text-muted-foreground sm:block">Daily limit (min)</span>
+          <span class="hidden whitespace-nowrap pl-4 text-label-sm text-muted-foreground sm:block">Blocked time</span>
+          <span class="hidden whitespace-nowrap pl-3 text-label-sm text-muted-foreground sm:block">Daily limit (min)</span>
         </div>
 
         <div

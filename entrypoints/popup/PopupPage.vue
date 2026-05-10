@@ -105,7 +105,7 @@ onUnmounted(() => {
 
 <template>
   <main class="w-80 space-y-4 bg-background p-4 text-foreground">
-    <h1 class="text-lg font-bold">
+    <h1 class="text-heading-lg">
       Regex URL Blocker
     </h1>
 
@@ -143,9 +143,9 @@ onUnmounted(() => {
         <li
           v-for="{ group, summary } in displaySummaries"
           :key="group.id"
-          class="space-y-2 rounded-md border border-border bg-surface p-3"
+          class="space-y-2 rounded-lg border border-border bg-surface p-3"
         >
-          <p class="font-medium truncate">
+          <p class="text-label-md truncate">
             {{ group.name }}
           </p>
           <TimeLimitMeter
