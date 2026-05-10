@@ -12,7 +12,7 @@ interface Props {
   isEditing?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
 })
 
@@ -243,6 +243,8 @@ function setCellRange(day: DayOfWeek, startIndex: number, endIndex: number, sele
 
 /** ポインター操作開始時にセルの新しい選択状態を決める。 */
 function startCellSelection(day: DayOfWeek, index: number): void {
+  if (!props.isEditing) return
+
   const selected = !selectedCells.value[day][index]
   const baseCells = [...selectedCells.value[day]]
   pointerSelection.value = { active: true, selected, day, startIndex: index, baseCells }
@@ -253,6 +255,7 @@ function startCellSelection(day: DayOfWeek, index: number): void {
 /** ドラッグ中のセルへ選択状態を反映する。 */
 function continueCellSelection(day: DayOfWeek, index: number): void {
   setHoveredCell(day, index)
+  if (!props.isEditing) return
   if (!pointerSelection.value.active) return
   if (pointerSelection.value.day !== day) return
   if (pointerSelection.value.startIndex === undefined) return

@@ -595,4 +595,23 @@ test.describe('Options 画面', () => {
     await expect(ranges).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await expect(minutes).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   })
+
+  test('保存済みグループの閲覧時は時間帯グリッドのドラッグで変更されない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('ReadonlyDrag')
+    await page.getByLabel('Sun blocked time ranges').fill('09:00-17:00')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await page.getByRole('button', { name: 'Sun 18:00-18:30' }).dispatchEvent('pointerdown')
+    await page.getByRole('button', { name: 'Sun 19:00-19:30' }).dispatchEvent('pointerenter')
+    await page.getByRole('button', { name: 'Sun 19:00-19:30' }).dispatchEvent('pointerup')
+
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await expect(page.getByLabel('Sun blocked time ranges')).toHaveValue('09:00-17:00')
+  })
 })
