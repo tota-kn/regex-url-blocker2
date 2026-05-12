@@ -161,6 +161,7 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
       dailyResetHour: active.global.dailyResetHour === preferred.global.dailyResetHour
         ? preferred.global.dailyResetHour
         : active.global.dailyResetHour,
+      notificationThresholdMinutes: preferred.global.notificationThresholdMinutes,
     },
     groups: mergedGroups,
   }

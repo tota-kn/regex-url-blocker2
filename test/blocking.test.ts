@@ -10,7 +10,7 @@ import {
   normalizeCounters,
   shouldSkipUrl,
 } from '../utils/blocking'
-import { createEmptyDailyRules } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createEmptyDailyRules } from '../utils/defaults'
 import type { DailyRule, DayOfWeek, Group, Settings, UsageCountersState } from '../utils/types'
 
 /**
@@ -49,6 +49,7 @@ function allDailyRules(override: Partial<DailyRule>): DailyRule[] {
 function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
   return {
     global: {
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'redirect',
       redirectUrl: 'https://redirect.test/',
       dailyResetHour,

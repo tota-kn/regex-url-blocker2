@@ -5,7 +5,7 @@ import {
   mergeImmediateRestrictions,
   reconcileEffectiveSettings,
 } from '../utils/effectiveSettings'
-import { createEmptyDailyRules } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createEmptyDailyRules } from '../utils/defaults'
 import type { DailyRule, DayOfWeek, Group, Settings } from '../utils/types'
 
 /**
@@ -44,6 +44,7 @@ function dailyRule(dayOfWeek: DayOfWeek, override: Partial<DailyRule>): DailyRul
 function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
   return {
     global: {
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'redirect',
       redirectUrl: 'https://blocked.test/',
       dailyResetHour,

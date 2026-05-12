@@ -1,6 +1,6 @@
 import { createEmptyDailyRules, DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, Settings, TimeRange, UsageCountersState } from './types'
+import type { BlockAction, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, Settings, TimeRange, UsageCountersState, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -23,6 +23,13 @@ export interface SettingsExportFile {
  */
 function normalizeBlockAction(value: unknown): BlockAction {
   return value === 'redirect' || value === 'blockedPage' ? value : DEFAULT_GLOBAL_SETTINGS.blockAction
+}
+
+/**
+ * 保存済み値を残り時間通知の閾値分数へ正規化する。
+ */
+function normalizeNotificationThresholdMinutes(value: unknown): number {
+  return typeof value === 'number' ? value : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
 }
 
 /**
@@ -87,6 +94,7 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
       ...DEFAULT_GLOBAL_SETTINGS,
       ...rawGlobal,
       blockAction: normalizeBlockAction(rawGlobal.blockAction),
+      notificationThresholdMinutes: normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes),
     },
     groups: Array.isArray(raw.groups) ? raw.groups.map(normalizeGroup) : [],
   }
@@ -229,5 +237,36 @@ export async function loadCounters(): Promise<UsageCountersState> {
 export async function saveCounters(state: UsageCountersState): Promise<void> {
   await browser.storage.local.set({
     counters: state.counters,
+  })
+}
+
+/**
+ * browser.storage.local から残り時間通知履歴を読み込む。
+ * 不正な保存値は空の履歴にフォールバックする。
+ */
+export async function loadUsageNotificationHistory(): Promise<UsageNotificationHistoryState> {
+  const raw = await browser.storage.local.get(['usageNotificationHistory']) as {
+    usageNotificationHistory?: unknown
+  }
+  if (!raw.usageNotificationHistory || typeof raw.usageNotificationHistory !== 'object' || Array.isArray(raw.usageNotificationHistory)) {
+    return { usageNotificationHistory: {} }
+  }
+
+  const usageNotificationHistory: UsageNotificationHistoryState['usageNotificationHistory'] = {}
+  for (const [groupId, value] of Object.entries(raw.usageNotificationHistory as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+    const entry = value as Record<string, unknown>
+    if (typeof entry.logicalDate !== 'string') continue
+    usageNotificationHistory[groupId] = { logicalDate: entry.logicalDate }
+  }
+  return { usageNotificationHistory }
+}
+
+/**
+ * browser.storage.local に残り時間通知履歴を書き込む。
+ */
+export async function saveUsageNotificationHistory(state: UsageNotificationHistoryState): Promise<void> {
+  await browser.storage.local.set({
+    usageNotificationHistory: state.usageNotificationHistory,
   })
 }

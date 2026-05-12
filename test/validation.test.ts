@@ -5,7 +5,7 @@ import {
   validateGlobalSettings,
   validateGroup,
 } from '../utils/validation'
-import { createEmptyGroup } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('isValidRegex', () => {
   it('正しい正規表現は true', () => {
@@ -195,6 +195,7 @@ describe('dailyLimitMinutes (validateGroup 経由)', () => {
 describe('validateGlobalSettings', () => {
   it('正常な設定はエラーなし', () => {
     expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'redirect',
       redirectUrl: 'https://example.com',
       dailyResetHour: '00:00',
@@ -203,6 +204,7 @@ describe('validateGlobalSettings', () => {
 
   it('無効 URL と HH:MM で2件のエラー', () => {
     const errors = validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'redirect',
       redirectUrl: 'not-a-url',
       dailyResetHour: '99:99',
@@ -213,6 +215,7 @@ describe('validateGlobalSettings', () => {
 
   it('redirectUrl が空でもエラー', () => {
     const errors = validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'redirect',
       redirectUrl: '',
       dailyResetHour: '00:00',
@@ -222,6 +225,7 @@ describe('validateGlobalSettings', () => {
 
   it('blockedPage では redirectUrl が不正でも valid', () => {
     expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'blockedPage',
       redirectUrl: '',
       dailyResetHour: '00:00',
@@ -230,10 +234,33 @@ describe('validateGlobalSettings', () => {
 
   it('blockAction が不正値だとエラー', () => {
     const errors = validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
       blockAction: 'invalid' as 'redirect',
       redirectUrl: 'https://example.com',
       dailyResetHour: '00:00',
     })
     expect(errors.some(e => e.field === 'blockAction')).toBe(true)
+  })
+
+  it('notificationThresholdMinutes は 0 と正の整数を許可する', () => {
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      notificationThresholdMinutes: 0,
+    })).toEqual([])
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      notificationThresholdMinutes: 10,
+    })).toEqual([])
+  })
+
+  it('notificationThresholdMinutes が負数または小数だとエラー', () => {
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      notificationThresholdMinutes: -1,
+    }).some(e => e.field === 'notificationThresholdMinutes')).toBe(true)
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      notificationThresholdMinutes: 1.5,
+    }).some(e => e.field === 'notificationThresholdMinutes')).toBe(true)
   })
 })

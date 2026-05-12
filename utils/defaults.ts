@@ -7,6 +7,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   blockAction: 'redirect',
   redirectUrl: 'https://example.com',
   dailyResetHour: '00:00',
+  notificationThresholdMinutes: 5,
 }
 
 /**

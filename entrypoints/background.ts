@@ -2,14 +2,16 @@ import {
   evaluateUrl,
   formatRemainingMinutesBadge,
   getMinimumRemainingTimeLimit,
+  getTargetGroupIds,
+  getTimeLimitUsageSummary,
   incrementCounters,
   normalizeCounters,
   shouldSkipUrl,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
-import { loadCounters, loadEffectiveSettingsState, loadSettings, saveCounters, saveEffectiveSettingsState } from '@/utils/storage'
-import type { Settings, UsageCountersState } from '@/utils/types'
+import { loadCounters, loadEffectiveSettingsState, loadSettings, loadUsageNotificationHistory, saveCounters, saveEffectiveSettingsState, saveUsageNotificationHistory } from '@/utils/storage'
+import type { Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -23,6 +25,7 @@ const BADGE_COLOR_BLOCKED = '#dc2626'
 
 let settings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
+let usageNotificationHistory: UsageNotificationHistoryState = { usageNotificationHistory: {} }
 let dirtyCounters = false
 let initPromise: Promise<void> | undefined
 let reloadPromise: Promise<void> | undefined
@@ -43,9 +46,21 @@ interface ChromeActionPromiseApi {
   setBadgeBackgroundColor: (details: { tabId: number, color: string }) => Promise<void>
 }
 
+interface ChromeNotificationsPromiseApi {
+  /** 残り閲覧時間の通知を作成する。 */
+  create: (notificationId: string, options: {
+    type: 'basic'
+    iconUrl: string
+    title: string
+    message: string
+  }) => Promise<string>
+}
+
 interface ChromePromiseApi {
   /** MV3 action API。 */
   action: ChromeActionPromiseApi
+  /** Chrome notifications API。 */
+  notifications: ChromeNotificationsPromiseApi
 }
 
 /**
@@ -59,6 +74,7 @@ async function initializeState(): Promise<void> {
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, await loadCounters(), now)
+  usageNotificationHistory = await loadUsageNotificationHistory()
   dirtyCounters = true
 }
 
@@ -140,6 +156,50 @@ async function reloadCounters(): Promise<void> {
  */
 async function mergeStoredCounters(s: Settings, now: Date): Promise<void> {
   counters = normalizeCounters(s, mergeCounters(counters, await loadCounters()), now)
+}
+
+/**
+ * 残り時間通知の本文に表示する分数を返す。
+ */
+function formatRemainingNotificationMinutes(remainingSec: number): string {
+  const minutes = Math.ceil(remainingSec / 60)
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
+/**
+ * 現在の active tab に対して、閾値以下になった閲覧上限付きグループを1日1回だけ通知する。
+ */
+async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, now: Date): Promise<void> {
+  const thresholdMinutes = s.global.notificationThresholdMinutes
+  if (thresholdMinutes === 0) return
+
+  const thresholdSec = thresholdMinutes * 60
+  const targetGroupIds = new Set(getTargetGroupIds(s, tab.url))
+  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
+  let changed = false
+
+  for (const group of s.groups) {
+    if (!targetGroupIds.has(group.id)) continue
+
+    const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, s.global)
+    if (!summary) continue
+    if (summary.remainingSec <= 0 || summary.remainingSec > thresholdSec) continue
+    if (usageNotificationHistory.usageNotificationHistory[group.id]?.logicalDate === summary.logicalDate) continue
+
+    const notificationId = `usage-time-limit-${group.id}-${summary.logicalDate}`
+    await chromeApi.notifications.create(notificationId, {
+      type: 'basic',
+      iconUrl: browser.runtime.getURL('/icon/128.png'),
+      title: ACTION_TITLE,
+      message: `${group.name}: ${formatRemainingNotificationMinutes(summary.remainingSec)} remaining today.`,
+    })
+    usageNotificationHistory.usageNotificationHistory[group.id] = { logicalDate: summary.logicalDate }
+    changed = true
+  }
+
+  if (changed) {
+    await saveUsageNotificationHistory(usageNotificationHistory)
+  }
 }
 
 /**
@@ -253,15 +313,17 @@ async function tick(): Promise<void> {
   const activeTab = await getFocusedActiveTab()
   if (!activeTab) return
 
+  const now = new Date()
   if (idleState === 'active') {
-    const nextCounters = incrementCounters(s, counters, activeTab.url, new Date(), 1)
+    const nextCounters = incrementCounters(s, counters, activeTab.url, now, 1)
     if (JSON.stringify(nextCounters) !== JSON.stringify(counters)) {
       counters = nextCounters
       dirtyCounters = true
     }
   }
 
-  await reevaluateTab(activeTab)
+  await notifyRemainingTimeIfNeeded(s, activeTab, now)
+  await reevaluateTab(activeTab, now)
 }
 
 /**

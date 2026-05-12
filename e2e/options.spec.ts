@@ -35,7 +35,22 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'false')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('00:00')
+    await expect(page.getByLabel('Remaining time notification')).toHaveValue('5')
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
+  })
+
+  test('残り時間通知の分数設定を保存でき、0 も設定できる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByLabel('Remaining time notification').fill('12')
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+    await expect(page.getByLabel('Remaining time notification')).toHaveValue('12')
+
+    await page.getByLabel('Remaining time notification').fill('0')
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+    await expect(page.getByLabel('Remaining time notification')).toHaveValue('0')
   })
 
   test('設定を JSON ファイルとしてエクスポートできる', async ({ page, extensionId }) => {
@@ -77,6 +92,7 @@ test.describe('Options 画面', () => {
           blockAction: 'blockedPage',
           redirectUrl: 'https://blocked.test',
           dailyResetHour: '04:30',
+          notificationThresholdMinutes: 9,
         },
         groups: [{
           id: 'imported-group',
@@ -90,6 +106,7 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
+    await expect(page.getByLabel('Remaining time notification')).toHaveValue('9')
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.getByLabel('URL regex pattern')).toHaveValue('imported\\.example')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveValue('15')
@@ -109,6 +126,7 @@ test.describe('Options 画面', () => {
       return chromeApi.chrome.storage.sync.get(['global', 'groups'])
     }) as { global?: Record<string, unknown>, groups?: Array<Record<string, unknown>> }
     expect(stored.global?.dailyResetHour).toBe('04:30')
+    expect(stored.global?.notificationThresholdMinutes).toBe(9)
     expect(stored.groups).toHaveLength(1)
     expect(stored.groups?.[0].name).toBe('Imported')
   })
@@ -235,6 +253,7 @@ test.describe('Options 画面', () => {
     const editableInputs = [
       page.getByLabel('Redirect URL'),
       page.getByLabel('Daily reset time'),
+      page.getByLabel('Remaining time notification'),
       page.getByLabel('Name'),
       page.getByLabel('URL regex pattern'),
       page.getByLabel('Sun blocked time ranges'),

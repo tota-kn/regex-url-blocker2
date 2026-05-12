@@ -59,6 +59,10 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
     errors.push({ field: 'dailyResetHour', message: 'Use HH:MM' })
   }
 
+  if (!Number.isInteger(settings.notificationThresholdMinutes) || settings.notificationThresholdMinutes < 0) {
+    errors.push({ field: 'notificationThresholdMinutes', message: 'Use 0+ integer' })
+  }
+
   return errors
 }
 

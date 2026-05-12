@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseSettingsExportJson, serializeSettingsExport, loadCounters, loadSettings, saveCounters, saveSettings } from '../utils/storage'
+import { loadCounters, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveCounters, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('loadSettings', () => {
@@ -21,6 +21,7 @@ describe('loadSettings', () => {
     expect(s.global.redirectUrl).toBe('https://block.test')
     expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
     expect(s.global.dailyResetHour).toBe(DEFAULT_GLOBAL_SETTINGS.dailyResetHour)
+    expect(s.global.notificationThresholdMinutes).toBe(5)
   })
 
   it('global の blockAction が不正な場合は DEFAULT で補完される', async () => {
@@ -34,7 +35,7 @@ describe('saveSettings', () => {
   it('save → load でラウンドトリップ', async () => {
     const group = { ...createEmptyGroup(), name: 'Twitter', patterns: ['^https?://twitter\\.com'] }
     const settings = {
-      global: { blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
+      global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
       groups: [group],
     }
     await saveSettings(settings)
@@ -58,11 +59,20 @@ describe('settings export file', () => {
 
   it('valid JSON import を Settings に変換する', () => {
     const settings = {
-      global: { blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
+      global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
       groups: [{ ...createEmptyGroup('Imported'), patterns: ['example\\.com'] }],
     }
 
     expect(parseSettingsExportJson(JSON.stringify({ version: 2, settings }))).toEqual(settings)
+  })
+
+  it('通知設定をエクスポート/インポートでラウンドトリップする', () => {
+    const settings = {
+      global: { ...DEFAULT_GLOBAL_SETTINGS, notificationThresholdMinutes: 12 },
+      groups: [],
+    }
+
+    expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
   it('mode 欠損の互換データは blacklist で補完する', () => {
@@ -169,6 +179,37 @@ describe('counter storage', () => {
     expect(await loadCounters()).toEqual({
       counters: {
         ok: { logicalDate: '2026-05-06', consumedSec: 10 },
+      },
+    })
+  })
+})
+
+describe('usage notification history storage', () => {
+  it('未設定時は空履歴を返す', async () => {
+    expect(await loadUsageNotificationHistory()).toEqual({ usageNotificationHistory: {} })
+  })
+
+  it('save → load で通知履歴をラウンドトリップする', async () => {
+    const history = {
+      usageNotificationHistory: {
+        group1: { logicalDate: '2026-05-06' },
+      },
+    }
+    await saveUsageNotificationHistory(history)
+    expect(await loadUsageNotificationHistory()).toEqual(history)
+  })
+
+  it('不正な通知履歴値は読み込み時に除外する', async () => {
+    await browser.storage.local.set({
+      usageNotificationHistory: {
+        ok: { logicalDate: '2026-05-06' },
+        badDate: { logicalDate: 123 },
+        badEntry: 'x',
+      },
+    })
+    expect(await loadUsageNotificationHistory()).toEqual({
+      usageNotificationHistory: {
+        ok: { logicalDate: '2026-05-06' },
       },
     })
   })

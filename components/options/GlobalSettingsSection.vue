@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
-import { ref } from 'vue'
+import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, BellAlertIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { computed, ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
@@ -34,6 +34,14 @@ const emit = defineEmits<{
  */
 const globalSettings = defineModel<GlobalSettings>({ required: true })
 const importInput = ref<HTMLInputElement | null>(null)
+
+const notificationThresholdInput = computed({
+  get: () => Number.isFinite(globalSettings.value.notificationThresholdMinutes) ? String(globalSettings.value.notificationThresholdMinutes) : '',
+  set: (value: string | number | undefined) => {
+    const text = String(value ?? '')
+    globalSettings.value.notificationThresholdMinutes = text === '' ? Number.NaN : Number(text)
+  },
+})
 
 const BLOCK_ACTION_OPTIONS = [
   { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
@@ -133,6 +141,30 @@ function handleImportFile(event: Event): void {
           class="w-full"
           :invalid="Boolean(error('dailyResetHour'))"
         />
+      </BaseField>
+
+      <BaseField
+        label="Remaining time notification"
+        :error="error('notificationThresholdMinutes')"
+      >
+        <template #icon>
+          <BellAlertIcon
+            aria-hidden="true"
+            class="size-4 text-muted"
+          />
+        </template>
+        <BaseInput
+          v-model="notificationThresholdInput"
+          type="number"
+          min="0"
+          step="1"
+          aria-label="Remaining time notification"
+          class="w-full"
+          :invalid="Boolean(error('notificationThresholdMinutes'))"
+        />
+        <p class="mt-1.5 text-body-sm text-muted">
+          Notify when the remaining daily browsing time reaches this many minutes. 0 disables notifications.
+        </p>
       </BaseField>
 
       <div class="border-t border-border pt-4">

@@ -73,6 +73,8 @@ export interface GlobalSettings {
   redirectUrl: string
   /** 論理日の境界となる時刻（"HH:MM"）。 */
   dailyResetHour: HHMM
+  /** 残り閲覧時間通知を出す閾値分数。0 は通知無効。 */
+  notificationThresholdMinutes: number
 }
 
 /**
@@ -109,4 +111,20 @@ export interface UsageCounter {
 export interface UsageCountersState {
   /** group id を key とするカウンタ辞書。 */
   counters: Record<string, UsageCounter>
+}
+
+/**
+ * 1グループの残り時間通知済み状態。
+ */
+export interface UsageNotificationEntry {
+  /** 最後に通知した論理日。 */
+  logicalDate: string
+}
+
+/**
+ * chrome.storage.local に保存する残り時間通知履歴。
+ */
+export interface UsageNotificationHistoryState {
+  /** group id を key とする通知済み論理日辞書。 */
+  usageNotificationHistory: Record<string, UsageNotificationEntry>
 }

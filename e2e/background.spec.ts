@@ -16,6 +16,36 @@ async function getBadgeText(serviceWorker: Worker, tabId: number): Promise<strin
 }
 
 /**
+ * Service Worker 経由で現在表示中の Chrome 通知一覧を取得する。
+ */
+async function getNotifications(serviceWorker: Worker): Promise<Record<string, unknown>> {
+  return serviceWorker.evaluate(async () => {
+    const chrome = (globalThis as unknown as {
+      chrome: { notifications: { getAll: () => Promise<Record<string, unknown>> } }
+    }).chrome
+    return chrome.notifications.getAll()
+  })
+}
+
+/**
+ * Service Worker 経由で現在表示中の Chrome 通知を消去する。
+ */
+async function clearNotifications(serviceWorker: Worker): Promise<void> {
+  await serviceWorker.evaluate(async () => {
+    const chrome = (globalThis as unknown as {
+      chrome: {
+        notifications: {
+          clear: (notificationId: string) => Promise<boolean>
+          getAll: () => Promise<Record<string, unknown>>
+        }
+      }
+    }).chrome
+    const notifications = await chrome.notifications.getAll()
+    await Promise.all(Object.keys(notifications).map(id => chrome.notifications.clear(id)))
+  })
+}
+
+/**
  * Service Worker 経由で指定 URL を持つタブの ID を取得する。
  */
 async function getTabIdByUrl(serviceWorker: Worker, url: string): Promise<number | undefined> {
@@ -199,6 +229,7 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       blockAction: 'redirect',
       redirectUrl: `${origin}/blocked`,
       dailyResetHour,
+      notificationThresholdMinutes: 5,
     },
     groups: [{
       id: 'effective-group',
@@ -636,6 +667,134 @@ test.describe('Badge display', () => {
       expect(tabId).toBeDefined()
 
       await expect.poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 }).toBe('50m')
+    }
+    finally {
+      await server.close()
+    }
+  })
+})
+
+test.describe('Remaining time notifications', () => {
+  test('閾値以下になった同じグループは同じ論理日に1回だけ通知される', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await clearNotifications(serviceWorker)
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const logicalDate = buildLogicalDate(now, dailyResetHour)
+
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+              local: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
+          }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'redirect',
+            redirectUrl: `${settings.origin}/blocked`,
+            dailyResetHour: settings.dailyResetHour,
+            notificationThresholdMinutes: 1,
+          },
+          groups: [{
+            id: 'notify-group',
+            name: 'Notify Group',
+            mode: 'blacklist',
+            patterns: [`^${settings.originEscaped}`],
+            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+              dayOfWeek,
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 1,
+            })),
+          }],
+        })
+        await chromeApi.chrome.storage.local.set({
+          counters: { 'notify-group': { logicalDate: settings.logicalDate, consumedSec: 54 } },
+          usageNotificationHistory: {},
+        })
+      }, {
+        origin: server.origin,
+        originEscaped: server.origin.replaceAll('.', '\\.'),
+        dailyResetHour,
+        logicalDate,
+      })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+
+      const notificationId = `usage-time-limit-notify-group-${logicalDate}`
+      await expect.poll(async () => Object.keys(await getNotifications(serviceWorker)), { timeout: 5000 })
+        .toContain(notificationId)
+
+      await page.waitForTimeout(2500)
+      const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
+        .filter(id => id === notificationId)
+      expect(matchingNotifications).toHaveLength(1)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('通知閾値が0なら残り時間通知を出さない', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await clearNotifications(serviceWorker)
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const logicalDate = buildLogicalDate(now, dailyResetHour)
+
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+              local: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
+          }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'redirect',
+            redirectUrl: `${settings.origin}/blocked`,
+            dailyResetHour: settings.dailyResetHour,
+            notificationThresholdMinutes: 0,
+          },
+          groups: [{
+            id: 'notify-disabled-group',
+            name: 'Notify Disabled Group',
+            mode: 'blacklist',
+            patterns: [`^${settings.originEscaped}`],
+            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+              dayOfWeek,
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 1,
+            })),
+          }],
+        })
+        await chromeApi.chrome.storage.local.set({
+          counters: { 'notify-disabled-group': { logicalDate: settings.logicalDate, consumedSec: 54 } },
+          usageNotificationHistory: {},
+        })
+      }, {
+        origin: server.origin,
+        originEscaped: server.origin.replaceAll('.', '\\.'),
+        dailyResetHour,
+        logicalDate,
+      })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      await page.waitForTimeout(2500)
+
+      const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
+        .filter(id => id.startsWith('usage-time-limit-notify-disabled-group-'))
+      expect(matchingNotifications).toHaveLength(0)
     }
     finally {
       await server.close()
