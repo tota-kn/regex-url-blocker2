@@ -7,7 +7,8 @@ import {
   shouldSkipUrl,
   type UrlEvaluation,
 } from '@/utils/blocking'
-import { loadCounters, loadSettings, saveCounters } from '@/utils/storage'
+import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
+import { loadCounters, loadEffectiveSettingsState, loadSettings, saveCounters, saveEffectiveSettingsState } from '@/utils/storage'
 import type { Settings, UsageCountersState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
@@ -51,8 +52,13 @@ interface ChromePromiseApi {
  * background が利用する設定とカウンタを初期化する。
  */
 async function initializeState(): Promise<void> {
-  settings = await loadSettings()
-  counters = normalizeCounters(settings, await loadCounters(), new Date())
+  const now = new Date()
+  const preferredSettings = await loadSettings()
+  const storedEffectiveState = await loadEffectiveSettingsState(preferredSettings, now)
+  const nextEffectiveState = reconcileEffectiveSettings(preferredSettings, storedEffectiveState, now)
+  await saveEffectiveSettingsState(nextEffectiveState)
+  settings = nextEffectiveState.effectiveSettings
+  counters = normalizeCounters(settings, await loadCounters(), now)
   dirtyCounters = true
 }
 
@@ -108,8 +114,13 @@ function mergeCounters(current: UsageCountersState, stored: UsageCountersState):
  * 設定変更を再読み込みし、counter を現在のグループ定義に合わせて正規化する。
  */
 async function reloadSettings(): Promise<void> {
-  settings = await loadSettings()
-  counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), new Date())
+  const now = new Date()
+  const preferredSettings = await loadSettings()
+  const storedEffectiveState = await loadEffectiveSettingsState(preferredSettings, now)
+  const nextEffectiveState = reconcileEffectiveSettings(preferredSettings, storedEffectiveState, now)
+  await saveEffectiveSettingsState(nextEffectiveState)
+  settings = nextEffectiveState.effectiveSettings
+  counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
   dirtyCounters = true
 }
 
@@ -345,6 +356,13 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== HEARTBEAT_ALARM) return
     runAsync(async () => {
+      reloadPromise = reloadSettings()
+      try {
+        await reloadPromise
+      }
+      finally {
+        reloadPromise = undefined
+      }
       await reevaluateAllTabs()
       await flushCounters()
     })

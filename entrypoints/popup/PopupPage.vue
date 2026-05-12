@@ -5,7 +5,7 @@ import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
-import { loadCounters, loadSettings } from '@/utils/storage'
+import { loadCounters, loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
 import type { Group, Settings, UsageCountersState } from '@/utils/types'
 
 interface DisplaySummary {
@@ -80,8 +80,9 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
  * 設定とカウンタを再読み込みする。
  */
 async function refreshState(): Promise<void> {
-  const [loadedSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
-  settings.value = loadedSettings
+  const [preferredSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
+  const loadedEffectiveState = await loadEffectiveSettingsState(preferredSettings)
+  settings.value = loadedEffectiveState.effectiveSettings
   counters.value = loadedCounters
   now.value = new Date()
   counterLoadedAt.value = now.value
@@ -89,6 +90,9 @@ async function refreshState(): Promise<void> {
 
 const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, areaName) => {
   if (areaName === 'local' && changes.counters) {
+    void refreshState()
+  }
+  if (areaName === 'local' && (changes.effectiveSettings || changes.effectiveSettingsLogicalDate)) {
     void refreshState()
   }
   if (areaName === 'sync' && (changes.global || changes.groups)) {

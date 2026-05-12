@@ -1,5 +1,6 @@
 import { createEmptyDailyRules, DEFAULT_GLOBAL_SETTINGS } from './defaults'
-import type { BlockAction, DailyRule, DayOfWeek, Group, GroupMode, Settings, TimeRange, UsageCountersState } from './types'
+import { createEffectiveSettingsState } from './effectiveSettings'
+import type { BlockAction, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, Settings, TimeRange, UsageCountersState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -111,6 +112,38 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await browser.storage.sync.set({
     global: settings.global,
     groups: settings.groups,
+  })
+}
+
+/**
+ * browser.storage.local から有効設定スナップショットを読み込む。
+ * 未保存または不正な場合は指定された希望設定を初期有効設定として返す。
+ */
+export async function loadEffectiveSettingsState(fallbackSettings: Settings, now = new Date()): Promise<EffectiveSettingsState> {
+  const raw = await browser.storage.local.get(['effectiveSettings', 'effectiveSettingsLogicalDate']) as {
+    effectiveSettings?: unknown
+    effectiveSettingsLogicalDate?: unknown
+  }
+  if (!raw.effectiveSettings || typeof raw.effectiveSettings !== 'object' || Array.isArray(raw.effectiveSettings)) {
+    return createEffectiveSettingsState(fallbackSettings, now)
+  }
+
+  const settingsRecord = raw.effectiveSettings as Record<string, unknown>
+  return {
+    effectiveSettings: normalizeSettings(settingsRecord),
+    effectiveSettingsLogicalDate: typeof raw.effectiveSettingsLogicalDate === 'string'
+      ? raw.effectiveSettingsLogicalDate
+      : createEffectiveSettingsState(fallbackSettings, now).effectiveSettingsLogicalDate,
+  }
+}
+
+/**
+ * browser.storage.local に有効設定スナップショットを書き込む。
+ */
+export async function saveEffectiveSettingsState(state: EffectiveSettingsState): Promise<void> {
+  await browser.storage.local.set({
+    effectiveSettings: state.effectiveSettings,
+    effectiveSettingsLogicalDate: state.effectiveSettingsLogicalDate,
   })
 }
 

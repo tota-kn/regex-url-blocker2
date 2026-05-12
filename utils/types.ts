@@ -84,6 +84,16 @@ export interface Settings {
 }
 
 /**
+ * chrome.storage.local に保存される、現在 background 判定に使う有効設定スナップショット。
+ */
+export interface EffectiveSettingsState {
+  /** 現在の URL 判定・badge・counter 加算に使う設定。 */
+  effectiveSettings: Settings
+  /** `effectiveSettings.global.dailyResetHour` で算出した保存時点の論理日。 */
+  effectiveSettingsLogicalDate: string
+}
+
+/**
  * 1グループ・1論理日分の閲覧秒数カウンタ。
  */
 export interface UsageCounter {

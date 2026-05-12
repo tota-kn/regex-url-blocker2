@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { Page, Worker } from '@playwright/test'
+import type { DailyRule, HHMM, Settings } from '../utils/types'
 import { expect, test } from './fixtures'
 
 /**
@@ -154,6 +155,105 @@ async function saveBlockedPageSettings(serviceWorker: Worker, origin: string, gr
 }
 
 /**
+ * 全曜日で同じ上限分数を使うテスト用 daily rules を作る。
+ */
+function buildDailyRules(dailyLimitMinutes: number | undefined): DailyRule[] {
+  return Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    dayOfWeek: dayOfWeek as DailyRule['dayOfWeek'],
+    blockedTimeRanges: [],
+    dailyLimitMinutes,
+  }))
+}
+
+/**
+ * 次のリセットまで十分な猶予があるテスト用 dailyResetHour を返す。
+ */
+function buildStableDailyResetHour(now: Date): HHMM {
+  const resetMinute = (now.getHours() * 60 + now.getMinutes() + 1439) % 1440
+  const hour = Math.floor(resetMinute / 60)
+  const minute = resetMinute % 60
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+/**
+ * 指定リセット時刻における現在の論理日 ID を返す。
+ */
+function buildLogicalDate(now: Date, dailyResetHour: HHMM): string {
+  const [hour = '0', minute = '0'] = dailyResetHour.split(':')
+  const reset = new Date(now)
+  reset.setHours(Number(hour), Number(minute), 0, 0)
+  if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
+  return [
+    reset.getFullYear(),
+    String(reset.getMonth() + 1).padStart(2, '0'),
+    String(reset.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+/**
+ * background E2E 用の設定オブジェクトを作る。
+ */
+function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dailyLimitMinutes: number | undefined): Settings {
+  return {
+    global: {
+      blockAction: 'redirect',
+      redirectUrl: `${origin}/blocked`,
+      dailyResetHour,
+    },
+    groups: [{
+      id: 'effective-group',
+      name: 'Effective group',
+      mode: 'blacklist',
+      patterns: [`^${origin.replaceAll('.', '\\.')}`],
+      dailyRules: buildDailyRules(dailyLimitMinutes),
+    }],
+  }
+}
+
+/**
+ * Service Worker 上で希望設定と有効設定を同時に保存する。
+ */
+async function savePreferredAndEffectiveSettings(serviceWorker: Worker, preferred: Settings, effective: Settings, effectiveSettingsLogicalDate: string): Promise<void> {
+  await serviceWorker.evaluate(async (state) => {
+    const chromeApi = globalThis as unknown as {
+      chrome: {
+        storage: {
+          local: { set: (items: Record<string, unknown>) => Promise<void> }
+          sync: { set: (items: Record<string, unknown>) => Promise<void> }
+        }
+      }
+    }
+    await chromeApi.chrome.storage.local.set({
+      effectiveSettings: state.effective,
+      effectiveSettingsLogicalDate: state.effectiveSettingsLogicalDate,
+    })
+    await chromeApi.chrome.storage.sync.set({
+      global: state.preferred.global,
+      groups: state.preferred.groups,
+    })
+  }, { preferred, effective, effectiveSettingsLogicalDate })
+}
+
+/**
+ * Service Worker 上で希望設定だけを保存する。
+ */
+async function savePreferredSettings(serviceWorker: Worker, preferred: Settings): Promise<void> {
+  await serviceWorker.evaluate(async (settings) => {
+    const chromeApi = globalThis as unknown as {
+      chrome: {
+        storage: {
+          sync: { set: (items: Record<string, unknown>) => Promise<void> }
+        }
+      }
+    }
+    await chromeApi.chrome.storage.sync.set({
+      global: settings.global,
+      groups: settings.groups,
+    })
+  }, preferred)
+}
+
+/**
  * redirect で中断されうる navigation を実行する。
  */
 async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
@@ -283,6 +383,60 @@ test.describe('Background blocking', () => {
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
       await expect(page.getByLabel('Blocked groups')).toHaveText('Block local')
+    }
+    finally {
+      await server.close()
+    }
+  })
+})
+
+test.describe('Effective settings behavior', () => {
+  test('緩和しても同じ論理日中は有効設定によりブロックされ続ける', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0)
+      const preferred = buildEffectiveSettingsFixture(server.origin, dailyResetHour, undefined)
+      await savePreferredAndEffectiveSettings(
+        serviceWorker,
+        preferred,
+        effective,
+        buildLogicalDate(now, dailyResetHour),
+      )
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/blocked`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('厳格化すると開いているタブが即時ブロックされる', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const relaxed = buildEffectiveSettingsFixture(server.origin, dailyResetHour, undefined)
+      await savePreferredAndEffectiveSettings(
+        serviceWorker,
+        relaxed,
+        relaxed,
+        buildLogicalDate(now, dailyResetHour),
+      )
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/target`)
+
+      const strict = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0)
+      await savePreferredSettings(serviceWorker, strict)
+
+      await expect(page).toHaveURL(`${server.origin}/blocked`, { timeout: 5000 })
     }
     finally {
       await server.close()

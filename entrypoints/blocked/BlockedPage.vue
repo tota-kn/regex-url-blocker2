@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ArrowUturnLeftIcon, ShieldExclamationIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
-import { loadSettings } from '@/utils/storage'
+import { loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
 import type { Group } from '@/utils/types'
 
 const blockedUrl = ref('')
@@ -36,9 +36,10 @@ function goBack(): void {
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
-  const settings = await loadSettings()
+  const preferredSettings = await loadSettings()
+  const { effectiveSettings } = await loadEffectiveSettingsState(preferredSettings)
   blockedUrl.value = parseBlockedUrl(params)
-  blockedGroups.value = settings.groups.filter(group => groupIds.has(group.id))
+  blockedGroups.value = effectiveSettings.groups.filter(group => groupIds.has(group.id))
   isLoaded.value = true
 })
 </script>

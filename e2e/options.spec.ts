@@ -113,6 +113,87 @@ test.describe('Options 画面', () => {
     expect(stored.groups?.[0].name).toBe('Imported')
   })
 
+  test('保留中は希望設定を表示し、現在適用中の有効設定を確認できる', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            local: { set: (items: Record<string, unknown>) => Promise<void> }
+          }
+        }
+      }
+      const activeSettings = {
+        global: {
+          blockAction: 'redirect',
+          redirectUrl: 'https://active-blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [{
+          id: 'work',
+          name: 'Work',
+          mode: 'blacklist',
+          patterns: ['active\\.example'],
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+            dayOfWeek,
+            blockedTimeRanges: [{ startMinute: 540, endMinute: 1020 }],
+            dailyLimitMinutes: 10,
+          })),
+        }],
+      }
+      const now = new Date()
+      const reset = new Date(now)
+      reset.setHours(3, 0, 0, 0)
+      if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
+      const logicalDate = [
+        reset.getFullYear(),
+        String(reset.getMonth() + 1).padStart(2, '0'),
+        String(reset.getDate()).padStart(2, '0'),
+      ].join('-')
+      await chromeApi.chrome.storage.local.set({
+        effectiveSettings: activeSettings,
+        effectiveSettingsLogicalDate: logicalDate,
+      })
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          blockAction: 'redirect',
+          redirectUrl: 'https://preferred-blocked.test',
+          dailyResetHour: '05:00',
+        },
+        groups: [{
+          id: 'work',
+          name: 'Work',
+          mode: 'blacklist',
+          patterns: ['active\\.example'],
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 30,
+          })),
+        }],
+      })
+    })
+
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await expect(page.getByLabel('Redirect URL')).toHaveValue('https://preferred-blocked.test')
+    await expect(page.getByLabel('Daily reset time')).toHaveValue('05:00')
+    await expect(page.getByLabel('Sun blocked time ranges')).toHaveValue('')
+    await expect(page.getByLabel('Sun daily limit minutes')).toHaveValue('30')
+    await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
+    await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
+
+    await page.getByRole('button', { name: 'View active settings' }).click()
+
+    const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
+    await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
+    await expect(activeSettingsDialog.getByText('https://preferred-blocked.test')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('03:00', { exact: true })).toBeVisible()
+    await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked: 09:00-17:00; limit: 10 min').first()).toBeVisible()
+  })
+
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
