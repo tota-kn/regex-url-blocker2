@@ -37,6 +37,7 @@
 - `blockAction`: ブロック時の動作。`redirect`（既定）または `blockedPage`
 - `redirectUrl`: 制限超過時のリダイレクト先 URL。デフォルト `https://example.com`
 - `dailyResetHour`: 論理日の境界となる時刻（`HH:MM`）。デフォルト `00:00`
+- `notificationThresholdMinutes`: 残り閲覧時間通知を出す閾値（分）。デフォルト `5`。`0` なら通知無効
 
 ### 閲覧時間の計測
 
@@ -81,10 +82,34 @@
 
 - 新規ナビゲーション：`chrome.webNavigation.onBeforeNavigate`（および SPA 用 `onHistoryStateUpdated`）で先回り判定し、`chrome.tabs.update` でブロック先 URL へ書き換える。
 - `webNavigation` はトップレベルフレームのみを対象とし、`frameId !== 0` のイベントは無視する。
-- 既存タブの状態変化：`chrome.alarms`（1分間隔）と毎秒ティックで再評価し、ブロック状態に切り替わったタブを `tabs.update` で書き換える。
+- 既存タブの状態変化：`tabs.onUpdated`、`tabs.onActivated`、`windows.onFocusChanged`、`chrome.alarms`（1分間隔）と毎秒ティックで再評価し、ブロック状態に切り替わったタブを `tabs.update` で書き換える。
 - `tabs.update` の直前にも判定スキップ URL と `redirectUrl` 完全一致を確認し、リダイレクトループを防止する。
 - `blockAction === "redirect"` の場合は `redirectUrl` へ遷移する。
 - `blockAction === "blockedPage"` の場合は `blocked.html` を表示し、ブロックされた URL とブロック状態だったグループ名を表示する。
+
+### 設定変更の反映タイミング
+
+- ユーザーが保存した設定は `chrome.storage.sync` に「希望設定」として保存する。
+- background は `chrome.storage.local` に「有効設定スナップショット」を保持し、URL 判定・badge・counter 加算にはこの有効設定を使う。
+- 同じ論理日中は、制限が緩くなる変更を即時反映しない。緩和は次回リセット時刻で希望設定全体を有効設定へ昇格して反映する。
+- 同じ論理日中でも、以下のような厳格化方向の変更は即時反映する：
+  - 新規グループの追加
+  - blacklist pattern の追加
+  - whitelist pattern の削除
+  - ブロック時間帯の追加・拡大
+  - 1日上限の追加・短縮
+- 既存グループの `mode` 変更は同じ論理日中には即時反映せず、変更前の有効設定を維持する。
+- `blockAction`、`redirectUrl`、`notificationThresholdMinutes` は同じ論理日中でも希望設定を即時反映する。
+- `dailyResetHour` の変更は同じ論理日中には即時反映せず、現在有効なリセット時刻を維持する。
+
+### 残り時間通知・Action Badge
+
+- 現在の active tab が閲覧上限付きグループの対象 URL で、残り時間が `notificationThresholdMinutes` 分以下かつ 0 秒より大きい場合、Chrome notification を表示する。
+- 残り時間通知はグループごと・論理日ごとに1回だけ表示する。
+- 通知本文は対象グループ名と当日残り分数を表示する。
+- action badge は、現在タブの対象グループのうち当日残り時間が最も短い上限を分単位切り上げ（例 `5m`）で表示する。
+- action badge の色は通常時が青、残り5分以下が警告色、残り0秒がブロック色。
+- 対象 URL に当日上限がない場合、action badge は空にする。
 
 ## 画面要件
 
@@ -93,30 +118,55 @@
 - グループの追加・編集・削除
 - 各グループ：`name`、`mode`、`patterns[]`、`dailyRules[]`
 - `mode` は `blacklist` / `whitelist` を選択できる。
-- ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する
+- ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する。終了時刻には `24:00` を指定できる
 - 上限は曜日ごとに上限分数を入力する。空欄なら上限なし
-- グローバル設定（`blockAction`、`redirectUrl`、`dailyResetHour`）の編集
+- 制限テンプレートとして「30 min/day」「Block nights（21:00–06:00）」「Allow nights（06:00–21:00 をブロック）」を全曜日へ一括適用できる
+- グローバル設定（`blockAction`、`redirectUrl`、`dailyResetHour`、`notificationThresholdMinutes`）の編集
+- `blockAction === "redirect"` の場合のみ `redirectUrl` を入力・検証する
 - 保存時に正規表現の構文を `new RegExp()` で検証し、無効なら保存拒否＋インラインエラー
 - 保存はキー入力のたびではなく debounce（300ms）で `chrome.storage.sync` のレート制限に配慮
+- グループカードは通常は読み取り表示で、編集ボタンから編集モードに入る。グループ単位で保存・キャンセルできる
+- 未保存の新規グループはキャンセルで破棄できる
+- グループ削除時は確認ダイアログを表示する
+- 現在保存済みの設定と有効設定スナップショットに差分がある場合、Options 画面に「未反映の保存済み変更」と次回反映時刻を表示する
+- 未反映差分がある場合、現在 blocking に使われている有効設定を読み取り専用ダイアログで確認できる
+- 設定は JSON ファイルとしてエクスポート／インポートできる。インポートは全グループとグローバル設定を置換し、スキーマバージョンと内容を検証する
 
 ### Popup 画面（状況表示・読み取り専用）
 
-- グループごとに：`name`、`消費 / 上限`（`M:SS / 30:00` 形式）、ブロック時間帯内/外バッジ、ブロック発動中バッジ
-- 全体のリセットまでのカウントダウン
-- 「設定を開く」リンク
+- 現在のタブ URL を有効設定で評価し、対象グループのうち当日上限があるグループを表示する
+- 拡張機能ページ上で popup を開いた場合は、同一ウィンドウ内の判定対象タブを代替表示対象として探す
+- 表示対象ごとに：`name`、残り時間、`消費 / 上限`（`M:SS / 30:00` 形式）、進捗メーター
+- 判定スキップ URL の場合は「This page is excluded from blocking.」を表示する
+- 対象グループがない場合は「No matching groups for this page.」を表示する
+- 対象グループはあるが当日上限がない場合は「No daily limits apply to this page.」を表示する
+- 「Options」ボタンから設定画面を開ける
 - 1秒間隔で再描画（`onUnmounted` でタイマー解除）
+
+### Blocked 画面
+
+- `blockAction === "blockedPage"` の場合、`blocked.html` を表示する。
+- query string の `url` にブロックされた URL、`group` にブロック状態だった group id を複数指定する。
+- 画面にはブロックされた URL と、現在の有効設定から解決したブロックグループ名を表示する。
+- 該当グループが有効設定に存在しない場合は `Unknown setting` と表示する。
+- `Back` ボタンはブラウザ履歴の直前ページへ戻る。
 
 ## ストレージ
 
-- `chrome.storage.sync`：グループ定義、グローバル設定（ブロック時動作、リセット時刻、リダイレクト先）
-- `chrome.storage.local`：グループごとの累積カウンタ（`{ counters: Record<groupId, { logicalDate, consumedSec }> }`）
+- `chrome.storage.sync`：グループ定義、グローバル設定（ブロック時動作、リセット時刻、リダイレクト先、残り時間通知閾値）
+- `chrome.storage.local`：
+  - グループごとの累積カウンタ（`{ counters: Record<groupId, { logicalDate, consumedSec }> }`）
+  - 有効設定スナップショット（`effectiveSettings` / `effectiveSettingsLogicalDate`）
+  - 残り時間通知履歴（`usageNotificationHistory`）
 - background は起動時にカウンタを読み込み、現在の論理日と異なるカウンタは `consumedSec` を 0 に正規化する。
 - 削除済みグループのカウンタは background のフラッシュ時に破棄してよい。
 - background はメモリ上にバッファし、約7秒間隔／heartbeat アラーム（1分間隔）／`runtime.onSuspend` でフラッシュ
+- カウンタを storage.local から再読み込みする際は、同じ論理日でより大きい `consumedSec` を優先してメモリ状態と統合する。
+- 設定エクスポートファイルは `version: 2` と `settings` を持つ JSON。未対応バージョン、不正 JSON、不正な設定値はインポート拒否する。
 
 ## 必要 Permissions
 
-`tabs`、`webNavigation`、`storage`、`alarms`、`idle`、`host_permissions: ["<all_urls>"]`
+`tabs`、`webNavigation`、`storage`、`alarms`、`idle`、`notifications`、`host_permissions: ["<all_urls>"]`
 
 ## 非要件（v1 では実装しない）
 
