@@ -67,7 +67,7 @@ function focusLastNewGroup(): void {
     ref="sectionRef"
     class="min-w-0 space-y-3"
   >
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex min-h-9 items-center justify-between gap-3">
       <div class="flex min-w-0 items-baseline gap-2">
         <h2 class="text-heading-md text-foreground">
           Groups
