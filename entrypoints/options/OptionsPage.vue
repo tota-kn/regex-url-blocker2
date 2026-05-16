@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { EyeIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { Cog6ToothIcon, ExclamationCircleIcon, EyeIcon, QueueListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { getNextEffectiveSettingsResetAt, hasPendingEffectiveSettings } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
@@ -28,6 +28,7 @@ const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
 const activeSettingsDialogRef = ref<HTMLDialogElement | null>(null)
+const activeSection = ref<'groups' | 'general'>('groups')
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
 const groupsErrors = computed(() =>
@@ -46,6 +47,8 @@ const nextResetAt = computed(() =>
 )
 const resetTimeLabel = computed(() => effectiveSettings.value.global.dailyResetHour)
 const appliesAfterLabel = computed(() => formatDateTime(nextResetAt.value))
+const groupCount = computed(() => settings.value.groups.length + newGroupDrafts.value.length)
+const hasGlobalErrors = computed(() => globalErrors.value.length > 0 || Boolean(importError.value))
 
 /** 指定フィールドのグローバル設定エラーメッセージを返す。 */
 function globalError(field: string): string | undefined {
@@ -397,26 +400,83 @@ onUnmounted(() => {
             View active settings
           </BaseButton>
         </div>
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
-          <GlobalSettingsSection
-            v-model="settings.global"
-            :error="globalError"
-            :import-error="importError"
-            @export-settings="exportSettings"
-            @import-settings="importSettings"
-            @save-now="saveNow"
-          />
+        <div class="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+          <aside
+            aria-label="Options sections"
+            class="border-b border-border pb-3 lg:sticky lg:top-6 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
+          >
+            <nav class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+              <button
+                type="button"
+                aria-label="Groups"
+                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
+                :class="activeSection === 'groups'
+                  ? 'border-primary bg-accent text-primary'
+                  : 'border-transparent text-secondary-foreground hover:border-border-hover hover:bg-background'"
+                :aria-current="activeSection === 'groups' ? 'page' : undefined"
+                @click="activeSection = 'groups'"
+              >
+                <span class="flex items-center gap-2">
+                  <QueueListIcon
+                    aria-hidden="true"
+                    class="size-4"
+                  />
+                  Groups
+                </span>
+                <span class="rounded-sm border border-border bg-background px-1.5 py-0.5 text-label-sm text-muted">
+                  {{ groupCount }}
+                </span>
+              </button>
 
-          <GroupsSection
-            v-model="settings.groups"
-            :new-groups="newGroupDrafts"
-            :time-limit-usage-summary="timeLimitUsageSummary"
-            @add-group="addGroup"
-            @save-group="saveGroup"
-            @save-new-group="saveNewGroup"
-            @cancel-new-group="cancelNewGroup"
-            @remove-group="removeGroup"
-          />
+              <button
+                type="button"
+                aria-label="General settings"
+                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
+                :class="activeSection === 'general'
+                  ? 'border-primary bg-accent text-primary'
+                  : 'border-transparent text-secondary-foreground hover:border-border-hover hover:bg-background'"
+                :aria-current="activeSection === 'general' ? 'page' : undefined"
+                @click="activeSection = 'general'"
+              >
+                <span class="flex items-center gap-2">
+                  <Cog6ToothIcon
+                    aria-hidden="true"
+                    class="size-4"
+                  />
+                  General settings
+                </span>
+                <ExclamationCircleIcon
+                  v-if="hasGlobalErrors"
+                  aria-label="General settings has errors"
+                  class="size-4 text-danger"
+                />
+              </button>
+            </nav>
+          </aside>
+
+          <div class="min-w-0">
+            <GroupsSection
+              v-if="activeSection === 'groups'"
+              v-model="settings.groups"
+              :new-groups="newGroupDrafts"
+              :time-limit-usage-summary="timeLimitUsageSummary"
+              @add-group="addGroup"
+              @save-group="saveGroup"
+              @save-new-group="saveNewGroup"
+              @cancel-new-group="cancelNewGroup"
+              @remove-group="removeGroup"
+            />
+
+            <GlobalSettingsSection
+              v-else
+              v-model="settings.global"
+              :error="globalError"
+              :import-error="importError"
+              @export-settings="exportSettings"
+              @import-settings="importSettings"
+              @save-now="saveNow"
+            />
+          </div>
         </div>
         <AlertMessage
           v-if="totalErrors > 0"

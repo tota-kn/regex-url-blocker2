@@ -171,14 +171,14 @@ The extension uses the system UI font stack for all text. This ensures native re
 
 ## Layout
 
-The Options page uses a **single-column, max-width-constrained layout** centered in the browser tab. All content fits within a narrow reading column (approximately 640–720 px) to avoid wide-screen sprawl.
+The Options page uses a **sidebar navigation layout** within a max-width-constrained workspace. The page header, pending-settings banner, and total error alert remain global. Below them, a narrow left navigation switches the main content between `Groups` and `General settings` so the two editing surfaces are not shown at the same time. The selected section does not repeat the navigation label as an additional section header.
 
 The internal structure is:
-- **Global settings section:** A card at the top with global options (block action, redirect URL, daily reset hour).
-- **Group cards:** Stacked cards, one per rule group, with a consistent internal grid—left-aligned labels, right-aligned controls.
-- **Add / import / export controls:** Bottom action area within each section.
+- **Section navigation:** A thin, bordered nav region, not a card. `Groups` shows the current group count; `General settings` only shows an error indicator when global settings or import errors need attention.
+- **Groups section:** The default section. Group cards are stacked in the main content area, one per rule group, with a consistent internal grid—left-aligned labels, right-aligned controls.
+- **General settings section:** Global options (block action, redirect URL, daily reset hour, notifications) plus import / export controls. Import errors stay inside this section.
 
-Spacing uses a **4 px base grid**. Component padding is 8–12 px internally; cards have 16 px padding. Section gaps are 16–24 px. This maintains density without making the UI feel cramped.
+On mobile widths, the sidebar collapses into a horizontal segmented navigation above the selected section. Spacing uses a **4 px base grid**. Component padding is 8–12 px internally; cards have 16 px padding. Section gaps are 16–24 px. This maintains density without making the UI feel cramped.
 
 The Popup page is a compact **280 px wide** panel listing active groups for the current page. Each row is a `TimeLimitMeter` component (border box, 40 px tall). An empty state is shown when no groups match.
 

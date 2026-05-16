@@ -408,6 +408,7 @@ test.describe('Background blocking', () => {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
       await saveBlockingSettings(serviceWorker, server.origin)
       await page.goto(`chrome-extension://${extensionId}/options.html`)
+      await page.getByRole('button', { name: 'General settings' }).click()
       await page.getByRole('button', { name: 'Blocked page' }).click()
       await expect.poll(async () => getStoredBlockAction(serviceWorker)).toBe('blockedPage')
 

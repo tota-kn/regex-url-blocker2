@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
+import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
 const DEBOUNCE_FLUSH_MS = 400
@@ -27,29 +28,55 @@ function dailyRules(override: Record<string, unknown> = {}): Array<Record<string
   }))
 }
 
+/**
+ * Options 画面の General settings セクションを開く。
+ */
+async function openGeneralSettings(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /General settings/ }).click()
+}
+
 test.describe('Options 画面', () => {
-  test('デフォルト値が表示される', async ({ page, extensionId }) => {
+  test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
+    await expect(page.getByRole('heading', { name: 'Regex URL Blocker' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Groups' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { name: 'Groups' })).toHaveCount(0)
+    await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await expect(page.getByLabel('Daily reset time')).not.toBeVisible()
+  })
+
+  test('General settings を選ぶとグローバル設定と import/export controls が表示される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await openGeneralSettings(page)
+
+    await expect(page.getByRole('button', { name: /General settings/ })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { name: 'General settings' })).toHaveCount(0)
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://example.com')
     await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'false')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('00:00')
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('5')
-    await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
+    await expect(page.getByRole('button', { name: 'Export settings' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
   })
 
   test('残り時間通知の分数設定を保存でき、0 も設定できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
+    await openGeneralSettings(page)
     await page.getByLabel('Remaining time notification').fill('12')
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
+    await openGeneralSettings(page)
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('12')
 
     await page.getByLabel('Remaining time notification').fill('0')
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
+    await openGeneralSettings(page)
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('0')
   })
 
@@ -62,6 +89,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('URL regex pattern').fill('example\\.com')
     await page.getByRole('button', { name: 'Save group' }).click()
 
+    await openGeneralSettings(page)
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Export settings' }).click()
     const download = await downloadPromise
@@ -85,6 +113,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
+    await openGeneralSettings(page)
     await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('settings.json', {
       version: 2,
       settings: {
@@ -107,6 +136,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('9')
+    await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.getByLabel('URL regex pattern')).toHaveValue('imported\\.example')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveValue('15')
@@ -195,8 +225,10 @@ test.describe('Options 画面', () => {
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
+    await openGeneralSettings(page)
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://preferred-blocked.test')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('05:00')
+    await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Sun blocked time ranges')).toHaveValue('')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveValue('30')
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
@@ -220,9 +252,11 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
+    await openGeneralSettings(page)
     await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('bad.json', '{'))
 
     await expect(page.getByText('Invalid JSON')).toBeVisible()
+    await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('StillHere')
   })
 
@@ -250,17 +284,26 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    const editableInputs = [
-      page.getByLabel('Redirect URL'),
-      page.getByLabel('Daily reset time'),
-      page.getByLabel('Remaining time notification'),
+    const groupInputs = [
       page.getByLabel('Name'),
       page.getByLabel('URL regex pattern'),
       page.getByLabel('Sun blocked time ranges'),
       page.getByLabel('Sun daily limit minutes'),
     ]
 
-    for (const input of editableInputs) {
+    for (const input of groupInputs) {
+      await expect(input).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+      await expect(input).toHaveCSS('border-top-color', 'rgb(209, 213, 219)')
+    }
+
+    await openGeneralSettings(page)
+    const generalInputs = [
+      page.getByLabel('Redirect URL'),
+      page.getByLabel('Daily reset time'),
+      page.getByLabel('Remaining time notification'),
+    ]
+
+    for (const input of generalInputs) {
       await expect(input).toHaveCSS('background-color', 'rgb(255, 255, 255)')
       await expect(input).toHaveCSS('border-top-color', 'rgb(209, 213, 219)')
     }
@@ -618,17 +661,20 @@ test.describe('Options 画面', () => {
   test('redirectUrl を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
+    await openGeneralSettings(page)
     await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
+    await openGeneralSettings(page)
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://blocked.example.test')
   })
 
   test('ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
+    await openGeneralSettings(page)
     await page.getByRole('button', { name: 'Blocked page' }).click()
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
@@ -636,6 +682,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
+    await openGeneralSettings(page)
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'false')
   })
