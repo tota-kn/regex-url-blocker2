@@ -96,7 +96,19 @@ function saveEditing(): void {
 </script>
 
 <template>
-  <article class="min-w-0 overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+  <article
+    class="min-w-0 overflow-hidden rounded-lg border bg-background shadow-sm"
+    :class="isNew ? 'border-primary/40' : 'border-border'"
+  >
+    <div
+      v-if="isNew"
+      class="border-b border-primary/20 bg-accent px-4 py-2"
+    >
+      <span class="inline-flex rounded-sm bg-surface px-1.5 py-1 text-label-sm text-primary">
+        New group
+      </span>
+    </div>
+
     <div class="border-b border-border bg-background p-4">
       <div class="space-y-2.5">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

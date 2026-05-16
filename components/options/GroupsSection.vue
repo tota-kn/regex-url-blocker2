@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PlusIcon } from '@heroicons/vue/24/outline'
+import { computed, nextTick, ref, watch } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
@@ -32,18 +33,49 @@ interface Emits {
   removeGroup: [id: string]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 defineEmits<Emits>()
 
 /**
  * Options 画面で編集するグループ配列。
  */
 const groups = defineModel<Group[]>({ required: true })
+
+const sectionRef = ref<HTMLElement | null>(null)
+const groupCount = computed(() => groups.value.length + props.newGroups.length)
+const groupCountLabel = computed(() => `${groupCount.value} ${groupCount.value === 1 ? 'group' : 'groups'}`)
+
+watch(() => props.newGroups.length, async (newLength, oldLength) => {
+  if (newLength <= oldLength) return
+  await nextTick()
+  focusLastNewGroup()
+})
+
+/** 追加直後の新規グループカードを画面内に出し、名前入力へフォーカスする。 */
+function focusLastNewGroup(): void {
+  const cards = sectionRef.value?.querySelectorAll<HTMLElement>('[data-new-group-card="true"]')
+  const card = cards?.[cards.length - 1]
+  if (!card) return
+
+  card.scrollIntoView({ block: 'center' })
+  card.querySelector<HTMLInputElement>('input[aria-label="Name"]')?.focus({ preventScroll: true })
+}
 </script>
 
 <template>
-  <section class="min-w-0 space-y-3">
-    <div class="flex justify-end">
+  <section
+    ref="sectionRef"
+    class="min-w-0 space-y-3"
+  >
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex min-w-0 items-baseline gap-2">
+        <h2 class="text-heading-md text-foreground">
+          Groups
+        </h2>
+        <p class="text-body-sm text-muted-foreground">
+          {{ groupCountLabel }}
+        </p>
+      </div>
       <BaseButton
         type="button"
         aria-label="Add group"
@@ -54,12 +86,12 @@ const groups = defineModel<Group[]>({ required: true })
           aria-hidden="true"
           class="size-4"
         />
-        Group
+        Add Group
       </BaseButton>
     </div>
 
     <EmptyState
-      v-if="groups.length === 0"
+      v-if="groupCount === 0"
       aria-label="No groups"
       spacious
     >
@@ -81,6 +113,7 @@ const groups = defineModel<Group[]>({ required: true })
         :group="group"
         :start-in-edit="true"
         :is-new="true"
+        data-new-group-card="true"
         @save="$emit('saveNewGroup', $event)"
         @cancel="$emit('cancelNewGroup', group.id)"
         @remove="$emit('cancelNewGroup', group.id)"

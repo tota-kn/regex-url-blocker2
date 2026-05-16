@@ -76,6 +76,12 @@ function handleImportFile(event: Event): void {
 
 <template>
   <section class="space-y-3 lg:sticky lg:top-6">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-heading-md text-foreground">
+        General settings
+      </h2>
+    </div>
+
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
       <div>
         <span class="mb-1.5 flex items-center gap-1.5 text-label-md text-secondary-foreground">

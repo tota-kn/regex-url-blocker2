@@ -41,7 +41,8 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByRole('heading', { name: 'Regex URL Blocker' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Groups' })).toHaveAttribute('aria-current', 'page')
-    await expect(page.getByRole('heading', { name: 'Groups' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Groups' })).toBeVisible()
+    await expect(page.getByText('0 groups')).toBeVisible()
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
     await expect(page.getByLabel('Daily reset time')).not.toBeVisible()
@@ -53,7 +54,7 @@ test.describe('Options 画面', () => {
     await openGeneralSettings(page)
 
     await expect(page.getByRole('button', { name: /General settings/ })).toHaveAttribute('aria-current', 'page')
-    await expect(page.getByRole('heading', { name: 'General settings' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'General settings' })).toBeVisible()
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://example.com')
     await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'false')
@@ -265,9 +266,28 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Group 1')
+    await expect(page.getByLabel('Name')).toBeFocused()
+    await expect(page.getByLabel('No groups')).not.toBeVisible()
+    await expect(page.getByText('New group')).toBeVisible()
 
     await page.getByRole('button', { name: 'Add group' }).click()
+    await expect(page.getByLabel('Name').first()).toHaveValue('Group 1')
     await expect(page.getByLabel('Name').nth(1)).toHaveValue('Group 2')
+    await expect(page.getByLabel('Name').nth(1)).toBeFocused()
+  })
+
+  test('保存済みグループの下に新規ドラフトを追加する', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('Saved')
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await expect(page.getByLabel('Name').first()).toHaveValue('Saved')
+    await expect(page.getByLabel('Name').nth(1)).toHaveValue('Group 2')
+    await expect(page.getByLabel('Name').nth(1)).toBeFocused()
   })
 
   test('パターン追加時にデフォルトで「https?://」が入力される', async ({ page, extensionId }) => {
