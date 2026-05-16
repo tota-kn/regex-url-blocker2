@@ -123,11 +123,60 @@ describe('effective settings', () => {
     expect(state.effectiveSettingsLogicalDate).toBe('2026-05-06')
   })
 
-  it('希望設定と有効設定の差分有無を正しく判定できる', () => {
+  it('翌日待ち差分の有無を正しく判定できる', () => {
     const preferred = settings([group()], '00:00')
     const effective = settings([group()], '03:00')
 
     expect(hasPendingEffectiveSettings(preferred, preferred)).toBe(false)
+    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
+  })
+
+  it('グループ名だけの変更は翌日待ち差分にしない', () => {
+    const effective = settings([group({ name: 'Old name' })])
+    const preferred = settings([group({ name: 'New name' })])
+
+    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(false)
+  })
+
+  it('新規グループ追加だけの変更は翌日待ち差分にしない', () => {
+    const effective = settings([group()])
+    const preferred = settings([
+      group(),
+      group({ id: 'g2', name: 'Second group', patterns: ['second\\.test'] }),
+    ])
+
+    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(false)
+  })
+
+  it('厳格化だけの変更は翌日待ち差分にしない', () => {
+    const effective = settings([group({
+      patterns: ['example\\.com'],
+      dailyRules: allDailyRules({ dailyLimitMinutes: 30 }),
+    })])
+    const preferred = settings([group({
+      patterns: ['example\\.com', 'news\\.example'],
+      dailyRules: allDailyRules({
+        blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+        dailyLimitMinutes: 10,
+      }),
+    })])
+
+    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(false)
+  })
+
+  it('緩和の変更は翌日待ち差分にする', () => {
+    const effective = settings([group({
+      patterns: ['example\\.com', 'news\\.example'],
+      dailyRules: allDailyRules({
+        blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+        dailyLimitMinutes: 10,
+      }),
+    })])
+    const preferred = settings([group({
+      patterns: ['example\\.com'],
+      dailyRules: allDailyRules({ dailyLimitMinutes: 30 }),
+    })])
+
     expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
   })
 

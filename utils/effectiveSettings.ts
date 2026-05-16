@@ -168,10 +168,10 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
 }
 
 /**
- * 希望設定と有効設定に差分があるなら true を返す。
+ * 希望設定のうち、翌日まで待つ必要がある差分が残っているなら true を返す。
  */
 export function hasPendingEffectiveSettings(preferred: Settings, effective: Settings): boolean {
-  return !settingsEqual(preferred, effective)
+  return !settingsEqual(preferred, mergeImmediateRestrictions(effective, preferred))
 }
 
 /**

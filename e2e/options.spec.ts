@@ -64,6 +64,47 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
   })
 
+  test('セクション切り替え時にサイドバーの位置がずれない', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        groups: Array.from({ length: 12 }, (_, index) => ({
+          id: `group-${index}`,
+          name: `Group ${index + 1}`,
+          mode: 'blacklist',
+          patterns: [`example-${index}\\.com`],
+          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: undefined,
+          })),
+        })),
+      })
+    })
+    await page.setViewportSize({ width: 1100, height: 700 })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    const sidebarHeading = page.getByRole('heading', { name: 'Regex URL Blocker' })
+    const groupsBox = await sidebarHeading.boundingBox()
+    expect(groupsBox).not.toBeNull()
+
+    await openGeneralSettings(page)
+    const generalBox = await sidebarHeading.boundingBox()
+    expect(generalBox).not.toBeNull()
+
+    expect(generalBox!.x).toBeCloseTo(groupsBox!.x, 1)
+    expect(generalBox!.width).toBeCloseTo(groupsBox!.width, 1)
+  })
+
   test('残り時間通知の分数設定を保存でき、0 も設定できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
