@@ -354,42 +354,82 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
+    await expect(page.getByRole('button', { name: 'Create blank group' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create group from core SNS 15 min/day template' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create group from video 30 min/day template' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create group from work hours focus template' })).toBeVisible()
+    await expect(page.getByText('30 min/day', { exact: true })).not.toBeVisible()
+    await expect(page.getByText('Block nights', { exact: true })).not.toBeVisible()
+    await expect(page.getByText('Allow nights', { exact: true })).not.toBeVisible()
     await page.getByRole('button', { name: 'Cancel create group' }).click()
 
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
     await expect(page.getByText('New group')).not.toBeVisible()
   })
 
-  test('30 min/day テンプレートから全曜日30分上限のグループを作成できる', async ({ page, extensionId }) => {
+  test('Core SNS 15 min/day テンプレートからSNSパターンと全曜日15分上限のグループを作成できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByRole('button', { name: 'Create group from 30 min/day template' }).click()
+    await page.getByRole('button', { name: 'Create group from core SNS 15 min/day template' }).click()
+
+    const expectedPatterns = [
+      '^https?://([^/]+\\.)?(x|twitter)\\.com/',
+      '^https?://([^/]+\\.)?instagram\\.com/',
+      '^https?://([^/]+\\.)?facebook\\.com/',
+      '^https?://([^/]+\\.)?tiktok\\.com/',
+      '^https?://([^/]+\\.)?threads\\.net/',
+      '^https?://([^/]+\\.)?bsky\\.app/',
+    ]
+    const patternInputs = page.getByLabel('URL regex pattern')
+    await expect(patternInputs).toHaveCount(expectedPatterns.length)
+    for (const [index, pattern] of expectedPatterns.entries()) {
+      await expect(patternInputs.nth(index)).toHaveValue(pattern)
+    }
+
+    for (const day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
+      await expect(page.getByLabel(`${day} daily limit minutes`)).toHaveValue('15')
+    }
+  })
+
+  test('Video 30 min/day テンプレートから動画パターンと全曜日30分上限のグループを作成できる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByRole('button', { name: 'Create group from video 30 min/day template' }).click()
+
+    const expectedPatterns = [
+      '^https?://([^/]+\\.)?youtube\\.com/',
+      '^https?://youtu\\.be/',
+      '^https?://([^/]+\\.)?twitch\\.tv/',
+      '^https?://([^/]+\\.)?netflix\\.com/',
+      '^https?://([^/]+\\.)?primevideo\\.com/',
+      '^https?://([^/]+\\.)?abema\\.tv/',
+      '^https?://([^/]+\\.)?nicovideo\\.jp/',
+    ]
+    const patternInputs = page.getByLabel('URL regex pattern')
+    await expect(patternInputs).toHaveCount(expectedPatterns.length)
+    for (const [index, pattern] of expectedPatterns.entries()) {
+      await expect(patternInputs.nth(index)).toHaveValue(pattern)
+    }
 
     for (const day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
       await expect(page.getByLabel(`${day} daily limit minutes`)).toHaveValue('30')
     }
   })
 
-  test('Block nights テンプレートから夜間ブロックのグループを作成できる', async ({ page, extensionId }) => {
+  test('Work hours focus テンプレートから平日日中ブロックのグループを作成できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByRole('button', { name: 'Create group from block nights template' }).click()
+    await page.getByRole('button', { name: 'Create group from work hours focus template' }).click()
+    await page.getByRole('button', { name: 'Save group' }).click()
 
-    for (const day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
-      await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveValue('21:00-06:00')
+    for (const day of ['Sun', 'Sat']) {
+      await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveText('No blocked time')
     }
-  })
-
-  test('Allow nights テンプレートから日中ブロックのグループを作成できる', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByRole('button', { name: 'Create group from allow nights template' }).click()
-
-    for (const day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
-      await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveValue('06:00-21:00')
+    for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) {
+      await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveText('09:00-18:00')
     }
   })
 
@@ -551,9 +591,9 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Edit group' }).click()
     await expect(page.locator('label:has(input[aria-label="Name"]) svg')).toHaveCount(0)
     await expect(page.getByLabel('Name')).toBeEnabled()
-    await expect(page.getByRole('button', { name: 'Create group from 30 min/day template' })).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Create group from block nights template' })).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Create group from allow nights template' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create group from core SNS 15 min/day template' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create group from video 30 min/day template' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create group from work hours focus template' })).not.toBeVisible()
   })
 
   test('無効な正規表現はエラー表示され、保存されない', async ({ page, extensionId }) => {

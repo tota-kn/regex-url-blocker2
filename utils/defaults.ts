@@ -3,7 +3,7 @@ import type { DailyRule, DayOfWeek, GlobalSettings, Group } from './types'
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
  */
-export type GroupTemplateId = 'blank' | '30min' | 'block-nights' | 'allow-nights'
+export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work-hours-focus'
 
 /**
  * 未設定時に使用するグローバル設定の既定値。SPEC.md 準拠。
@@ -30,22 +30,49 @@ export function createEmptyDailyRules(): DailyRule[] {
  * 指定テンプレートに対応する曜日別ルールを7件生成する。
  */
 function createDailyRulesFromTemplate(templateId: GroupTemplateId): DailyRule[] {
-  if (templateId === '30min') {
+  if (templateId === 'core-sns-15min') {
+    return createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 15 }))
+  }
+  if (templateId === 'video-30min') {
     return createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 30 }))
   }
-  if (templateId === 'block-nights') {
+  if (templateId === 'work-hours-focus') {
     return createEmptyDailyRules().map(rule => ({
       ...rule,
-      blockedTimeRanges: [{ startMinute: 1260, endMinute: 360 }],
-    }))
-  }
-  if (templateId === 'allow-nights') {
-    return createEmptyDailyRules().map(rule => ({
-      ...rule,
-      blockedTimeRanges: [{ startMinute: 360, endMinute: 1260 }],
+      blockedTimeRanges: rule.dayOfWeek >= 1 && rule.dayOfWeek <= 5
+        ? [{ startMinute: 540, endMinute: 1080 }]
+        : [],
     }))
   }
   return createEmptyDailyRules()
+}
+
+/**
+ * 指定テンプレートに対応するURLパターンを生成する。
+ */
+function createPatternsFromTemplate(templateId: GroupTemplateId): string[] {
+  if (templateId === 'core-sns-15min') {
+    return [
+      '^https?://([^/]+\\.)?(x|twitter)\\.com/',
+      '^https?://([^/]+\\.)?instagram\\.com/',
+      '^https?://([^/]+\\.)?facebook\\.com/',
+      '^https?://([^/]+\\.)?tiktok\\.com/',
+      '^https?://([^/]+\\.)?threads\\.net/',
+      '^https?://([^/]+\\.)?bsky\\.app/',
+    ]
+  }
+  if (templateId === 'video-30min') {
+    return [
+      '^https?://([^/]+\\.)?youtube\\.com/',
+      '^https?://youtu\\.be/',
+      '^https?://([^/]+\\.)?twitch\\.tv/',
+      '^https?://([^/]+\\.)?netflix\\.com/',
+      '^https?://([^/]+\\.)?primevideo\\.com/',
+      '^https?://([^/]+\\.)?abema\\.tv/',
+      '^https?://([^/]+\\.)?nicovideo\\.jp/',
+    ]
+  }
+  return []
 }
 
 /**
@@ -59,7 +86,7 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     name,
     mode: 'blacklist',
     lockMode: false,
-    patterns: [],
+    patterns: createPatternsFromTemplate(templateId),
     dailyRules: createDailyRulesFromTemplate(templateId),
   }
 }

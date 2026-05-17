@@ -117,7 +117,7 @@
 - `mode` は `blacklist` / `whitelist` を選択できる。
 - ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する。終了時刻には `24:00` を指定できる
 - 上限は曜日ごとに上限分数を入力する。空欄なら上限なし
-- 制限テンプレートとして「30 min/day」「Block nights（21:00–06:00）」「Allow nights（06:00–21:00 をブロック）」を全曜日へ一括適用できる
+- 制限テンプレートとして「Blank group」「Core SNS 15 min/day」「Video 30 min/day」「Work hours focus」を新規グループ作成時に選択できる
 - グローバル設定（`blockAction`、`redirectUrl`、`dailyResetHour`、`notificationThresholdMinutes`）の編集
 - `blockAction === "redirect"` の場合のみ `redirectUrl` を入力・検証する
 - Lock Mode group が存在する間は `dailyResetHour` 入力を無効化し、変更できない理由を表示する

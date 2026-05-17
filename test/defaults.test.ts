@@ -48,31 +48,57 @@ describe('createEmptyGroup', () => {
 })
 
 describe('createGroupFromTemplate', () => {
-  it('blank は空の曜日別ルールを返す', () => {
-    expect(createGroupFromTemplate('blank').dailyRules).toEqual(createEmptyGroup().dailyRules)
+  it('blank は空のURLパターンと曜日別ルールを返す', () => {
+    const group = createGroupFromTemplate('blank')
+
+    expect(group.patterns).toEqual([])
+    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules)
   })
 
-  it('30min は全曜日に30分上限を設定する', () => {
-    expect(createGroupFromTemplate('30min').dailyRules).toEqual(
-      createEmptyGroup().dailyRules.map(rule => ({ ...rule, dailyLimitMinutes: 30 })),
-    )
+  it('core-sns-15min はSNSパターンと全曜日15分上限を設定する', () => {
+    const group = createGroupFromTemplate('core-sns-15min')
+
+    expect(group.patterns).toEqual([
+      '^https?://([^/]+\\.)?(x|twitter)\\.com/',
+      '^https?://([^/]+\\.)?instagram\\.com/',
+      '^https?://([^/]+\\.)?facebook\\.com/',
+      '^https?://([^/]+\\.)?tiktok\\.com/',
+      '^https?://([^/]+\\.)?threads\\.net/',
+      '^https?://([^/]+\\.)?bsky\\.app/',
+    ])
+    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
+      ...rule,
+      dailyLimitMinutes: 15,
+    })))
   })
 
-  it('block-nights は全曜日に21:00-06:00のブロック時間帯を設定する', () => {
-    expect(createGroupFromTemplate('block-nights').dailyRules).toEqual(
-      createEmptyGroup().dailyRules.map(rule => ({
-        ...rule,
-        blockedTimeRanges: [{ startMinute: 1260, endMinute: 360 }],
-      })),
-    )
+  it('video-30min は動画パターンと全曜日30分上限を設定する', () => {
+    const group = createGroupFromTemplate('video-30min')
+
+    expect(group.patterns).toEqual([
+      '^https?://([^/]+\\.)?youtube\\.com/',
+      '^https?://youtu\\.be/',
+      '^https?://([^/]+\\.)?twitch\\.tv/',
+      '^https?://([^/]+\\.)?netflix\\.com/',
+      '^https?://([^/]+\\.)?primevideo\\.com/',
+      '^https?://([^/]+\\.)?abema\\.tv/',
+      '^https?://([^/]+\\.)?nicovideo\\.jp/',
+    ])
+    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
+      ...rule,
+      dailyLimitMinutes: 30,
+    })))
   })
 
-  it('allow-nights は全曜日に06:00-21:00のブロック時間帯を設定する', () => {
-    expect(createGroupFromTemplate('allow-nights').dailyRules).toEqual(
-      createEmptyGroup().dailyRules.map(rule => ({
-        ...rule,
-        blockedTimeRanges: [{ startMinute: 360, endMinute: 1260 }],
-      })),
-    )
+  it('work-hours-focus は平日に09:00-18:00のブロック時間帯を設定する', () => {
+    const group = createGroupFromTemplate('work-hours-focus')
+
+    expect(group.patterns).toEqual([])
+    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
+      ...rule,
+      blockedTimeRanges: rule.dayOfWeek >= 1 && rule.dayOfWeek <= 5
+        ? [{ startMinute: 540, endMinute: 1080 }]
+        : [],
+    })))
   })
 })
