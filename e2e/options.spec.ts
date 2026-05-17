@@ -224,6 +224,7 @@ test.describe('Options 画面', () => {
           id: 'work',
           name: 'Work',
           mode: 'blacklist',
+          lockMode: true,
           patterns: ['active\\.example'],
           dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
             dayOfWeek,
@@ -255,6 +256,7 @@ test.describe('Options 画面', () => {
           id: 'work',
           name: 'Work',
           mode: 'blacklist',
+          lockMode: true,
           patterns: ['active\\.example'],
           dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
             dayOfWeek,
@@ -269,7 +271,9 @@ test.describe('Options 画面', () => {
 
     await openGeneralSettings(page)
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://preferred-blocked.test')
-    await expect(page.getByLabel('Daily reset time')).toHaveValue('05:00')
+    await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
+    await expect(page.getByLabel('Daily reset time')).toBeDisabled()
+    await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Sun blocked time ranges')).toHaveValue('')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveValue('30')
@@ -282,6 +286,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
     await expect(activeSettingsDialog.getByText('https://preferred-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('03:00', { exact: true })).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Lock Mode On')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocked: 09:00-17:00; limit: 10 min').first()).toBeVisible()
   })
@@ -315,6 +320,41 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Name').first()).toHaveValue('Group 1')
     await expect(page.getByLabel('Name').nth(1)).toHaveValue('Group 2')
     await expect(page.getByLabel('Name').nth(1)).toBeFocused()
+  })
+
+  test('Options で group ごとの Lock Mode トグルを操作できる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('Locked')
+    await expect(page.getByLabel('Lock Mode')).not.toBeChecked()
+    await page.getByLabel('Lock Mode').check()
+    await expect(page.getByLabel('Lock Mode')).toBeChecked()
+    await expect(page.getByText('Changes to this group apply after the next reset.')).toBeVisible()
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByLabel('Lock Mode')).toBeChecked()
+    await expect(page.getByLabel('Lock Mode')).toBeDisabled()
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await page.getByLabel('Lock Mode').uncheck()
+    await expect(page.getByLabel('Lock Mode')).not.toBeChecked()
+  })
+
+  test('Lock Mode group がある間、Daily reset time 入力が無効化される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Add group' }).click()
+    await page.getByLabel('Name').fill('LockedReset')
+    await page.getByLabel('Lock Mode').check()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+
+    await openGeneralSettings(page)
+    await expect(page.getByLabel('Daily reset time')).toBeDisabled()
+    await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
   })
 
   test('保存済みグループの下に新規ドラフトを追加する', async ({ page, extensionId }) => {

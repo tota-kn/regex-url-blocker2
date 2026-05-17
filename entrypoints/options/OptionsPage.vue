@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Cog6ToothIcon, ExclamationCircleIcon, EyeIcon, QueueListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { getNextEffectiveSettingsResetAt, hasPendingEffectiveSettings } from '@/utils/effectiveSettings'
+import { getNextEffectiveSettingsResetAt, hasLockModeGroup, hasPendingEffectiveSettings } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
@@ -41,6 +41,9 @@ const totalErrors = computed(() => {
 })
 const hasPendingSettings = computed(() =>
   isLoaded.value && hasPendingEffectiveSettings(settings.value, effectiveSettings.value),
+)
+const isDailyResetTimeLocked = computed(() =>
+  hasLockModeGroup(settings.value) || hasLockModeGroup(effectiveSettings.value),
 )
 const nextResetAt = computed(() =>
   getNextEffectiveSettingsResetAt(effectiveSettings.value, now.value),
@@ -86,6 +89,15 @@ function saveGroup(group: Group): void {
   )
 }
 
+/** Lock Mode group がある間は保存値の daily reset time を現在有効な値に固定する。 */
+function protectDailyResetTime(s: Settings): Settings {
+  const next = JSON.parse(JSON.stringify(s)) as Settings
+  if (hasLockModeGroup(next) || hasLockModeGroup(effectiveSettings.value)) {
+    next.global.dailyResetHour = effectiveSettings.value.global.dailyResetHour
+  }
+  return next
+}
+
 /** 新規グループドラフトを保存済みグループへ昇格する。 */
 function saveNewGroup(group: Group): void {
   newGroupDrafts.value = newGroupDrafts.value.filter(current => current.id !== group.id)
@@ -113,7 +125,9 @@ const debouncedSave = debounce((s: Settings) => {
 function saveNow(): void {
   if (!isLoaded.value) return
   if (totalErrors.value > 0) return
-  void saveSettings(JSON.parse(JSON.stringify(settings.value)) as Settings)
+  const next = protectDailyResetTime(settings.value)
+  settings.value.global.dailyResetHour = next.global.dailyResetHour
+  void saveSettings(next)
 }
 
 /**
@@ -190,9 +204,10 @@ async function importSettings(file: File): Promise<void> {
   importError.value = undefined
   try {
     const importedSettings = parseSettingsExportJson(await file.text())
-    settings.value = importedSettings
+    const next = protectDailyResetTime(importedSettings)
+    settings.value = next
     newGroupDrafts.value = []
-    await saveSettings(JSON.parse(JSON.stringify(importedSettings)) as Settings)
+    await saveSettings(next)
   }
   catch (error) {
     importError.value = error instanceof Error ? error.message : 'Failed to import settings'
@@ -202,7 +217,11 @@ async function importSettings(file: File): Promise<void> {
 watch(settings, (s) => {
   if (!isLoaded.value) return
   if (totalErrors.value > 0) return
-  debouncedSave(JSON.parse(JSON.stringify(s)) as Settings)
+  const next = protectDailyResetTime(s)
+  if (next.global.dailyResetHour !== settings.value.global.dailyResetHour) {
+    settings.value.global.dailyResetHour = next.global.dailyResetHour
+  }
+  debouncedSave(next)
 }, { deep: true })
 
 const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, areaName) => {
@@ -217,8 +236,8 @@ const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListe
 onMounted(async () => {
   const [loadedSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
   const loadedEffectiveState = await loadEffectiveSettingsState(loadedSettings)
-  settings.value = loadedSettings
   effectiveSettings.value = loadedEffectiveState.effectiveSettings
+  settings.value = protectDailyResetTime(loadedSettings)
   counters.value = loadedCounters
   isLoaded.value = true
   browser.storage.onChanged.addListener(handleStorageChanged)
@@ -280,6 +299,14 @@ onUnmounted(() => {
               {{ effectiveSettings.global.dailyResetHour }}
             </dd>
           </div>
+          <div class="rounded-md border border-border bg-surface p-3">
+            <dt class="text-muted">
+              Remaining time notification
+            </dt>
+            <dd class="mt-1 font-medium">
+              {{ effectiveSettings.global.notificationThresholdMinutes }} min
+            </dd>
+          </div>
           <div class="rounded-md border border-border bg-surface p-3 sm:col-span-2">
             <dt class="text-muted">
               Redirect URL
@@ -313,6 +340,9 @@ onUnmounted(() => {
             </h4>
             <span class="rounded-md border border-border px-2 py-1 text-label-sm text-muted">
               {{ group.mode }}
+            </span>
+            <span class="rounded-md border border-border px-2 py-1 text-label-sm text-muted">
+              Lock Mode {{ group.lockMode ? 'On' : 'Off' }}
             </span>
           </div>
           <div>
@@ -471,6 +501,7 @@ onUnmounted(() => {
               v-model="settings.global"
               :error="globalError"
               :import-error="importError"
+              :daily-reset-time-locked="isDailyResetTimeLocked"
               @export-settings="exportSettings"
               @import-settings="importSettings"
               @save-now="saveNow"

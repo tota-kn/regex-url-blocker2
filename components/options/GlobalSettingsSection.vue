@@ -16,6 +16,8 @@ interface Props {
   error: (field: string) => string | undefined
   /** インポートに失敗したときのエラーメッセージ。 */
   importError?: string
+  /** Lock Mode group により Daily reset time を変更できないかどうか。 */
+  dailyResetTimeLocked?: boolean
 }
 
 defineProps<Props>()
@@ -140,9 +142,16 @@ function handleImportFile(event: Event): void {
           v-model="globalSettings.dailyResetHour"
           type="time"
           aria-label="Daily reset time"
+          :disabled="dailyResetTimeLocked"
           class="w-full"
           :invalid="Boolean(error('dailyResetHour'))"
         />
+        <p
+          v-if="dailyResetTimeLocked"
+          class="mt-1.5 text-body-sm text-muted"
+        >
+          Cannot change while any group has Lock Mode enabled or pending.
+        </p>
       </BaseField>
 
       <BaseField

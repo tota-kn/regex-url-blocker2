@@ -15,6 +15,7 @@ describe('createEmptyGroup', () => {
     const g = createEmptyGroup()
     expect(g.name).toBe('')
     expect(g.mode).toBe('blacklist')
+    expect(g.lockMode).toBe(false)
     expect(g.patterns).toEqual([])
     expect(g.dailyRules).toEqual([
       { dayOfWeek: 0, blockedTimeRanges: [], dailyLimitMinutes: undefined },

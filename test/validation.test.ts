@@ -59,6 +59,7 @@ describe('validateGroup', () => {
       id: 'x',
       name: '   ',
       mode: 'blacklist',
+      lockMode: false,
       patterns: ['['],
       dailyRules: createEmptyGroup().dailyRules,
     })

@@ -223,7 +223,7 @@ function buildLogicalDate(now: Date, dailyResetHour: HHMM): string {
 /**
  * background E2E 用の設定オブジェクトを作る。
  */
-function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dailyLimitMinutes: number | undefined): Settings {
+function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dailyLimitMinutes: number | undefined, lockMode = false): Settings {
   return {
     global: {
       blockAction: 'redirect',
@@ -235,6 +235,7 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       id: 'effective-group',
       name: 'Effective group',
       mode: 'blacklist',
+      lockMode,
       patterns: [`^${origin.replaceAll('.', '\\.')}`],
       dailyRules: buildDailyRules(dailyLimitMinutes),
     }],
@@ -423,14 +424,14 @@ test.describe('Background blocking', () => {
 })
 
 test.describe('Effective settings behavior', () => {
-  test('緩和しても同じ論理日中は有効設定によりブロックされ続ける', async ({ page, context }) => {
+  test('Lock Mode ON では緩和しても同じ論理日中は有効設定によりブロックされ続ける', async ({ page, context }) => {
     const server = await startServer()
     try {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
-      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0)
-      const preferred = buildEffectiveSettingsFixture(server.origin, dailyResetHour, undefined)
+      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true)
+      const preferred = buildEffectiveSettingsFixture(server.origin, dailyResetHour, undefined, true)
       await savePreferredAndEffectiveSettings(
         serviceWorker,
         preferred,
@@ -447,7 +448,7 @@ test.describe('Effective settings behavior', () => {
     }
   })
 
-  test('厳格化すると開いているタブが即時ブロックされる', async ({ page, context }) => {
+  test('Lock Mode OFF では厳格化すると開いているタブが即時ブロックされる', async ({ page, context }) => {
     const server = await startServer()
     try {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
@@ -469,6 +470,52 @@ test.describe('Effective settings behavior', () => {
       await savePreferredSettings(serviceWorker, strict)
 
       await expect(page).toHaveURL(`${server.origin}/blocked`, { timeout: 5000 })
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('Lock Mode OFF ではブロック設定削除後に対象 URL がすぐブロック解除される', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0)
+      await savePreferredAndEffectiveSettings(
+        serviceWorker,
+        { ...effective, groups: [] },
+        effective,
+        buildLogicalDate(now, dailyResetHour),
+      )
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/target`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('Lock Mode ON ではブロック設定を削除しても次回 reset まで現在のブロック挙動が残る', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true)
+      await savePreferredAndEffectiveSettings(
+        serviceWorker,
+        { ...effective, groups: [] },
+        effective,
+        buildLogicalDate(now, dailyResetHour),
+      )
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/blocked`)
     }
     finally {
       await server.close()

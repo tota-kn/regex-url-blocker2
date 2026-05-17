@@ -19,6 +19,7 @@
   - `id`: UUID（自動採番）
   - `name`: ユーザー入力の表示名（必須）
   - `mode`: 対象 URL の判定モード。`blacklist`（既定）または `whitelist`
+  - `lockMode`: `true` の場合、このグループの変更は次回 daily reset まで有効設定へ反映しない。既定 `false`
   - `patterns`: 正規表現文字列の配列
   - `dailyRules`: 曜日別ルールの配列。0=日曜から6=土曜まで必ず7件
 - `mode` の意味：
@@ -91,16 +92,12 @@
 
 - ユーザーが保存した設定は `chrome.storage.sync` に「希望設定」として保存する。
 - background は `chrome.storage.local` に「有効設定スナップショット」を保持し、URL 判定・badge・counter 加算にはこの有効設定を使う。
-- 同じ論理日中は、制限が緩くなる変更を即時反映しない。緩和は次回リセット時刻で希望設定全体を有効設定へ昇格して反映する。
-- 同じ論理日中でも、以下のような厳格化方向の変更は即時反映する：
-  - 新規グループの追加
-  - blacklist pattern の追加
-  - whitelist pattern の削除
-  - ブロック時間帯の追加・拡大
-  - 1日上限の追加・短縮
-- 既存グループの `mode` 変更は同じ論理日中には即時反映せず、変更前の有効設定を維持する。
+- `lockMode: false` のグループは、追加・編集・削除を同じ論理日中でも希望設定どおり即時反映する。
+- `lockMode: true` のグループは、有効設定側のグループスナップショットを次回リセット時刻まで維持する。`patterns`、`mode`、`dailyRules`、`name`、`lockMode` の OFF、グループ削除はいずれも次回リセットで希望設定全体が昇格したときに反映する。
+- 有効設定に存在しない新規グループは即時反映する。新規グループを `lockMode: true` で保存した場合、初回保存は即時有効化され、その後の変更が次回リセットまで保留される。
 - `blockAction`、`redirectUrl`、`notificationThresholdMinutes` は同じ論理日中でも希望設定を即時反映する。
-- `dailyResetHour` の変更は同じ論理日中には即時反映せず、現在有効なリセット時刻を維持する。
+- 希望設定または有効設定のどちらかに `lockMode: true` のグループがある間、`dailyResetHour` は変更できず、現在有効なリセット時刻を維持する。
+- 論理日が切り替わったタイミングで、希望設定全体を有効設定へ昇格する。
 
 ### 残り時間通知・Action Badge
 
@@ -116,19 +113,20 @@
 ### Options 画面（編集）
 
 - グループの追加・編集・削除
-- 各グループ：`name`、`mode`、`patterns[]`、`dailyRules[]`
+- 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`dailyRules[]`
 - `mode` は `blacklist` / `whitelist` を選択できる。
 - ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する。終了時刻には `24:00` を指定できる
 - 上限は曜日ごとに上限分数を入力する。空欄なら上限なし
 - 制限テンプレートとして「30 min/day」「Block nights（21:00–06:00）」「Allow nights（06:00–21:00 をブロック）」を全曜日へ一括適用できる
 - グローバル設定（`blockAction`、`redirectUrl`、`dailyResetHour`、`notificationThresholdMinutes`）の編集
 - `blockAction === "redirect"` の場合のみ `redirectUrl` を入力・検証する
+- Lock Mode group が存在する間は `dailyResetHour` 入力を無効化し、変更できない理由を表示する
 - 保存時に正規表現の構文を `new RegExp()` で検証し、無効なら保存拒否＋インラインエラー
 - 保存はキー入力のたびではなく debounce（300ms）で `chrome.storage.sync` のレート制限に配慮
 - グループカードは通常は読み取り表示で、編集ボタンから編集モードに入る。グループ単位で保存・キャンセルできる
 - 未保存の新規グループはキャンセルで破棄できる
 - グループ削除時は確認ダイアログを表示する
-- 現在保存済みの設定と有効設定スナップショットに差分がある場合、Options 画面に「未反映の保存済み変更」と次回反映時刻を表示する
+- Lock Mode ON のグループに未反映の保存済み変更がある場合、Options 画面に「未反映の保存済み変更」と次回反映時刻を表示する
 - 未反映差分がある場合、現在 blocking に使われている有効設定を読み取り専用ダイアログで確認できる
 - 設定は JSON ファイルとしてエクスポート／インポートできる。インポートは全グループとグローバル設定を置換し、スキーマバージョンと内容を検証する
 

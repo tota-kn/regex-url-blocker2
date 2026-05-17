@@ -48,6 +48,7 @@ function normalizeGroup(value: unknown): Group {
     id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
     name: typeof g.name === 'string' ? g.name : '',
     mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
+    lockMode: g.lockMode === true,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
     dailyRules: normalizeDailyRules(g.dailyRules),
   }

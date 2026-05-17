@@ -21,6 +21,7 @@ function group(overrides: Partial<Group>): Group {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
+    lockMode: false,
     patterns: ['example\\.com'],
     dailyRules: createEmptyDailyRules(),
     ...overrides,

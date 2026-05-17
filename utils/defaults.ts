@@ -30,6 +30,7 @@ export function createEmptyGroup(name = ''): Group {
     id: crypto.randomUUID(),
     name,
     mode: 'blacklist',
+    lockMode: false,
     patterns: [],
     dailyRules: createEmptyDailyRules(),
   }

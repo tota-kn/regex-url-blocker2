@@ -85,6 +85,7 @@ describe('settings export file', () => {
     }))
 
     expect(imported.groups[0].mode).toBe('blacklist')
+    expect(imported.groups[0].lockMode).toBe(false)
   })
 
   it('不正 JSON は reject する', () => {
@@ -123,6 +124,7 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('blacklist')
+    expect(s.groups[0].lockMode).toBe(false)
   })
 
   it('whitelist は保持される', async () => {

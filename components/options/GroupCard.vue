@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, LockClosedIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -177,6 +177,29 @@ function saveEditing(): void {
       <legend class="sr-only">
         Group details
       </legend>
+      <div class="rounded-md border border-border bg-surface p-3">
+        <label class="flex items-start gap-3">
+          <input
+            v-model="draft.lockMode"
+            type="checkbox"
+            class="mt-0.5 size-4 rounded border-field-border text-primary focus:ring-2 focus:ring-ring/50 disabled:cursor-default"
+            aria-label="Lock Mode"
+            :disabled="!isEditing"
+          >
+          <span class="min-w-0">
+            <span class="flex items-center gap-1.5 text-label-md text-secondary-foreground">
+              <LockClosedIcon
+                aria-hidden="true"
+                class="size-4 text-muted"
+              />
+              Lock Mode
+            </span>
+            <span class="mt-1 block text-body-sm text-muted">
+              Changes to this group apply after the next reset.
+            </span>
+          </span>
+        </label>
+      </div>
       <PatternListEditor
         v-model="draft.patterns"
         v-model:mode="draft.mode"
