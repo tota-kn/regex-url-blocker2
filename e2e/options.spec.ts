@@ -35,6 +35,21 @@ async function openGeneralSettings(page: Page): Promise<void> {
   await page.getByRole('button', { name: /General settings/ }).click()
 }
 
+/**
+ * ダイアログがビューポート中央に表示されていることを検証する。
+ */
+async function expectDialogCentered(page: Page, dialog: ReturnType<Page['locator']>): Promise<void> {
+  const box = await dialog.boundingBox()
+  const viewport = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    height: document.documentElement.clientHeight,
+  }))
+
+  expect(box).not.toBeNull()
+  expect(box!.x + box!.width / 2).toBeCloseTo(viewport.width / 2, 0)
+  expect(box!.y + box!.height / 2).toBeCloseTo(viewport.height / 2, 0)
+}
+
 test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -284,6 +299,7 @@ test.describe('Options 画面', () => {
 
     const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
     await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
+    await expectDialogCentered(page, activeSettingsDialog)
     await expect(activeSettingsDialog.getByText('https://preferred-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('03:00', { exact: true })).toBeVisible()
     await expect(activeSettingsDialog.getByText('Lock Mode On')).toBeVisible()
@@ -735,6 +751,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await page.getByRole('button', { name: 'Delete group' }).click()
+    await expectDialogCentered(page, page.locator('dialog').filter({ hasText: 'Delete group?' }))
     await page.getByRole('button', { name: 'Confirm delete' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)

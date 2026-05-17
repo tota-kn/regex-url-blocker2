@@ -252,7 +252,7 @@ onUnmounted(() => {
   <ConfirmDialog ref="confirmDialogRef" />
   <dialog
     ref="activeSettingsDialogRef"
-    class="max-h-[85vh] w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-border bg-background p-0 text-foreground shadow-lg"
+    class="dialog-centered max-h-[85vh] w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-border bg-background p-0 text-foreground shadow-lg"
   >
     <div class="sticky top-0 flex items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
       <div>

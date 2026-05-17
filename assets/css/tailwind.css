@@ -125,3 +125,10 @@ html {
   font-weight: 400;
   line-height: 1.5;
 }
+
+dialog.dialog-centered {
+  position: fixed;
+  inset: 50% auto auto calc(50% + (100vw - 100%) / 2);
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
