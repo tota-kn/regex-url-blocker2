@@ -4,8 +4,23 @@ import { computed, nextTick, ref, watch } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
+import type { GroupTemplateId } from '@/utils/defaults'
 import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
+
+/**
+ * 新規グループ作成テンプレートの表示メタデータ。
+ */
+interface GroupTemplateOption {
+  /** テンプレート識別子。 */
+  id: GroupTemplateId
+  /** ボタン表示ラベル。 */
+  label: string
+  /** 説明文。 */
+  description: string
+  /** 作成ボタンの aria-label。 */
+  ariaLabel: string
+}
 
 /**
  * グループ一覧セクションの props。
@@ -22,7 +37,7 @@ interface Props {
  */
 interface Emits {
   /** グループ追加が要求されたときに発火する。 */
-  addGroup: []
+  addGroup: [templateId: GroupTemplateId]
   /** 既存グループ保存が要求されたときに対象値を通知する。 */
   saveGroup: [group: Group]
   /** 新規グループ保存が要求されたときに対象値を通知する。 */
@@ -34,7 +49,7 @@ interface Emits {
 }
 
 const props = defineProps<Props>()
-defineEmits<Emits>()
+const emit = defineEmits<Emits>()
 
 /**
  * Options 画面で編集するグループ配列。
@@ -42,8 +57,36 @@ defineEmits<Emits>()
 const groups = defineModel<Group[]>({ required: true })
 
 const sectionRef = ref<HTMLElement | null>(null)
+const createGroupDialogRef = ref<HTMLDialogElement | null>(null)
 const groupCount = computed(() => groups.value.length + props.newGroups.length)
 const groupCountLabel = computed(() => `${groupCount.value} ${groupCount.value === 1 ? 'group' : 'groups'}`)
+
+const groupTemplates: GroupTemplateOption[] = [
+  {
+    id: 'blank',
+    label: 'Blank group',
+    description: 'Start with no URL patterns or blocking rules.',
+    ariaLabel: 'Create blank group',
+  },
+  {
+    id: '30min',
+    label: '30 min/day',
+    description: 'Set a 30 minute daily limit for every day.',
+    ariaLabel: 'Create group from 30 min/day template',
+  },
+  {
+    id: 'block-nights',
+    label: 'Block nights',
+    description: 'Block matching URLs from 21:00 to 06:00.',
+    ariaLabel: 'Create group from block nights template',
+  },
+  {
+    id: 'allow-nights',
+    label: 'Allow nights',
+    description: 'Block matching URLs from 06:00 to 21:00.',
+    ariaLabel: 'Create group from allow nights template',
+  },
+]
 
 watch(() => props.newGroups.length, async (newLength, oldLength) => {
   if (newLength <= oldLength) return
@@ -59,6 +102,22 @@ function focusLastNewGroup(): void {
 
   card.scrollIntoView({ block: 'center' })
   card.querySelector<HTMLInputElement>('input[aria-label="Name"]')?.focus({ preventScroll: true })
+}
+
+/** 新規グループ作成ダイアログを開く。 */
+function openCreateGroupDialog(): void {
+  createGroupDialogRef.value?.showModal()
+}
+
+/** 新規グループ作成ダイアログを閉じる。 */
+function closeCreateGroupDialog(): void {
+  createGroupDialogRef.value?.close()
+}
+
+/** テンプレートを選択して新規グループ作成を親へ通知する。 */
+function createGroup(templateId: GroupTemplateId): void {
+  closeCreateGroupDialog()
+  emit('addGroup', templateId)
 }
 </script>
 
@@ -80,7 +139,7 @@ function focusLastNewGroup(): void {
         type="button"
         aria-label="Add group"
         variant="primary"
-        @click="$emit('addGroup')"
+        @click="openCreateGroupDialog"
       >
         <PlusIcon
           aria-hidden="true"
@@ -89,6 +148,44 @@ function focusLastNewGroup(): void {
         Add Group
       </BaseButton>
     </div>
+
+    <dialog
+      ref="createGroupDialogRef"
+      aria-labelledby="create-group-title"
+      class="dialog-centered w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/30"
+      @cancel.prevent="closeCreateGroupDialog"
+    >
+      <div class="space-y-4 p-4">
+        <h3
+          id="create-group-title"
+          class="text-heading-md"
+        >
+          Create group
+        </h3>
+        <div class="space-y-2">
+          <button
+            v-for="template in groupTemplates"
+            :key="template.id"
+            type="button"
+            :aria-label="template.ariaLabel"
+            class="block w-full rounded-lg border border-border bg-surface p-3 text-left transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
+            @click="createGroup(template.id)"
+          >
+            <span class="block text-label-md text-secondary-foreground">{{ template.label }}</span>
+            <span class="mt-1 block text-body-sm text-muted">{{ template.description }}</span>
+          </button>
+        </div>
+        <div class="flex justify-end">
+          <BaseButton
+            type="button"
+            aria-label="Cancel create group"
+            @click="closeCreateGroupDialog"
+          >
+            Cancel
+          </BaseButton>
+        </div>
+      </div>
+    </dialog>
 
     <EmptyState
       v-if="groupCount === 0"

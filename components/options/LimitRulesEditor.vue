@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ClockIcon } from '@heroicons/vue/24/outline'
 import { ref, watch } from 'vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { DailyRule, DayOfWeek, TimeRange } from '@/utils/types'
 
@@ -28,29 +27,6 @@ interface DayOption {
 }
 
 const dailyRules = defineModel<DailyRule[]>('dailyRules', { required: true })
-
-/**
- * ブロッキングルールテンプレートの識別子。
- */
-type LimitRuleTemplate = '30min' | 'block-nights' | 'allow-nights'
-
-/**
- * テンプレートボタンの表示メタデータ。
- */
-interface LimitRuleTemplateOption {
-  /** テンプレート識別子。 */
-  id: LimitRuleTemplate
-  /** ボタン表示ラベル。 */
-  label: string
-  /** aria-label。 */
-  ariaLabel: string
-}
-
-const TEMPLATES: LimitRuleTemplateOption[] = [
-  { id: '30min', label: '30 min/day', ariaLabel: 'Apply 30 min/day template' },
-  { id: 'block-nights', label: 'Block nights', ariaLabel: 'Apply block nights template' },
-  { id: 'allow-nights', label: 'Allow nights', ariaLabel: 'Apply allow nights template' },
-]
 
 const DAYS: DayOption[] = [
   { value: 0, label: 'Sun' },
@@ -326,6 +302,11 @@ function dailyLimitDisplayValue(day: DayOfWeek, editing: boolean): string {
   return 'No limit'
 }
 
+/** 読み取り表示用のブロック時間帯テキストを返す。 */
+function blockedTimeDisplayValue(day: DayOfWeek): string {
+  return timeRangeTexts.value[day] || 'No blocked time'
+}
+
 /** 上限分数が指定されているかどうかを返す。 */
 function hasDailyLimit(day: DayOfWeek): boolean {
   return dailyLimits.value[day].minutes !== ''
@@ -391,22 +372,6 @@ function selectedCellsToRangeText(cells: boolean[]): string {
   return ranges.join(', ')
 }
 
-/**
- * 指定テンプレートを全曜日に一括適用する。既存ルールは破棄される。
- */
-function applyLimitRuleTemplate(template: LimitRuleTemplate): void {
-  dailyRules.value = DAYS.map((day): DailyRule => {
-    const base: DailyRule = { dayOfWeek: day.value, blockedTimeRanges: [], dailyLimitMinutes: undefined }
-    if (template === '30min') {
-      return { ...base, dailyLimitMinutes: 30 }
-    }
-    if (template === 'block-nights') {
-      return { ...base, blockedTimeRanges: [{ startMinute: 1260, endMinute: 360 }] }
-    }
-    return { ...base, blockedTimeRanges: [{ startMinute: 360, endMinute: 1260 }] }
-  })
-}
-
 /** 選択済みセルを保存用の分単位時間帯へ変換する。 */
 function cellsToRanges(cells: boolean[]): TimeRange[] {
   const ranges: TimeRange[] = []
@@ -437,22 +402,6 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
         />
         Blocking rules
       </h3>
-      <div
-        v-if="isEditing"
-        class="flex flex-wrap gap-1.5"
-      >
-        <BaseButton
-          v-for="tmpl in TEMPLATES"
-          :key="tmpl.id"
-          type="button"
-          size="sm"
-          variant="secondary"
-          :aria-label="tmpl.ariaLabel"
-          @click="applyLimitRuleTemplate(tmpl.id)"
-        >
-          {{ tmpl.label }}
-        </BaseButton>
-      </div>
     </div>
 
     <div
@@ -465,7 +414,7 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
         :class="isEditing ? 'bg-surface-muted' : 'bg-background'"
       >
         <div
-          class="grid w-full grid-cols-[3.75rem_minmax(0,1fr)] border-b border-border bg-background px-2 py-2 sm:grid-cols-[3.75rem_16rem_minmax(15rem,1fr)_7.5rem]"
+          class="grid w-full grid-cols-[3.75rem_minmax(0,1fr)] border-b border-border bg-background px-2 py-1.5 sm:grid-cols-[3.75rem_20rem_minmax(12rem,1fr)_7.5rem]"
         >
           <span class="text-label-sm text-muted-foreground">Day</span>
           <div class="relative h-5">
@@ -478,21 +427,21 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
               {{ marker.label }}
             </span>
           </div>
-          <span class="hidden whitespace-nowrap pl-4 text-label-sm text-muted-foreground sm:block">Blocked time</span>
+          <span class="hidden whitespace-nowrap pl-6 text-label-sm text-muted-foreground sm:block">Blocked time</span>
           <span class="hidden whitespace-nowrap pl-3 text-label-sm text-muted-foreground sm:block">Daily limit (min)</span>
         </div>
 
         <div
           v-for="day in DAYS"
           :key="day.value"
-          class="grid w-full grid-cols-[3.75rem_minmax(0,1fr)] items-stretch border-b border-border px-2 py-3 last:border-b-0 sm:grid-cols-[3.75rem_16rem_minmax(15rem,1fr)_7.5rem]"
+          class="grid w-full grid-cols-[3.75rem_minmax(0,1fr)] items-stretch border-b border-border px-2 py-2 last:border-b-0 sm:grid-cols-[3.75rem_20rem_minmax(12rem,1fr)_7.5rem]"
         >
           <div class="flex items-center pr-3 text-sm font-semibold text-secondary-foreground">
             {{ day.label }}
           </div>
 
           <div
-            class="relative grid h-10 select-none overflow-visible rounded-md border border-border bg-background"
+            class="relative grid h-8 select-none overflow-visible rounded-md border border-border bg-background"
             style="grid-template-columns: repeat(48, minmax(0, 1fr));"
             @pointerup="endCellSelection"
             @pointerleave="clearHoveredCell"
@@ -501,7 +450,7 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
               v-for="index in HALF_HOUR_CELLS"
               :key="index"
               type="button"
-              class="h-10 min-w-0 transition focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-ring"
+              class="h-8 min-w-0 transition focus:relative focus:z-10 focus:outline-none focus:ring-2 focus:ring-ring"
               :class="[
                 selectedCells[day.value][index]
                   ? 'bg-primary hover:bg-primary-hover'
@@ -524,10 +473,11 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
             </div>
           </div>
 
-          <div class="col-span-2 mt-2 min-w-0 pl-15 sm:col-span-1 sm:mt-0 sm:pl-4">
+          <div class="col-span-2 mt-1.5 min-w-0 pl-15 sm:col-span-1 sm:mt-0 sm:pl-6">
             <label class="block min-w-0">
               <span class="sr-only">{{ day.label }} blocked time ranges</span>
               <BaseInput
+                v-if="isEditing"
                 type="text"
                 :aria-label="`${day.label} blocked time ranges`"
                 placeholder="09:00-12:30, 22:00-01:30"
@@ -535,18 +485,24 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
                 size="sm"
                 monospace
                 :model-value="timeRangeTexts[day.value]"
-                :disabled="!isEditing"
-                :display="isEditing ? 'editable' : 'readonly'"
                 :invalid="isTimeRangeTextInvalid(day.value)"
                 @update:model-value="setTimeRangeText(day.value, $event)"
               />
+              <output
+                v-else
+                :aria-label="`${day.label} blocked time ranges`"
+                class="flex h-8 min-w-0 items-center truncate text-sm font-mono text-input-foreground"
+              >
+                {{ blockedTimeDisplayValue(day.value) }}
+              </output>
             </label>
           </div>
 
-          <div class="col-span-2 mt-2 flex min-w-0 items-center gap-1.5 pl-15 sm:col-span-1 sm:mt-0 sm:pl-3">
+          <div class="col-span-2 mt-1.5 flex min-w-0 items-center gap-1.5 pl-15 sm:col-span-1 sm:mt-0 sm:pl-3">
             <label class="min-w-0">
               <span class="sr-only">{{ day.label }} daily limit minutes</span>
               <BaseInput
+                v-if="isEditing"
                 type="text"
                 inputmode="numeric"
                 pattern="[0-9]*"
@@ -555,11 +511,16 @@ function cellsToRanges(cells: boolean[]): TimeRange[] {
                 class="w-20"
                 size="sm"
                 :model-value="dailyLimitDisplayValue(day.value, isEditing)"
-                :disabled="!isEditing"
-                :display="isEditing ? 'editable' : 'readonly'"
                 @beforeinput="preventNonDigitInput"
                 @update:model-value="setDailyLimitMinutes(day.value, $event)"
               />
+              <output
+                v-else
+                :aria-label="`${day.label} daily limit minutes`"
+                class="flex h-8 min-w-0 items-center text-sm text-input-foreground"
+              >
+                {{ dailyLimitDisplayValue(day.value, false) }}
+              </output>
             </label>
             <span
               class="shrink-0 text-xs font-medium text-muted-foreground"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup, createGroupFromTemplate } from '../utils/defaults'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
   it('SPEC.md の既定値と一致する', () => {
@@ -44,5 +44,35 @@ describe('createEmptyGroup', () => {
 
   it('id は空文字でない', () => {
     expect(createEmptyGroup().id.length).toBeGreaterThan(0)
+  })
+})
+
+describe('createGroupFromTemplate', () => {
+  it('blank は空の曜日別ルールを返す', () => {
+    expect(createGroupFromTemplate('blank').dailyRules).toEqual(createEmptyGroup().dailyRules)
+  })
+
+  it('30min は全曜日に30分上限を設定する', () => {
+    expect(createGroupFromTemplate('30min').dailyRules).toEqual(
+      createEmptyGroup().dailyRules.map(rule => ({ ...rule, dailyLimitMinutes: 30 })),
+    )
+  })
+
+  it('block-nights は全曜日に21:00-06:00のブロック時間帯を設定する', () => {
+    expect(createGroupFromTemplate('block-nights').dailyRules).toEqual(
+      createEmptyGroup().dailyRules.map(rule => ({
+        ...rule,
+        blockedTimeRanges: [{ startMinute: 1260, endMinute: 360 }],
+      })),
+    )
+  })
+
+  it('allow-nights は全曜日に06:00-21:00のブロック時間帯を設定する', () => {
+    expect(createGroupFromTemplate('allow-nights').dailyRules).toEqual(
+      createEmptyGroup().dailyRules.map(rule => ({
+        ...rule,
+        blockedTimeRanges: [{ startMinute: 360, endMinute: 1260 }],
+      })),
+    )
   })
 })

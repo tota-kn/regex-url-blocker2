@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Cog6ToothIcon, ExclamationCircleIcon, EyeIcon, QueueListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { getNextEffectiveSettingsResetAt, hasLockModeGroup, hasPendingEffectiveSettings } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '@/utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate, type GroupTemplateId } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
 import { loadCounters, loadEffectiveSettingsState, loadSettings, parseSettingsExportJson, saveSettings, serializeSettingsExport } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
@@ -77,9 +77,10 @@ async function refreshEffectiveSettings(): Promise<void> {
 
 const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
 
-function addGroup(): void {
+/** 指定テンプレートの新規グループドラフトを追加する。 */
+function addGroup(templateId: GroupTemplateId): void {
   const n = settings.value.groups.length + newGroupDrafts.value.length + 1
-  newGroupDrafts.value.push(createEmptyGroup(`Group ${n}`))
+  newGroupDrafts.value.push(createGroupFromTemplate(templateId, `Group ${n}`))
 }
 
 /** 既存グループの保存済み値を、同じ id の編集ドラフトで置き換える。 */
