@@ -53,23 +53,24 @@ function createDailyRulesFromTemplate(templateId: GroupTemplateId): DailyRule[] 
 function createPatternsFromTemplate(templateId: GroupTemplateId): string[] {
   if (templateId === 'core-sns-15min') {
     return [
-      '^https?://([^/]+\\.)?(x|twitter)\\.com/',
-      '^https?://([^/]+\\.)?instagram\\.com/',
-      '^https?://([^/]+\\.)?facebook\\.com/',
-      '^https?://([^/]+\\.)?tiktok\\.com/',
-      '^https?://([^/]+\\.)?threads\\.net/',
-      '^https?://([^/]+\\.)?bsky\\.app/',
+      'x.com',
+      'twitter.com',
+      'instagram.com',
+      'facebook.com',
+      'tiktok.com',
+      'threads.net',
+      'bsky.app',
     ]
   }
   if (templateId === 'video-30min') {
     return [
-      '^https?://([^/]+\\.)?youtube\\.com/',
-      '^https?://youtu\\.be/',
-      '^https?://([^/]+\\.)?twitch\\.tv/',
-      '^https?://([^/]+\\.)?netflix\\.com/',
-      '^https?://([^/]+\\.)?primevideo\\.com/',
-      '^https?://([^/]+\\.)?abema\\.tv/',
-      '^https?://([^/]+\\.)?nicovideo\\.jp/',
+      'youtube.com',
+      'youtu.be',
+      'twitch.tv',
+      'netflix.com',
+      'primevideo.com',
+      'abema.tv',
+      'nicovideo.jp',
     ]
   }
   return []

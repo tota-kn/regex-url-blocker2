@@ -73,6 +73,28 @@ describe('URL target matching', () => {
     expect(getTargetGroupIds(s, 'https://other.test/')).toEqual([])
   })
 
+  it('裸ドメインは本体ドメインとサブドメインの全ページを対象にする', () => {
+    const s = settings([group({ id: 'domain', patterns: ['example.com'] })])
+    expect(getTargetGroupIds(s, 'https://example.com/')).toEqual(['domain'])
+    expect(getTargetGroupIds(s, 'https://www.example.com/path?q=1')).toEqual(['domain'])
+    expect(getTargetGroupIds(s, 'https://deep.news.example.com/articles/1')).toEqual(['domain'])
+  })
+
+  it('裸ドメインは似た別ドメインを対象にしない', () => {
+    const s = settings([group({ id: 'domain', patterns: ['example.com'] })])
+    expect(getTargetGroupIds(s, 'https://notexample.com/')).toEqual([])
+    expect(getTargetGroupIds(s, 'https://example.com.evil.test/')).toEqual([])
+  })
+
+  it('既存の正規表現形式は引き続き正規表現として扱う', () => {
+    const s = settings([
+      group({ id: 'scheme-regex', patterns: ['^https?://(www\\.)?twitter\\.com'] }),
+      group({ id: 'escaped-regex', patterns: ['example\\.com'] }),
+    ])
+    expect(getTargetGroupIds(s, 'https://twitter.com/home')).toEqual(['scheme-regex'])
+    expect(getTargetGroupIds(s, 'https://www.example.com/')).toEqual(['escaped-regex'])
+  })
+
   it('whitelist は正規表現に一致しない URL を対象にする', () => {
     const s = settings([group({ id: 'white', mode: 'whitelist' })])
     expect(getTargetGroupIds(s, 'https://www.example.com/path')).toEqual([])

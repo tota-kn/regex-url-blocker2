@@ -59,7 +59,7 @@ export interface Group {
   mode: GroupMode
   /** true の場合、このグループの設定変更は次回 daily reset まで有効設定へ反映しない。 */
   lockMode: boolean
-  /** 正規表現文字列の配列。`new RegExp()` で構文チェックを通る必要がある。 */
+  /** URL pattern の配列。裸ドメインまたは `new RegExp()` で構文チェックを通る正規表現を指定できる。 */
   patterns: string[]
   /** 曜日別の制限ルール。0=日曜から6=土曜まで必ず7件。 */
   dailyRules: DailyRule[]

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { CheckCircleIcon, CodeBracketIcon, NoSymbolIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -8,7 +9,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import type { GroupMode } from '@/utils/types'
 
 /**
- * 正規表現パターン編集コンポーネントの props。
+ * URL pattern 編集コンポーネントの props。
  */
 interface Props {
   /** 指定パターン番号のエラーメッセージを返す関数。 */
@@ -17,12 +18,12 @@ interface Props {
   isEditing?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
 })
 
 /**
- * グループに属する正規表現パターン配列。
+ * グループに属する URL pattern 配列。
  */
 const patterns = defineModel<string[]>({ required: true })
 
@@ -35,6 +36,39 @@ const MODE_OPTIONS = [
   { value: 'blacklist', label: 'Block matches', icon: NoSymbolIcon },
   { value: 'whitelist', label: 'Allow only matches', icon: CheckCircleIcon },
 ]
+
+/**
+ * ユーザーが編集した URL pattern 入力欄の index。
+ */
+const touchedPatternIndexes = ref<Set<number>>(new Set())
+
+/**
+ * 指定 index の URL pattern を touched として記録する。
+ */
+function markPatternTouched(index: number): void {
+  touchedPatternIndexes.value = new Set(touchedPatternIndexes.value).add(index)
+}
+
+/**
+ * 指定 index の URL pattern エラーを表示すべきならメッセージを返す。
+ */
+function visibleError(index: number): string | undefined {
+  if (!touchedPatternIndexes.value.has(index)) return undefined
+  return props.error(index)
+}
+
+/**
+ * URL pattern を削除し、touched index を現在の配列に合わせて詰め直す。
+ */
+function deletePattern(index: number): void {
+  patterns.value.splice(index, 1)
+  const next = new Set<number>()
+  for (const touchedIndex of touchedPatternIndexes.value) {
+    if (touchedIndex < index) next.add(touchedIndex)
+    if (touchedIndex > index) next.add(touchedIndex - 1)
+  }
+  touchedPatternIndexes.value = next
+}
 </script>
 
 <template>
@@ -61,7 +95,7 @@ const MODE_OPTIONS = [
           aria-label="Add URL pattern"
           size="sm"
           variant="ghost"
-          @click="patterns.push('https?://')"
+          @click="patterns.push('')"
         >
           <PlusIcon
             aria-hidden="true"
@@ -87,14 +121,15 @@ const MODE_OPTIONS = [
         <div class="flex min-w-0 gap-2">
           <BaseInput
             v-model="patterns[i]"
-            aria-label="URL regex pattern"
-            placeholder="https?://"
+            aria-label="URL pattern"
+            placeholder="example.com or ^https?://"
             class="flex-1"
             size="md"
             monospace
             :disabled="!isEditing"
             :display="isEditing ? 'editable' : 'readonly'"
-            :invalid="Boolean(error(i))"
+            :invalid="Boolean(visibleError(i))"
+            @input="markPatternTouched(i)"
           />
           <BaseButton
             v-if="isEditing"
@@ -103,7 +138,7 @@ const MODE_OPTIONS = [
             title="Delete"
             size="icon-md"
             variant="danger-ghost"
-            @click="patterns.splice(i, 1)"
+            @click="deletePattern(i)"
           >
             <TrashIcon
               aria-hidden="true"
@@ -112,9 +147,9 @@ const MODE_OPTIONS = [
           </BaseButton>
         </div>
         <AlertMessage
-          v-if="error(i)"
+          v-if="visibleError(i)"
         >
-          {{ error(i) }}
+          {{ visibleError(i) }}
         </AlertMessage>
       </div>
     </div>

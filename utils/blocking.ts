@@ -1,4 +1,5 @@
 import type { DayOfWeek, GlobalSettings, Group, Settings, UsageCounter, UsageCountersState } from './types'
+import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
 
@@ -96,17 +97,10 @@ export function shouldSkipUrl(url: string | undefined, redirectUrl: string): boo
 }
 
 /**
- * group の有効な正規表現のうち、URL に部分一致するものがあるかを返す。
+ * group の有効な URL pattern のうち、URL に一致するものがあるかを返す。
  */
 function patternMatches(group: Group, url: string): boolean {
-  return group.patterns.some((pattern) => {
-    try {
-      return new RegExp(pattern).test(url)
-    }
-    catch {
-      return false
-    }
-  })
+  return group.patterns.some(pattern => urlPatternMatches(pattern, url))
 }
 
 /**

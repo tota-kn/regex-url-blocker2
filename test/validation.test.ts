@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   isValidHHMM,
-  isValidRegex,
   validateGlobalSettings,
   validateGroup,
 } from '../utils/validation'
+import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('isValidRegex', () => {
@@ -20,6 +20,20 @@ describe('isValidRegex', () => {
 
   it('空文字は許容しない', () => {
     expect(isValidRegex('')).toBe(false)
+  })
+})
+
+describe('isValidUrlPattern', () => {
+  it('裸ドメインと正規表現を valid にする', () => {
+    expect(isValidUrlPattern('example.com')).toBe(true)
+    expect(isValidUrlPattern('sub.example.com')).toBe(true)
+    expect(isValidUrlPattern('^https?://(www\\.)?twitter\\.com')).toBe(true)
+    expect(isValidUrlPattern('example\\.com')).toBe(true)
+  })
+
+  it('裸ドメインとしても正規表現としても不正な値は invalid にする', () => {
+    expect(isValidUrlPattern('')).toBe(false)
+    expect(isValidUrlPattern('[invalid')).toBe(false)
   })
 })
 
@@ -64,7 +78,7 @@ describe('validateGroup', () => {
       dailyRules: createEmptyGroup().dailyRules,
     })
     expect(errors.some(e => e.field === 'name')).toBe(true)
-    expect(errors.some(e => e.field === 'patterns[0]')).toBe(true)
+    expect(errors.some(e => e.field === 'patterns[0]' && e.message === 'Invalid URL pattern')).toBe(true)
   })
 
   it('各曜日の制限が空でも valid（制限なし）', () => {

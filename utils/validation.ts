@@ -1,4 +1,5 @@
 import type { DailyRule, DayOfWeek, GlobalSettings, Group, TimeRange } from './types'
+import { isValidUrlPattern } from './urlPatterns'
 
 /**
  * バリデーションエラーの単位。`field` はフィールドへのドット区切りパス。
@@ -6,20 +7,6 @@ import type { DailyRule, DayOfWeek, GlobalSettings, Group, TimeRange } from './t
 export interface ValidationError {
   field: string
   message: string
-}
-
-/**
- * 与えられた文字列が `new RegExp()` で構文解析可能かを返す。空文字は false。
- */
-export function isValidRegex(pattern: string): boolean {
-  if (pattern.length === 0) return false
-  try {
-    new RegExp(pattern)
-    return true
-  }
-  catch {
-    return false
-  }
 }
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -126,8 +113,8 @@ export function validateGroup(group: Group): ValidationError[] {
   }
 
   group.patterns.forEach((p, i) => {
-    if (!isValidRegex(p)) {
-      errors.push({ field: `patterns[${i}]`, message: 'Invalid regex' })
+    if (!isValidUrlPattern(p)) {
+      errors.push({ field: `patterns[${i}]`, message: 'Invalid URL pattern' })
     }
   })
 

@@ -157,7 +157,7 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Exported')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await page.getByLabel('URL regex pattern').fill('example\\.com')
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGeneralSettings(page)
@@ -209,7 +209,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
-    await expect(page.getByLabel('URL regex pattern')).toHaveValue('imported\\.example')
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('imported\\.example')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveText('15')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
 
@@ -380,14 +380,15 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Create group from core SNS 15 min/day template' }).click()
 
     const expectedPatterns = [
-      '^https?://([^/]+\\.)?(x|twitter)\\.com/',
-      '^https?://([^/]+\\.)?instagram\\.com/',
-      '^https?://([^/]+\\.)?facebook\\.com/',
-      '^https?://([^/]+\\.)?tiktok\\.com/',
-      '^https?://([^/]+\\.)?threads\\.net/',
-      '^https?://([^/]+\\.)?bsky\\.app/',
+      'x.com',
+      'twitter.com',
+      'instagram.com',
+      'facebook.com',
+      'tiktok.com',
+      'threads.net',
+      'bsky.app',
     ]
-    const patternInputs = page.getByLabel('URL regex pattern')
+    const patternInputs = page.getByRole('textbox', { name: 'URL pattern' })
     await expect(patternInputs).toHaveCount(expectedPatterns.length)
     for (const [index, pattern] of expectedPatterns.entries()) {
       await expect(patternInputs.nth(index)).toHaveValue(pattern)
@@ -405,15 +406,15 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Create group from video 30 min/day template' }).click()
 
     const expectedPatterns = [
-      '^https?://([^/]+\\.)?youtube\\.com/',
-      '^https?://youtu\\.be/',
-      '^https?://([^/]+\\.)?twitch\\.tv/',
-      '^https?://([^/]+\\.)?netflix\\.com/',
-      '^https?://([^/]+\\.)?primevideo\\.com/',
-      '^https?://([^/]+\\.)?abema\\.tv/',
-      '^https?://([^/]+\\.)?nicovideo\\.jp/',
+      'youtube.com',
+      'youtu.be',
+      'twitch.tv',
+      'netflix.com',
+      'primevideo.com',
+      'abema.tv',
+      'nicovideo.jp',
     ]
-    const patternInputs = page.getByLabel('URL regex pattern')
+    const patternInputs = page.getByRole('textbox', { name: 'URL pattern' })
     await expect(patternInputs).toHaveCount(expectedPatterns.length)
     for (const [index, pattern] of expectedPatterns.entries()) {
       await expect(patternInputs.nth(index)).toHaveValue(pattern)
@@ -488,12 +489,15 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Name').nth(1)).toBeFocused()
   })
 
-  test('パターン追加時にデフォルトで「https?://」が入力される', async ({ page, extensionId }) => {
+  test('パターン追加時に空の URL pattern 入力が追加される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await expect(page.getByLabel('URL regex pattern')).toHaveValue('https?://')
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('')
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveAttribute('placeholder', 'example.com or ^https?://')
+    await expect(page.getByText('Invalid URL pattern')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
   })
 
@@ -502,9 +506,11 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('textbox', { name: 'URL pattern' }).blur()
     const groupInputs = [
       page.getByLabel('Name'),
-      page.getByLabel('URL regex pattern'),
+      page.getByRole('textbox', { name: 'URL pattern' }),
       page.getByLabel('Sun blocked time ranges'),
       page.getByLabel('Sun daily limit minutes'),
     ]
@@ -534,22 +540,38 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Twitter')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await page.getByLabel('URL regex pattern').fill('^https?://(www\\.)?twitter\\.com')
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('^https?://(www\\.)?twitter\\.com')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveValue('Twitter')
-    await expect(page.getByLabel('URL regex pattern')).toHaveValue('^https?://(www\\.)?twitter\\.com')
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('^https?://(www\\.)?twitter\\.com')
     await expect(page.getByLabel('Name')).toBeDisabled()
-    await expect(page.getByLabel('URL regex pattern')).toBeDisabled()
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete pattern' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Edit group' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete group' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel group' })).not.toBeVisible()
+  })
+
+  test('ドメイン指定の URL pattern を保存できる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('DomainBlock')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByLabel('Name')).toHaveValue('DomainBlock')
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('example.com')
   })
 
   test('新規グループ作成をキャンセルすると保存されない', async ({ page, extensionId }) => {
@@ -608,10 +630,10 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await page.getByLabel('URL regex pattern').fill('[invalid')
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('[invalid')
     await page.getByLabel('Name').fill('Bad')
 
-    await expect(page.getByText('Invalid regex')).toBeVisible()
+    await expect(page.getByText('Invalid URL pattern')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -941,7 +963,7 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('ReadonlyVisuals')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await page.getByLabel('URL regex pattern').fill('example\\.com')
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
     await page.getByLabel('Sun blocked time ranges').fill('09:00-17:00')
     await page.getByLabel('Sun daily limit minutes').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
@@ -949,7 +971,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    const pattern = page.getByLabel('URL regex pattern')
+    const pattern = page.getByRole('textbox', { name: 'URL pattern' })
     const ranges = page.getByLabel('Sun blocked time ranges')
     const minutes = page.getByLabel('Sun daily limit minutes')
     const sundayCell = page.getByRole('button', { name: 'Sun 09:00-09:30' })

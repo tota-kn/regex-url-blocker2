@@ -59,12 +59,13 @@ describe('createGroupFromTemplate', () => {
     const group = createGroupFromTemplate('core-sns-15min')
 
     expect(group.patterns).toEqual([
-      '^https?://([^/]+\\.)?(x|twitter)\\.com/',
-      '^https?://([^/]+\\.)?instagram\\.com/',
-      '^https?://([^/]+\\.)?facebook\\.com/',
-      '^https?://([^/]+\\.)?tiktok\\.com/',
-      '^https?://([^/]+\\.)?threads\\.net/',
-      '^https?://([^/]+\\.)?bsky\\.app/',
+      'x.com',
+      'twitter.com',
+      'instagram.com',
+      'facebook.com',
+      'tiktok.com',
+      'threads.net',
+      'bsky.app',
     ])
     expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
       ...rule,
@@ -76,13 +77,13 @@ describe('createGroupFromTemplate', () => {
     const group = createGroupFromTemplate('video-30min')
 
     expect(group.patterns).toEqual([
-      '^https?://([^/]+\\.)?youtube\\.com/',
-      '^https?://youtu\\.be/',
-      '^https?://([^/]+\\.)?twitch\\.tv/',
-      '^https?://([^/]+\\.)?netflix\\.com/',
-      '^https?://([^/]+\\.)?primevideo\\.com/',
-      '^https?://([^/]+\\.)?abema\\.tv/',
-      '^https?://([^/]+\\.)?nicovideo\\.jp/',
+      'youtube.com',
+      'youtu.be',
+      'twitch.tv',
+      'netflix.com',
+      'primevideo.com',
+      'abema.tv',
+      'nicovideo.jp',
     ])
     expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
       ...rule,
