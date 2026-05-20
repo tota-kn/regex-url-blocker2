@@ -1,11 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="URL Guard icon">
+  <defs>
+    <clipPath id="shield-clip">
+      <path d="M64 12 104 26v34c0 26-15 47-40 56-25-9-40-30-40-56V26z"/>
+    </clipPath>
+  </defs>
   <path
     d="M64 12 104 26v34c0 26-15 47-40 56-25-9-40-30-40-56V26z"
-    fill="#3b82f6"
-    stroke="#1d4ed8"
+    fill="#1d4ed8"
     stroke-linejoin="round"
-    stroke-width="6"
   />
-  <path d="M96 30 32 98" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="26"/>
-  <path d="M96 30 32 98" fill="none" stroke="#dc2626" stroke-linecap="round" stroke-width="16"/>
+  <path
+    d="M96 30 32 98"
+    clip-path="url(#shield-clip)"
+    fill="none"
+    stroke="#ffffff"
+    stroke-linecap="round"
+    stroke-width="22"
+  />
 </svg>
