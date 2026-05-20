@@ -141,9 +141,12 @@ function saveEditing(): void {
                 aria-hidden="true"
                 class="size-4 text-muted"
               />
-              <span>Lock Mode</span>
+              <span>Locked</span>
             </label>
-            <span class="text-body-sm text-muted">
+            <span
+              v-if="isEditing"
+              class="text-body-sm text-muted"
+            >
               Changes to this group apply after the next reset.
             </span>
             <BaseButton
