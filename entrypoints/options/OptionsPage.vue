@@ -140,7 +140,7 @@ function exportSettings(): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'regex-url-blocker-settings.json'
+  a.download = 'url-guard-settings.json'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -432,8 +432,14 @@ onUnmounted(() => {
             aria-label="Options sections"
             class="border-b border-border pb-3 lg:sticky lg:top-6 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
           >
-            <h1 class="mb-4 text-heading-lg text-foreground">
-              Regex URL Blocker
+            <h1 class="mb-4 flex items-center gap-2 text-heading-lg text-foreground">
+              <img
+                src="/icon/32.png"
+                alt=""
+                aria-hidden="true"
+                class="size-6 shrink-0"
+              >
+              URL Guard
             </h1>
             <nav class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
               <button

@@ -62,7 +62,8 @@ test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await expect(page.getByRole('heading', { name: 'Regex URL Blocker' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'URL Guard' })).toBeVisible()
+    await expect(page.locator('aside h1 img[src$="/icon/32.png"]')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Groups' })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'Groups' })).toBeVisible()
     await expect(page.getByText('0 groups')).toBeVisible()
@@ -121,7 +122,7 @@ test.describe('Options 画面', () => {
     await page.setViewportSize({ width: 1100, height: 700 })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    const sidebarHeading = page.getByRole('heading', { name: 'Regex URL Blocker' })
+    const sidebarHeading = page.getByRole('heading', { name: 'URL Guard' })
     const groupsBox = await sidebarHeading.boundingBox()
     expect(groupsBox).not.toBeNull()
 
@@ -165,7 +166,7 @@ test.describe('Options 画面', () => {
     const download = await downloadPromise
     const path = await download.path()
 
-    expect(download.suggestedFilename()).toBe('regex-url-blocker-settings.json')
+    expect(download.suggestedFilename()).toBe('url-guard-settings.json')
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>

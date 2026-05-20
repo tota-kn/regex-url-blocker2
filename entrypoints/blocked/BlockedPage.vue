@@ -57,7 +57,7 @@ onMounted(async () => {
             Page blocked
           </h1>
           <p class="mt-1 text-sm text-secondary-foreground">
-            This page was blocked by Regex URL Blocker.
+            This page was blocked by URL Guard.
           </p>
         </div>
       </div>

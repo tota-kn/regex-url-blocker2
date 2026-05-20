@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Regex URL Blocker icon">
-  <g stroke-linecap="round" stroke-width="20">
-    <path d="M64 16v96" stroke="#0ea5e9"/>
-    <path d="M22 40l84 48" stroke="#0ea5e9"/>
-    <path d="M106 40 22 88" stroke="#dc2626"/>
-  </g>
-  <g fill="none" stroke="#dc2626" stroke-width="20">
-    <circle cx="64" cy="64" r="52"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="URL Guard icon">
+  <path
+    d="M64 12 104 26v34c0 26-15 47-40 56-25-9-40-30-40-56V26z"
+    fill="#3b82f6"
+    stroke="#1d4ed8"
+    stroke-linejoin="round"
+    stroke-width="6"
+  />
+  <path d="M96 30 32 98" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="26"/>
+  <path d="M96 30 32 98" fill="none" stroke="#dc2626" stroke-linecap="round" stroke-width="16"/>
 </svg>

@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
   manifest: {
-    name: 'Regex URL Blocker',
+    name: 'URL Guard',
     description: '正規表現で指定したURLをブロックする拡張機能',
     version: '1.0.0',
     permissions: ['tabs', 'webNavigation', 'storage', 'alarms', 'idle', 'notifications'],
