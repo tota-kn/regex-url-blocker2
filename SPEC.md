@@ -35,9 +35,9 @@
 
 ### グローバル設定
 
-- `blockAction`: ブロック時の動作。`redirect`（既定）または `blockedPage`
+- `blockAction`: ブロック時の動作。`redirect` または `blockedPage`（既定）
 - `redirectUrl`: 制限超過時のリダイレクト先 URL。デフォルト `https://example.com`
-- `dailyResetHour`: 論理日の境界となる時刻（`HH:MM`）。デフォルト `00:00`
+- `dailyResetHour`: 論理日の境界となる時刻（`HH:MM`）。デフォルト `03:00`
 - `notificationThresholdMinutes`: 残り閲覧時間通知を出す閾値（分）。デフォルト `5`。`0` なら通知無効
 
 ### 閲覧時間の計測

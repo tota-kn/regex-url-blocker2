@@ -3,9 +3,9 @@ import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup, createGroupFromTemplate } fr
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
   it('SPEC.md の既定値と一致する', () => {
-    expect(DEFAULT_GLOBAL_SETTINGS.blockAction).toBe('redirect')
+    expect(DEFAULT_GLOBAL_SETTINGS.blockAction).toBe('blockedPage')
     expect(DEFAULT_GLOBAL_SETTINGS.redirectUrl).toBe('https://example.com')
-    expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('00:00')
+    expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('03:00')
     expect(DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes).toBe(5)
   })
 })

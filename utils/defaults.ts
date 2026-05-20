@@ -9,9 +9,9 @@ export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work
  * 未設定時に使用するグローバル設定の既定値。SPEC.md 準拠。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
-  blockAction: 'redirect',
+  blockAction: 'blockedPage',
   redirectUrl: 'https://example.com',
-  dailyResetHour: '00:00',
+  dailyResetHour: '03:00',
   notificationThresholdMinutes: 5,
 }
 

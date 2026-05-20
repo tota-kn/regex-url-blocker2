@@ -46,8 +46,8 @@ const notificationThresholdInput = computed({
 })
 
 const BLOCK_ACTION_OPTIONS = [
-  { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
   { value: 'blockedPage', label: 'Blocked page', icon: DocumentTextIcon },
+  { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
 ]
 
 /**

@@ -78,10 +78,15 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByRole('button', { name: /General settings/ })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'General settings' })).toBeVisible()
-    await expect(page.getByLabel('Redirect URL')).toHaveValue('https://example.com')
-    await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByLabel('Daily reset time')).toHaveValue('00:00')
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
+    const blockedPageBox = await page.getByRole('button', { name: 'Blocked page' }).boundingBox()
+    const redirectBox = await page.getByRole('button', { name: 'Redirect' }).boundingBox()
+    expect(blockedPageBox).not.toBeNull()
+    expect(redirectBox).not.toBeNull()
+    expect(blockedPageBox!.x).toBeLessThan(redirectBox!.x)
+    await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('5')
     await expect(page.getByRole('button', { name: 'Export settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
@@ -509,6 +514,7 @@ test.describe('Options 画面', () => {
     }
 
     await openGeneralSettings(page)
+    await page.getByRole('button', { name: 'Redirect' }).click()
     const generalInputs = [
       page.getByLabel('Redirect URL'),
       page.getByLabel('Daily reset time'),
@@ -878,6 +884,7 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
+    await page.getByRole('button', { name: 'Redirect' }).click()
     await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
