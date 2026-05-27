@@ -679,6 +679,8 @@ test.describe('Badge display', () => {
     const server = await startServer()
     try {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const dailyResetHour = '00:00'
+      const logicalDate = buildLogicalDate(new Date(), dailyResetHour)
       await serviceWorker.evaluate(async (settings) => {
         const chromeApi = globalThis as unknown as {
           chrome: {
@@ -688,12 +690,11 @@ test.describe('Badge display', () => {
             }
           }
         }
-        const today = new Date().toISOString().slice(0, 10)
         await chromeApi.chrome.storage.sync.set({
           global: {
             blockAction: 'redirect',
             redirectUrl: `${settings.origin}/blocked`,
-            dailyResetHour: '00:00',
+            dailyResetHour: settings.dailyResetHour,
           },
           groups: [{
             id: 'timed-group',
@@ -708,9 +709,14 @@ test.describe('Badge display', () => {
           }],
         })
         await chromeApi.chrome.storage.local.set({
-          counters: { 'timed-group': { logicalDate: today, consumedSec: 600 } },
+          counters: { 'timed-group': { logicalDate: settings.logicalDate, consumedSec: 600 } },
         })
-      }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
+      }, {
+        origin: server.origin,
+        originEscaped: server.origin.replaceAll('.', '\\.'),
+        dailyResetHour,
+        logicalDate,
+      })
       await page.waitForTimeout(300)
 
       await page.goto(`${server.origin}/target`)
