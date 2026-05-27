@@ -77,6 +77,10 @@ export interface GlobalSettings {
   dailyResetHour: HHMM
   /** 残り閲覧時間通知を出す閾値分数。0 は通知無効。 */
   notificationThresholdMinutes: number
+  /** 閲覧上限付き対象ページを開いたときの通知を有効にするか。 */
+  pageOpenNotificationsEnabled: boolean
+  /** redirect によるブロック発動時の通知を有効にするか。 */
+  blockNotificationsEnabled: boolean
 }
 
 /**
@@ -129,4 +133,20 @@ export interface UsageNotificationEntry {
 export interface UsageNotificationHistoryState {
   /** group id を key とする通知済み論理日辞書。 */
   usageNotificationHistory: Record<string, UsageNotificationEntry>
+}
+
+/**
+ * chrome.storage.local に保存する対象ページ表示通知履歴。
+ */
+export interface PageOpenNotificationHistoryState {
+  /** group id を key とする通知済み論理日辞書。 */
+  pageOpenNotificationHistory: Record<string, UsageNotificationEntry>
+}
+
+/**
+ * chrome.storage.local に保存する redirect ブロック通知履歴。
+ */
+export interface BlockNotificationHistoryState {
+  /** group id を key とする通知済み論理日辞書。 */
+  blockNotificationHistory: Record<string, UsageNotificationEntry>
 }

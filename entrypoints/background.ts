@@ -1,8 +1,8 @@
 import {
   evaluateUrl,
   formatRemainingMinutesBadge,
+  getLogicalDate,
   getMinimumRemainingTimeLimit,
-  getTargetGroupIds,
   getTimeLimitUsageSummary,
   incrementCounters,
   normalizeCounters,
@@ -10,8 +10,8 @@ import {
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
-import { loadCounters, loadEffectiveSettingsState, loadSettings, loadUsageNotificationHistory, saveCounters, saveEffectiveSettingsState, saveUsageNotificationHistory } from '@/utils/storage'
-import type { Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
+import { loadBlockNotificationHistory, loadCounters, loadEffectiveSettingsState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
+import type { BlockNotificationHistoryState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -26,6 +26,8 @@ const BADGE_COLOR_BLOCKED = '#dc2626'
 let settings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
 let usageNotificationHistory: UsageNotificationHistoryState = { usageNotificationHistory: {} }
+let pageOpenNotificationHistory: PageOpenNotificationHistoryState = { pageOpenNotificationHistory: {} }
+let blockNotificationHistory: BlockNotificationHistoryState = { blockNotificationHistory: {} }
 let dirtyCounters = false
 let initPromise: Promise<void> | undefined
 let reloadPromise: Promise<void> | undefined
@@ -47,7 +49,7 @@ interface ChromeActionPromiseApi {
 }
 
 interface ChromeNotificationsPromiseApi {
-  /** 残り閲覧時間の通知を作成する。 */
+  /** Chrome notification を作成する。 */
   create: (notificationId: string, options: {
     type: 'basic'
     iconUrl: string
@@ -74,7 +76,14 @@ async function initializeState(): Promise<void> {
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, await loadCounters(), now)
-  usageNotificationHistory = await loadUsageNotificationHistory()
+  const [usageHistory, pageOpenHistory, blockHistory] = await Promise.all([
+    loadUsageNotificationHistory(),
+    loadPageOpenNotificationHistory(),
+    loadBlockNotificationHistory(),
+  ])
+  usageNotificationHistory = usageHistory
+  pageOpenNotificationHistory = pageOpenHistory
+  blockNotificationHistory = blockHistory
   dirtyCounters = true
 }
 
@@ -174,7 +183,8 @@ async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, no
   if (thresholdMinutes === 0) return
 
   const thresholdSec = thresholdMinutes * 60
-  const targetGroupIds = new Set(getTargetGroupIds(s, tab.url))
+  const evaluation = evaluateUrl(s, counters, tab.url, now)
+  const targetGroupIds = new Set(evaluation.targetGroupIds)
   const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
   let changed = false
 
@@ -203,6 +213,98 @@ async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, no
 }
 
 /**
+ * 指定グループ名を通知本文向けに結合する。
+ */
+function formatGroupNames(groups: Array<{ name: string }>): string {
+  return groups.map(group => group.name).join(', ')
+}
+
+/**
+ * 通知履歴を見て、同じ論理日の未通知グループだけを返す。
+ */
+function filterUnnotifiedGroups<T extends { id: string }>(
+  groups: T[],
+  logicalDateByGroupId: Map<string, string>,
+  history: Record<string, UsageNotificationEntry>,
+): T[] {
+  return groups.filter((group) => {
+    const logicalDate = logicalDateByGroupId.get(group.id)
+    return Boolean(logicalDate) && history[group.id]?.logicalDate !== logicalDate
+  })
+}
+
+/**
+ * 未通知グループを通知済み履歴へ記録する。
+ */
+function markNotificationHistory(groups: Array<{ id: string }>, logicalDateByGroupId: Map<string, string>, history: Record<string, UsageNotificationEntry>): void {
+  for (const group of groups) {
+    const logicalDate = logicalDateByGroupId.get(group.id)
+    if (logicalDate) history[group.id] = { logicalDate }
+  }
+}
+
+/**
+ * 閲覧上限付き対象ページを開いたとき、同じ論理日・同じグループでは1回だけ通知する。
+ */
+async function notifyPageOpenIfNeeded(s: Settings, evaluation: UrlEvaluation, now: Date): Promise<void> {
+  if (!s.global.pageOpenNotificationsEnabled) return
+  if (evaluation.blocked) return
+
+  const targetGroupIds = new Set(evaluation.targetGroupIds)
+  const groupsWithLimit = s.groups.filter((group) => {
+    if (!targetGroupIds.has(group.id)) return false
+    return Boolean(getTimeLimitUsageSummary(group, counters.counters[group.id], now, s.global))
+  })
+  const logicalDateByGroupId = new Map(groupsWithLimit.map((group) => {
+    const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, s.global)
+    return [group.id, summary?.logicalDate ?? '']
+  }))
+  const unnotifiedGroups = filterUnnotifiedGroups(groupsWithLimit, logicalDateByGroupId, pageOpenNotificationHistory.pageOpenNotificationHistory)
+  if (unnotifiedGroups.length === 0) return
+
+  const logicalDate = logicalDateByGroupId.get(unnotifiedGroups[0].id) ?? getLogicalDate(now, s.global.dailyResetHour).logicalDate
+  const notificationId = `page-open-limit-${logicalDate}-${unnotifiedGroups.map(group => group.id).sort().join('-')}`
+  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
+  await chromeApi.notifications.create(notificationId, {
+    type: 'basic',
+    iconUrl: browser.runtime.getURL('/icon/128.png'),
+    title: ACTION_TITLE,
+    message: `Time limit applies to ${formatGroupNames(unnotifiedGroups)} today.`,
+  })
+
+  markNotificationHistory(unnotifiedGroups, logicalDateByGroupId, pageOpenNotificationHistory.pageOpenNotificationHistory)
+  await savePageOpenNotificationHistory(pageOpenNotificationHistory)
+}
+
+/**
+ * redirect によるブロック発動時、同じ論理日・同じグループでは1回だけ通知する。
+ */
+async function notifyRedirectBlockIfNeeded(s: Settings, evaluation: UrlEvaluation, now: Date): Promise<void> {
+  if (!s.global.blockNotificationsEnabled) return
+  if (s.global.blockAction !== 'redirect') return
+  if (evaluation.blockedGroupIds.length === 0) return
+
+  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
+  const blockedGroups = s.groups.filter(group => blockedGroupIds.has(group.id))
+  const logicalDate = getLogicalDate(now, s.global.dailyResetHour).logicalDate
+  const logicalDateByGroupId = new Map(blockedGroups.map(group => [group.id, logicalDate]))
+  const unnotifiedGroups = filterUnnotifiedGroups(blockedGroups, logicalDateByGroupId, blockNotificationHistory.blockNotificationHistory)
+  if (unnotifiedGroups.length === 0) return
+
+  const notificationId = `redirect-block-${logicalDate}-${unnotifiedGroups.map(group => group.id).sort().join('-')}`
+  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
+  await chromeApi.notifications.create(notificationId, {
+    type: 'basic',
+    iconUrl: browser.runtime.getURL('/icon/128.png'),
+    title: ACTION_TITLE,
+    message: `Blocked and redirected: ${formatGroupNames(unnotifiedGroups)}.`,
+  })
+
+  markNotificationHistory(unnotifiedGroups, logicalDateByGroupId, blockNotificationHistory.blockNotificationHistory)
+  await saveBlockNotificationHistory(blockNotificationHistory)
+}
+
+/**
  * 拡張機能のブロックページ URL を作る。
  */
 function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
@@ -227,8 +329,9 @@ function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvalu
 /**
  * redirect 直前の安全確認を行ったうえでタブをブロック先へ遷移する。
  */
-async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation): Promise<void> {
+async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
   if (!url || shouldSkipUrl(url, s.global.redirectUrl)) return
+  await notifyRedirectBlockIfNeeded(s, evaluation, now)
   await browser.tabs.update(tabId, { url: buildBlockDestinationUrl(url, s, evaluation) })
 }
 
@@ -283,7 +386,7 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
   await updateActionForTab(tab, now)
   const evaluation = evaluateUrl(s, counters, tab.url, now)
   if (!evaluation.blocked) return
-  await redirectTab(tab.id, tab.url, s, evaluation)
+  await redirectTab(tab.id, tab.url, s, evaluation, now)
 }
 
 /**
@@ -336,8 +439,9 @@ async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsTy
   await mergeStoredCounters(s, now)
   const evaluation = evaluateUrl(s, counters, details.url, now)
   await updateActionForTab({ id: details.tabId, url: details.url }, now)
+  await notifyPageOpenIfNeeded(s, evaluation, now)
   if (!evaluation.blocked) return
-  await redirectTab(details.tabId, details.url, s, evaluation)
+  await redirectTab(details.tabId, details.url, s, evaluation, now)
 }
 
 /**
@@ -393,10 +497,12 @@ export default defineBackground(() => {
     if (!url) return
     runAsync(async () => {
       const s = await currentSettings()
-      await updateActionForTab({ ...tab, id: tabId, url })
-      const evaluation = evaluateUrl(s, counters, url, new Date())
+      const now = new Date()
+      await updateActionForTab({ ...tab, id: tabId, url }, now)
+      const evaluation = evaluateUrl(s, counters, url, now)
+      await notifyPageOpenIfNeeded(s, evaluation, now)
       if (!evaluation.blocked) return
-      await redirectTab(tabId, url, s, evaluation)
+      await redirectTab(tabId, url, s, evaluation, now)
     })
   })
 

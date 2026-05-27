@@ -50,6 +50,14 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
     errors.push({ field: 'notificationThresholdMinutes', message: 'Use 0+ integer' })
   }
 
+  if (typeof settings.pageOpenNotificationsEnabled !== 'boolean') {
+    errors.push({ field: 'pageOpenNotificationsEnabled', message: 'Use true or false' })
+  }
+
+  if (typeof settings.blockNotificationsEnabled !== 'boolean') {
+    errors.push({ field: 'blockNotificationsEnabled', message: 'Use true or false' })
+  }
+
   return errors
 }
 

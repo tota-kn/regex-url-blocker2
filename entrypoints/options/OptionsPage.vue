@@ -308,6 +308,22 @@ onUnmounted(() => {
               {{ effectiveSettings.global.notificationThresholdMinutes }} min
             </dd>
           </div>
+          <div class="rounded-md border border-border bg-surface p-3">
+            <dt class="text-muted">
+              Matching page notification
+            </dt>
+            <dd class="mt-1 font-medium">
+              {{ effectiveSettings.global.pageOpenNotificationsEnabled ? 'On' : 'Off' }}
+            </dd>
+          </div>
+          <div class="rounded-md border border-border bg-surface p-3">
+            <dt class="text-muted">
+              Blocked redirect notification
+            </dt>
+            <dd class="mt-1 font-medium">
+              {{ effectiveSettings.global.blockNotificationsEnabled ? 'On' : 'Off' }}
+            </dd>
+          </div>
           <div class="rounded-md border border-border bg-surface p-3 sm:col-span-2">
             <dt class="text-muted">
               Redirect URL

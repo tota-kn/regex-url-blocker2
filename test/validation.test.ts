@@ -278,4 +278,15 @@ describe('validateGlobalSettings', () => {
       notificationThresholdMinutes: 1.5,
     }).some(e => e.field === 'notificationThresholdMinutes')).toBe(true)
   })
+
+  it('通知ON/OFF設定が boolean でないとエラー', () => {
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      pageOpenNotificationsEnabled: 'yes' as unknown as boolean,
+    }).some(e => e.field === 'pageOpenNotificationsEnabled')).toBe(true)
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      blockNotificationsEnabled: 1 as unknown as boolean,
+    }).some(e => e.field === 'blockNotificationsEnabled')).toBe(true)
+  })
 })

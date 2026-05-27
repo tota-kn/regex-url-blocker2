@@ -13,6 +13,8 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   redirectUrl: 'https://example.com',
   dailyResetHour: '03:00',
   notificationThresholdMinutes: 5,
+  pageOpenNotificationsEnabled: true,
+  blockNotificationsEnabled: true,
 }
 
 /**

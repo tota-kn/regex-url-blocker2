@@ -1,6 +1,6 @@
 import { createEmptyDailyRules, DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, Settings, TimeRange, UsageCountersState, UsageNotificationHistoryState } from './types'
+import type { BlockAction, BlockNotificationHistoryState, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, PageOpenNotificationHistoryState, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -30,6 +30,13 @@ function normalizeBlockAction(value: unknown): BlockAction {
  */
 function normalizeNotificationThresholdMinutes(value: unknown): number {
   return typeof value === 'number' ? value : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
+}
+
+/**
+ * 保存済み値を boolean 設定へ正規化する。
+ */
+function normalizeBooleanSetting(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
 }
 
 /**
@@ -96,6 +103,8 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
       ...rawGlobal,
       blockAction: normalizeBlockAction(rawGlobal.blockAction),
       notificationThresholdMinutes: normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes),
+      pageOpenNotificationsEnabled: normalizeBooleanSetting(rawGlobal.pageOpenNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.pageOpenNotificationsEnabled),
+      blockNotificationsEnabled: normalizeBooleanSetting(rawGlobal.blockNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.blockNotificationsEnabled),
     },
     groups: Array.isArray(raw.groups) ? raw.groups.map(normalizeGroup) : [],
   }
@@ -249,18 +258,63 @@ export async function loadUsageNotificationHistory(): Promise<UsageNotificationH
   const raw = await browser.storage.local.get(['usageNotificationHistory']) as {
     usageNotificationHistory?: unknown
   }
-  if (!raw.usageNotificationHistory || typeof raw.usageNotificationHistory !== 'object' || Array.isArray(raw.usageNotificationHistory)) {
-    return { usageNotificationHistory: {} }
-  }
+  return { usageNotificationHistory: normalizeNotificationHistory(raw.usageNotificationHistory) }
+}
 
-  const usageNotificationHistory: UsageNotificationHistoryState['usageNotificationHistory'] = {}
-  for (const [groupId, value] of Object.entries(raw.usageNotificationHistory as Record<string, unknown>)) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
-    const entry = value as Record<string, unknown>
+/**
+ * unknown の値から通知履歴辞書を生成する。
+ */
+function normalizeNotificationHistory(value: unknown): Record<string, UsageNotificationEntry> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+
+  const history: Record<string, UsageNotificationEntry> = {}
+  for (const [groupId, entryValue] of Object.entries(value as Record<string, unknown>)) {
+    if (!entryValue || typeof entryValue !== 'object' || Array.isArray(entryValue)) continue
+    const entry = entryValue as Record<string, unknown>
     if (typeof entry.logicalDate !== 'string') continue
-    usageNotificationHistory[groupId] = { logicalDate: entry.logicalDate }
+    history[groupId] = { logicalDate: entry.logicalDate }
   }
-  return { usageNotificationHistory }
+  return history
+}
+
+/**
+ * browser.storage.local から対象ページ表示通知履歴を読み込む。
+ * 不正な保存値は空の履歴にフォールバックする。
+ */
+export async function loadPageOpenNotificationHistory(): Promise<PageOpenNotificationHistoryState> {
+  const raw = await browser.storage.local.get(['pageOpenNotificationHistory']) as {
+    pageOpenNotificationHistory?: unknown
+  }
+  return { pageOpenNotificationHistory: normalizeNotificationHistory(raw.pageOpenNotificationHistory) }
+}
+
+/**
+ * browser.storage.local に対象ページ表示通知履歴を書き込む。
+ */
+export async function savePageOpenNotificationHistory(state: PageOpenNotificationHistoryState): Promise<void> {
+  await browser.storage.local.set({
+    pageOpenNotificationHistory: state.pageOpenNotificationHistory,
+  })
+}
+
+/**
+ * browser.storage.local から redirect ブロック通知履歴を読み込む。
+ * 不正な保存値は空の履歴にフォールバックする。
+ */
+export async function loadBlockNotificationHistory(): Promise<BlockNotificationHistoryState> {
+  const raw = await browser.storage.local.get(['blockNotificationHistory']) as {
+    blockNotificationHistory?: unknown
+  }
+  return { blockNotificationHistory: normalizeNotificationHistory(raw.blockNotificationHistory) }
+}
+
+/**
+ * browser.storage.local に redirect ブロック通知履歴を書き込む。
+ */
+export async function saveBlockNotificationHistory(state: BlockNotificationHistoryState): Promise<void> {
+  await browser.storage.local.set({
+    blockNotificationHistory: state.blockNotificationHistory,
+  })
 }
 
 /**

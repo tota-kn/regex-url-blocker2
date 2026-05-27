@@ -178,6 +178,33 @@ function handleImportFile(event: Event): void {
         </p>
       </BaseField>
 
+      <div class="space-y-2 rounded-md border border-border bg-surface p-3">
+        <label class="flex items-start gap-3">
+          <input
+            v-model="globalSettings.pageOpenNotificationsEnabled"
+            type="checkbox"
+            class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+            aria-label="Matching page notification"
+          >
+          <span class="min-w-0">
+            <span class="block text-label-md text-secondary-foreground">Matching page notification</span>
+            <span class="mt-1 block text-body-sm text-muted">Notify once per group each day when a page with a daily limit is opened.</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3">
+          <input
+            v-model="globalSettings.blockNotificationsEnabled"
+            type="checkbox"
+            class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+            aria-label="Blocked redirect notification"
+          >
+          <span class="min-w-0">
+            <span class="block text-label-md text-secondary-foreground">Blocked redirect notification</span>
+            <span class="mt-1 block text-body-sm text-muted">Notify once per group each day when redirect blocking is triggered.</span>
+          </span>
+        </label>
+      </div>
+
       <div class="border-t border-border pt-4">
         <p class="mb-2 text-label-md text-secondary-foreground">
           Settings file

@@ -89,6 +89,8 @@ test.describe('Options 画面', () => {
     expect(blockedPageBox!.x).toBeLessThan(redirectBox!.x)
     await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('5')
+    await expect(page.getByLabel('Matching page notification')).toBeChecked()
+    await expect(page.getByLabel('Blocked redirect notification')).toBeChecked()
     await expect(page.getByRole('button', { name: 'Export settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
   })
@@ -149,6 +151,20 @@ test.describe('Options 画面', () => {
     await page.reload()
     await openGeneralSettings(page)
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('0')
+  })
+
+  test('通知タイミング設定を保存できる', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await openGeneralSettings(page)
+    await page.getByLabel('Matching page notification').uncheck()
+    await page.getByLabel('Blocked redirect notification').uncheck()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+    await openGeneralSettings(page)
+
+    await expect(page.getByLabel('Matching page notification')).not.toBeChecked()
+    await expect(page.getByLabel('Blocked redirect notification')).not.toBeChecked()
   })
 
   test('設定を JSON ファイルとしてエクスポートできる', async ({ page, extensionId }) => {
@@ -316,6 +332,8 @@ test.describe('Options 画面', () => {
     await expectDialogCentered(page, activeSettingsDialog)
     await expect(activeSettingsDialog.getByText('https://preferred-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('03:00', { exact: true })).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Matching page notification')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked redirect notification')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Lock Mode On')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocked: 09:00-17:00; limit: 10 min').first()).toBeVisible()

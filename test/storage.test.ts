@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadCounters, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveCounters, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
+import { loadBlockNotificationHistory, loadCounters, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveBlockNotificationHistory, saveCounters, savePageOpenNotificationHistory, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('loadSettings', () => {
@@ -22,6 +22,8 @@ describe('loadSettings', () => {
     expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
     expect(s.global.dailyResetHour).toBe(DEFAULT_GLOBAL_SETTINGS.dailyResetHour)
     expect(s.global.notificationThresholdMinutes).toBe(5)
+    expect(s.global.pageOpenNotificationsEnabled).toBe(true)
+    expect(s.global.blockNotificationsEnabled).toBe(true)
   })
 
   it('global の blockAction が不正な場合は DEFAULT で補完される', async () => {
@@ -68,7 +70,12 @@ describe('settings export file', () => {
 
   it('通知設定をエクスポート/インポートでラウンドトリップする', () => {
     const settings = {
-      global: { ...DEFAULT_GLOBAL_SETTINGS, notificationThresholdMinutes: 12 },
+      global: {
+        ...DEFAULT_GLOBAL_SETTINGS,
+        notificationThresholdMinutes: 12,
+        pageOpenNotificationsEnabled: false,
+        blockNotificationsEnabled: false,
+      },
       groups: [],
     }
 
@@ -211,6 +218,68 @@ describe('usage notification history storage', () => {
     })
     expect(await loadUsageNotificationHistory()).toEqual({
       usageNotificationHistory: {
+        ok: { logicalDate: '2026-05-06' },
+      },
+    })
+  })
+})
+
+describe('page open notification history storage', () => {
+  it('未設定時は空履歴を返す', async () => {
+    expect(await loadPageOpenNotificationHistory()).toEqual({ pageOpenNotificationHistory: {} })
+  })
+
+  it('save → load で通知履歴をラウンドトリップする', async () => {
+    const history = {
+      pageOpenNotificationHistory: {
+        group1: { logicalDate: '2026-05-06' },
+      },
+    }
+    await savePageOpenNotificationHistory(history)
+    expect(await loadPageOpenNotificationHistory()).toEqual(history)
+  })
+
+  it('不正な通知履歴値は読み込み時に除外する', async () => {
+    await browser.storage.local.set({
+      pageOpenNotificationHistory: {
+        ok: { logicalDate: '2026-05-06' },
+        badDate: { logicalDate: 123 },
+        badEntry: 'x',
+      },
+    })
+    expect(await loadPageOpenNotificationHistory()).toEqual({
+      pageOpenNotificationHistory: {
+        ok: { logicalDate: '2026-05-06' },
+      },
+    })
+  })
+})
+
+describe('block notification history storage', () => {
+  it('未設定時は空履歴を返す', async () => {
+    expect(await loadBlockNotificationHistory()).toEqual({ blockNotificationHistory: {} })
+  })
+
+  it('save → load で通知履歴をラウンドトリップする', async () => {
+    const history = {
+      blockNotificationHistory: {
+        group1: { logicalDate: '2026-05-06' },
+      },
+    }
+    await saveBlockNotificationHistory(history)
+    expect(await loadBlockNotificationHistory()).toEqual(history)
+  })
+
+  it('不正な通知履歴値は読み込み時に除外する', async () => {
+    await browser.storage.local.set({
+      blockNotificationHistory: {
+        ok: { logicalDate: '2026-05-06' },
+        badDate: { logicalDate: 123 },
+        badEntry: 'x',
+      },
+    })
+    expect(await loadBlockNotificationHistory()).toEqual({
+      blockNotificationHistory: {
         ok: { logicalDate: '2026-05-06' },
       },
     })
