@@ -120,7 +120,7 @@ onUnmounted(() => {
   <main class="w-80 space-y-4 bg-background p-4 text-foreground">
     <header class="flex items-center justify-between gap-3">
       <h1 class="min-w-0 truncate text-heading-lg">
-        URL Guard
+        Regex URL Guard
       </h1>
       <BaseButton
         size="sm"

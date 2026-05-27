@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="URL Guard icon">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Regex URL Guard icon">
   <defs>
     <clipPath id="shield-clip">
       <path d="M64 12 104 26v34c0 26-15 47-40 56-25-9-40-30-40-56V26z"/>

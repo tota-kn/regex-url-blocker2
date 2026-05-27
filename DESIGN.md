@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: URL Guard
+name: Regex URL Guard
 description: A functional, developer-focused Chrome extension for blocking URLs by regex patterns. Clean and professional UI with high information density.
 colors:
   primary: "#3b82f6"
@@ -134,7 +134,7 @@ components:
 
 ## Overview
 
-**URL Guard** is a Chrome extension that lets users define groups of URL patterns (including regex) and block access to matching sites during specified time windows or after daily usage limits are reached. The UI targets technically-proficient users—developers, students, or productivity-focused individuals—who need fine-grained control over their browsing habits.
+**Regex URL Guard** is a Chrome extension that lets users define groups of URL patterns (including regex) and block access to matching sites during specified time windows or after daily usage limits are reached. The UI targets technically-proficient users—developers, students, or productivity-focused individuals—who need fine-grained control over their browsing habits.
 
 The design philosophy is **functional minimalism**: every element earns its place. Information is dense but not cluttered. Neutral grays dominate, with blue reserved for primary actions and red strictly for destructive or blocked states. The aesthetic evokes a developer tool or system preferences panel rather than a consumer app.
 

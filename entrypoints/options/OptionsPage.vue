@@ -140,7 +140,7 @@ function exportSettings(): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'url-guard-settings.json'
+  a.download = 'regex-url-guard-settings.json'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -455,7 +455,7 @@ onUnmounted(() => {
                 aria-hidden="true"
                 class="size-6 shrink-0"
               >
-              URL Guard
+              Regex URL Guard
             </h1>
             <nav class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
               <button
