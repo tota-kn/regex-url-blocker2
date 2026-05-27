@@ -448,7 +448,7 @@ onUnmounted(() => {
             aria-label="Options sections"
             class="border-b border-border pb-3 lg:sticky lg:top-6 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
           >
-            <h1 class="mb-4 flex items-center gap-2 text-heading-lg text-foreground">
+            <h1 class="mb-4 flex items-center gap-2 text-heading-md text-foreground">
               <img
                 src="/icon/32.png"
                 alt=""

@@ -62,7 +62,16 @@ test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await expect(page.getByRole('heading', { name: 'Regex URL Guard' })).toBeVisible()
+    const sidebarHeading = page.getByRole('heading', { name: 'Regex URL Guard' })
+    await expect(sidebarHeading).toBeVisible()
+    const sidebarHeadingHeight = await sidebarHeading.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        actual: element.getBoundingClientRect().height,
+        singleLine: Number.parseFloat(style.lineHeight),
+      }
+    })
+    expect(sidebarHeadingHeight.actual).toBeLessThanOrEqual(sidebarHeadingHeight.singleLine * 1.2)
     await expect(page.locator('aside h1 img[src$="/icon/32.png"]')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Groups' })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'Groups' })).toBeVisible()
