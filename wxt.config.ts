@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
   manifest: {
     name: 'Regex URL Guard',
-    description: '正規表現で指定したURLをブロックする拡張機能',
+    description: 'Block distracting websites with customizable regular expression URL rules.',
     version: '1.0.0',
     permissions: ['tabs', 'webNavigation', 'storage', 'alarms', 'idle', 'notifications'],
     options_ui: {
