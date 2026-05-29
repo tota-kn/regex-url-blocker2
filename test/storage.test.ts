@@ -54,7 +54,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 2,
+      version: 3,
       settings,
     })
   })
@@ -66,6 +66,36 @@ describe('settings export file', () => {
     }
 
     expect(parseSettingsExportJson(JSON.stringify({ version: 2, settings }))).toEqual(settings)
+  })
+
+  it('v2 import はグローバル block action を各グループへ移行する', () => {
+    const imported = parseSettingsExportJson(JSON.stringify({
+      version: 2,
+      settings: {
+        global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'redirect', redirectUrl: 'https://legacy-blocked.test' },
+        groups: [{
+          id: 'legacy',
+          name: 'Legacy',
+          mode: 'blacklist',
+          patterns: ['example\\.com'],
+          dailyRules: createEmptyGroup().dailyRules,
+        }],
+      },
+    }))
+
+    expect(imported.groups[0]).toMatchObject({
+      blockAction: 'redirect',
+      redirectUrl: 'https://legacy-blocked.test',
+    })
+  })
+
+  it('v3 export/import はグループ別 block action を保持する', () => {
+    const settings = {
+      global: DEFAULT_GLOBAL_SETTINGS,
+      groups: [{ ...createEmptyGroup('Imported'), blockAction: 'redirect' as const, redirectUrl: 'https://group-blocked.test' }],
+    }
+
+    expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
   it('通知設定をエクスポート/インポートでラウンドトリップする', () => {
@@ -132,6 +162,25 @@ describe('loadSettings のマイグレーション', () => {
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('blacklist')
     expect(s.groups[0].lockMode).toBe(false)
+  })
+
+  it('旧 storage データのグループ別ブロック先はグローバル設定から補完される', async () => {
+    await browser.storage.sync.set({
+      global: { blockAction: 'redirect', redirectUrl: 'https://legacy-blocked.test' },
+      groups: [{ id: 'x', name: 'old', patterns: [], dailyRules: createEmptyGroup().dailyRules }],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].blockAction).toBe('redirect')
+    expect(s.groups[0].redirectUrl).toBe('https://legacy-blocked.test')
+  })
+
+  it('グローバル設定もない旧 storage データは blocked page を補完する', async () => {
+    await browser.storage.sync.set({
+      groups: [{ id: 'x', name: 'old', patterns: [], dailyRules: createEmptyGroup().dailyRules }],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].blockAction).toBe('blockedPage')
+    expect(s.groups[0].redirectUrl).toBe('https://example.com')
   })
 
   it('whitelist は保持される', async () => {

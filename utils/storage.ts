@@ -6,14 +6,14 @@ import { validateGlobalSettings, validateGroup } from './validation'
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 2
+export const SETTINGS_EXPORT_VERSION = 3
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: typeof SETTINGS_EXPORT_VERSION
+  version: 2 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
 }
@@ -49,14 +49,17 @@ function asRecord(value: unknown): Record<string, unknown> {
 /**
  * unknown の値からグループ設定を生成する。
  */
-function normalizeGroup(value: unknown): Group {
+function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction, fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl): Group {
   const g = asRecord(value)
+  const blockAction = normalizeBlockAction(g.blockAction ?? fallbackBlockAction)
   return {
     id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
     name: typeof g.name === 'string' ? g.name : '',
     mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
     lockMode: g.lockMode === true,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
+    blockAction,
+    redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
     dailyRules: normalizeDailyRules(g.dailyRules),
   }
 }
@@ -97,16 +100,19 @@ function normalizeDailyRules(value: unknown): DailyRule[] {
  */
 function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Settings {
   const rawGlobal = asRecord(raw.global)
+  const fallbackBlockAction = normalizeBlockAction(rawGlobal.blockAction)
+  const fallbackRedirectUrl = typeof rawGlobal.redirectUrl === 'string' ? rawGlobal.redirectUrl : DEFAULT_GLOBAL_SETTINGS.redirectUrl
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
       ...rawGlobal,
-      blockAction: normalizeBlockAction(rawGlobal.blockAction),
+      blockAction: fallbackBlockAction,
+      redirectUrl: fallbackRedirectUrl,
       notificationThresholdMinutes: normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes),
       pageOpenNotificationsEnabled: normalizeBooleanSetting(rawGlobal.pageOpenNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.pageOpenNotificationsEnabled),
       blockNotificationsEnabled: normalizeBooleanSetting(rawGlobal.blockNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.blockNotificationsEnabled),
     },
-    groups: Array.isArray(raw.groups) ? raw.groups.map(normalizeGroup) : [],
+    groups: Array.isArray(raw.groups) ? raw.groups.map(group => normalizeGroup(group, fallbackBlockAction, fallbackRedirectUrl)) : [],
   }
 }
 
@@ -188,7 +194,7 @@ export function parseSettingsExportJson(json: string): Settings {
   }
 
   const file = asRecord(parsed)
-  if (file.version !== SETTINGS_EXPORT_VERSION) {
+  if (file.version !== 2 && file.version !== SETTINGS_EXPORT_VERSION) {
     throw new Error('Unsupported settings file version')
   }
   if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {

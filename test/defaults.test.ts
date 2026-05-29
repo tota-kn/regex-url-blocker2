@@ -19,6 +19,8 @@ describe('createEmptyGroup', () => {
     expect(g.mode).toBe('blacklist')
     expect(g.lockMode).toBe(false)
     expect(g.patterns).toEqual([])
+    expect(g.blockAction).toBe('blockedPage')
+    expect(g.redirectUrl).toBe('https://example.com')
     expect(g.dailyRules).toEqual([
       { dayOfWeek: 0, blockedTimeRanges: [], dailyLimitMinutes: undefined },
       { dayOfWeek: 1, blockedTimeRanges: [], dailyLimitMinutes: undefined },

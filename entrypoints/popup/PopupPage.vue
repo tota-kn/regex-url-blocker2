@@ -4,7 +4,7 @@ import { Cog6ToothIcon } from '@heroicons/vue/24/outline'
 import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
+import { getRedirectUrls, getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { loadCounters, loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
 import type { Group, Settings, UsageCountersState } from '@/utils/types'
 
@@ -25,7 +25,7 @@ let tickingTimer: ReturnType<typeof setInterval> | undefined
 
 const isSkippedPage = computed(() => {
   if (!settings.value) return false
-  return shouldSkipUrl(activeUrl.value, settings.value.global.redirectUrl)
+  return shouldSkipUrl(activeUrl.value, getRedirectUrls(settings.value))
 })
 
 const targetGroups = computed(() => {
@@ -62,7 +62,7 @@ async function openOptionsPage(): Promise<void> {
  */
 async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
-  if (!shouldSkipUrl(tab?.url, currentSettings.global.redirectUrl)) {
+  if (!shouldSkipUrl(tab?.url, getRedirectUrls(currentSettings))) {
     activeUrl.value = tab?.url
     return
   }
@@ -73,7 +73,7 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
   }
 
   const tabs = await browser.tabs.query({ currentWindow: true })
-  activeUrl.value = tabs.find(candidate => !shouldSkipUrl(candidate.url, currentSettings.global.redirectUrl))?.url ?? tab?.url
+  activeUrl.value = tabs.find(candidate => !shouldSkipUrl(candidate.url, getRedirectUrls(currentSettings)))?.url ?? tab?.url
 }
 
 /**

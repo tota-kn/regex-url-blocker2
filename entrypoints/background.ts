@@ -3,6 +3,7 @@ import {
   formatRemainingMinutesBadge,
   getLogicalDate,
   getMinimumRemainingTimeLimit,
+  getRedirectUrls,
   getTimeLimitUsageSummary,
   incrementCounters,
   normalizeCounters,
@@ -279,13 +280,12 @@ async function notifyPageOpenIfNeeded(s: Settings, evaluation: UrlEvaluation, no
 /**
  * redirect によるブロック発動時、同じ論理日・同じグループでは1回だけ通知する。
  */
-async function notifyRedirectBlockIfNeeded(s: Settings, evaluation: UrlEvaluation, now: Date): Promise<void> {
+async function notifyRedirectBlockIfNeeded(s: Settings, evaluation: UrlEvaluation, destinationUrl: string, now: Date): Promise<void> {
   if (!s.global.blockNotificationsEnabled) return
-  if (s.global.blockAction !== 'redirect') return
   if (evaluation.blockedGroupIds.length === 0) return
 
   const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  const blockedGroups = s.groups.filter(group => blockedGroupIds.has(group.id))
+  const blockedGroups = s.groups.filter(group => blockedGroupIds.has(group.id) && group.blockAction === 'redirect' && group.redirectUrl === destinationUrl)
   const logicalDate = getLogicalDate(now, s.global.dailyResetHour).logicalDate
   const logicalDateByGroupId = new Map(blockedGroups.map(group => [group.id, logicalDate]))
   const unnotifiedGroups = filterUnnotifiedGroups(blockedGroups, logicalDateByGroupId, blockNotificationHistory.blockNotificationHistory)
@@ -320,19 +320,24 @@ function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
  * ブロック時にタブを書き換える遷移先 URL を作る。
  */
 function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvaluation): string {
-  if (s.global.blockAction === 'blockedPage') {
+  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
+  const firstBlockedGroup = s.groups.find(group => blockedGroupIds.has(group.id))
+  if (!firstBlockedGroup || firstBlockedGroup.blockAction === 'blockedPage') {
     return buildBlockedPageUrl(url, evaluation)
   }
-  return s.global.redirectUrl
+  return firstBlockedGroup.redirectUrl
 }
 
 /**
  * redirect 直前の安全確認を行ったうえでタブをブロック先へ遷移する。
  */
 async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
-  if (!url || shouldSkipUrl(url, s.global.redirectUrl)) return
-  await notifyRedirectBlockIfNeeded(s, evaluation, now)
-  await browser.tabs.update(tabId, { url: buildBlockDestinationUrl(url, s, evaluation) })
+  if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
+  const destinationUrl = buildBlockDestinationUrl(url, s, evaluation)
+  if (getRedirectUrls(s).includes(destinationUrl)) {
+    await notifyRedirectBlockIfNeeded(s, evaluation, destinationUrl, now)
+  }
+  await browser.tabs.update(tabId, { url: destinationUrl })
 }
 
 /**

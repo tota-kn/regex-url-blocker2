@@ -23,6 +23,8 @@ function group(overrides: Partial<Group>): Group {
     mode: 'blacklist',
     lockMode: false,
     patterns: ['example\\.com'],
+    blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
+    redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
     dailyRules: createEmptyDailyRules(),
     ...overrides,
   }
@@ -112,6 +114,12 @@ describe('URL target matching', () => {
     expect(shouldSkipUrl('about:blank', 'https://redirect.test/')).toBe(true)
     expect(shouldSkipUrl('file:///tmp/a.html', 'https://redirect.test/')).toBe(true)
     expect(shouldSkipUrl('https://redirect.test/', 'https://redirect.test/')).toBe(true)
+  })
+
+  it('グループ別 redirect URL は判定対象外にする', () => {
+    const s = settings([group({ blockAction: 'redirect', redirectUrl: 'https://redirect.test/' })])
+
+    expect(getTargetGroupIds(s, 'https://redirect.test/')).toEqual([])
   })
 })
 

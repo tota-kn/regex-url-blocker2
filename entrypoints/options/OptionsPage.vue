@@ -286,14 +286,6 @@ onUnmounted(() => {
         <dl class="grid gap-2 text-body-sm sm:grid-cols-2">
           <div class="rounded-md border border-border bg-surface p-3">
             <dt class="text-muted">
-              Block action
-            </dt>
-            <dd class="mt-1 font-medium">
-              {{ effectiveSettings.global.blockAction }}
-            </dd>
-          </div>
-          <div class="rounded-md border border-border bg-surface p-3">
-            <dt class="text-muted">
               Daily reset time
             </dt>
             <dd class="mt-1 font-medium">
@@ -322,14 +314,6 @@ onUnmounted(() => {
             </dt>
             <dd class="mt-1 font-medium">
               {{ effectiveSettings.global.blockNotificationsEnabled ? 'On' : 'Off' }}
-            </dd>
-          </div>
-          <div class="rounded-md border border-border bg-surface p-3 sm:col-span-2">
-            <dt class="text-muted">
-              Redirect URL
-            </dt>
-            <dd class="mt-1 break-all font-medium">
-              {{ effectiveSettings.global.redirectUrl }}
             </dd>
           </div>
         </dl>
@@ -361,6 +345,14 @@ onUnmounted(() => {
             <span class="rounded-md border border-border px-2 py-1 text-label-sm text-muted">
               Lock Mode {{ group.lockMode ? 'On' : 'Off' }}
             </span>
+          </div>
+          <div>
+            <p class="text-label-sm text-muted">
+              Block destination
+            </p>
+            <p class="mt-1 break-all rounded border border-border bg-background px-2 py-1 text-body-sm">
+              {{ group.blockAction === 'redirect' ? `Redirect to ${group.redirectUrl}` : 'Blocked page' }}
+            </p>
           </div>
           <div>
             <p class="text-label-sm text-muted">

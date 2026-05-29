@@ -90,10 +90,20 @@ export function getLogicalDate(now: Date, dailyResetHour: string): LogicalDateIn
 /**
  * URL が判定対象外なら true を返す。
  */
-export function shouldSkipUrl(url: string | undefined, redirectUrl: string): boolean {
+export function shouldSkipUrl(url: string | undefined, redirectUrls: string | string[]): boolean {
   if (!url) return true
-  if (url === redirectUrl) return true
+  const urls = Array.isArray(redirectUrls) ? redirectUrls : [redirectUrls]
+  if (urls.includes(url)) return true
   return SKIPPED_URL_PREFIXES.some(prefix => url.startsWith(prefix))
+}
+
+/**
+ * settings 内の全グループが持つ redirect URL を返す。
+ */
+export function getRedirectUrls(settings: Settings): string[] {
+  return settings.groups
+    .filter(group => group.blockAction === 'redirect')
+    .map(group => group.redirectUrl)
 }
 
 /**
@@ -115,7 +125,7 @@ export function isTargetGroup(group: Group, url: string): boolean {
  * URL が制限対象として該当する group id を返す。
  */
 export function getTargetGroupIds(settings: Settings, url: string | undefined): string[] {
-  if (shouldSkipUrl(url, settings.global.redirectUrl) || !url) return []
+  if (shouldSkipUrl(url, getRedirectUrls(settings)) || !url) return []
   return settings.groups
     .filter(group => isTargetGroup(group, url))
     .map(group => group.id)

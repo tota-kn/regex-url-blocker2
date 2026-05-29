@@ -75,6 +75,8 @@ describe('validateGroup', () => {
       mode: 'blacklist',
       lockMode: false,
       patterns: ['['],
+      blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
+      redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
       dailyRules: createEmptyGroup().dailyRules,
     })
     expect(errors.some(e => e.field === 'name')).toBe(true)
@@ -94,6 +96,18 @@ describe('validateGroup', () => {
   it('mode が不正値だとエラー', () => {
     const g = { ...createEmptyGroup(), name: 'X', mode: 'invalid' as 'blacklist' }
     expect(validateGroup(g).some(e => e.field === 'mode')).toBe(true)
+  })
+
+  it('redirect のときだけ redirectUrl を検証する', () => {
+    expect(validateGroup({ ...createEmptyGroup(), name: 'X', blockAction: 'blockedPage', redirectUrl: '' })).toEqual([])
+
+    const missingUrlErrors = validateGroup({ ...createEmptyGroup(), name: 'X', blockAction: 'redirect', redirectUrl: '' })
+    expect(missingUrlErrors.some(e => e.field === 'redirectUrl')).toBe(true)
+
+    const invalidUrlErrors = validateGroup({ ...createEmptyGroup(), name: 'X', blockAction: 'redirect', redirectUrl: 'not-url' })
+    expect(invalidUrlErrors.some(e => e.field === 'redirectUrl')).toBe(true)
+
+    expect(validateGroup({ ...createEmptyGroup(), name: 'X', blockAction: 'redirect', redirectUrl: 'https://blocked.test' })).toEqual([])
   })
 })
 

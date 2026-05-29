@@ -90,6 +90,8 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     mode: 'blacklist',
     lockMode: false,
     patterns: createPatternsFromTemplate(templateId),
+    blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
+    redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
     dailyRules: createDailyRulesFromTemplate(templateId),
   }
 }

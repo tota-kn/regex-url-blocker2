@@ -120,6 +120,24 @@ export function validateGroup(group: Group): ValidationError[] {
     errors.push({ field: 'name', message: 'Required' })
   }
 
+  if (group.blockAction !== 'redirect' && group.blockAction !== 'blockedPage') {
+    errors.push({ field: 'blockAction', message: 'Invalid action' })
+  }
+
+  if (group.blockAction === 'redirect') {
+    if (group.redirectUrl.trim().length === 0) {
+      errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+    }
+    else {
+      try {
+        new URL(group.redirectUrl)
+      }
+      catch {
+        errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+      }
+    }
+  }
+
   group.patterns.forEach((p, i) => {
     if (!isValidUrlPattern(p)) {
       errors.push({ field: `patterns[${i}]`, message: 'Invalid URL pattern' })

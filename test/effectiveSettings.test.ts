@@ -18,6 +18,8 @@ function group(overrides: Partial<Group> = {}): Group {
     mode: 'blacklist',
     lockMode: false,
     patterns: ['example\\.com'],
+    blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
+    redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
     dailyRules: createEmptyDailyRules(),
     ...overrides,
   }

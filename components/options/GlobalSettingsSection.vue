@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, BellAlertIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownTrayIcon, ArrowPathIcon, ArrowUpTrayIcon, BellAlertIcon } from '@heroicons/vue/24/outline'
 import { computed, ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import SegmentedControl from '@/components/ui/SegmentedControl.vue'
-import type { BlockAction, GlobalSettings } from '@/utils/types'
+import type { GlobalSettings } from '@/utils/types'
 
 /**
  * グローバル設定セクションの props。
@@ -45,19 +44,6 @@ const notificationThresholdInput = computed({
   },
 })
 
-const BLOCK_ACTION_OPTIONS = [
-  { value: 'blockedPage', label: 'Blocked page', icon: DocumentTextIcon },
-  { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
-]
-
-/**
- * ブロック時動作を変更し、background がすぐ参照できるよう即時保存を要求する。
- */
-function setBlockAction(action: BlockAction): void {
-  globalSettings.value.blockAction = action
-  emit('saveNow')
-}
-
 /**
  * 設定ファイル選択ダイアログを開く。
  */
@@ -87,47 +73,6 @@ function handleImportFile(event: Event): void {
     </div>
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
-      <div>
-        <span class="mb-1.5 flex items-center gap-1.5 text-label-md text-secondary-foreground">
-          <DocumentTextIcon
-            aria-hidden="true"
-            class="size-4 text-muted"
-          />
-          When a page is blocked
-        </span>
-        <SegmentedControl
-          :model-value="globalSettings.blockAction"
-          :options="BLOCK_ACTION_OPTIONS"
-          class="grid w-full grid-cols-2"
-          @update:model-value="setBlockAction($event as BlockAction)"
-        />
-      </div>
-      <AlertMessage
-        v-if="error('blockAction')"
-      >
-        {{ error('blockAction') }}
-      </AlertMessage>
-
-      <BaseField
-        v-if="globalSettings.blockAction === 'redirect'"
-        label="Redirect URL"
-        :error="error('redirectUrl')"
-      >
-        <template #icon>
-          <ArrowTopRightOnSquareIcon
-            aria-hidden="true"
-            class="size-4 text-muted"
-          />
-        </template>
-        <BaseInput
-          v-model="globalSettings.redirectUrl"
-          type="url"
-          aria-label="Redirect URL"
-          class="w-full"
-          :invalid="Boolean(error('redirectUrl'))"
-        />
-      </BaseField>
-
       <BaseField
         label="Daily reset time"
         :error="error('dailyResetHour')"

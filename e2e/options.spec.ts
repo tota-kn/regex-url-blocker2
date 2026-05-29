@@ -58,6 +58,16 @@ async function createBlankGroup(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create blank group' }).click()
 }
 
+/**
+ * グループカード内の Options 折りたたみを開く。
+ */
+async function openGroupOptions(page: Page): Promise<void> {
+  const optionsButton = page.locator('main').getByRole('button', { name: /Options/ }).first()
+  await expect(optionsButton).toHaveAttribute('aria-expanded', 'false')
+  await optionsButton.click()
+  await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
+}
+
 test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -89,13 +99,6 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: /General settings/ })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'General settings' })).toBeVisible()
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
-    const blockedPageBox = await page.getByRole('button', { name: 'Blocked page' }).boundingBox()
-    const redirectBox = await page.getByRole('button', { name: 'Redirect' }).boundingBox()
-    expect(blockedPageBox).not.toBeNull()
-    expect(redirectBox).not.toBeNull()
-    expect(blockedPageBox!.x).toBeLessThan(redirectBox!.x)
     await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('5')
     await expect(page.getByLabel('Matching page notification')).toBeChecked()
@@ -195,7 +198,7 @@ test.describe('Options 画面', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(2)
+    expect(exported.version).toBe(3)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })
@@ -229,11 +232,11 @@ test.describe('Options 画面', () => {
       },
     }))
 
-    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
+    await expect(page.locator('main').getByText('Blocked page')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('imported\\.example')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveText('15')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
@@ -324,7 +327,6 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
-    await expect(page.getByLabel('Redirect URL')).toHaveValue('https://preferred-blocked.test')
     await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
     await expect(page.getByLabel('Daily reset time')).toBeDisabled()
     await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
@@ -339,7 +341,7 @@ test.describe('Options 画面', () => {
     const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
     await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
     await expectDialogCentered(page, activeSettingsDialog)
-    await expect(activeSettingsDialog.getByText('https://preferred-blocked.test')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('03:00', { exact: true })).toBeVisible()
     await expect(activeSettingsDialog.getByText('Matching page notification')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocked redirect notification')).toBeVisible()
@@ -472,6 +474,10 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Locked')
+    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByLabel('Lock Mode')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Redirect', exact: true })).not.toBeVisible()
+    await openGroupOptions(page)
     await expect(page.getByLabel('Lock Mode')).not.toBeChecked()
     await page.getByLabel('Lock Mode').check()
     await expect(page.getByLabel('Lock Mode')).toBeChecked()
@@ -481,9 +487,11 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Lock Mode')).toBeChecked()
-    await expect(page.getByLabel('Lock Mode')).toBeDisabled()
+    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toContainText('Locked')
+    await expect(page.getByLabel('Lock Mode')).not.toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
+    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByLabel('Lock Mode')).toBeChecked()
     await page.getByLabel('Lock Mode').uncheck()
     await expect(page.getByLabel('Lock Mode')).not.toBeChecked()
   })
@@ -493,6 +501,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LockedReset')
+    await openGroupOptions(page)
     await page.getByLabel('Lock Mode').check()
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -548,9 +557,7 @@ test.describe('Options 画面', () => {
     }
 
     await openGeneralSettings(page)
-    await page.getByRole('button', { name: 'Redirect' }).click()
     const generalInputs = [
-      page.getByLabel('Redirect URL'),
       page.getByLabel('Daily reset time'),
       page.getByLabel('Remaining time notification'),
     ]
@@ -930,34 +937,59 @@ test.describe('Options 画面', () => {
     expect(Math.abs(deleteBox!.y - editBox!.y)).toBeLessThan(4)
   })
 
-  test('redirectUrl を編集して永続化される', async ({ page, extensionId }) => {
+  test('グループ別 redirectUrl を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await openGeneralSettings(page)
-    await page.getByRole('button', { name: 'Redirect' }).click()
-    await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('RedirectGroup')
+    await expect(page.getByRole('button', { name: 'Redirect', exact: true })).not.toBeVisible()
+    await openGroupOptions(page)
+    await page.getByRole('button', { name: 'Redirect', exact: true }).click()
+    await page.getByLabel('Group redirect URL').fill('https://blocked.example.test')
+    await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await openGeneralSettings(page)
-    await expect(page.getByLabel('Redirect URL')).toHaveValue('https://blocked.example.test')
+    await expect(page.locator('main').getByText('Redirect to https://blocked.example.test')).toBeVisible()
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByLabel('Group redirect URL')).toHaveValue('https://blocked.example.test')
   })
 
-  test('ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
+  test('グループ別ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await openGeneralSettings(page)
-    await page.getByRole('button', { name: 'Blocked page' }).click()
-    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('BlockedPageGroup')
+    await openGroupOptions(page)
+    await expect(page.getByRole('button', { name: 'Blocked page', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
+    await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await openGeneralSettings(page)
-    await expect(page.getByRole('button', { name: 'Blocked page' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Redirect' })).toHaveAttribute('aria-pressed', 'false')
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await openGroupOptions(page)
+    await expect(page.getByRole('button', { name: 'Blocked page', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Redirect', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('グループ別 redirectUrl 検証エラー時は Options が自動展開される', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('InvalidRedirectGroup')
+    await openGroupOptions(page)
+    await page.getByRole('button', { name: 'Redirect', exact: true }).click()
+    await page.getByLabel('Group redirect URL').fill('not-a-url')
+
+    const optionsButton = page.locator('main').getByRole('button', { name: /Options/ }).first()
+    await optionsButton.click()
+    await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByText('Invalid URL')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
   })
 
   test('モード切替（ホワイトリスト）が永続化される', async ({ page, extensionId }) => {

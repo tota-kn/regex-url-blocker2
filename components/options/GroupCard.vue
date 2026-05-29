@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { CheckIcon, LockClosedIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, DocumentTextIcon, LockClosedIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
@@ -46,9 +48,35 @@ const emit = defineEmits<Emits>()
 const draft = ref<Group>(cloneGroup(props.group))
 
 const isEditing = ref(props.startInEdit ?? false)
+const optionsExpanded = ref(false)
 
 const draftErrors = computed(() => validateGroup(draft.value))
 const canSave = computed(() => draftErrors.value.length === 0)
+const blockDestinationLabel = computed(() => {
+  if (props.group.blockAction === 'redirect') return `Redirect to ${props.group.redirectUrl}`
+  return 'Blocked page'
+})
+const draftBlockDestinationLabel = computed(() => {
+  if (draft.value.blockAction === 'redirect') return `Redirect to ${draft.value.redirectUrl}`
+  return 'Blocked page'
+})
+const optionsSummary = computed(() => [
+  (isEditing.value ? draft.value.lockMode : props.group.lockMode) ? 'Locked' : 'Unlocked',
+  isEditing.value ? draftBlockDestinationLabel.value : blockDestinationLabel.value,
+].join(' / '))
+const optionsPanelId = computed(() => `group-options-${props.group.id}`)
+const optionsShouldAutoExpand = computed(() => {
+  if (!isEditing.value) return false
+  return shouldExpandOptionsForDraft()
+    || Boolean(draftError('blockAction'))
+    || Boolean(draftError('redirectUrl'))
+})
+const isOptionsOpen = computed(() => optionsExpanded.value || optionsShouldAutoExpand.value)
+
+const BLOCK_ACTION_OPTIONS = [
+  { value: 'blockedPage', label: 'Blocked page', icon: DocumentTextIcon },
+  { value: 'redirect', label: 'Redirect', icon: ArrowTopRightOnSquareIcon },
+]
 
 watch(() => props.group, (group) => {
   if (isEditing.value) return
@@ -74,6 +102,7 @@ function patternError(index: number): string | undefined {
 function startEditing(): void {
   draft.value = cloneGroup(props.group)
   isEditing.value = true
+  optionsExpanded.value = shouldExpandOptionsForDraft()
 }
 
 /** 編集内容を破棄する。新規グループの場合はカード自体を閉じる。 */
@@ -83,6 +112,7 @@ function cancelEditing(): void {
     return
   }
   draft.value = cloneGroup(props.group)
+  optionsExpanded.value = false
   isEditing.value = false
 }
 
@@ -90,7 +120,18 @@ function cancelEditing(): void {
 function saveEditing(): void {
   if (!canSave.value) return
   emit('save', cloneGroup(draft.value))
+  optionsExpanded.value = false
   isEditing.value = false
+}
+
+/** Options セクションの折りたたみ状態を切り替える。 */
+function toggleOptions(): void {
+  optionsExpanded.value = !isOptionsOpen.value
+}
+
+/** 現在のドラフト値だけで Options を初期展開すべきかどうかを返す。 */
+function shouldExpandOptionsForDraft(): boolean {
+  return draft.value.lockMode || draft.value.blockAction === 'redirect'
 }
 
 </script>
@@ -126,29 +167,6 @@ function saveEditing(): void {
           </label>
 
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
-            <label
-              class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-label-md text-secondary-foreground transition"
-              :class="isEditing ? 'cursor-pointer hover:bg-secondary-hover' : 'cursor-default opacity-80'"
-            >
-              <input
-                v-model="draft.lockMode"
-                type="checkbox"
-                class="size-4 rounded border-field-border text-primary focus:ring-2 focus:ring-ring/50 disabled:cursor-default"
-                aria-label="Lock Mode"
-                :disabled="!isEditing"
-              >
-              <LockClosedIcon
-                aria-hidden="true"
-                class="size-4 text-muted"
-              />
-              <span>Locked</span>
-            </label>
-            <span
-              v-if="isEditing"
-              class="text-body-sm text-muted"
-            >
-              Changes to this group apply after the next reset.
-            </span>
             <BaseButton
               v-if="!isEditing"
               type="button"
@@ -211,6 +229,124 @@ function saveEditing(): void {
         :is-editing="isEditing"
       />
     </fieldset>
+
+    <section class="px-4 pb-4">
+      <div class="rounded-md border border-border bg-surface">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
+          :aria-expanded="isOptionsOpen"
+          :aria-controls="optionsPanelId"
+          @click="toggleOptions"
+        >
+          <span class="flex min-w-0 items-center gap-2">
+            <LockClosedIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-muted"
+            />
+            <span class="text-label-md text-secondary-foreground">Options</span>
+          </span>
+          <span class="ml-auto min-w-0 truncate text-right text-body-sm text-muted">
+            {{ optionsSummary }}
+          </span>
+          <ChevronDownIcon
+            aria-hidden="true"
+            class="size-4 shrink-0 text-muted transition"
+            :class="isOptionsOpen ? 'rotate-180' : ''"
+          />
+        </button>
+
+        <div
+          v-if="isOptionsOpen"
+          :id="optionsPanelId"
+          class="space-y-4 border-t border-border p-3"
+        >
+          <template v-if="isEditing">
+            <div class="space-y-2">
+              <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-label-md text-secondary-foreground transition hover:bg-secondary-hover">
+                <input
+                  v-model="draft.lockMode"
+                  type="checkbox"
+                  class="size-4 rounded border-field-border text-primary focus:ring-2 focus:ring-ring/50"
+                  aria-label="Lock Mode"
+                >
+                <LockClosedIcon
+                  aria-hidden="true"
+                  class="size-4 text-muted"
+                />
+                <span>Lock Mode</span>
+              </label>
+              <p
+                v-if="draft.lockMode"
+                class="text-body-sm text-muted"
+              >
+                Changes to this group apply after the next reset.
+              </p>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                <DocumentTextIcon
+                  aria-hidden="true"
+                  class="size-4 text-muted"
+                />
+                <span>Block destination</span>
+              </div>
+              <SegmentedControl
+                v-model="draft.blockAction"
+                :options="BLOCK_ACTION_OPTIONS"
+                class="grid w-full grid-cols-2"
+              />
+              <AlertMessage
+                v-if="draftError('blockAction')"
+              >
+                {{ draftError('blockAction') }}
+              </AlertMessage>
+              <BaseField
+                v-if="draft.blockAction === 'redirect'"
+                label="Group redirect URL"
+                :error="draftError('redirectUrl')"
+              >
+                <template #icon>
+                  <ArrowTopRightOnSquareIcon
+                    aria-hidden="true"
+                    class="size-4 text-muted"
+                  />
+                </template>
+                <BaseInput
+                  v-model="draft.redirectUrl"
+                  type="url"
+                  aria-label="Group redirect URL"
+                  class="w-full"
+                  :invalid="Boolean(draftError('redirectUrl'))"
+                />
+              </BaseField>
+            </div>
+          </template>
+          <dl
+            v-else
+            class="grid gap-3 text-body-sm sm:grid-cols-2"
+          >
+            <div>
+              <dt class="text-label-sm text-muted">
+                Lock Mode
+              </dt>
+              <dd class="mt-1 text-secondary-foreground">
+                {{ group.lockMode ? 'Locked' : 'Unlocked' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-label-sm text-muted">
+                Block destination
+              </dt>
+              <dd class="mt-1 break-all text-secondary-foreground">
+                {{ blockDestinationLabel }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
 
     <div
       v-if="isEditing"

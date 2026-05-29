@@ -61,6 +61,10 @@ export interface Group {
   lockMode: boolean
   /** URL pattern の配列。裸ドメインまたは `new RegExp()` で構文チェックを通る正規表現を指定できる。 */
   patterns: string[]
+  /** ブロック発生時のこのグループの遷移先種別。 */
+  blockAction: BlockAction
+  /** このグループで redirect を選んだ場合の遷移先 URL。 */
+  redirectUrl: string
   /** 曜日別の制限ルール。0=日曜から6=土曜まで必ず7件。 */
   dailyRules: DailyRule[]
 }
