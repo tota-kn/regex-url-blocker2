@@ -7,6 +7,7 @@ import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '@/utils/defaults'
+import { cloneGroup, formatBlockDestination } from '@/utils/groups'
 import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
@@ -51,17 +52,13 @@ const isEditing = ref(props.startInEdit ?? false)
 
 const draftErrors = computed(() => validateGroup(draft.value))
 const canSave = computed(() => draftErrors.value.length === 0)
-const blockDestinationLabel = computed(() => {
-  if (props.group.blockAction === 'redirect') return `Redirect to ${props.group.redirectUrl}`
-  return 'Blocked page'
-})
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string, value: string }> = []
   if (props.group.lockMode) {
     summaries.push({ label: 'Lock Mode', value: 'Locked' })
   }
   if (props.group.blockAction !== DEFAULT_GLOBAL_SETTINGS.blockAction) {
-    summaries.push({ label: 'Block destination', value: blockDestinationLabel.value })
+    summaries.push({ label: 'Block destination', value: formatBlockDestination(props.group) })
   }
   return summaries
 })
@@ -70,11 +67,6 @@ watch(() => props.group, (group) => {
   if (isEditing.value) return
   draft.value = cloneGroup(group)
 }, { deep: true })
-
-/** グループを JSON 互換の作業コピーとして複製する。 */
-function cloneGroup(group: Group): Group {
-  return JSON.parse(JSON.stringify(group)) as Group
-}
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {

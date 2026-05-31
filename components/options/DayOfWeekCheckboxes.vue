@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DAYS } from '@/utils/datetime'
 import type { DayOfWeek } from '@/utils/types'
 
 /**
@@ -17,16 +18,6 @@ withDefaults(defineProps<Props>(), {
  * 曜日チェックボックスで編集する曜日番号配列。
  */
 const daysOfWeek = defineModel<DayOfWeek[]>({ required: true })
-
-const DAY_LABELS: { value: DayOfWeek, label: string, ariaLabel: string }[] = [
-  { value: 0, label: 'Sun', ariaLabel: 'Sunday' },
-  { value: 1, label: 'Mon', ariaLabel: 'Monday' },
-  { value: 2, label: 'Tue', ariaLabel: 'Tuesday' },
-  { value: 3, label: 'Wed', ariaLabel: 'Wednesday' },
-  { value: 4, label: 'Thu', ariaLabel: 'Thursday' },
-  { value: 5, label: 'Fri', ariaLabel: 'Friday' },
-  { value: 6, label: 'Sat', ariaLabel: 'Saturday' },
-]
 
 /** チェックボックスのトグルで `daysOfWeek` を昇順に保ったまま追加/削除する。 */
 function toggleDay(day: DayOfWeek): void {
@@ -54,7 +45,7 @@ function toggleDay(day: DayOfWeek): void {
       </span>
       <div class="flex min-w-0 flex-1 flex-nowrap gap-1.5 overflow-x-auto">
         <label
-          v-for="d in DAY_LABELS"
+          v-for="d in DAYS"
           :key="d.value"
           :class="daysOfWeek.includes(d.value)
             ? isEditing

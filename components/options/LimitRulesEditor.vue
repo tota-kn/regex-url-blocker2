@@ -2,7 +2,18 @@
 import { ClockIcon } from '@heroicons/vue/24/outline'
 import { ref, watch } from 'vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import type { DailyRule, DayOfWeek, TimeRange } from '@/utils/types'
+import {
+  DAYS,
+  HALF_HOUR_CELLS,
+  cellsToRanges,
+  createDayRecord,
+  minutesToTime,
+  parseTimeRangeText,
+  rangeToOverlappingCells,
+  selectedCellsToRangeText,
+} from '@/utils/datetime'
+import type { DayOption } from '@/utils/datetime'
+import type { DailyRule, DayOfWeek } from '@/utils/types'
 
 /**
  * 制限ルール編集コンポーネントの props。
@@ -16,29 +27,8 @@ const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
 })
 
-/**
- * UI 確認用の曜日表示定義。
- */
-interface DayOption {
-  /** JS Date 互換の曜日番号。 */
-  value: DayOfWeek
-  /** 画面上の短い曜日名。 */
-  label: string
-}
-
 const dailyRules = defineModel<DailyRule[]>('dailyRules', { required: true })
 
-const DAYS: DayOption[] = [
-  { value: 0, label: 'Sun' },
-  { value: 1, label: 'Mon' },
-  { value: 2, label: 'Tue' },
-  { value: 3, label: 'Wed' },
-  { value: 4, label: 'Thu' },
-  { value: 5, label: 'Fri' },
-  { value: 6, label: 'Sat' },
-]
-
-const HALF_HOUR_CELLS = Array.from({ length: 48 }, (_, index) => index)
 const HOUR_MARKERS = [
   { label: '0', cell: 0 },
   { label: '6', cell: 12 },
@@ -55,9 +45,6 @@ interface MockDailyLimit {
   minutes: string
 }
 
-/**
- * UI 確認用の時間帯範囲。
- */
 /**
  * UI 確認用の hover 中セル情報。
  */
@@ -131,58 +118,6 @@ function createInitialTimeRangeTexts(): DayRecord<string> {
   }
 
   return Object.fromEntries(DAYS.map(day => [day.value, ranges[day.value].join(', ')])) as DayRecord<string>
-}
-
-/** 曜日ごとの値を持つ record を作成する。 */
-function createDayRecord<T>(createValue: () => T): DayRecord<T> {
-  return {
-    0: createValue(),
-    1: createValue(),
-    2: createValue(),
-    3: createValue(),
-    4: createValue(),
-    5: createValue(),
-    6: createValue(),
-  }
-}
-
-/** "HH:MM" 文字列を 30 分セル番号へ変換する。 */
-/** "HH:MM" 文字列を分へ変換する。 */
-function timeToMinutes(time: string): number | undefined {
-  const match = /^(\d{2}):(\d{2})$/.exec(time)
-  if (!match) return undefined
-
-  const hours = Number(match[1])
-  const minutes = Number(match[2])
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return undefined
-  if (hours === 24 && minutes === 0) return 1440
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return undefined
-  return hours * 60 + minutes
-}
-
-/** 分を "HH:MM" 文字列へ変換する。 */
-function minutesToTime(minutes: number): string {
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  return `${String(hours).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
-}
-
-/** 時間帯範囲に少しでも重なるセル番号の配列を返す。 */
-function rangeToOverlappingCells(range: TimeRange): number[] {
-  if (range.startMinute === range.endMinute) return [...HALF_HOUR_CELLS]
-
-  const ranges = range.endMinute > range.startMinute
-    ? [range]
-    : [
-        { startMinute: range.startMinute, endMinute: 1440 },
-        { startMinute: 0, endMinute: range.endMinute },
-      ]
-
-  return HALF_HOUR_CELLS.filter((index) => {
-    const cellStart = index * 30
-    const cellEnd = cellStart + 30
-    return ranges.some(current => current.startMinute < cellEnd && current.endMinute > cellStart)
-  })
 }
 
 /** 指定曜日の保存ルールを返す。 */
@@ -334,62 +269,6 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
   return parseTimeRangeText(timeRangeTexts.value[day]) === undefined
 }
 
-/** カンマ区切りの "HH:MM-HH:MM" 時間帯テキストを解析する。 */
-function parseTimeRangeText(text: string): TimeRange[] | undefined {
-  const trimmed = text.trim()
-  if (trimmed === '') return []
-
-  const ranges: TimeRange[] = []
-  for (const part of trimmed.split(',')) {
-    const match = /^\s*(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})\s*$/.exec(part)
-    if (!match) return undefined
-
-    const start = timeToMinutes(match[1])
-    const end = timeToMinutes(match[2])
-    if (start === undefined || end === undefined) return undefined
-    ranges.push({ startMinute: start, endMinute: end })
-  }
-
-  return ranges
-}
-
-/** 選択済みセルをカンマ区切りの時間帯テキストへ変換する。 */
-function selectedCellsToRangeText(cells: boolean[]): string {
-  const ranges: string[] = []
-  let start: number | undefined
-
-  for (let index = 0; index <= cells.length; index += 1) {
-    if (cells[index]) {
-      start ??= index
-      continue
-    }
-    if (start === undefined) continue
-
-    ranges.push(`${minutesToTime(start * 30)}-${minutesToTime(index * 30)}`)
-    start = undefined
-  }
-
-  return ranges.join(', ')
-}
-
-/** 選択済みセルを保存用の分単位時間帯へ変換する。 */
-function cellsToRanges(cells: boolean[]): TimeRange[] {
-  const ranges: TimeRange[] = []
-  let start: number | undefined
-
-  for (let index = 0; index <= cells.length; index += 1) {
-    if (cells[index]) {
-      start ??= index
-      continue
-    }
-    if (start === undefined) continue
-
-    ranges.push({ startMinute: start * 30, endMinute: index * 30 })
-    start = undefined
-  }
-
-  return ranges
-}
 </script>
 
 <template>

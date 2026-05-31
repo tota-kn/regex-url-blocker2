@@ -1,25 +1,12 @@
 import { getLogicalDate } from './blocking'
+import { cloneGroup, cloneSettings } from './groups'
 import type { EffectiveSettingsState, Group, Settings } from './types'
-
-/**
- * 設定値を JSON 互換の deep clone として複製する。
- */
-function cloneSettings(settings: Settings): Settings {
-  return JSON.parse(JSON.stringify(settings)) as Settings
-}
 
 /**
  * JSON 化できる設定値同士が同一なら true を返す。
  */
 function settingsEqual(a: Settings, b: Settings): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
-}
-
-/**
- * グループを JSON 互換の deep clone として複製する。
- */
-function cloneGroup(group: Group): Group {
-  return JSON.parse(JSON.stringify(group)) as Group
 }
 
 /**

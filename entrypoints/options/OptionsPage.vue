@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { Cog6ToothIcon, ExclamationCircleIcon, EyeIcon, QueueListIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { Cog6ToothIcon, ExclamationCircleIcon, EyeIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import { getNextEffectiveSettingsResetAt, hasLockModeGroup, hasPendingEffectiveSettings } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate, type GroupTemplateId } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
+import { formatDateTime } from '@/utils/datetime'
+import { cloneSettings } from '@/utils/groups'
 import { loadCounters, loadEffectiveSettingsState, loadSettings, parseSettingsExportJson, saveSettings, serializeSettingsExport } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
-import type { DailyRule, Group, Settings, TimeRange, UsageCountersState } from '@/utils/types'
+import type { Group, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import ActiveSettingsDialog from '@/components/options/ActiveSettingsDialog.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
 
@@ -27,7 +30,7 @@ const now = ref(new Date())
 const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
-const activeSettingsDialogRef = ref<HTMLDialogElement | null>(null)
+const activeSettingsDialogRef = ref<InstanceType<typeof ActiveSettingsDialog> | null>(null)
 const activeSection = ref<'groups' | 'general'>('groups')
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
@@ -92,7 +95,7 @@ function saveGroup(group: Group): void {
 
 /** Lock Mode group がある間は保存値の daily reset time を現在有効な値に固定する。 */
 function protectDailyResetTime(s: Settings): Settings {
-  const next = JSON.parse(JSON.stringify(s)) as Settings
+  const next = cloneSettings(s)
   if (hasLockModeGroup(next) || hasLockModeGroup(effectiveSettings.value)) {
     next.global.dailyResetHour = effectiveSettings.value.global.dailyResetHour
   }
@@ -146,70 +149,10 @@ function exportSettings(): void {
 }
 
 /**
- * 分単位の時刻を HH:MM 文字列に変換する。
- */
-function formatMinute(minute: number): string {
-  const normalized = ((minute % 1440) + 1440) % 1440
-  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`
-}
-
-/**
- * ブロック時間帯を読み取り表示用の文字列に変換する。
- */
-function formatTimeRange(range: TimeRange): string {
-  if (range.startMinute === range.endMinute) return 'All day'
-  return `${formatMinute(range.startMinute)}-${formatMinute(range.endMinute)}`
-}
-
-/**
- * 日時を YYYY-MM-DD HH:MM で表示する。
- */
-function formatDateTime(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const h = String(date.getHours()).padStart(2, '0')
-  const min = String(date.getMinutes()).padStart(2, '0')
-  return `${y}-${m}-${d} ${h}:${min}`
-}
-
-/**
- * 読み取り専用表示用に曜日別ルールを要約する。
- */
-function formatDailyRule(rule: DailyRule): string {
-  const ranges = rule.blockedTimeRanges.length > 0
-    ? rule.blockedTimeRanges.map(formatTimeRange).join(', ')
-    : 'No blocked time'
-  const limit = rule.dailyLimitMinutes === undefined ? 'No limit' : `${rule.dailyLimitMinutes} min`
-  return `Blocked time: ${ranges}; Daily limit: ${limit}`
-}
-
-/**
- * URL pattern mode の保存値を読み取り表示用の文言に変換する。
- */
-function formatGroupMode(group: Group): string {
-  return group.mode === 'whitelist' ? 'Allow only matches' : 'Block matches'
-}
-
-/**
- * グループ単位のブロック遷移先を読み取り表示用の文言に変換する。
- */
-function formatBlockDestination(group: Group): string {
-  return group.blockAction === 'redirect' ? `Redirect to ${group.redirectUrl}` : 'Blocked page'
-}
-
-/**
  * 現在適用中の有効設定モーダルを開く。
  */
 function openActiveSettings(): void {
-  activeSettingsDialogRef.value?.showModal()
-}
-
-/**
- * 現在適用中の有効設定モーダルを閉じる。
- */
-function closeActiveSettings(): void {
-  activeSettingsDialogRef.value?.close()
+  activeSettingsDialogRef.value?.open()
 }
 
 /**
@@ -265,131 +208,10 @@ onUnmounted(() => {
 
 <template>
   <ConfirmDialog ref="confirmDialogRef" />
-  <dialog
+  <ActiveSettingsDialog
     ref="activeSettingsDialogRef"
-    class="dialog-centered max-h-[85vh] w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-border bg-background p-0 text-foreground shadow-lg"
-  >
-    <div class="sticky top-0 flex items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
-      <div>
-        <h2 class="text-heading-md">
-          Currently active settings
-        </h2>
-        <p class="mt-1 text-body-sm text-muted">
-          Read-only settings used by blocking right now.
-        </p>
-      </div>
-      <BaseButton
-        type="button"
-        size="icon-md"
-        variant="secondary"
-        aria-label="Close active settings"
-        @click="closeActiveSettings"
-      >
-        <XMarkIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-      </BaseButton>
-    </div>
-
-    <div class="px-5 py-4">
-      <section class="space-y-3">
-        <h3 class="text-label-md text-secondary-foreground">
-          Groups
-        </h3>
-        <p
-          v-if="effectiveSettings.groups.length === 0"
-          aria-label="No active groups"
-          class="rounded-md border border-border bg-surface p-3 text-body-sm text-muted"
-        >
-          No active groups
-        </p>
-        <article
-          v-for="group in effectiveSettings.groups"
-          :key="group.id"
-          class="space-y-3 rounded-md border border-border bg-surface p-3"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h4 class="text-label-md">
-              {{ group.name }}
-            </h4>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              URL patterns
-            </p>
-            <dl class="mt-1 grid gap-1 text-body-sm">
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  URL pattern mode
-                </dt>
-                <dd class="mt-1 font-medium">
-                  {{ formatGroupMode(group) }}
-                </dd>
-              </div>
-            </dl>
-            <ul class="mt-2 space-y-1 text-body-sm">
-              <li
-                v-for="pattern in group.patterns"
-                :key="pattern"
-                class="break-all rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-              >
-                {{ pattern }}
-              </li>
-              <li
-                v-if="group.patterns.length === 0"
-                class="rounded border border-border bg-background px-2 py-1 text-muted"
-              >
-                No URL patterns yet
-              </li>
-            </ul>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              Blocking rules
-            </p>
-            <dl class="mt-1 grid gap-1 text-body-sm">
-              <div
-                v-for="rule in group.dailyRules"
-                :key="rule.dayOfWeek"
-                class="grid gap-1 rounded border border-border bg-background px-2 py-1 sm:grid-cols-[4rem_minmax(0,1fr)]"
-              >
-                <dt class="font-medium">
-                  {{ ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][rule.dayOfWeek] }}
-                </dt>
-                <dd class="text-muted">
-                  {{ formatDailyRule(rule) }}
-                </dd>
-              </div>
-            </dl>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              Options
-            </p>
-            <dl class="mt-1 grid gap-2 text-body-sm sm:grid-cols-2">
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  Lock Mode
-                </dt>
-                <dd class="mt-1 font-medium">
-                  {{ group.lockMode ? 'On' : 'Off' }}
-                </dd>
-              </div>
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  Block destination
-                </dt>
-                <dd class="mt-1 break-all font-medium">
-                  {{ formatBlockDestination(group) }}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </article>
-      </section>
-    </div>
-  </dialog>
+    :effective-settings="effectiveSettings"
+  />
   <main class="min-h-screen overflow-x-hidden bg-secondary/40 text-foreground">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <p
