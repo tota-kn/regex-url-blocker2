@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowDownTrayIcon, ArrowPathIcon, ArrowUpTrayIcon, BellAlertIcon } from '@heroicons/vue/24/outline'
-import { computed, ref } from 'vue'
+import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, BellAlertIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
@@ -35,6 +35,7 @@ const emit = defineEmits<{
  */
 const globalSettings = defineModel<GlobalSettings>({ required: true })
 const importInput = ref<HTMLInputElement | null>(null)
+const incognitoAccessAllowed = ref<boolean | undefined>()
 
 const notificationThresholdInput = computed({
   get: () => Number.isFinite(globalSettings.value.notificationThresholdMinutes) ? String(globalSettings.value.notificationThresholdMinutes) : '',
@@ -43,6 +44,47 @@ const notificationThresholdInput = computed({
     globalSettings.value.notificationThresholdMinutes = text === '' ? Number.NaN : Number(text)
   },
 })
+
+const incognitoStatusText = computed(() => {
+  if (incognitoAccessAllowed.value === true) return 'Enabled'
+  if (incognitoAccessAllowed.value === false) return 'Disabled'
+  return 'Unable to check'
+})
+
+/**
+ * Chrome の拡張機能詳細ページ URL を生成する。
+ */
+function getChromeExtensionSettingsUrl(): string {
+  return `chrome://extensions/?id=${browser.runtime.id}`
+}
+
+/**
+ * Chrome のシークレットモード許可状態を再取得する。
+ */
+async function refreshIncognitoAccess(): Promise<void> {
+  try {
+    incognitoAccessAllowed.value = await browser.extension.isAllowedIncognitoAccess()
+  }
+  catch {
+    incognitoAccessAllowed.value = undefined
+  }
+}
+
+/**
+ * Options 画面が再表示されたときにシークレットモード許可状態を再取得する。
+ */
+function refreshIncognitoAccessWhenVisible(): void {
+  if (document.visibilityState === 'visible') {
+    void refreshIncognitoAccess()
+  }
+}
+
+/**
+ * Chrome の拡張機能詳細ページを新しいタブで開く。
+ */
+async function openChromeExtensionSettings(): Promise<void> {
+  await browser.tabs.create({ url: getChromeExtensionSettingsUrl() })
+}
 
 /**
  * 設定ファイル選択ダイアログを開く。
@@ -60,6 +102,17 @@ function handleImportFile(event: Event): void {
   if (file) emit('importSettings', file)
   input.value = ''
 }
+
+onMounted(() => {
+  void refreshIncognitoAccess()
+  document.addEventListener('visibilitychange', refreshIncognitoAccessWhenVisible)
+  window.addEventListener('focus', refreshIncognitoAccess)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', refreshIncognitoAccessWhenVisible)
+  window.removeEventListener('focus', refreshIncognitoAccess)
+})
 </script>
 
 <template>
@@ -160,6 +213,39 @@ function handleImportFile(event: Event): void {
             <span class="mt-1 block text-body-sm text-muted">Notify once per group each day when redirect blocking is triggered.</span>
           </span>
         </label>
+      </div>
+
+      <div
+        class="border-t border-border pt-4"
+        aria-label="Incognito mode"
+      >
+        <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
+          <EyeSlashIcon
+            aria-hidden="true"
+            class="size-4 text-muted"
+          />
+          Incognito mode
+        </div>
+        <p class="mt-2 text-body-sm text-muted">
+          Chrome settings must be used to allow this extension in Incognito.
+        </p>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <p class="text-body-sm text-secondary-foreground">
+            Status:
+            <span class="font-medium text-foreground">{{ incognitoStatusText }}</span>
+          </p>
+          <BaseButton
+            variant="secondary"
+            aria-label="Open Chrome extension settings"
+            @click="openChromeExtensionSettings"
+          >
+            <ArrowTopRightOnSquareIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+            Open Chrome extension settings
+          </BaseButton>
+        </div>
       </div>
 
       <div class="border-t border-border pt-4">

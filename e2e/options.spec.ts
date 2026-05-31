@@ -97,8 +97,24 @@ test.describe('Options 画面', () => {
     await expect(notifications.getByLabel('Remaining time notification threshold', { exact: true })).toHaveAttribute('min', '1')
     await expect(notifications.getByLabel('Matching page notification')).toBeChecked()
     await expect(notifications.getByLabel('Blocked redirect notification')).toBeChecked()
+    const incognitoMode = page.getByLabel('Incognito mode')
+    await expect(incognitoMode).toBeVisible()
+    await expect(incognitoMode.getByText('Chrome settings must be used to allow this extension in Incognito.')).toBeVisible()
+    await expect(incognitoMode.getByText(/Status: (Enabled|Disabled|Unable to check)/)).toBeVisible()
+    await expect(incognitoMode.getByRole('button', { name: 'Open Chrome extension settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Export settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
+  })
+
+  test('Incognito mode の Chrome 拡張詳細ページを開ける', async ({ page, context, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await openGeneralSettings(page)
+    const pagePromise = context.waitForEvent('page')
+    await page.getByRole('button', { name: 'Open Chrome extension settings' }).click()
+    const extensionSettingsPage = await pagePromise
+
+    await expect(extensionSettingsPage).toHaveURL(`chrome://extensions/?id=${extensionId}`)
   })
 
   test('セクション切り替え時にサイドバーの位置がずれない', async ({ page, context, extensionId }) => {
