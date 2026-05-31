@@ -180,8 +180,9 @@ function formatRemainingNotificationMinutes(remainingSec: number): string {
  * 現在の active tab に対して、閾値以下になった閲覧上限付きグループを1日1回だけ通知する。
  */
 async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, now: Date): Promise<void> {
+  if (!s.global.remainingTimeNotificationsEnabled) return
+
   const thresholdMinutes = s.global.notificationThresholdMinutes
-  if (thresholdMinutes === 0) return
 
   const thresholdSec = thresholdMinutes * 60
   const evaluation = evaluateUrl(s, counters, tab.url, now)

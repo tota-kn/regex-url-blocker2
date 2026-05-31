@@ -99,31 +99,43 @@ function handleImportFile(event: Event): void {
         </p>
       </BaseField>
 
-      <BaseField
-        label="Remaining time notification"
-        :error="error('notificationThresholdMinutes')"
+      <div
+        class="space-y-2"
+        aria-label="Notifications"
       >
-        <template #icon>
+        <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
           <BellAlertIcon
             aria-hidden="true"
             class="size-4 text-muted"
           />
-        </template>
-        <BaseInput
-          v-model="notificationThresholdInput"
-          type="number"
-          min="0"
-          step="1"
-          aria-label="Remaining time notification"
-          class="w-full"
-          :invalid="Boolean(error('notificationThresholdMinutes'))"
-        />
-        <p class="mt-1.5 text-body-sm text-muted">
-          Notify when the remaining daily browsing time reaches this many minutes. 0 disables notifications.
-        </p>
-      </BaseField>
-
-      <div class="space-y-2 rounded-md border border-border bg-surface p-3">
+          Notifications
+        </div>
+        <div class="space-y-3">
+          <label class="flex items-start gap-3">
+            <input
+              v-model="globalSettings.remainingTimeNotificationsEnabled"
+              type="checkbox"
+              class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+              aria-label="Remaining time notification"
+            >
+            <span class="min-w-0">
+              <span class="block text-label-md text-secondary-foreground">Remaining time notification</span>
+              <span class="mt-1 block text-body-sm text-muted">Notify when the remaining daily browsing time reaches the specified minutes.</span>
+            </span>
+          </label>
+          <BaseField :error="error('notificationThresholdMinutes')">
+            <BaseInput
+              v-model="notificationThresholdInput"
+              type="number"
+              min="1"
+              step="1"
+              aria-label="Remaining time notification threshold"
+              class="w-full"
+              :disabled="!globalSettings.remainingTimeNotificationsEnabled"
+              :invalid="Boolean(error('notificationThresholdMinutes'))"
+            />
+          </BaseField>
+        </div>
         <label class="flex items-start gap-3">
           <input
             v-model="globalSettings.pageOpenNotificationsEnabled"

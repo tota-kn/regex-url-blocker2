@@ -46,8 +46,12 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
     errors.push({ field: 'dailyResetHour', message: 'Use HH:MM' })
   }
 
-  if (!Number.isInteger(settings.notificationThresholdMinutes) || settings.notificationThresholdMinutes < 0) {
-    errors.push({ field: 'notificationThresholdMinutes', message: 'Use 0+ integer' })
+  if (!Number.isInteger(settings.notificationThresholdMinutes) || settings.notificationThresholdMinutes < 1) {
+    errors.push({ field: 'notificationThresholdMinutes', message: 'Use 1+ integer' })
+  }
+
+  if (typeof settings.remainingTimeNotificationsEnabled !== 'boolean') {
+    errors.push({ field: 'remainingTimeNotificationsEnabled', message: 'Use true or false' })
   }
 
   if (typeof settings.pageOpenNotificationsEnabled !== 'boolean') {

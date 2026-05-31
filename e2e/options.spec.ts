@@ -90,9 +90,13 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('heading', { name: 'General settings' })).toBeVisible()
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
     await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
-    await expect(page.getByLabel('Remaining time notification')).toHaveValue('5')
-    await expect(page.getByLabel('Matching page notification')).toBeChecked()
-    await expect(page.getByLabel('Blocked redirect notification')).toBeChecked()
+    const notifications = page.getByLabel('Notifications')
+    await expect(notifications).toBeVisible()
+    await expect(notifications.getByRole('checkbox', { name: 'Remaining time notification' })).toBeChecked()
+    await expect(notifications.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('5')
+    await expect(notifications.getByLabel('Remaining time notification threshold', { exact: true })).toHaveAttribute('min', '1')
+    await expect(notifications.getByLabel('Matching page notification')).toBeChecked()
+    await expect(notifications.getByLabel('Blocked redirect notification')).toBeChecked()
     await expect(page.getByRole('button', { name: 'Export settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
   })
@@ -138,21 +142,31 @@ test.describe('Options 画面', () => {
     expect(generalBox!.width).toBeCloseTo(groupsBox!.width, 1)
   })
 
-  test('残り時間通知の分数設定を保存でき、0 も設定できる', async ({ page, extensionId }) => {
+  test('残り時間通知の ON/OFF と分数設定を保存できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
-    await page.getByLabel('Remaining time notification').fill('12')
+    await page.getByLabel('Remaining time notification threshold', { exact: true }).fill('12')
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
-    await expect(page.getByLabel('Remaining time notification')).toHaveValue('12')
+    await expect(page.getByRole('checkbox', { name: 'Remaining time notification' })).toBeChecked()
+    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('12')
 
-    await page.getByLabel('Remaining time notification').fill('0')
+    await page.getByRole('checkbox', { name: 'Remaining time notification' }).uncheck()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
-    await expect(page.getByLabel('Remaining time notification')).toHaveValue('0')
+    await expect(page.getByRole('checkbox', { name: 'Remaining time notification' })).not.toBeChecked()
+    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toBeDisabled()
+    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('12')
+
+    await page.getByRole('checkbox', { name: 'Remaining time notification' }).check()
+    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toBeEnabled()
+    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('12')
+
+    await page.getByLabel('Remaining time notification threshold', { exact: true }).fill('0')
+    await expect(page.getByText('Use 1+ integer')).toBeVisible()
   })
 
   test('通知タイミング設定を保存できる', async ({ page, extensionId }) => {
@@ -223,7 +237,8 @@ test.describe('Options 画面', () => {
     }))
 
     await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
-    await expect(page.getByLabel('Remaining time notification')).toHaveValue('9')
+    await expect(page.getByRole('checkbox', { name: 'Remaining time notification' })).toBeChecked()
+    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.locator('main').getByText('Options')).not.toBeVisible()
@@ -245,6 +260,7 @@ test.describe('Options 画面', () => {
       return chromeApi.chrome.storage.sync.get(['global', 'groups'])
     }) as { global?: Record<string, unknown>, groups?: Array<Record<string, unknown>> }
     expect(stored.global?.dailyResetHour).toBe('04:30')
+    expect(stored.global?.remainingTimeNotificationsEnabled).toBe(true)
     expect(stored.global?.notificationThresholdMinutes).toBe(9)
     expect(stored.groups).toHaveLength(1)
     expect(stored.groups?.[0].name).toBe('Imported')
@@ -550,7 +566,7 @@ test.describe('Options 画面', () => {
     await openGeneralSettings(page)
     const generalInputs = [
       page.getByLabel('Daily reset time'),
-      page.getByLabel('Remaining time notification'),
+      page.getByLabel('Remaining time notification threshold', { exact: true }),
     ]
 
     for (const input of generalInputs) {

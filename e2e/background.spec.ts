@@ -233,6 +233,7 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       blockAction: 'redirect',
       redirectUrl: `${origin}/blocked`,
       dailyResetHour,
+      remainingTimeNotificationsEnabled: true,
       notificationThresholdMinutes: 5,
       pageOpenNotificationsEnabled: true,
       blockNotificationsEnabled: true,
@@ -857,6 +858,7 @@ test.describe('Remaining time notifications', () => {
             blockAction: 'redirect',
             redirectUrl: `${settings.origin}/blocked`,
             dailyResetHour: settings.dailyResetHour,
+            remainingTimeNotificationsEnabled: true,
             notificationThresholdMinutes: 1,
           },
           groups: [{
@@ -899,7 +901,7 @@ test.describe('Remaining time notifications', () => {
     }
   })
 
-  test('通知閾値が0なら残り時間通知を出さない', async ({ page, context }) => {
+  test('remainingTimeNotificationsEnabled が false なら閾値内でも残り時間通知を出さない', async ({ page, context }) => {
     const server = await startServer()
     try {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
@@ -922,7 +924,8 @@ test.describe('Remaining time notifications', () => {
             blockAction: 'redirect',
             redirectUrl: `${settings.origin}/blocked`,
             dailyResetHour: settings.dailyResetHour,
-            notificationThresholdMinutes: 0,
+            remainingTimeNotificationsEnabled: false,
+            notificationThresholdMinutes: 1,
           },
           groups: [{
             id: 'notify-disabled-group',

@@ -29,7 +29,15 @@ function normalizeBlockAction(value: unknown): BlockAction {
  * 保存済み値を残り時間通知の閾値分数へ正規化する。
  */
 function normalizeNotificationThresholdMinutes(value: unknown): number {
-  return typeof value === 'number' ? value : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
+}
+
+/**
+ * 保存済み値を残り時間通知 ON/OFF 設定へ正規化する。
+ */
+function normalizeRemainingTimeNotificationsEnabled(value: unknown, rawThresholdMinutes: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  return rawThresholdMinutes !== 0
 }
 
 /**
@@ -102,13 +110,18 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
   const rawGlobal = asRecord(raw.global)
   const fallbackBlockAction = normalizeBlockAction(rawGlobal.blockAction)
   const fallbackRedirectUrl = typeof rawGlobal.redirectUrl === 'string' ? rawGlobal.redirectUrl : DEFAULT_GLOBAL_SETTINGS.redirectUrl
+  const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes)
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
       ...rawGlobal,
       blockAction: fallbackBlockAction,
       redirectUrl: fallbackRedirectUrl,
-      notificationThresholdMinutes: normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes),
+      notificationThresholdMinutes,
+      remainingTimeNotificationsEnabled: normalizeRemainingTimeNotificationsEnabled(
+        rawGlobal.remainingTimeNotificationsEnabled,
+        rawGlobal.notificationThresholdMinutes,
+      ),
       pageOpenNotificationsEnabled: normalizeBooleanSetting(rawGlobal.pageOpenNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.pageOpenNotificationsEnabled),
       blockNotificationsEnabled: normalizeBooleanSetting(rawGlobal.blockNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.blockNotificationsEnabled),
     },

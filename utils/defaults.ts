@@ -12,6 +12,7 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   blockAction: 'blockedPage',
   redirectUrl: 'https://example.com',
   dailyResetHour: '03:00',
+  remainingTimeNotificationsEnabled: true,
   notificationThresholdMinutes: 5,
   pageOpenNotificationsEnabled: true,
   blockNotificationsEnabled: true,

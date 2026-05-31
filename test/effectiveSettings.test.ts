@@ -142,6 +142,20 @@ describe('effective settings', () => {
     expect(state.effectiveSettings.global.dailyResetHour).toBe('05:00')
   })
 
+  it('残り時間通知 ON/OFF は即時に有効設定へ反映される', () => {
+    const active = settings([group()], '03:00')
+    const basePreferred = settings([group()], '03:00')
+    const preferred = {
+      ...basePreferred,
+      global: {
+        ...basePreferred.global,
+        remainingTimeNotificationsEnabled: false,
+      },
+    }
+
+    expect(mergeImmediateRestrictions(active, preferred).global.remainingTimeNotificationsEnabled).toBe(false)
+  })
+
   it('Lock Mode ON の group 削除は次回 reset まで effective に残る', () => {
     const active = settings([group({ lockMode: true })], '03:00')
     const preferred = settings([], '03:00')

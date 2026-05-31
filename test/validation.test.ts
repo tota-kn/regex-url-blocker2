@@ -271,18 +271,18 @@ describe('validateGlobalSettings', () => {
     expect(errors.some(e => e.field === 'blockAction')).toBe(true)
   })
 
-  it('notificationThresholdMinutes は 0 と正の整数を許可する', () => {
-    expect(validateGlobalSettings({
-      ...DEFAULT_GLOBAL_SETTINGS,
-      notificationThresholdMinutes: 0,
-    })).toEqual([])
+  it('notificationThresholdMinutes は 1 以上の整数を許可する', () => {
     expect(validateGlobalSettings({
       ...DEFAULT_GLOBAL_SETTINGS,
       notificationThresholdMinutes: 10,
     })).toEqual([])
   })
 
-  it('notificationThresholdMinutes が負数または小数だとエラー', () => {
+  it('notificationThresholdMinutes が 0、負数、または小数だとエラー', () => {
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      notificationThresholdMinutes: 0,
+    }).some(e => e.field === 'notificationThresholdMinutes')).toBe(true)
     expect(validateGlobalSettings({
       ...DEFAULT_GLOBAL_SETTINGS,
       notificationThresholdMinutes: -1,
@@ -294,6 +294,10 @@ describe('validateGlobalSettings', () => {
   })
 
   it('通知ON/OFF設定が boolean でないとエラー', () => {
+    expect(validateGlobalSettings({
+      ...DEFAULT_GLOBAL_SETTINGS,
+      remainingTimeNotificationsEnabled: 'yes' as unknown as boolean,
+    }).some(e => e.field === 'remainingTimeNotificationsEnabled')).toBe(true)
     expect(validateGlobalSettings({
       ...DEFAULT_GLOBAL_SETTINGS,
       pageOpenNotificationsEnabled: 'yes' as unknown as boolean,

@@ -297,7 +297,7 @@ onUnmounted(() => {
               Remaining time notification
             </dt>
             <dd class="mt-1 font-medium">
-              {{ effectiveSettings.global.notificationThresholdMinutes }} min
+              {{ effectiveSettings.global.remainingTimeNotificationsEnabled ? `${effectiveSettings.global.notificationThresholdMinutes} min` : 'Off' }}
             </dd>
           </div>
           <div class="rounded-md border border-border bg-surface p-3">

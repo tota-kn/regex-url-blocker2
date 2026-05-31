@@ -21,9 +21,17 @@ describe('loadSettings', () => {
     expect(s.global.redirectUrl).toBe('https://block.test')
     expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
     expect(s.global.dailyResetHour).toBe(DEFAULT_GLOBAL_SETTINGS.dailyResetHour)
+    expect(s.global.remainingTimeNotificationsEnabled).toBe(true)
     expect(s.global.notificationThresholdMinutes).toBe(5)
     expect(s.global.pageOpenNotificationsEnabled).toBe(true)
     expect(s.global.blockNotificationsEnabled).toBe(true)
+  })
+
+  it('旧形式の notificationThresholdMinutes: 0 は残り時間通知 OFF へ移行される', async () => {
+    await browser.storage.sync.set({ global: { notificationThresholdMinutes: 0 } })
+    const s = await loadSettings()
+    expect(s.global.remainingTimeNotificationsEnabled).toBe(false)
+    expect(s.global.notificationThresholdMinutes).toBe(DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes)
   })
 
   it('global の blockAction が不正な場合は DEFAULT で補完される', async () => {
@@ -102,6 +110,7 @@ describe('settings export file', () => {
     const settings = {
       global: {
         ...DEFAULT_GLOBAL_SETTINGS,
+        remainingTimeNotificationsEnabled: false,
         notificationThresholdMinutes: 12,
         pageOpenNotificationsEnabled: false,
         blockNotificationsEnabled: false,

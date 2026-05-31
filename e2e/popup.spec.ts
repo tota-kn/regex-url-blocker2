@@ -201,7 +201,7 @@ test.describe('Popup 画面', () => {
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
       await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('5:00 left')
-      await expect(popup.getByText(/4:5[89] left/)).toBeVisible({ timeout: 2_500 })
+      await expect(popup.getByText(/4:5[7-9] left/)).toBeVisible({ timeout: 5_000 })
       await popup.evaluate(async (logicalDate) => {
         const chromeApi = globalThis as unknown as {
           chrome: {

@@ -79,7 +79,9 @@ export interface GlobalSettings {
   redirectUrl: string
   /** 論理日の境界となる時刻（"HH:MM"）。 */
   dailyResetHour: HHMM
-  /** 残り閲覧時間通知を出す閾値分数。0 は通知無効。 */
+  /** 残り閲覧時間通知を有効にするか。 */
+  remainingTimeNotificationsEnabled: boolean
+  /** 残り閲覧時間通知を出す閾値分数。 */
   notificationThresholdMinutes: number
   /** 閲覧上限付き対象ページを開いたときの通知を有効にするか。 */
   pageOpenNotificationsEnabled: boolean
