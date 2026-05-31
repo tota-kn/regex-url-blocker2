@@ -305,10 +305,25 @@ test.describe('Options 画面', () => {
           mode: 'blacklist',
           lockMode: true,
           patterns: ['active\\.example'],
+          blockAction: 'redirect',
+          redirectUrl: 'https://active-blocked.test',
           dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
             dayOfWeek,
             blockedTimeRanges: [{ startMinute: 540, endMinute: 1020 }],
             dailyLimitMinutes: 10,
+          })),
+        }, {
+          id: 'allowlist',
+          name: 'Allowlist',
+          mode: 'whitelist',
+          lockMode: false,
+          patterns: [],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://unused-blocked.test',
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: undefined,
           })),
         }],
       }
@@ -337,10 +352,25 @@ test.describe('Options 画面', () => {
           mode: 'blacklist',
           lockMode: true,
           patterns: ['active\\.example'],
+          blockAction: 'redirect',
+          redirectUrl: 'https://preferred-blocked.test',
           dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
             dayOfWeek,
             blockedTimeRanges: [],
             dailyLimitMinutes: 30,
+          })),
+        }, {
+          id: 'allowlist',
+          name: 'Allowlist',
+          mode: 'whitelist',
+          lockMode: false,
+          patterns: [],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://unused-blocked.test',
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: undefined,
           })),
         }],
       })
@@ -353,8 +383,8 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Daily reset time')).toBeDisabled()
     await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Sun blocked time ranges')).toHaveText('No blocked time')
-    await expect(page.getByLabel('Sun daily limit minutes')).toHaveText('30')
+    await expect(page.getByLabel('Sun blocked time ranges').first()).toHaveText('No blocked time')
+    await expect(page.getByLabel('Sun daily limit minutes').first()).toHaveText('30')
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
 
@@ -363,13 +393,25 @@ test.describe('Options 画面', () => {
     const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
     await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
     await expectDialogCentered(page, activeSettingsDialog)
+    await expect(activeSettingsDialog.getByText('General settings')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Daily reset time')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Remaining time notification')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Matching page notification')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked redirect notification')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocking rules').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('URL pattern mode').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Block matches')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Allow only matches')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Lock Mode').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Block destination').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('03:00', { exact: true })).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Matching page notification')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked redirect notification')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Lock Mode On')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked page')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked: 09:00-17:00; limit: 10 min').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('No URL patterns yet')).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked time: 09:00-17:00; Daily limit: 10 min').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked time: No blocked time; Daily limit: No limit').first()).toBeVisible()
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {

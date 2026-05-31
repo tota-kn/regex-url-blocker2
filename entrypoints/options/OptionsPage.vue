@@ -179,9 +179,23 @@ function formatDateTime(date: Date): string {
 function formatDailyRule(rule: DailyRule): string {
   const ranges = rule.blockedTimeRanges.length > 0
     ? rule.blockedTimeRanges.map(formatTimeRange).join(', ')
-    : 'none'
-  const limit = rule.dailyLimitMinutes === undefined ? 'none' : `${rule.dailyLimitMinutes} min`
-  return `Blocked: ${ranges}; limit: ${limit}`
+    : 'No blocked time'
+  const limit = rule.dailyLimitMinutes === undefined ? 'No limit' : `${rule.dailyLimitMinutes} min`
+  return `Blocked time: ${ranges}; Daily limit: ${limit}`
+}
+
+/**
+ * URL pattern mode の保存値を読み取り表示用の文言に変換する。
+ */
+function formatGroupMode(group: Group): string {
+  return group.mode === 'whitelist' ? 'Allow only matches' : 'Block matches'
+}
+
+/**
+ * グループ単位のブロック遷移先を読み取り表示用の文言に変換する。
+ */
+function formatBlockDestination(group: Group): string {
+  return group.blockAction === 'redirect' ? `Redirect to ${group.redirectUrl}` : 'Blocked page'
 }
 
 /**
@@ -278,47 +292,7 @@ onUnmounted(() => {
       </BaseButton>
     </div>
 
-    <div class="space-y-5 px-5 py-4">
-      <section class="space-y-2">
-        <h3 class="text-label-md text-secondary-foreground">
-          General settings
-        </h3>
-        <dl class="grid gap-2 text-body-sm sm:grid-cols-2">
-          <div class="rounded-md border border-border bg-surface p-3">
-            <dt class="text-muted">
-              Daily reset time
-            </dt>
-            <dd class="mt-1 font-medium">
-              {{ effectiveSettings.global.dailyResetHour }}
-            </dd>
-          </div>
-          <div class="rounded-md border border-border bg-surface p-3">
-            <dt class="text-muted">
-              Remaining time notification
-            </dt>
-            <dd class="mt-1 font-medium">
-              {{ effectiveSettings.global.remainingTimeNotificationsEnabled ? `${effectiveSettings.global.notificationThresholdMinutes} min` : 'Off' }}
-            </dd>
-          </div>
-          <div class="rounded-md border border-border bg-surface p-3">
-            <dt class="text-muted">
-              Matching page notification
-            </dt>
-            <dd class="mt-1 font-medium">
-              {{ effectiveSettings.global.pageOpenNotificationsEnabled ? 'On' : 'Off' }}
-            </dd>
-          </div>
-          <div class="rounded-md border border-border bg-surface p-3">
-            <dt class="text-muted">
-              Blocked redirect notification
-            </dt>
-            <dd class="mt-1 font-medium">
-              {{ effectiveSettings.global.blockNotificationsEnabled ? 'On' : 'Off' }}
-            </dd>
-          </div>
-        </dl>
-      </section>
-
+    <div class="px-5 py-4">
       <section class="space-y-3">
         <h3 class="text-label-md text-secondary-foreground">
           Groups
@@ -339,26 +313,22 @@ onUnmounted(() => {
             <h4 class="text-label-md">
               {{ group.name }}
             </h4>
-            <span class="rounded-md border border-border px-2 py-1 text-label-sm text-muted">
-              {{ group.mode }}
-            </span>
-            <span class="rounded-md border border-border px-2 py-1 text-label-sm text-muted">
-              Lock Mode {{ group.lockMode ? 'On' : 'Off' }}
-            </span>
           </div>
           <div>
             <p class="text-label-sm text-muted">
-              Block destination
+              URL patterns
             </p>
-            <p class="mt-1 break-all rounded border border-border bg-background px-2 py-1 text-body-sm">
-              {{ group.blockAction === 'redirect' ? `Redirect to ${group.redirectUrl}` : 'Blocked page' }}
-            </p>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              Patterns
-            </p>
-            <ul class="mt-1 space-y-1 text-body-sm">
+            <dl class="mt-1 grid gap-1 text-body-sm">
+              <div class="rounded border border-border bg-background px-2 py-1">
+                <dt class="text-muted">
+                  URL pattern mode
+                </dt>
+                <dd class="mt-1 font-medium">
+                  {{ formatGroupMode(group) }}
+                </dd>
+              </div>
+            </dl>
+            <ul class="mt-2 space-y-1 text-body-sm">
               <li
                 v-for="pattern in group.patterns"
                 :key="pattern"
@@ -368,15 +338,15 @@ onUnmounted(() => {
               </li>
               <li
                 v-if="group.patterns.length === 0"
-                class="text-muted"
+                class="rounded border border-border bg-background px-2 py-1 text-muted"
               >
-                none
+                No URL patterns yet
               </li>
             </ul>
           </div>
           <div>
             <p class="text-label-sm text-muted">
-              Daily rules
+              Blocking rules
             </p>
             <dl class="mt-1 grid gap-1 text-body-sm">
               <div
@@ -389,6 +359,29 @@ onUnmounted(() => {
                 </dt>
                 <dd class="text-muted">
                   {{ formatDailyRule(rule) }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <div>
+            <p class="text-label-sm text-muted">
+              Options
+            </p>
+            <dl class="mt-1 grid gap-2 text-body-sm sm:grid-cols-2">
+              <div class="rounded border border-border bg-background px-2 py-1">
+                <dt class="text-muted">
+                  Lock Mode
+                </dt>
+                <dd class="mt-1 font-medium">
+                  {{ group.lockMode ? 'On' : 'Off' }}
+                </dd>
+              </div>
+              <div class="rounded border border-border bg-background px-2 py-1">
+                <dt class="text-muted">
+                  Block destination
+                </dt>
+                <dd class="mt-1 break-all font-medium">
+                  {{ formatBlockDestination(group) }}
                 </dd>
               </div>
             </dl>
