@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup, createGroupFromTemplate } from '../utils/defaults'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
-  it('SPEC.md の既定値と一致する', () => {
+  it('仕様書の既定値と一致する', () => {
     expect(DEFAULT_GLOBAL_SETTINGS.blockAction).toBe('blockedPage')
     expect(DEFAULT_GLOBAL_SETTINGS.redirectUrl).toBe('https://example.com')
     expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('03:00')
@@ -14,7 +14,7 @@ describe('DEFAULT_GLOBAL_SETTINGS', () => {
 })
 
 describe('createEmptyGroup', () => {
-  it('SPEC.md 準拠の空グループを返す', () => {
+  it('仕様書準拠の空グループを返す', () => {
     const g = createEmptyGroup()
     expect(g.name).toBe('')
     expect(g.mode).toBe('blacklist')

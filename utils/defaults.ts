@@ -6,7 +6,7 @@ import type { DailyRule, DayOfWeek, GlobalSettings, Group } from './types'
 export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work-hours-focus'
 
 /**
- * 未設定時に使用するグローバル設定の既定値。SPEC.md 準拠。
+ * 未設定時に使用するグローバル設定の既定値。docs/spec/domain.md 準拠。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   blockAction: 'blockedPage',

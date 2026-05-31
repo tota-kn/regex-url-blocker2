@@ -46,7 +46,7 @@ export type GroupMode = 'blacklist' | 'whitelist'
 export type BlockAction = 'redirect' | 'blockedPage'
 
 /**
- * ブロック対象グループ。SPEC.md「グループ」節に対応する。
+ * ブロック対象グループ。docs/spec/domain.md「グループ」節に対応する。
  */
 export interface Group {
   /** crypto.randomUUID() で自動採番される一意識別子。 */
@@ -70,7 +70,7 @@ export interface Group {
 }
 
 /**
- * 拡張機能全体のグローバル設定。SPEC.md「グローバル設定」節に対応する。
+ * 拡張機能全体のグローバル設定。docs/spec/domain.md「グローバル設定」節に対応する。
  */
 export interface GlobalSettings {
   /** ブロック発生時の遷移先種別。 */
