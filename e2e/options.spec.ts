@@ -58,16 +58,6 @@ async function createBlankGroup(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create blank group' }).click()
 }
 
-/**
- * グループカード内の Options 折りたたみを開く。
- */
-async function openGroupOptions(page: Page): Promise<void> {
-  const optionsButton = page.locator('main').getByRole('button', { name: /Options/ }).first()
-  await expect(optionsButton).toHaveAttribute('aria-expanded', 'false')
-  await optionsButton.click()
-  await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
-}
-
 test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -236,7 +226,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Remaining time notification')).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
-    await expect(page.locator('main').getByText('Blocked page')).toBeVisible()
+    await expect(page.locator('main').getByText('Options')).not.toBeVisible()
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('imported\\.example')
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveText('15')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
@@ -469,31 +459,33 @@ test.describe('Options 画面', () => {
     }
   })
 
-  test('Options で group ごとの Lock Mode トグルを操作できる', async ({ page, extensionId }) => {
+  test('Options で group ごとの Lock Mode radio を操作できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Locked')
-    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toHaveAttribute('aria-expanded', 'false')
-    await expect(page.getByLabel('Lock Mode')).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Redirect', exact: true })).not.toBeVisible()
-    await openGroupOptions(page)
-    await expect(page.getByLabel('Lock Mode')).not.toBeChecked()
-    await page.getByLabel('Lock Mode').check()
-    await expect(page.getByLabel('Lock Mode')).toBeChecked()
+    await expect(page.locator('main').getByText('Options')).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Lock Mode Off' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Blocked page', exact: true })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Redirect', exact: true })).toBeVisible()
+    await page.getByRole('radio', { name: 'Lock Mode On' }).check()
+    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).toBeChecked()
     await expect(page.getByText('Changes to this group apply after the next reset.')).toBeVisible()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toContainText('Locked')
-    await expect(page.getByLabel('Lock Mode')).not.toBeVisible()
+    await expect(page.locator('main').getByText('Options')).toBeVisible()
+    await expect(page.locator('main').getByText('Lock Mode')).toBeVisible()
+    await expect(page.locator('main').getByText('Locked', { exact: true })).toBeVisible()
+    await expect(page.locator('main').getByText('Block destination', { exact: true })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).not.toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.getByLabel('Lock Mode')).toBeChecked()
-    await page.getByLabel('Lock Mode').uncheck()
-    await expect(page.getByLabel('Lock Mode')).not.toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).toBeChecked()
+    await page.getByRole('radio', { name: 'Lock Mode Off' }).check()
+    await expect(page.getByRole('radio', { name: 'Lock Mode Off' })).toBeChecked()
   })
 
   test('Lock Mode group がある間、Daily reset time 入力が無効化される', async ({ page, extensionId }) => {
@@ -501,8 +493,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LockedReset')
-    await openGroupOptions(page)
-    await page.getByLabel('Lock Mode').check()
+    await page.getByRole('radio', { name: 'Lock Mode On' }).check()
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
@@ -942,9 +933,8 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('RedirectGroup')
-    await expect(page.getByRole('button', { name: 'Redirect', exact: true })).not.toBeVisible()
-    await openGroupOptions(page)
-    await page.getByRole('button', { name: 'Redirect', exact: true }).click()
+    await expect(page.getByRole('radio', { name: 'Redirect', exact: true })).toBeVisible()
+    await page.getByRole('radio', { name: 'Redirect', exact: true }).check()
     await page.getByLabel('Group redirect URL').fill('https://blocked.example.test')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -953,7 +943,6 @@ test.describe('Options 画面', () => {
 
     await expect(page.locator('main').getByText('Redirect to https://blocked.example.test')).toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.locator('main').getByRole('button', { name: /Options/ })).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByLabel('Group redirect URL')).toHaveValue('https://blocked.example.test')
   })
 
@@ -962,32 +951,33 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('BlockedPageGroup')
-    await openGroupOptions(page)
-    await expect(page.getByRole('button', { name: 'Blocked page', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('radio', { name: 'Blocked page', exact: true })).toBeChecked()
+    await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
+    await page.getByRole('radio', { name: 'Redirect', exact: true }).check()
+    await page.getByLabel('Group redirect URL').fill('https://ignored.example.test')
+    await page.getByRole('radio', { name: 'Blocked page', exact: true }).check()
     await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
+    await expect(page.locator('main').getByText('Options')).not.toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await openGroupOptions(page)
-    await expect(page.getByRole('button', { name: 'Blocked page', exact: true })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Redirect', exact: true })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('radio', { name: 'Blocked page', exact: true })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Redirect', exact: true })).not.toBeChecked()
+    await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
   })
 
-  test('グループ別 redirectUrl 検証エラー時は Options が自動展開される', async ({ page, extensionId }) => {
+  test('グループ別 redirectUrl 検証エラー時は保存できない', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('InvalidRedirectGroup')
-    await openGroupOptions(page)
-    await page.getByRole('button', { name: 'Redirect', exact: true }).click()
+    await expect(page.locator('main').getByText('Options')).toBeVisible()
+    await page.getByRole('radio', { name: 'Redirect', exact: true }).check()
     await page.getByLabel('Group redirect URL').fill('not-a-url')
 
-    const optionsButton = page.locator('main').getByRole('button', { name: /Options/ }).first()
-    await optionsButton.click()
-    await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByText('Invalid URL')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
   })
