@@ -6,7 +6,7 @@ export default defineConfig({
   manifest: {
     name: 'Regex URL Guard',
     description: 'Block distracting websites with customizable regular expression URL rules.',
-    version: '1.0.0',
+    version: '1.1.0',
     permissions: ['tabs', 'webNavigation', 'storage', 'alarms', 'idle', 'notifications'],
     options_ui: {
       page: 'options/index.html',
