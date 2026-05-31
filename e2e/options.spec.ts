@@ -989,21 +989,21 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('AllowOnly')
 
     // デフォルトはブラックリスト
-    await expect(page.getByRole('button', { name: 'Block matches' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Allow only matches' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('radio', { name: 'Block matches' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Allow only matches' })).not.toBeChecked()
 
     // ホワイトリストに切替
-    await page.getByRole('button', { name: 'Allow only matches' }).click()
-    await expect(page.getByRole('button', { name: 'Allow only matches' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('radio', { name: 'Allow only matches' }).check()
+    await expect(page.getByRole('radio', { name: 'Allow only matches' })).toBeChecked()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     // リロード後も保持
-    await expect(page.getByRole('button', { name: 'Allow only matches' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Allow only matches' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Block matches' })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Allow only matches' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Allow only matches' })).toBeDisabled()
+    await expect(page.getByRole('radio', { name: 'Block matches' })).not.toBeVisible()
   })
 
   test('保存済みグループの閲覧時はフォーム部品が操作可能に見えない', async ({ page, extensionId }) => {
@@ -1029,7 +1029,7 @@ test.describe('Options 画面', () => {
     await expect(ranges).toHaveText('09:00-17:00')
     await expect(minutes).toHaveText('45')
     await expect(sundayCell).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Block matches' })).toBeDisabled()
+    await expect(page.getByRole('radio', { name: 'Block matches' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
 
     await expect(pattern).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
