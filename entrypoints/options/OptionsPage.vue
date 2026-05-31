@@ -268,7 +268,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 aria-label="Groups"
-                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
+                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
                 :class="activeSection === 'groups'
                   ? 'border-primary bg-accent text-primary'
                   : 'border-transparent text-secondary-foreground hover:border-border-hover hover:bg-background'"
@@ -290,7 +290,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 aria-label="General settings"
-                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
+                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
                 :class="activeSection === 'general'
                   ? 'border-primary bg-accent text-primary'
                   : 'border-transparent text-secondary-foreground hover:border-border-hover hover:bg-background'"
