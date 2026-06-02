@@ -87,7 +87,7 @@ function deletePattern(index: number): void {
           <BaseInput
             v-model="patterns[i]"
             aria-label="URL pattern"
-            placeholder="example.com or ^https?://"
+            placeholder="example.com or ^https?://(www\.)?example\.com/private"
             class="flex-1"
             size="md"
             monospace

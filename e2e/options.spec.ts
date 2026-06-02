@@ -632,7 +632,10 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('')
-    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveAttribute('placeholder', 'example.com or ^https?://')
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveAttribute(
+      'placeholder',
+      'example.com or ^https?://(www\\.)?example\\.com/private',
+    )
     await expect(page.getByText('Invalid URL pattern')).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
