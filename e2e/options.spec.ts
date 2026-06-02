@@ -78,7 +78,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('0 groups')).toBeVisible()
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await expect(page.getByLabel('Daily reset time')).not.toBeVisible()
+    await expect(page.getByLabel('Start a new rule day at this time')).not.toBeVisible()
   })
 
   test('General settings を選ぶとグローバル設定と import/export controls が表示される', async ({ page, extensionId }) => {
@@ -89,21 +89,21 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: /General settings/ })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('heading', { name: 'General settings' })).toBeVisible()
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
+    await expect(page.getByLabel('Start a new rule day at this time')).toHaveValue('03:00')
     const notifications = page.getByLabel('Notifications')
     await expect(notifications).toBeVisible()
-    await expect(notifications.getByRole('checkbox', { name: 'Remaining time notification' })).toBeChecked()
-    await expect(notifications.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('5')
-    await expect(notifications.getByLabel('Remaining time notification threshold', { exact: true })).toHaveAttribute('min', '1')
-    await expect(notifications.getByLabel('Matching page notification')).toBeChecked()
-    await expect(notifications.getByLabel('Blocked redirect notification')).toBeChecked()
-    const incognitoMode = page.getByLabel('Incognito mode')
+    await expect(notifications.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).toBeChecked()
+    await expect(notifications.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('5')
+    await expect(notifications.getByLabel('Minutes left before warning', { exact: true })).toHaveAttribute('min', '1')
+    await expect(notifications.getByLabel('Notify me when I open a page with a daily limit')).toBeChecked()
+    await expect(notifications.getByLabel('Notify me when a redirect block happens')).toBeChecked()
+    const incognitoMode = page.getByLabel('Allow this extension in Incognito')
     await expect(incognitoMode).toBeVisible()
-    await expect(incognitoMode.getByText('Chrome settings must be used to allow this extension in Incognito.')).toBeVisible()
-    await expect(incognitoMode.getByText(/Status: (Enabled|Disabled|Unable to check)/)).toBeVisible()
+    await expect(incognitoMode.getByText(/Incognito access:\s+(Enabled|Disabled|Unable to check)/)).toBeVisible()
     await expect(incognitoMode.getByRole('button', { name: 'Open Chrome extension settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Export settings' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import settings' })).toBeVisible()
+    await expect(page.getByText('Import replaces all groups and general settings.')).toBeVisible()
   })
 
   test('Incognito mode の Chrome 拡張詳細ページを開ける', async ({ page, context, extensionId }) => {
@@ -162,26 +162,26 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
-    await page.getByLabel('Remaining time notification threshold', { exact: true }).fill('12')
+    await page.getByLabel('Minutes left before warning', { exact: true }).fill('12')
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
-    await expect(page.getByRole('checkbox', { name: 'Remaining time notification' })).toBeChecked()
-    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('12')
+    await expect(page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).toBeChecked()
+    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('12')
 
-    await page.getByRole('checkbox', { name: 'Remaining time notification' }).uncheck()
+    await page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' }).uncheck()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
-    await expect(page.getByRole('checkbox', { name: 'Remaining time notification' })).not.toBeChecked()
-    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toBeDisabled()
-    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('12')
+    await expect(page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).not.toBeChecked()
+    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toBeDisabled()
+    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('12')
 
-    await page.getByRole('checkbox', { name: 'Remaining time notification' }).check()
-    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toBeEnabled()
-    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('12')
+    await page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' }).check()
+    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toBeEnabled()
+    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('12')
 
-    await page.getByLabel('Remaining time notification threshold', { exact: true }).fill('0')
+    await page.getByLabel('Minutes left before warning', { exact: true }).fill('0')
     await expect(page.getByText('Use 1+ integer')).toBeVisible()
   })
 
@@ -189,14 +189,14 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
-    await page.getByLabel('Matching page notification').uncheck()
-    await page.getByLabel('Blocked redirect notification').uncheck()
+    await page.getByLabel('Notify me when I open a page with a daily limit').uncheck()
+    await page.getByLabel('Notify me when a redirect block happens').uncheck()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
 
-    await expect(page.getByLabel('Matching page notification')).not.toBeChecked()
-    await expect(page.getByLabel('Blocked redirect notification')).not.toBeChecked()
+    await expect(page.getByLabel('Notify me when I open a page with a daily limit')).not.toBeChecked()
+    await expect(page.getByLabel('Notify me when a redirect block happens')).not.toBeChecked()
   })
 
   test('設定を JSON ファイルとしてエクスポートできる', async ({ page, extensionId }) => {
@@ -252,9 +252,9 @@ test.describe('Options 画面', () => {
       },
     }))
 
-    await expect(page.getByLabel('Daily reset time')).toHaveValue('04:30')
-    await expect(page.getByRole('checkbox', { name: 'Remaining time notification' })).toBeChecked()
-    await expect(page.getByLabel('Remaining time notification threshold', { exact: true })).toHaveValue('9')
+    await expect(page.getByLabel('Start a new rule day at this time')).toHaveValue('04:30')
+    await expect(page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).toBeChecked()
+    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.locator('main').getByText('Options')).not.toBeVisible()
@@ -379,8 +379,8 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
-    await expect(page.getByLabel('Daily reset time')).toHaveValue('03:00')
-    await expect(page.getByLabel('Daily reset time')).toBeDisabled()
+    await expect(page.getByLabel('Start a new rule day at this time')).toHaveValue('03:00')
+    await expect(page.getByLabel('Start a new rule day at this time')).toBeDisabled()
     await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Sun blocked time ranges').first()).toHaveText('No blocked hours')
@@ -394,10 +394,10 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
     await expectDialogCentered(page, activeSettingsDialog)
     await expect(activeSettingsDialog.getByText('General settings')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Daily reset time')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Remaining time notification')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Matching page notification')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked redirect notification')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Start a new rule day at this time')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Notify me when daily limit time is almost used up')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Notify me when I open a page with a daily limit')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Notify me when a redirect block happens')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocking rules').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
@@ -562,7 +562,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('radio', { name: 'Lock Mode Off' })).toBeChecked()
   })
 
-  test('Lock Mode group がある間、Daily reset time 入力が無効化される', async ({ page, extensionId }) => {
+  test('Lock Mode group がある間、rule day 開始時刻入力が無効化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
@@ -572,7 +572,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await openGeneralSettings(page)
-    await expect(page.getByLabel('Daily reset time')).toBeDisabled()
+    await expect(page.getByLabel('Start a new rule day at this time')).toBeDisabled()
     await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
   })
 
@@ -623,8 +623,8 @@ test.describe('Options 画面', () => {
 
     await openGeneralSettings(page)
     const generalInputs = [
-      page.getByLabel('Daily reset time'),
-      page.getByLabel('Remaining time notification threshold', { exact: true }),
+      page.getByLabel('Start a new rule day at this time'),
+      page.getByLabel('Minutes left before warning', { exact: true }),
     ]
 
     for (const input of generalInputs) {

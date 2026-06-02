@@ -15,7 +15,7 @@ interface Props {
   error: (field: string) => string | undefined
   /** インポートに失敗したときのエラーメッセージ。 */
   importError?: string
-  /** Lock Mode group により Daily reset time を変更できないかどうか。 */
+  /** Lock Mode group により rule day の開始時刻を変更できないかどうか。 */
   dailyResetTimeLocked?: boolean
 }
 
@@ -127,7 +127,7 @@ onUnmounted(() => {
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
       <BaseField
-        label="Daily reset time"
+        label="Start a new rule day at this time"
         :error="error('dailyResetHour')"
       >
         <template #icon>
@@ -139,7 +139,7 @@ onUnmounted(() => {
         <BaseInput
           v-model="globalSettings.dailyResetHour"
           type="time"
-          aria-label="Daily reset time"
+          aria-label="Start a new rule day at this time"
           :disabled="dailyResetTimeLocked"
           class="w-full"
           :invalid="Boolean(error('dailyResetHour'))"
@@ -169,20 +169,22 @@ onUnmounted(() => {
               v-model="globalSettings.remainingTimeNotificationsEnabled"
               type="checkbox"
               class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-              aria-label="Remaining time notification"
+              aria-label="Notify me when daily limit time is almost used up"
             >
             <span class="min-w-0">
-              <span class="block text-label-md text-secondary-foreground">Remaining time notification</span>
-              <span class="mt-1 block text-body-sm text-muted">Notify when the remaining daily browsing time reaches the specified minutes.</span>
+              <span class="block text-label-md text-secondary-foreground">Notify me when daily limit time is almost used up</span>
             </span>
           </label>
-          <BaseField :error="error('notificationThresholdMinutes')">
+          <BaseField
+            label="Minutes left before warning"
+            :error="error('notificationThresholdMinutes')"
+          >
             <BaseInput
               v-model="notificationThresholdInput"
               type="number"
               min="1"
               step="1"
-              aria-label="Remaining time notification threshold"
+              aria-label="Minutes left before warning"
               class="w-full"
               :disabled="!globalSettings.remainingTimeNotificationsEnabled"
               :invalid="Boolean(error('notificationThresholdMinutes'))"
@@ -194,11 +196,10 @@ onUnmounted(() => {
             v-model="globalSettings.pageOpenNotificationsEnabled"
             type="checkbox"
             class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-            aria-label="Matching page notification"
+            aria-label="Notify me when I open a page with a daily limit"
           >
           <span class="min-w-0">
-            <span class="block text-label-md text-secondary-foreground">Matching page notification</span>
-            <span class="mt-1 block text-body-sm text-muted">Notify once per group each day when a page with a daily limit is opened.</span>
+            <span class="block text-label-md text-secondary-foreground">Notify me when I open a page with a daily limit</span>
           </span>
         </label>
         <label class="flex items-start gap-3">
@@ -206,32 +207,28 @@ onUnmounted(() => {
             v-model="globalSettings.blockNotificationsEnabled"
             type="checkbox"
             class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-            aria-label="Blocked redirect notification"
+            aria-label="Notify me when a redirect block happens"
           >
           <span class="min-w-0">
-            <span class="block text-label-md text-secondary-foreground">Blocked redirect notification</span>
-            <span class="mt-1 block text-body-sm text-muted">Notify once per group each day when redirect blocking is triggered.</span>
+            <span class="block text-label-md text-secondary-foreground">Notify me when a redirect block happens</span>
           </span>
         </label>
       </div>
 
       <div
         class="border-t border-border pt-4"
-        aria-label="Incognito mode"
+        aria-label="Allow this extension in Incognito"
       >
         <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
           <EyeSlashIcon
             aria-hidden="true"
             class="size-4 text-muted"
           />
-          Incognito mode
+          Allow this extension in Incognito
         </div>
-        <p class="mt-2 text-body-sm text-muted">
-          Chrome settings must be used to allow this extension in Incognito.
-        </p>
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <p class="text-body-sm text-secondary-foreground">
-            Status:
+            Incognito access:
             <span class="font-medium text-foreground">{{ incognitoStatusText }}</span>
           </p>
           <BaseButton
