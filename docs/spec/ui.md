@@ -10,8 +10,9 @@
 - 制限テンプレートとして「Blank group」「Core SNS 15 min/day」「Video 30 min/day」「Work hours focus」を新規グループ作成時に選択できる
 - グローバル設定（`dailyResetHour`、`remainingTimeNotificationsEnabled`、`notificationThresholdMinutes`、`pageOpenNotificationsEnabled`、`blockNotificationsEnabled`）の編集
   - General settings は補足説明に依存せず、項目名そのもので意味が伝わる文言にする
+  - 「Start a new rule day at this time」「Notification」「Allow this extension in Incognito」「Settings file」は共通の Vue コンポーネントでアイコン付きの太字表示にする
   - `dailyResetHour` は「Start a new rule day at this time」と表示する
-  - 通知設定は「Notify me when daily limit time is almost used up」「Minutes left before warning」「Notify me when I open a page with a daily limit」「Notify me when a redirect block happens」と表示する
+  - 通知設定は見出しを「Notification」とし、「Notify me when daily limit time is almost used up」「Minutes left before warning」「Notify me when I open a page with a daily limit」「Notify me when a redirect block happens」と表示する
 - グループの `blockAction === "redirect"` の場合のみ `redirectUrl` を入力・検証する
 - Lock Mode group が存在する間は `dailyResetHour` 入力を無効化し、変更できない理由を表示する
 - 保存時に URL pattern を検証し、無効なら保存拒否＋インラインエラー
@@ -21,6 +22,7 @@
 - グループ削除時は確認ダイアログを表示する
 - Lock Mode ON のグループに未反映の保存済み変更がある場合、Options 画面に「未反映の保存済み変更」と次回反映時刻を表示する
 - 未反映差分がある場合、現在 blocking に使われている有効設定を読み取り専用ダイアログで確認できる
+- General settings 内の項目間には区切り線を表示しない
 - Settings file では「Export settings」「Import settings」を表示し、Import settings ボタンの下に「Import replaces all groups and general settings.」を表示する
 - 設定は JSON ファイルとしてエクスポート／インポートできる。インポートは全グループとグローバル設定を置換し、スキーマバージョンと内容を検証する
 - シークレットモード設定は「Allow this extension in Incognito」として表示する。拡張機能許可状態は「Incognito access: Enabled / Disabled / Unable to check」で表示し、「Open Chrome extension settings」ボタンを提供する

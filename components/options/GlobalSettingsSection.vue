@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, BellAlertIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, BellAlertIcon, DocumentTextIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import GlobalSettingsItemTitle from '@/components/options/GlobalSettingsItemTitle.vue'
 import type { GlobalSettings } from '@/utils/types'
 
 /**
@@ -127,15 +128,16 @@ onUnmounted(() => {
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
       <BaseField
-        label="Start a new rule day at this time"
         :error="error('dailyResetHour')"
       >
-        <template #icon>
-          <ArrowPathIcon
-            aria-hidden="true"
-            class="size-4 text-muted"
-          />
-        </template>
+        <GlobalSettingsItemTitle label="Start a new rule day at this time">
+          <template #icon>
+            <ArrowPathIcon
+              aria-hidden="true"
+              class="size-4 text-muted"
+            />
+          </template>
+        </GlobalSettingsItemTitle>
         <BaseInput
           v-model="globalSettings.dailyResetHour"
           type="time"
@@ -154,15 +156,16 @@ onUnmounted(() => {
 
       <div
         class="space-y-2"
-        aria-label="Notifications"
+        aria-label="Notification"
       >
-        <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
-          <BellAlertIcon
-            aria-hidden="true"
-            class="size-4 text-muted"
-          />
-          Notifications
-        </div>
+        <GlobalSettingsItemTitle label="Notification">
+          <template #icon>
+            <BellAlertIcon
+              aria-hidden="true"
+              class="size-4 text-muted"
+            />
+          </template>
+        </GlobalSettingsItemTitle>
         <div class="space-y-3">
           <label class="flex items-start gap-3">
             <input
@@ -215,17 +218,15 @@ onUnmounted(() => {
         </label>
       </div>
 
-      <div
-        class="border-t border-border pt-4"
-        aria-label="Allow this extension in Incognito"
-      >
-        <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
-          <EyeSlashIcon
-            aria-hidden="true"
-            class="size-4 text-muted"
-          />
-          Allow this extension in Incognito
-        </div>
+      <div aria-label="Allow this extension in Incognito">
+        <GlobalSettingsItemTitle label="Allow this extension in Incognito">
+          <template #icon>
+            <EyeSlashIcon
+              aria-hidden="true"
+              class="size-4 text-muted"
+            />
+          </template>
+        </GlobalSettingsItemTitle>
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <p class="text-body-sm text-secondary-foreground">
             Incognito access:
@@ -245,10 +246,15 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="border-t border-border pt-4">
-        <p class="mb-2 text-label-md text-secondary-foreground">
-          Settings file
-        </p>
+      <div>
+        <GlobalSettingsItemTitle label="Settings file">
+          <template #icon>
+            <DocumentTextIcon
+              aria-hidden="true"
+              class="size-4 text-muted"
+            />
+          </template>
+        </GlobalSettingsItemTitle>
         <div class="flex flex-wrap gap-2">
           <BaseButton
             variant="secondary"
