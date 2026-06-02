@@ -515,7 +515,8 @@ test.describe('Background blocking', () => {
       await saveBlockingSettings(serviceWorker, server.origin)
       await page.goto(`chrome-extension://${extensionId}/options.html`)
       await page.getByRole('button', { name: 'Edit group' }).click()
-      await page.getByRole('radio', { name: 'Blocked page' }).check()
+      await page.getByRole('button', { name: 'Options' }).click()
+      await page.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
       await page.getByRole('button', { name: 'Save group' }).click()
       await expect.poll(async () => getStoredGroupBlockAction(serviceWorker)).toBe('blockedPage')
 

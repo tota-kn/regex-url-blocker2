@@ -89,16 +89,6 @@ defineExpose({ open, close })
             <p class="text-label-sm text-muted">
               URL patterns
             </p>
-            <dl class="mt-1 grid gap-1 text-body-sm">
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  URL pattern mode
-                </dt>
-                <dd class="mt-1 font-medium">
-                  {{ formatGroupMode(group) }}
-                </dd>
-              </div>
-            </dl>
             <ul class="mt-2 space-y-1 text-body-sm">
               <li
                 v-for="pattern in group.patterns"
@@ -141,7 +131,15 @@ defineExpose({ open, close })
             <dl class="mt-1 grid gap-2 text-body-sm sm:grid-cols-2">
               <div class="rounded border border-border bg-background px-2 py-1">
                 <dt class="text-muted">
-                  Lock Mode
+                  URL pattern match behavior
+                </dt>
+                <dd class="mt-1 font-medium">
+                  {{ formatGroupMode(group) }}
+                </dd>
+              </div>
+              <div class="rounded border border-border bg-background px-2 py-1">
+                <dt class="text-muted">
+                  Lock changes until next rule day
                 </dt>
                 <dd class="mt-1 font-medium">
                   {{ group.lockMode ? 'On' : 'Off' }}
@@ -149,7 +147,7 @@ defineExpose({ open, close })
               </div>
               <div class="rounded border border-border bg-background px-2 py-1">
                 <dt class="text-muted">
-                  Block destination
+                  Page shown when blocked
                 </dt>
                 <dd class="mt-1 break-all font-medium">
                   {{ formatBlockDestination(group) }}

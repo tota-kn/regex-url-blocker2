@@ -5,7 +5,6 @@ import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import type { GroupMode } from '@/utils/types'
 
 /**
  * URL pattern 編集コンポーネントの props。
@@ -25,11 +24,6 @@ const props = withDefaults(defineProps<Props>(), {
  * グループに属する URL pattern 配列。
  */
 const patterns = defineModel<string[]>({ required: true })
-
-/**
- * パターンの一致結果を制限対象にするか、除外対象にするかを表すモード。
- */
-const mode = defineModel<GroupMode>('mode', { required: true })
 
 /**
  * ユーザーが編集した URL pattern 入力欄の index。
@@ -76,37 +70,6 @@ function deletePattern(index: number): void {
         URL patterns
       </h3>
       <div class="flex flex-wrap items-center gap-2">
-        <fieldset
-          aria-label="URL pattern mode"
-          class="flex flex-wrap items-center gap-4"
-        >
-          <label
-            v-if="isEditing || mode === 'blacklist'"
-            class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
-          >
-            <input
-              v-model="mode"
-              type="radio"
-              class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-              value="blacklist"
-              :disabled="!isEditing"
-            >
-            <span>Block matches</span>
-          </label>
-          <label
-            v-if="isEditing || mode === 'whitelist'"
-            class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
-          >
-            <input
-              v-model="mode"
-              type="radio"
-              class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-              value="whitelist"
-              :disabled="!isEditing"
-            >
-            <span>Allow only matches</span>
-          </label>
-        </fieldset>
         <BaseButton
           v-if="isEditing"
           type="button"

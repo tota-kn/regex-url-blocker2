@@ -58,6 +58,14 @@ async function createBlankGroup(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create blank group' }).click()
 }
 
+/**
+ * 編集中グループの Options disclosure を開く。
+ */
+async function openGroupOptions(page: Page): Promise<void> {
+  const optionsButton = page.locator('main').getByRole('button', { name: 'Options' }).last()
+  await optionsButton.click()
+}
+
 test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -406,11 +414,11 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocking rules').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('URL pattern mode').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('URL pattern match behavior').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Block matches')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Allow only matches')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Lock Mode').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Block destination').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Lock changes until next rule day').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Page shown when blocked').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocked page')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
@@ -538,33 +546,55 @@ test.describe('Options 画面', () => {
     }
   })
 
-  test('Options で group ごとの Lock Mode radio を操作できる', async ({ page, extensionId }) => {
+  test('Options disclosure で group ごとの動作を操作できる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Locked')
-    await expect(page.locator('main').getByText('Options')).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Lock Mode Off' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Blocked page', exact: true })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Redirect', exact: true })).toBeVisible()
-    await page.getByRole('radio', { name: 'Lock Mode On' }).check()
-    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).toBeChecked()
-    await expect(page.getByText('Changes to this group apply after the next reset.')).toBeVisible()
+    const optionsButton = page.locator('main').getByRole('button', { name: 'Options' }).last()
+    await expect(optionsButton).toBeVisible()
+    await expect(optionsButton).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Lock changes until next rule day Off' })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Lock changes until next rule day On' })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Page shown when blocked Redirect' })).not.toBeVisible()
+    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
+    await expect(urlPatternsSection).not.toContainText('Block matches')
+    await expect(urlPatternsSection).not.toContainText('Allow only matches')
+
+    await optionsButton.click()
+    await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
+    const optionsPanel = page.locator('main [id^="options-panel-"]').last()
+    await expect(optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).toBeChecked()
+    await expect(optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeChecked()
+    await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day Off' })).toBeChecked()
+    await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeVisible()
+    await expect(optionsPanel.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
+    await expect(optionsPanel.getByRole('radio', { name: 'Page shown when blocked Redirect' })).toBeVisible()
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await optionsPanel.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await expect(page.getByLabel('Redirect URL')).toBeVisible()
+    await optionsPanel.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' }).check()
+    await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeChecked()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     await expect(page.locator('main').getByText('Options')).toBeVisible()
-    await expect(page.locator('main').getByText('Lock Mode')).toBeVisible()
-    await expect(page.locator('main').getByText('Locked', { exact: true })).toBeVisible()
-    await expect(page.locator('main').getByText('Block destination', { exact: true })).not.toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).not.toBeVisible()
+    await expect(page.locator('main').getByText('Lock changes until next rule day')).toBeVisible()
+    await expect(page.locator('main').getByText('On', { exact: true })).toBeVisible()
+    await expect(page.locator('main').getByText('Page shown when blocked', { exact: true })).not.toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Lock changes until next rule day On' })).not.toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByRole('radio', { name: 'Lock Mode On' })).toBeChecked()
-    await page.getByRole('radio', { name: 'Lock Mode Off' }).check()
-    await expect(page.getByRole('radio', { name: 'Lock Mode Off' })).toBeChecked()
+    await openGroupOptions(page)
+    await expect(page.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeChecked()
+    await page.getByRole('radio', { name: 'Lock changes until next rule day Off' }).check()
+    await expect(page.getByRole('radio', { name: 'Lock changes until next rule day Off' })).toBeChecked()
   })
 
   test('Lock Mode group がある間、rule day 開始時刻入力が無効化される', async ({ page, extensionId }) => {
@@ -572,7 +602,8 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LockedReset')
-    await page.getByRole('radio', { name: 'Lock Mode On' }).check()
+    await openGroupOptions(page)
+    await page.getByRole('radio', { name: 'Lock changes until next rule day On' }).check()
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
@@ -1012,9 +1043,10 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('RedirectGroup')
-    await expect(page.getByRole('radio', { name: 'Redirect', exact: true })).toBeVisible()
-    await page.getByRole('radio', { name: 'Redirect', exact: true }).check()
-    await page.getByLabel('Group redirect URL').fill('https://blocked.example.test')
+    await openGroupOptions(page)
+    await expect(page.getByRole('radio', { name: 'Page shown when blocked Redirect' })).toBeVisible()
+    await page.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1022,7 +1054,8 @@ test.describe('Options 画面', () => {
 
     await expect(page.locator('main').getByText('Redirect to https://blocked.example.test')).toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByLabel('Group redirect URL')).toHaveValue('https://blocked.example.test')
+    await openGroupOptions(page)
+    await expect(page.getByLabel('Redirect URL')).toHaveValue('https://blocked.example.test')
   })
 
   test('グループ別ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
@@ -1030,12 +1063,13 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('BlockedPageGroup')
-    await expect(page.getByRole('radio', { name: 'Blocked page', exact: true })).toBeChecked()
-    await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
-    await page.getByRole('radio', { name: 'Redirect', exact: true }).check()
-    await page.getByLabel('Group redirect URL').fill('https://ignored.example.test')
-    await page.getByRole('radio', { name: 'Blocked page', exact: true }).check()
-    await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
+    await openGroupOptions(page)
+    await expect(page.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await page.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await page.getByLabel('Redirect URL').fill('https://ignored.example.test')
+    await page.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1043,9 +1077,10 @@ test.describe('Options 画面', () => {
 
     await expect(page.locator('main').getByText('Options')).not.toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByRole('radio', { name: 'Blocked page', exact: true })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Redirect', exact: true })).not.toBeChecked()
-    await expect(page.getByLabel('Group redirect URL')).not.toBeVisible()
+    await openGroupOptions(page)
+    await expect(page.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Page shown when blocked Redirect' })).not.toBeChecked()
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
   })
 
   test('グループ別 redirectUrl 検証エラー時は保存できない', async ({ page, extensionId }) => {
@@ -1054,8 +1089,9 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('InvalidRedirectGroup')
     await expect(page.locator('main').getByText('Options')).toBeVisible()
-    await page.getByRole('radio', { name: 'Redirect', exact: true }).check()
-    await page.getByLabel('Group redirect URL').fill('not-a-url')
+    await openGroupOptions(page)
+    await page.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await page.getByLabel('Redirect URL').fill('not-a-url')
 
     await expect(page.getByText('Invalid URL')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
@@ -1066,23 +1102,28 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('AllowOnly')
+    await openGroupOptions(page)
 
     // デフォルトはブラックリスト
-    await expect(page.getByRole('radio', { name: 'Block matches' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Allow only matches' })).not.toBeChecked()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeChecked()
 
     // ホワイトリストに切替
-    await page.getByRole('radio', { name: 'Allow only matches' }).check()
-    await expect(page.getByRole('radio', { name: 'Allow only matches' })).toBeChecked()
+    await page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' }).check()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).toBeChecked()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     // リロード後も保持
-    await expect(page.getByRole('radio', { name: 'Allow only matches' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Allow only matches' })).toBeDisabled()
-    await expect(page.getByRole('radio', { name: 'Block matches' })).not.toBeVisible()
+    await expect(page.locator('main').getByText('URL pattern match behavior')).toBeVisible()
+    await expect(page.locator('main').getByText('Allow only matches')).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeVisible()
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await openGroupOptions(page)
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeChecked()
   })
 
   test('保存済みグループの閲覧時はフォーム部品が操作可能に見えない', async ({ page, extensionId }) => {
@@ -1108,7 +1149,7 @@ test.describe('Options 画面', () => {
     await expect(ranges).toHaveText('09:00-17:00')
     await expect(minutes).toHaveText('45')
     await expect(sundayCell).toBeDisabled()
-    await expect(page.getByRole('radio', { name: 'Block matches' })).toBeDisabled()
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
 
     await expect(pattern).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')

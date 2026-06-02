@@ -4,7 +4,9 @@
 
 - グループの追加・編集・削除
 - 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`blockAction`、`redirectUrl`、`dailyRules[]`
-- `mode` は `blacklist` / `whitelist` を選択できる。
+- `mode` は Group card の Options 配下にある「URL pattern match behavior」で `Block matches` / `Allow only matches` として選択できる。URL patterns セクションには mode の選択肢を表示しない
+- Group card の Options は、項目ごとではなく Options セクション全体を1つの disclosure として折りたたむ。編集時の初期状態では Options 全体を閉じる
+- Options 展開時は「URL pattern match behavior」「Lock changes until next rule day」「Page shown when blocked」を常時並べ、各項目の radio は項目名行の右側へ配置する
 - ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する。終了時刻には `24:00` を指定できる
 - 上限は曜日ごとに上限分数を入力する。空欄なら上限なし
 - 制限テンプレートとして「Blank group」「Core SNS 15 min/day」「Video 30 min/day」「Work hours focus」を新規グループ作成時に選択できる

@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ArrowTopRightOnSquareIcon, CheckIcon, DocumentTextIcon, LockClosedIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, DocumentTextIcon, LockClosedIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '@/utils/defaults'
-import { cloneGroup, formatBlockDestination } from '@/utils/groups'
+import { cloneGroup, formatBlockDestination, formatGroupMode } from '@/utils/groups'
 import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
@@ -49,16 +48,20 @@ const emit = defineEmits<Emits>()
 const draft = ref<Group>(cloneGroup(props.group))
 
 const isEditing = ref(props.startInEdit ?? false)
+const isOptionsOpen = ref(false)
 
 const draftErrors = computed(() => validateGroup(draft.value))
 const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string, value: string }> = []
+  if (props.group.mode === 'whitelist') {
+    summaries.push({ label: 'URL pattern match behavior', value: formatGroupMode(props.group) })
+  }
   if (props.group.lockMode) {
-    summaries.push({ label: 'Lock Mode', value: 'Locked' })
+    summaries.push({ label: 'Lock changes until next rule day', value: 'On' })
   }
   if (props.group.blockAction !== DEFAULT_GLOBAL_SETTINGS.blockAction) {
-    summaries.push({ label: 'Block destination', value: formatBlockDestination(props.group) })
+    summaries.push({ label: 'Page shown when blocked', value: formatBlockDestination(props.group) })
   }
   return summaries
 })
@@ -81,6 +84,7 @@ function patternError(index: number): string | undefined {
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
 function startEditing(): void {
   draft.value = cloneGroup(props.group)
+  isOptionsOpen.value = false
   isEditing.value = true
 }
 
@@ -98,9 +102,19 @@ function cancelEditing(): void {
 function saveEditing(): void {
   if (!canSave.value) return
   emit('save', cloneGroup(draft.value))
+  isOptionsOpen.value = false
   isEditing.value = false
 }
 
+/** Options 全体の disclosure panel 表示を切り替える。 */
+function toggleOptions(): void {
+  isOptionsOpen.value = !isOptionsOpen.value
+}
+
+/** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
+function optionsPanelId(): string {
+  return `options-panel-${props.group.id}`
+}
 </script>
 
 <template>
@@ -187,7 +201,6 @@ function saveEditing(): void {
       </legend>
       <PatternListEditor
         v-model="draft.patterns"
-        v-model:mode="draft.mode"
         :is-editing="isEditing"
         :error="patternError"
       />
@@ -201,7 +214,10 @@ function saveEditing(): void {
       v-if="isEditing || visibleOptionSummaries.length > 0"
       class="space-y-3 px-4 pb-4"
     >
-      <h3 class="flex items-center gap-1.5 text-sm font-semibold">
+      <h3
+        v-if="!isEditing"
+        class="flex items-center gap-1.5 text-sm font-semibold"
+      >
         <LockClosedIcon
           aria-hidden="true"
           class="size-4 text-muted"
@@ -210,104 +226,171 @@ function saveEditing(): void {
       </h3>
 
       <template v-if="isEditing">
-        <div class="space-y-4">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm font-semibold text-secondary-foreground"
+          :aria-expanded="isOptionsOpen"
+          :aria-controls="optionsPanelId()"
+          @click="toggleOptions"
+        >
+          <span class="flex min-w-0 items-center gap-1.5">
+            <LockClosedIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-muted"
+            />
+            <span>Options</span>
+          </span>
+          <ChevronDownIcon
+            aria-hidden="true"
+            class="size-4 shrink-0 text-muted transition-transform"
+            :class="isOptionsOpen ? 'rotate-180' : ''"
+          />
+        </button>
+
+        <div
+          v-if="isOptionsOpen"
+          :id="optionsPanelId()"
+          class="space-y-2 rounded-md border border-border bg-surface p-3"
+        >
           <fieldset
-            aria-label="Lock Mode"
-            class="space-y-3"
+            aria-label="URL pattern match behavior"
+            class="space-y-2"
           >
-            <div class="space-y-1">
-              <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                <LockClosedIcon
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
+                <ShieldExclamationIcon
                   aria-hidden="true"
-                  class="size-4 text-muted"
+                  class="size-4 shrink-0 text-muted"
                 />
-                <span>Lock Mode</span>
+                <span>URL pattern match behavior</span>
               </div>
-              <p class="text-body-sm text-muted">
-                Changes to this group apply after the next reset.
-              </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-4">
-              <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                <input
-                  v-model="draft.lockMode"
-                  type="radio"
-                  class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                  aria-label="Lock Mode Off"
-                  :value="false"
-                >
-                <span>Off</span>
-              </label>
-              <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                <input
-                  v-model="draft.lockMode"
-                  type="radio"
-                  class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                  aria-label="Lock Mode On"
-                  :value="true"
-                >
-                <span>On</span>
-              </label>
+              <div class="flex flex-wrap items-center gap-4 sm:justify-end">
+                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <input
+                    v-model="draft.mode"
+                    type="radio"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    aria-label="URL pattern match behavior Block matches"
+                    value="blacklist"
+                  >
+                  <span>Block matches</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <input
+                    v-model="draft.mode"
+                    type="radio"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    aria-label="URL pattern match behavior Allow only matches"
+                    value="whitelist"
+                  >
+                  <span>Allow only matches</span>
+                </label>
+              </div>
             </div>
           </fieldset>
 
           <fieldset
-            aria-label="Block destination"
-            class="space-y-3"
+            aria-label="Lock changes until next rule day"
+            class="space-y-2 border-t border-border pt-3"
           >
-            <div class="flex items-center gap-2 text-label-md text-secondary-foreground">
-              <DocumentTextIcon
-                aria-hidden="true"
-                class="size-4 text-muted"
-              />
-              <span>Block destination</span>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
+                <LockClosedIcon
+                  aria-hidden="true"
+                  class="size-4 shrink-0 text-muted"
+                />
+                <span>Lock changes until next rule day</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-4 sm:justify-end">
+                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <input
+                    v-model="draft.lockMode"
+                    type="radio"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    aria-label="Lock changes until next rule day Off"
+                    :value="false"
+                  >
+                  <span>Off</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <input
+                    v-model="draft.lockMode"
+                    type="radio"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    aria-label="Lock changes until next rule day On"
+                    :value="true"
+                  >
+                  <span>On</span>
+                </label>
+              </div>
             </div>
-            <div class="flex flex-wrap items-center gap-4">
-              <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                <input
-                  v-model="draft.blockAction"
-                  type="radio"
-                  class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                  aria-label="Blocked page"
-                  value="blockedPage"
-                >
-                <span>Blocked page</span>
-              </label>
-              <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                <input
-                  v-model="draft.blockAction"
-                  type="radio"
-                  class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                  aria-label="Redirect"
-                  value="redirect"
-                >
-                <span>Redirect</span>
-              </label>
+          </fieldset>
+
+          <fieldset
+            aria-label="Page shown when blocked"
+            class="space-y-2 border-t border-border pt-3"
+          >
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
+                <DocumentTextIcon
+                  aria-hidden="true"
+                  class="size-4 shrink-0 text-muted"
+                />
+                <span>Page shown when blocked</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-4 sm:justify-end">
+                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <input
+                    v-model="draft.blockAction"
+                    type="radio"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    aria-label="Page shown when blocked Blocked page"
+                    value="blockedPage"
+                  >
+                  <span>Blocked page</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <input
+                    v-model="draft.blockAction"
+                    type="radio"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    aria-label="Page shown when blocked Redirect"
+                    value="redirect"
+                  >
+                  <span>Redirect</span>
+                </label>
+              </div>
             </div>
             <AlertMessage
               v-if="draftError('blockAction')"
             >
               {{ draftError('blockAction') }}
             </AlertMessage>
-            <BaseField
+            <label
               v-if="draft.blockAction === 'redirect'"
-              label="Group redirect URL"
-              :error="draftError('redirectUrl')"
+              class="block min-w-0 space-y-1.5"
             >
-              <template #icon>
+              <span class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
                 <ArrowTopRightOnSquareIcon
                   aria-hidden="true"
-                  class="size-4 text-muted"
+                  class="size-4 shrink-0 text-muted"
                 />
-              </template>
+                <span>Redirect URL</span>
+              </span>
               <BaseInput
                 v-model="draft.redirectUrl"
                 type="url"
-                aria-label="Group redirect URL"
+                aria-label="Redirect URL"
                 class="w-full"
                 :invalid="Boolean(draftError('redirectUrl'))"
               />
-            </BaseField>
+              <span
+                v-if="draftError('redirectUrl')"
+                class="mt-2 block rounded-md bg-danger-subtle px-3 py-2 text-sm text-danger"
+              >
+                {{ draftError('redirectUrl') }}
+              </span>
+            </label>
           </fieldset>
         </div>
       </template>
