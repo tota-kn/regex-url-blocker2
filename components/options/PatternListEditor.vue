@@ -61,7 +61,7 @@ function deletePattern(index: number): void {
 
 <template>
   <section class="space-y-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center gap-2">
       <h3 class="flex items-center gap-1.5 text-sm font-semibold">
         <CodeBracketIcon
           aria-hidden="true"
@@ -69,22 +69,6 @@ function deletePattern(index: number): void {
         />
         URL patterns
       </h3>
-      <div class="flex flex-wrap items-center gap-2">
-        <BaseButton
-          v-if="isEditing"
-          type="button"
-          aria-label="Add URL pattern"
-          size="sm"
-          variant="ghost"
-          @click="patterns.push('')"
-        >
-          <PlusIcon
-            aria-hidden="true"
-            class="size-4"
-          />
-          URL pattern
-        </BaseButton>
-      </div>
     </div>
 
     <div class="space-y-2">
@@ -133,6 +117,20 @@ function deletePattern(index: number): void {
           {{ visibleError(i) }}
         </AlertMessage>
       </div>
+      <BaseButton
+        v-if="isEditing"
+        type="button"
+        aria-label="Add URL pattern"
+        size="sm"
+        variant="ghost"
+        @click="patterns.push('')"
+      >
+        <PlusIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        URL pattern
+      </BaseButton>
     </div>
   </section>
 </template>

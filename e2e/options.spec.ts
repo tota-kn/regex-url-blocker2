@@ -638,6 +638,25 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
   })
 
+  test('空の URL patterns セクションでは空状態の下に追加ボタンを表示する', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
+    const emptyState = urlPatternsSection.getByLabel('No URL patterns')
+    const addButton = urlPatternsSection.getByRole('button', { name: 'Add URL pattern' })
+
+    await expect(emptyState).toHaveText('No URL patterns yet')
+    await expect(addButton).toBeVisible()
+    const [emptyBox, buttonBox] = await Promise.all([
+      emptyState.boundingBox(),
+      addButton.boundingBox(),
+    ])
+    expect(emptyBox).not.toBeNull()
+    expect(buttonBox).not.toBeNull()
+    expect(buttonBox!.y).toBeGreaterThan(emptyBox!.y)
+  })
+
   test('編集可能な入力欄は共通の field 色で表示される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
