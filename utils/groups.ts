@@ -35,7 +35,7 @@ export function formatBlockDestination(group: Group): string {
 export function formatDailyRule(rule: DailyRule): string {
   const ranges = rule.blockedTimeRanges.length > 0
     ? rule.blockedTimeRanges.map(formatTimeRange).join(', ')
-    : 'No blocked time'
-  const limit = rule.dailyLimitMinutes === undefined ? 'No limit' : `${rule.dailyLimitMinutes} min`
-  return `Blocked time: ${ranges}; Daily limit: ${limit}`
+    : 'No blocked hours'
+  const limit = rule.dailyLimitMinutes === undefined ? 'No daily limit' : `${rule.dailyLimitMinutes} min/day`
+  return `Blocked hours: ${ranges}; Daily limit: ${limit}`
 }

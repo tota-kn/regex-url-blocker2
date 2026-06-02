@@ -57,7 +57,7 @@ describe('group utilities', () => {
       dayOfWeek: 0,
       blockedTimeRanges: [{ startMinute: 540, endMinute: 750 }],
       dailyLimitMinutes: 10,
-    })).toBe('Blocked time: 09:00-12:30; Daily limit: 10 min')
+    })).toBe('Blocked hours: 09:00-12:30; Daily limit: 10 min/day')
   })
 
   it('グループを独立した deep clone として複製する', () => {

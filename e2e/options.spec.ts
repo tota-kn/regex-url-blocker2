@@ -383,7 +383,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Daily reset time')).toBeDisabled()
     await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Sun blocked time ranges').first()).toHaveText('No blocked time')
+    await expect(page.getByLabel('Sun blocked time ranges').first()).toHaveText('No blocked hours')
     await expect(page.getByLabel('Sun daily limit minutes').first()).toHaveText('30')
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
@@ -410,8 +410,8 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Blocked page')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
     await expect(activeSettingsDialog.getByText('No URL patterns yet')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked time: 09:00-17:00; Daily limit: 10 min').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked time: No blocked time; Daily limit: No limit').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked hours: 09:00-17:00; Daily limit: 10 min/day').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Blocked hours: No blocked hours; Daily limit: No daily limit').first()).toBeVisible()
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {
@@ -526,7 +526,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Save group' }).click()
 
     for (const day of ['Sun', 'Sat']) {
-      await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveText('No blocked time')
+      await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveText('No blocked hours')
     }
     for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) {
       await expect(page.getByLabel(`${day} blocked time ranges`)).toHaveText('09:00-18:00')
@@ -758,7 +758,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Wed daily limit minutes')).toHaveText('30')
   })
 
-  test('曜日別の上限分数を空欄に戻すと No limit になる', async ({ page, extensionId }) => {
+  test('曜日別の上限分数を空欄に戻すと No daily limit になる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
@@ -770,7 +770,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Wed daily limit minutes')).toHaveText('No limit')
+    await expect(page.getByLabel('Wed daily limit minutes')).toHaveText('No daily limit')
   })
 
   test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {
@@ -964,7 +964,7 @@ test.describe('Options 画面', () => {
     await page.reload()
 
     await expect(page.getByLabel('Mon daily limit minutes')).toHaveText('60')
-    await expect(page.getByLabel('Tue daily limit minutes')).toHaveText('No limit')
+    await expect(page.getByLabel('Tue daily limit minutes')).toHaveText('No daily limit')
   })
 
   test('グループを削除して永続化される', async ({ page, extensionId }) => {

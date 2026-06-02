@@ -234,12 +234,12 @@ function preventNonDigitInput(event: InputEvent): void {
 function dailyLimitDisplayValue(day: DayOfWeek, editing: boolean): string {
   const minutes = dailyLimits.value[day].minutes
   if (editing || minutes !== '') return minutes
-  return 'No limit'
+  return 'No daily limit'
 }
 
 /** 読み取り表示用のブロック時間帯テキストを返す。 */
 function blockedTimeDisplayValue(day: DayOfWeek): string {
-  return timeRangeTexts.value[day] || 'No blocked time'
+  return timeRangeTexts.value[day] || 'No blocked hours'
 }
 
 /** 上限分数が指定されているかどうかを返す。 */
@@ -281,6 +281,9 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
         />
         Blocking rules
       </h3>
+      <p class="basis-full text-body-sm text-muted">
+        Blocked hours stop access immediately. Daily limits block after the time is used.
+      </p>
     </div>
 
     <div
@@ -306,8 +309,8 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
               {{ marker.label }}
             </span>
           </div>
-          <span class="hidden whitespace-nowrap pl-6 text-label-sm text-muted-foreground sm:block">Blocked time</span>
-          <span class="hidden whitespace-nowrap pl-3 text-label-sm text-muted-foreground sm:block">Daily limit (min)</span>
+          <span class="hidden whitespace-nowrap pl-6 text-label-sm text-muted-foreground sm:block">Always block during</span>
+          <span class="hidden whitespace-nowrap border-l border-border pl-3 text-label-sm text-muted-foreground sm:block">Allow up to</span>
         </div>
 
         <div
@@ -377,7 +380,7 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
             </label>
           </div>
 
-          <div class="col-span-2 mt-1.5 flex min-w-0 items-center gap-1.5 pl-15 sm:col-span-1 sm:mt-0 sm:pl-3">
+          <div class="col-span-2 mt-1.5 flex min-w-0 items-center gap-1.5 pl-15 sm:col-span-1 sm:mt-0 sm:border-l sm:border-border sm:pl-3">
             <label class="min-w-0">
               <span class="sr-only">{{ day.label }} daily limit minutes</span>
               <BaseInput
@@ -386,8 +389,8 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
                 inputmode="numeric"
                 pattern="[0-9]*"
                 :aria-label="`${day.label} daily limit minutes`"
-                placeholder="No limit"
-                class="w-20"
+                placeholder="No daily limit"
+                class="w-14"
                 size="sm"
                 :model-value="dailyLimitDisplayValue(day.value, isEditing)"
                 @beforeinput="preventNonDigitInput"
@@ -402,9 +405,9 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
               </output>
             </label>
             <span
-              class="shrink-0 text-xs font-medium text-muted-foreground"
+              class="shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground"
               :class="hasDailyLimit(day.value) ? '' : 'invisible'"
-            >m</span>
+            >min/day</span>
           </div>
         </div>
       </div>
