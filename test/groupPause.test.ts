@@ -7,28 +7,28 @@ describe('group pause button state', () => {
   it('未設定なら一時停止リクエストを開始できる', () => {
     expect(getGroupPauseButtonState(undefined, now)).toEqual({
       label: 'Request 10 min pause',
-      clickable: true,
+      paused: false,
     })
   })
 
-  it('待機中なら残り秒数を表示して押せない', () => {
+  it('保存済み待機値が未来でも一時停止リクエストからやり直す', () => {
     expect(getGroupPauseButtonState({ waitingUntil: now.getTime() + 10_100 }, now)).toEqual({
-      label: 'Wait 11s',
-      clickable: false,
+      label: 'Request 10 min pause',
+      paused: false,
     })
   })
 
-  it('待機完了後なら10分一時停止を開始できる', () => {
+  it('保存済み待機値が期限切れでも一時停止リクエストからやり直す', () => {
     expect(getGroupPauseButtonState({ waitingUntil: now.getTime() }, now)).toEqual({
-      label: 'Pause for 10 min',
-      clickable: true,
+      label: 'Request 10 min pause',
+      paused: false,
     })
   })
 
   it('一時停止中なら残り時間を表示して押せない', () => {
     expect(getGroupPauseButtonState({ pausedUntil: now.getTime() + 125_000 }, now)).toEqual({
       label: 'Paused 2:05',
-      clickable: false,
+      paused: true,
     })
   })
 })

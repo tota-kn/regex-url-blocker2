@@ -130,7 +130,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Import replaces all groups and general settings.')).toBeVisible()
   })
 
-  test('グループ一時停止は60秒待機後の再クリックで10分停止になる', async ({ page, context, extensionId }) => {
+  test('グループ一時停止は集中ダイアログで60秒待機後に10分停止を保存する', async ({ page, context, extensionId }) => {
     const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
@@ -168,20 +168,30 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Request 10 min pause' }).click()
-    await expect(page.getByRole('button', { name: /Wait \d+s/ })).toBeDisabled()
+    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
+    await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
+    await expect(pauseDialog.getByText('60s remaining')).toBeVisible()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
+    const editButtonBox = await page.getByRole('button', { name: 'Edit group' }).boundingBox()
+    expect(editButtonBox).not.toBeNull()
+    const elementAtEditButton = await page.evaluate(({ x, y }) => {
+      return document.elementFromPoint(x, y)?.closest('dialog')?.textContent ?? ''
+    }, {
+      x: editButtonBox!.x + editButtonBox!.width / 2,
+      y: editButtonBox!.y + editButtonBox!.height / 2,
+    })
+    expect(elementAtEditButton).toContain('Take a breath')
     let stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
       }
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
-    const waitingUntil = stored.groupPauseState?.['pause-target']?.waitingUntil
-    expect(waitingUntil).toBeGreaterThanOrEqual(startTime.getTime() + 60_000)
-    expect(waitingUntil).toBeLessThan(startTime.getTime() + 61_000)
+    expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
     expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
 
     await page.clock.fastForward(59_000)
-    await expect(page.getByRole('button', { name: /Wait \d+s/ })).toBeDisabled()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
     stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
@@ -191,8 +201,9 @@ test.describe('Options 画面', () => {
     expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
 
     await page.clock.fastForward(1_000)
-    await page.getByRole('button', { name: 'Pause for 10 min' }).click()
-    await expect(page.getByRole('button', { name: /Paused 10:00|Paused 9:59/ })).toBeDisabled()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeEnabled()
+    await pauseDialog.getByRole('button', { name: 'Pause 10 min' }).click()
+    await expect(page.getByText(/Paused 10:00|Paused 9:59/)).toBeVisible()
     stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
@@ -202,6 +213,88 @@ test.describe('Options 画面', () => {
     const pausedUntil = stored.groupPauseState?.['pause-target']?.pausedUntil
     expect(pausedUntil).toBeGreaterThanOrEqual(startTime.getTime() + 11 * 60_000)
     expect(pausedUntil).toBeLessThan(startTime.getTime() + 11 * 60_000 + 1_000)
+    expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
+  })
+
+  test('一時停止前カウントダウンのキャンセルとフォーカス喪失は保存しない', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [{
+          id: 'pause-cancel-target',
+          name: 'Pause cancel target',
+          mode: 'blacklist',
+          lockMode: false,
+          patterns: ['example\\.com'],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 0,
+          })),
+        }],
+      })
+    })
+    await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
+    await expect(pauseDialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
+    await pauseDialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(pauseDialog).not.toBeVisible()
+
+    let stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
+
+    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+    await expect(pauseDialog).not.toBeVisible()
+    stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
+
+    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        value: 'hidden',
+      })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await expect(pauseDialog).not.toBeVisible()
+    stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
   })
 
   test('Incognito mode の Chrome 拡張詳細ページを開ける', async ({ page, context, extensionId }) => {
@@ -489,7 +582,6 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Active settings only' }).first()).toBeDisabled()
 
-    const beforePauseRequest = Date.now()
     await page.getByRole('button', { name: 'View active settings' }).click()
 
     const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
@@ -527,21 +619,23 @@ test.describe('Options 画面', () => {
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Blocking rules table').first())
     await activeSettingsDialog.getByRole('button', { name: 'Request 10 min pause' }).first().click()
-    await expect(activeSettingsDialog.getByRole('button', { name: /Wait \d+s/ }).first()).toBeDisabled()
+    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
+    await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
 
     const storedPauseState = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
           storage: {
             local: {
-              get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number }> }>
+              get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }>
             }
           }
         }
       }
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
-    expect(storedPauseState.groupPauseState?.work?.waitingUntil).toBeGreaterThanOrEqual(beforePauseRequest + 60_000)
+    expect(storedPauseState.groupPauseState?.work).toBeUndefined()
   })
 
   test('希望設定から削除済みの active group も active settings から一時停止できる', async ({ page, context, extensionId }) => {
@@ -602,6 +696,7 @@ test.describe('Options 画面', () => {
       })
     })
     const beforePauseStart = Date.now()
+    await page.clock.install({ time: beforePauseStart })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
@@ -612,8 +707,13 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Deleted active')
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
-    await activeSettingsDialog.getByRole('button', { name: 'Pause for 10 min' }).click()
-    await expect(activeSettingsDialog.getByRole('button', { name: /Paused \d+:\d{2}/ })).toBeDisabled()
+    await activeSettingsDialog.getByRole('button', { name: 'Request 10 min pause' }).click()
+    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
+    await page.clock.fastForward(60_000)
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeEnabled()
+    await pauseDialog.getByRole('button', { name: 'Pause 10 min' }).click()
+    await expect(activeSettingsDialog.getByText(/Paused \d+:\d{2}/)).toBeVisible()
 
     const storedPauseState = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {

@@ -1,13 +1,13 @@
 import type { GroupPauseEntry } from './types'
 
 /**
- * グループ一時停止ボタンの表示状態。
+ * グループ一時停止 UI の表示状態。
  */
 export interface GroupPauseButtonState {
-  /** ボタンに表示するラベル。 */
+  /** UI に表示するラベル。 */
   label: string
-  /** クリック可能なら true。 */
-  clickable: boolean
+  /** 一時停止中の状態表示なら true。 */
+  paused: boolean
 }
 
 /**
@@ -21,7 +21,7 @@ function formatDuration(milliseconds: number): string {
 }
 
 /**
- * 一時停止状態からボタンのラベルとクリック可否を返す。
+ * 一時停止状態から表示ラベルと状態種別を返す。
  */
 export function getGroupPauseButtonState(entry: GroupPauseEntry | undefined, now: Date): GroupPauseButtonState {
   const nowMs = now.getTime()
@@ -29,28 +29,12 @@ export function getGroupPauseButtonState(entry: GroupPauseEntry | undefined, now
   if (pausedUntil && pausedUntil > nowMs) {
     return {
       label: `Paused ${formatDuration(pausedUntil - nowMs)}`,
-      clickable: false,
-    }
-  }
-
-  const waitingUntil = entry?.waitingUntil
-  if (!waitingUntil) {
-    return {
-      label: 'Request 10 min pause',
-      clickable: true,
-    }
-  }
-
-  const remainingMs = waitingUntil - nowMs
-  if (remainingMs > 0) {
-    return {
-      label: `Wait ${Math.ceil(remainingMs / 1_000)}s`,
-      clickable: false,
+      paused: true,
     }
   }
 
   return {
-    label: 'Pause for 10 min',
-    clickable: true,
+    label: 'Request 10 min pause',
+    paused: false,
   }
 }

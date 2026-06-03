@@ -132,3 +132,19 @@ dialog.dialog-centered {
   margin: 0;
   transform: translate(-50%, -50%);
 }
+
+@keyframes pause-breathe {
+  0%, 100% {
+    transform: scale(0.82);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+}
+
+.pause-breathe {
+  animation: pause-breathe 5s ease-in-out infinite;
+}

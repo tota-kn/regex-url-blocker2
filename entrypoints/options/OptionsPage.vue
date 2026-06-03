@@ -16,6 +16,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import ActiveSettingsDialog from '@/components/options/ActiveSettingsDialog.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
+import PauseCountdownDialog from '@/components/options/PauseCountdownDialog.vue'
 
 const settings = ref<Settings>({
   global: { ...DEFAULT_GLOBAL_SETTINGS },
@@ -32,10 +33,11 @@ const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
 const activeSettingsDialogRef = ref<InstanceType<typeof ActiveSettingsDialog> | null>(null)
+const pauseCountdownDialogRef = ref<InstanceType<typeof PauseCountdownDialog> | null>(null)
+const pauseTargetGroupId = ref<string | undefined>(undefined)
 const activeSection = ref<'groups' | 'general'>('groups')
 let nowTimerId: number | undefined
 
-const PAUSE_WAIT_MS = 60_000
 const GROUP_PAUSE_MS = 10 * 60_000
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
@@ -139,8 +141,22 @@ async function removeGroup(id: string): Promise<void> {
   settings.value.groups = settings.value.groups.filter(g => g.id !== id)
 }
 
-/** グループ一時停止ボタンのクリックを現在状態に応じて保存する。 */
-async function requestGroupPause(id: string): Promise<void> {
+/** グループ一時停止前の集中カウントダウンを開始する。 */
+function requestGroupPause(id: string): void {
+  const nowMs = Date.now()
+  const current = groupPauseState.value.groupPauseState[id]
+  if (current?.pausedUntil && current.pausedUntil > nowMs) return
+
+  pauseTargetGroupId.value = id
+  pauseCountdownDialogRef.value?.open()
+}
+
+/** 集中カウントダウン完了後に10分の一時停止を保存する。 */
+async function confirmGroupPause(): Promise<void> {
+  const id = pauseTargetGroupId.value
+  pauseTargetGroupId.value = undefined
+  if (!id) return
+
   const nowMs = Date.now()
   const current = groupPauseState.value.groupPauseState[id]
   if (current?.pausedUntil && current.pausedUntil > nowMs) return
@@ -148,15 +164,7 @@ async function requestGroupPause(id: string): Promise<void> {
   const next: GroupPauseState = {
     groupPauseState: { ...groupPauseState.value.groupPauseState },
   }
-  if (!current?.waitingUntil) {
-    next.groupPauseState[id] = { waitingUntil: nowMs + PAUSE_WAIT_MS }
-  }
-  else if (current.waitingUntil <= nowMs) {
-    next.groupPauseState[id] = { pausedUntil: nowMs + GROUP_PAUSE_MS }
-  }
-  else {
-    return
-  }
+  next.groupPauseState[id] = { pausedUntil: nowMs + GROUP_PAUSE_MS }
 
   groupPauseState.value = next
   await saveGroupPauseState(next)
@@ -259,6 +267,10 @@ onUnmounted(() => {
 
 <template>
   <ConfirmDialog ref="confirmDialogRef" />
+  <PauseCountdownDialog
+    ref="pauseCountdownDialogRef"
+    @confirm="confirmGroupPause"
+  />
   <ActiveSettingsDialog
     ref="activeSettingsDialogRef"
     :effective-settings="effectiveSettings"

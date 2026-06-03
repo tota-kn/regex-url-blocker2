@@ -80,7 +80,7 @@ const pauseButtonState = computed(() => getGroupPauseButtonState(props.pauseEntr
 const pauseButtonLabel = computed(() => props.pauseDisabledLabel ?? pauseButtonState.value.label)
 const canRequestPause = computed(() => {
   if (props.pauseDisabledLabel) return false
-  return pauseButtonState.value.clickable
+  return !pauseButtonState.value.paused
 })
 
 watch(() => props.group, (group) => {
@@ -167,8 +167,20 @@ function optionsPanelId(): string {
           </label>
 
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
+            <span
+              v-if="!isEditing && !isNew && pauseButtonState.paused"
+              class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-label-md text-secondary-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              <ClockIcon
+                aria-hidden="true"
+                class="size-4"
+              />
+              {{ pauseButtonState.label }}
+            </span>
             <BaseButton
-              v-if="!isEditing && !isNew"
+              v-else-if="!isEditing && !isNew"
               type="button"
               :aria-label="pauseButtonLabel"
               variant="secondary"
