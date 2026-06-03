@@ -119,6 +119,80 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Import replaces all groups and general settings.')).toBeVisible()
   })
 
+  test('グループ一時停止は60秒待機後の再クリックで10分停止になる', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [{
+          id: 'pause-target',
+          name: 'Pause target',
+          mode: 'blacklist',
+          lockMode: false,
+          patterns: ['example\\.com'],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 0,
+          })),
+        }],
+      })
+    })
+    const startTime = new Date('2026-05-06T12:00:00+09:00')
+    await page.clock.install({ time: startTime })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await expect(page.getByRole('button', { name: /Wait \d+s/ })).toBeDisabled()
+    let stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    const waitingUntil = stored.groupPauseState?.['pause-target']?.waitingUntil
+    expect(waitingUntil).toBeGreaterThanOrEqual(startTime.getTime() + 60_000)
+    expect(waitingUntil).toBeLessThan(startTime.getTime() + 61_000)
+    expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
+
+    await page.clock.fastForward(59_000)
+    await expect(page.getByRole('button', { name: /Wait \d+s/ })).toBeDisabled()
+    stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
+
+    await page.clock.fastForward(1_000)
+    await page.getByRole('button', { name: 'Pause for 10 min' }).click()
+    await expect(page.getByRole('button', { name: /Paused 10:00|Paused 9:59/ })).toBeDisabled()
+    stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number, pausedUntil?: number }> }> } } }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    const pausedUntil = stored.groupPauseState?.['pause-target']?.pausedUntil
+    expect(pausedUntil).toBeGreaterThanOrEqual(startTime.getTime() + 11 * 60_000)
+    expect(pausedUntil).toBeLessThan(startTime.getTime() + 11 * 60_000 + 1_000)
+  })
+
   test('Incognito mode の Chrome 拡張詳細ページを開ける', async ({ page, context, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -400,7 +474,9 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Sun daily limit minutes').first()).toHaveText('30')
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Active settings only' }).first()).toBeDisabled()
 
+    const beforePauseRequest = Date.now()
     await page.getByRole('button', { name: 'View active settings' }).click()
 
     const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
@@ -425,6 +501,106 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('No URL patterns yet')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocked hours: 09:00-17:00; Daily limit: 10 min/day').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocked hours: No blocked hours; Daily limit: No daily limit').first()).toBeVisible()
+    await activeSettingsDialog.getByRole('button', { name: 'Request 10 min pause' }).first().click()
+    await expect(activeSettingsDialog.getByRole('button', { name: /Wait \d+s/ }).first()).toBeDisabled()
+
+    const storedPauseState = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { waitingUntil?: number }> }>
+            }
+          }
+        }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    expect(storedPauseState.groupPauseState?.work?.waitingUntil).toBeGreaterThanOrEqual(beforePauseRequest + 60_000)
+  })
+
+  test('希望設定から削除済みの active group も active settings から一時停止できる', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            local: { set: (items: Record<string, unknown>) => Promise<void> }
+          }
+        }
+      }
+      const activeSettings = {
+        global: {
+          blockAction: 'redirect',
+          redirectUrl: 'https://active-blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [{
+          id: 'deleted-active',
+          name: 'Deleted active',
+          mode: 'blacklist',
+          lockMode: true,
+          patterns: ['deleted\\.example'],
+          blockAction: 'redirect',
+          redirectUrl: 'https://active-blocked.test',
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 0,
+          })),
+        }],
+      }
+      const now = new Date()
+      const reset = new Date(now)
+      reset.setHours(3, 0, 0, 0)
+      if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
+      const logicalDate = [
+        reset.getFullYear(),
+        String(reset.getMonth() + 1).padStart(2, '0'),
+        String(reset.getDate()).padStart(2, '0'),
+      ].join('-')
+      await chromeApi.chrome.storage.local.set({
+        effectiveSettings: activeSettings,
+        effectiveSettingsLogicalDate: logicalDate,
+        groupPauseState: {
+          'deleted-active': { waitingUntil: Date.now() - 1 },
+        },
+      })
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          blockAction: 'redirect',
+          redirectUrl: 'https://preferred-blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [],
+      })
+    })
+    const beforePauseStart = Date.now()
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
+    await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
+    await page.getByRole('button', { name: 'View active settings' }).click()
+
+    const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
+    await expect(activeSettingsDialog.getByText('Deleted active')).toBeVisible()
+    await activeSettingsDialog.getByRole('button', { name: 'Pause for 10 min' }).click()
+    await expect(activeSettingsDialog.getByRole('button', { name: /Paused \d+:\d{2}/ })).toBeDisabled()
+
+    const storedPauseState = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              get: (keys: string[]) => Promise<{ groupPauseState?: Record<string, { pausedUntil?: number }> }>
+            }
+          }
+        }
+      }
+      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+    })
+    expect(storedPauseState.groupPauseState?.['deleted-active']?.pausedUntil).toBeGreaterThanOrEqual(beforePauseStart + 10 * 60_000)
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {

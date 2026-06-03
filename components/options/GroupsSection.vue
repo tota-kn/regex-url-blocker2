@@ -5,7 +5,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { GroupTemplateId } from '@/utils/defaults'
-import type { Group } from '@/utils/types'
+import type { Group, GroupPauseEntry, GroupPauseState } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
 
 /**
@@ -28,6 +28,12 @@ interface GroupTemplateOption {
 interface Props {
   /** 保存前の新規グループドラフト配列。 */
   newGroups: Group[]
+  /** group id ごとの一時停止状態。 */
+  groupPauseState: GroupPauseState
+  /** 一時停止表示の残り時間計算に使う現在時刻。 */
+  now: Date
+  /** 未反映設定があり、通常一覧から一時停止できないなら true。 */
+  pauseActiveSettingsOnly: boolean
   /** 指定グループの今日の上限利用状況を返す関数。 */
   timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
 }
@@ -46,6 +52,8 @@ interface Emits {
   cancelNewGroup: [id: string]
   /** グループ削除が要求されたときに対象 id を通知する。 */
   removeGroup: [id: string]
+  /** グループ一時停止操作が要求されたときに対象 id を通知する。 */
+  requestGroupPause: [id: string]
 }
 
 const props = defineProps<Props>()
@@ -87,6 +95,11 @@ const groupTemplates: GroupTemplateOption[] = [
     ariaLabel: 'Create group from work hours focus template',
   },
 ]
+
+/** 指定グループの一時停止状態を返す。 */
+function groupPauseEntry(groupId: string): GroupPauseEntry | undefined {
+  return props.groupPauseState.groupPauseState[groupId]
+}
 
 watch(() => props.newGroups.length, async (newLength, oldLength) => {
   if (newLength <= oldLength) return
@@ -200,9 +213,13 @@ function createGroup(templateId: GroupTemplateId): void {
         v-for="(_, i) in groups"
         :key="groups[i].id"
         :group="groups[i]"
+        :pause-entry="groupPauseEntry(groups[i].id)"
+        :now="now"
+        :pause-disabled-label="pauseActiveSettingsOnly ? 'Active settings only' : undefined"
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"
+        @request-pause="$emit('requestGroupPause', groups[i].id)"
       />
       <GroupCard
         v-for="group in newGroups"

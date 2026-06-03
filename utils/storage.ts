@@ -1,6 +1,6 @@
 import { createEmptyDailyRules, DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, BlockNotificationHistoryState, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, PageOpenNotificationHistoryState, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
+import type { BlockAction, BlockNotificationHistoryState, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, PageOpenNotificationHistoryState, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -266,6 +266,60 @@ export async function loadCounters(): Promise<UsageCountersState> {
 export async function saveCounters(state: UsageCountersState): Promise<void> {
   await browser.storage.local.set({
     counters: state.counters,
+  })
+}
+
+/**
+ * unknown の値から一時停止エントリを生成する。有効期限切れまたは空の値は undefined を返す。
+ */
+function normalizeGroupPauseEntry(value: unknown, now: number): GroupPauseEntry | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+
+  const entry = value as Record<string, unknown>
+  const normalized: GroupPauseEntry = {}
+  if (typeof entry.waitingUntil === 'number' && Number.isFinite(entry.waitingUntil) && entry.waitingUntil > 0) {
+    normalized.waitingUntil = Math.floor(entry.waitingUntil)
+  }
+  if (typeof entry.pausedUntil === 'number' && Number.isFinite(entry.pausedUntil) && entry.pausedUntil > now) {
+    normalized.pausedUntil = Math.floor(entry.pausedUntil)
+  }
+
+  return normalized.waitingUntil || normalized.pausedUntil ? normalized : undefined
+}
+
+/**
+ * unknown の値から一時停止状態辞書を生成する。
+ */
+export function normalizeGroupPauseState(value: unknown, validGroupIds?: Iterable<string>, now = Date.now()): GroupPauseState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { groupPauseState: {} }
+
+  const validIds = validGroupIds ? new Set(validGroupIds) : undefined
+  const groupPauseState: GroupPauseState['groupPauseState'] = {}
+  for (const [groupId, entryValue] of Object.entries(value as Record<string, unknown>)) {
+    if (validIds && !validIds.has(groupId)) continue
+    const entry = normalizeGroupPauseEntry(entryValue, now)
+    if (entry) groupPauseState[groupId] = entry
+  }
+  return { groupPauseState }
+}
+
+/**
+ * browser.storage.local からグループ一時停止状態を読み込む。
+ * 不正値、期限切れ値、指定された group id に存在しない値は除外する。
+ */
+export async function loadGroupPauseState(validGroupIds?: Iterable<string>, now = Date.now()): Promise<GroupPauseState> {
+  const raw = await browser.storage.local.get(['groupPauseState']) as {
+    groupPauseState?: unknown
+  }
+  return normalizeGroupPauseState(raw.groupPauseState, validGroupIds, now)
+}
+
+/**
+ * browser.storage.local にグループ一時停止状態を書き込む。
+ */
+export async function saveGroupPauseState(state: GroupPauseState): Promise<void> {
+  await browser.storage.local.set({
+    groupPauseState: state.groupPauseState,
   })
 }
 

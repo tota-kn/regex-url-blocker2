@@ -143,6 +143,27 @@ interface Group {
 
 background はカウンタをメモリ上に保持し、約7秒間隔、heartbeat アラーム、`runtime.onSuspend` で `storage.local` へフラッシュする。
 
+### `groupPauseState`
+
+```ts
+{
+  groupPauseState: Record<string, {
+    waitingUntil?: number
+    pausedUntil?: number
+  }>
+}
+```
+
+`groupPauseState` は group id ごとの一時停止状態。1回目のクリックで `waitingUntil` を保存し、`waitingUntil` 経過後の再クリックで `pausedUntil` を保存する。`pausedUntil` が現在時刻より未来のグループはブロック判定の `blockedGroupIds` からだけ除外する。`targetGroupIds` は変えないため、daily limit の閲覧秒数カウンタ加算は一時停止中も継続する。
+
+- 未設定、オブジェクトでない、または配列の場合は空状態として読み込む。
+- 各エントリで値がオブジェクトでない、または配列である場合はそのエントリだけ除外する。
+- `waitingUntil` が finite number かつ正値でない場合は除外する。過去の `waitingUntil` は「10分一時停止を開始できる状態」として保持する。
+- `pausedUntil` が finite number でない、または現在時刻以前の場合は除外する。
+- background 初期化・設定再読み込み時に、現在の有効設定に存在するグループだけへ正規化する。
+- 削除済みグループの一時停止状態は正規化後に残さない。
+- 一時停止状態は runtime 状態であり、設定 export/import には含めない。
+
 ### `usageNotificationHistory`
 
 ```ts

@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, DocumentTextIcon, LockClosedIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, LockClosedIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '@/utils/defaults'
+import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup, formatBlockDestination, formatGroupMode } from '@/utils/groups'
-import type { Group } from '@/utils/types'
+import type { Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
 import LimitRulesEditor from './LimitRulesEditor.vue'
@@ -23,6 +24,12 @@ interface Props {
   startInEdit?: boolean
   /** 新規作成中の未保存グループかどうか。 */
   isNew?: boolean
+  /** このグループの一時停止状態。 */
+  pauseEntry?: GroupPauseEntry
+  /** 一時停止表示の残り時間計算に使う現在時刻。 */
+  now?: Date
+  /** 一時停止操作を無効化するときに表示するラベル。 */
+  pauseDisabledLabel?: string
   /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
   timeLimitUsageSummary?: TimeLimitUsageSummary
 }
@@ -37,6 +44,8 @@ interface Emits {
   cancel: []
   /** グループ削除が要求されたときに発火する。 */
   remove: []
+  /** グループ一時停止操作が要求されたときに発火する。 */
+  requestPause: []
 }
 
 const props = defineProps<Props>()
@@ -64,6 +73,12 @@ const visibleOptionSummaries = computed(() => {
     summaries.push({ label: 'Page shown when blocked', value: formatBlockDestination(props.group) })
   }
   return summaries
+})
+const pauseButtonState = computed(() => getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()))
+const pauseButtonLabel = computed(() => props.pauseDisabledLabel ?? pauseButtonState.value.label)
+const canRequestPause = computed(() => {
+  if (props.pauseDisabledLabel) return false
+  return pauseButtonState.value.clickable
 })
 
 watch(() => props.group, (group) => {
@@ -148,6 +163,20 @@ function optionsPanelId(): string {
           </label>
 
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
+            <BaseButton
+              v-if="!isEditing && !isNew"
+              type="button"
+              :aria-label="pauseButtonLabel"
+              variant="secondary"
+              :disabled="!canRequestPause"
+              @click="$emit('requestPause')"
+            >
+              <ClockIcon
+                aria-hidden="true"
+                class="size-4"
+              />
+              {{ pauseButtonLabel }}
+            </BaseButton>
             <BaseButton
               v-if="!isEditing"
               type="button"

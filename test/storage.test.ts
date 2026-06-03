@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadBlockNotificationHistory, loadCounters, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveBlockNotificationHistory, saveCounters, savePageOpenNotificationHistory, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
+import { loadBlockNotificationHistory, loadCounters, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveBlockNotificationHistory, saveCounters, saveGroupPauseState, savePageOpenNotificationHistory, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
 
 describe('loadSettings', () => {
@@ -246,6 +246,59 @@ describe('counter storage', () => {
     expect(await loadCounters()).toEqual({
       counters: {
         ok: { logicalDate: '2026-05-06', consumedSec: 10 },
+      },
+    })
+  })
+})
+
+describe('group pause state storage', () => {
+  it('未設定時は空状態を返す', async () => {
+    expect(await loadGroupPauseState()).toEqual({ groupPauseState: {} })
+  })
+
+  it('save → load で一時停止状態をラウンドトリップする', async () => {
+    const state = {
+      groupPauseState: {
+        group1: { waitingUntil: Date.now() + 60_000, pausedUntil: Date.now() + 600_000 },
+      },
+    }
+    await saveGroupPauseState(state)
+    expect(await loadGroupPauseState()).toEqual(state)
+  })
+
+  it('不正値、期限切れ pause、削除済み group id は読み込み時に除外する', async () => {
+    const now = 1_000_000
+    await browser.storage.local.set({
+      groupPauseState: {
+        ready: { waitingUntil: now - 1 },
+        paused: { pausedUntil: now + 600_000 },
+        expiredPause: { pausedUntil: now - 1 },
+        badWaiting: { waitingUntil: -1 },
+        badPause: { pausedUntil: 'x' },
+        removed: { pausedUntil: now + 600_000 },
+        badEntry: 'x',
+      },
+    })
+
+    expect(await loadGroupPauseState(['ready', 'paused', 'expiredPause', 'badWaiting', 'badPause'], now)).toEqual({
+      groupPauseState: {
+        ready: { waitingUntil: now - 1 },
+        paused: { pausedUntil: now + 600_000 },
+      },
+    })
+  })
+
+  it('valid group id に含まれる active-only group の一時停止状態は保持する', async () => {
+    const now = 1_000_000
+    await browser.storage.local.set({
+      groupPauseState: {
+        activeOnly: { pausedUntil: now + 600_000 },
+      },
+    })
+
+    expect(await loadGroupPauseState(['saved', 'activeOnly'], now)).toEqual({
+      groupPauseState: {
+        activeOnly: { pausedUntil: now + 600_000 },
       },
     })
   })

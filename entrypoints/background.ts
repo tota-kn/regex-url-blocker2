@@ -1,4 +1,5 @@
 import {
+  applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
   getLogicalDate,
@@ -11,8 +12,8 @@ import {
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
-import { loadBlockNotificationHistory, loadCounters, loadEffectiveSettingsState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
-import type { BlockNotificationHistoryState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from '@/utils/types'
+import { loadBlockNotificationHistory, loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
+import type { BlockNotificationHistoryState, GroupPauseState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -26,6 +27,7 @@ const BADGE_COLOR_BLOCKED = '#dc2626'
 
 let settings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
+let groupPauseState: GroupPauseState = { groupPauseState: {} }
 let usageNotificationHistory: UsageNotificationHistoryState = { usageNotificationHistory: {} }
 let pageOpenNotificationHistory: PageOpenNotificationHistoryState = { pageOpenNotificationHistory: {} }
 let blockNotificationHistory: BlockNotificationHistoryState = { blockNotificationHistory: {} }
@@ -77,15 +79,19 @@ async function initializeState(): Promise<void> {
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, await loadCounters(), now)
-  const [usageHistory, pageOpenHistory, blockHistory] = await Promise.all([
+  const validGroupIds = settings.groups.map(group => group.id)
+  const [pauseState, usageHistory, pageOpenHistory, blockHistory] = await Promise.all([
+    loadGroupPauseState(validGroupIds, now.getTime()),
     loadUsageNotificationHistory(),
     loadPageOpenNotificationHistory(),
     loadBlockNotificationHistory(),
   ])
+  groupPauseState = pauseState
   usageNotificationHistory = usageHistory
   pageOpenNotificationHistory = pageOpenHistory
   blockNotificationHistory = blockHistory
   dirtyCounters = true
+  await saveGroupPauseState(groupPauseState)
 }
 
 /**
@@ -147,6 +153,8 @@ async function reloadSettings(): Promise<void> {
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
+  groupPauseState = await loadGroupPauseState(settings.groups.map(group => group.id), now.getTime())
+  await saveGroupPauseState(groupPauseState)
   dirtyCounters = true
 }
 
@@ -159,6 +167,14 @@ async function reloadCounters(): Promise<void> {
   const nextCounters = normalizeCounters(s, mergeCounters(counters, storedCounters), new Date())
   dirtyCounters = JSON.stringify(nextCounters) !== JSON.stringify(storedCounters)
   counters = nextCounters
+}
+
+/**
+ * storage.local の一時停止状態を background のメモリ状態へ取り込む。
+ */
+async function reloadGroupPauseState(): Promise<void> {
+  const s = await currentSettings()
+  groupPauseState = await loadGroupPauseState(s.groups.map(group => group.id))
 }
 
 /**
@@ -390,7 +406,7 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
   if (typeof tab.id !== 'number') return
   const s = await currentSettings()
   await updateActionForTab(tab, now)
-  const evaluation = evaluateUrl(s, counters, tab.url, now)
+  const evaluation = applyGroupPauseState(evaluateUrl(s, counters, tab.url, now), groupPauseState, now.getTime())
   if (!evaluation.blocked) return
   await redirectTab(tab.id, tab.url, s, evaluation, now)
 }
@@ -443,7 +459,7 @@ async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsTy
   const s = await currentSettings()
   const now = new Date()
   await mergeStoredCounters(s, now)
-  const evaluation = evaluateUrl(s, counters, details.url, now)
+  const evaluation = applyGroupPauseState(evaluateUrl(s, counters, details.url, now), groupPauseState, now.getTime())
   await updateActionForTab({ id: details.tabId, url: details.url }, now)
   await notifyPageOpenIfNeeded(s, evaluation, now)
   if (!evaluation.blocked) return
@@ -483,9 +499,10 @@ export default defineBackground(() => {
 
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return
-    if (!changes.counters) return
+    if (!changes.counters && !changes.groupPauseState) return
     runAsync(async () => {
-      await reloadCounters()
+      if (changes.counters) await reloadCounters()
+      if (changes.groupPauseState) await reloadGroupPauseState()
       await reevaluateAllTabs()
     })
   })
@@ -505,7 +522,7 @@ export default defineBackground(() => {
       const s = await currentSettings()
       const now = new Date()
       await updateActionForTab({ ...tab, id: tabId, url }, now)
-      const evaluation = evaluateUrl(s, counters, url, now)
+      const evaluation = applyGroupPauseState(evaluateUrl(s, counters, url, now), groupPauseState, now.getTime())
       await notifyPageOpenIfNeeded(s, evaluation, now)
       if (!evaluation.blocked) return
       await redirectTab(tabId, url, s, evaluation, now)

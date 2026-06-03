@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
   getLogicalDate,
@@ -186,6 +187,39 @@ describe('blocking evaluation', () => {
     const counters = { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 60 } } }
     expect(evaluateUrl(s, counters, 'https://example.com/', new Date('2026-05-06T12:00:00+09:00')).blocked).toBe(true)
   })
+
+  it('一時停止中 group id のブロックだけを除外する', () => {
+    const s = settings([
+      group({ id: 'paused', patterns: ['example'], dailyRules: allDailyRules({ dailyLimitMinutes: 0 }) }),
+      group({ id: 'active', patterns: ['example'], dailyRules: allDailyRules({ dailyLimitMinutes: 0 }) }),
+    ])
+    const evaluation = evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
+
+    const result = applyGroupPauseState(evaluation, {
+      groupPauseState: {
+        paused: { pausedUntil: 1_000 },
+      },
+    }, 999)
+
+    expect(result.blocked).toBe(true)
+    expect(result.targetGroupIds).toEqual(['paused', 'active'])
+    expect(result.blockedGroupIds).toEqual(['active'])
+  })
+
+  it('一時停止中 group だけがブロック理由ならブロックしない', () => {
+    const s = settings([group({ id: 'paused', dailyRules: allDailyRules({ dailyLimitMinutes: 0 }) })])
+    const evaluation = evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
+
+    const result = applyGroupPauseState(evaluation, {
+      groupPauseState: {
+        paused: { pausedUntil: 1_000 },
+      },
+    }, 999)
+
+    expect(result.blocked).toBe(false)
+    expect(result.targetGroupIds).toEqual(['paused'])
+    expect(result.blockedGroupIds).toEqual([])
+  })
 })
 
 describe('counters', () => {
@@ -283,6 +317,13 @@ describe('counters', () => {
     const counters = incrementCounters(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'), 1)
     expect(counters.counters.a.consumedSec).toBe(1)
     expect(counters.counters.b.consumedSec).toBe(1)
+  })
+
+  it('一時停止中でも counter 加算対象は変わらない', () => {
+    const s = settings([group({ id: 'paused', patterns: ['example'] })])
+    const counters = incrementCounters(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'), 1)
+
+    expect(counters.counters.paused.consumedSec).toBe(1)
   })
 
   it('論理日が変わった counter は 0 にし、削除済み group は除去する', () => {

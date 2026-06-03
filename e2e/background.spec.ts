@@ -508,6 +508,122 @@ test.describe('Background blocking', () => {
     }
   })
 
+  test('一時停止中のグループだけがブロック理由なら対象 URL へ遷移できる', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await serviceWorker.evaluate(async (origin) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
+          }
+        }
+        const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+          dayOfWeek,
+          blockedTimeRanges: [],
+          dailyLimitMinutes: 0,
+        }))
+        await chromeApi.chrome.storage.sync.set({
+          global: { blockAction: 'redirect', redirectUrl: `${origin}/blocked`, dailyResetHour: '00:00' },
+          groups: [{
+            id: 'paused',
+            name: 'Paused',
+            mode: 'blacklist',
+            lockMode: false,
+            patterns: [`^${origin.replaceAll('.', '\\.')}`],
+            blockAction: 'redirect',
+            redirectUrl: `${origin}/blocked`,
+            dailyRules,
+          }],
+        })
+      }, server.origin)
+      await page.waitForTimeout(300)
+      await serviceWorker.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.local.set({
+          groupPauseState: {
+            paused: { pausedUntil: Date.now() + 600_000 },
+          },
+        })
+      })
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/target`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('同じURLを未停止グループもブロックする場合は引き続きリダイレクトする', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      await serviceWorker.evaluate(async (origin) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
+          }
+        }
+        const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+          dayOfWeek,
+          blockedTimeRanges: [],
+          dailyLimitMinutes: 0,
+        }))
+        await chromeApi.chrome.storage.sync.set({
+          global: { blockAction: 'redirect', redirectUrl: `${origin}/legacy-blocked`, dailyResetHour: '00:00' },
+          groups: [
+            {
+              id: 'paused',
+              name: 'Paused',
+              mode: 'blacklist',
+              lockMode: false,
+              patterns: [`^${origin.replaceAll('.', '\\.')}`],
+              blockAction: 'redirect',
+              redirectUrl: `${origin}/paused-blocked`,
+              dailyRules,
+            },
+            {
+              id: 'active',
+              name: 'Active',
+              mode: 'blacklist',
+              lockMode: false,
+              patterns: [`^${origin.replaceAll('.', '\\.')}`],
+              blockAction: 'redirect',
+              redirectUrl: `${origin}/active-blocked`,
+              dailyRules,
+            },
+          ],
+        })
+      }, server.origin)
+      await page.waitForTimeout(300)
+      await serviceWorker.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.local.set({
+          groupPauseState: {
+            paused: { pausedUntil: Date.now() + 600_000 },
+          },
+        })
+      })
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/active-blocked`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
   test('Options で Blocked page に切り替えた後は拡張ページへ遷移する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {

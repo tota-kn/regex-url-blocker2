@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { dayLabel } from '@/utils/datetime'
+import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { formatBlockDestination, formatDailyRule, formatGroupMode } from '@/utils/groups'
-import type { Settings } from '@/utils/types'
+import type { GroupPauseEntry, GroupPauseState, Settings } from '@/utils/types'
 
 /**
  * 現在有効な設定ダイアログの props。
@@ -12,9 +13,22 @@ import type { Settings } from '@/utils/types'
 interface Props {
   /** background 判定に現在使われている有効設定。 */
   effectiveSettings: Settings
+  /** group id ごとの一時停止状態。 */
+  groupPauseState: GroupPauseState
+  /** 一時停止表示の残り時間計算に使う現在時刻。 */
+  now: Date
 }
 
-defineProps<Props>()
+/**
+ * 現在有効な設定ダイアログが親へ通知するイベント。
+ */
+interface Emits {
+  /** グループ一時停止操作が要求されたときに対象 id を通知する。 */
+  requestPause: [groupId: string]
+}
+
+const props = defineProps<Props>()
+defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 
@@ -30,6 +44,21 @@ function open(): void {
  */
 function close(): void {
   dialogRef.value?.close()
+}
+
+/** 指定グループの一時停止状態を返す。 */
+function groupPauseEntry(groupId: string): GroupPauseEntry | undefined {
+  return props.groupPauseState.groupPauseState[groupId]
+}
+
+/** 指定グループの一時停止ボタンラベルを返す。 */
+function pauseButtonLabel(groupId: string): string {
+  return getGroupPauseButtonState(groupPauseEntry(groupId), props.now).label
+}
+
+/** 指定グループの一時停止ボタンがクリック可能なら true を返す。 */
+function canRequestPause(groupId: string): boolean {
+  return getGroupPauseButtonState(groupPauseEntry(groupId), props.now).clickable
 }
 
 defineExpose({ open, close })
@@ -84,6 +113,19 @@ defineExpose({ open, close })
             <h4 class="text-label-md">
               {{ group.name }}
             </h4>
+            <BaseButton
+              type="button"
+              :aria-label="pauseButtonLabel(group.id)"
+              variant="secondary"
+              :disabled="!canRequestPause(group.id)"
+              @click="$emit('requestPause', group.id)"
+            >
+              <ClockIcon
+                aria-hidden="true"
+                class="size-4"
+              />
+              {{ pauseButtonLabel(group.id) }}
+            </BaseButton>
           </div>
           <div>
             <p class="text-label-sm text-muted">

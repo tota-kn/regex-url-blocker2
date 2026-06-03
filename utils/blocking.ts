@@ -1,4 +1,4 @@
-import type { DayOfWeek, GlobalSettings, Group, Settings, UsageCounter, UsageCountersState } from './types'
+import type { DayOfWeek, GlobalSettings, Group, GroupPauseState, Settings, UsageCounter, UsageCountersState } from './types'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
@@ -216,6 +216,21 @@ export function evaluateUrl(settings: Settings, counters: UsageCountersState, ur
   return {
     blocked: blockedGroupIds.length > 0,
     targetGroupIds,
+    blockedGroupIds,
+  }
+}
+
+/**
+ * 一時停止中のグループを、URL 評価結果のブロック対象から除外する。
+ */
+export function applyGroupPauseState(evaluation: UrlEvaluation, groupPauseState: GroupPauseState, now = Date.now()): UrlEvaluation {
+  const blockedGroupIds = evaluation.blockedGroupIds.filter((groupId) => {
+    const pausedUntil = groupPauseState.groupPauseState[groupId]?.pausedUntil
+    return !(typeof pausedUntil === 'number' && pausedUntil > now)
+  })
+  return {
+    ...evaluation,
+    blocked: blockedGroupIds.length > 0,
     blockedGroupIds,
   }
 }

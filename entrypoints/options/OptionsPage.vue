@@ -7,9 +7,9 @@ import { DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate, type GroupTemplateId 
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
 import { cloneSettings } from '@/utils/groups'
-import { loadCounters, loadEffectiveSettingsState, loadSettings, parseSettingsExportJson, saveSettings, serializeSettingsExport } from '@/utils/storage'
+import { loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadSettings, parseSettingsExportJson, saveGroupPauseState, saveSettings, serializeSettingsExport } from '@/utils/storage'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
-import type { Group, Settings, UsageCountersState } from '@/utils/types'
+import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -26,12 +26,17 @@ const effectiveSettings = ref<Settings>({
   groups: [],
 })
 const counters = ref<UsageCountersState>({ counters: {} })
+const groupPauseState = ref<GroupPauseState>({ groupPauseState: {} })
 const now = ref(new Date())
 const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
 const activeSettingsDialogRef = ref<InstanceType<typeof ActiveSettingsDialog> | null>(null)
 const activeSection = ref<'groups' | 'general'>('groups')
+let nowTimerId: number | undefined
+
+const PAUSE_WAIT_MS = 60_000
+const GROUP_PAUSE_MS = 10 * 60_000
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
 const groupsErrors = computed(() =>
@@ -56,6 +61,14 @@ const appliesAfterLabel = computed(() => formatDateTime(nextResetAt.value))
 const groupCount = computed(() => settings.value.groups.length + newGroupDrafts.value.length)
 const hasGlobalErrors = computed(() => globalErrors.value.length > 0 || Boolean(importError.value))
 
+/** 一時停止状態を保持してよい group id を返す。 */
+function groupPauseValidIds(): string[] {
+  return [...new Set([
+    ...settings.value.groups.map(group => group.id),
+    ...effectiveSettings.value.groups.map(group => group.id),
+  ])]
+}
+
 /** 指定フィールドのグローバル設定エラーメッセージを返す。 */
 function globalError(field: string): string | undefined {
   return globalErrors.value.find(e => e.field === field)?.message
@@ -72,9 +85,16 @@ async function refreshCounters(): Promise<void> {
   now.value = new Date()
 }
 
+/** storage.local のグループ一時停止状態を再読み込みする。 */
+async function refreshGroupPauseState(): Promise<void> {
+  groupPauseState.value = await loadGroupPauseState(groupPauseValidIds())
+  now.value = new Date()
+}
+
 /** storage.local の有効設定スナップショットを再読み込みする。 */
 async function refreshEffectiveSettings(): Promise<void> {
   effectiveSettings.value = (await loadEffectiveSettingsState(settings.value)).effectiveSettings
+  groupPauseState.value = await loadGroupPauseState(groupPauseValidIds())
   now.value = new Date()
 }
 
@@ -117,6 +137,29 @@ function cancelNewGroup(id: string): void {
 async function removeGroup(id: string): Promise<void> {
   if (!await confirmDialogRef.value?.open('Delete group?')) return
   settings.value.groups = settings.value.groups.filter(g => g.id !== id)
+}
+
+/** グループ一時停止ボタンのクリックを現在状態に応じて保存する。 */
+async function requestGroupPause(id: string): Promise<void> {
+  const nowMs = Date.now()
+  const current = groupPauseState.value.groupPauseState[id]
+  if (current?.pausedUntil && current.pausedUntil > nowMs) return
+
+  const next: GroupPauseState = {
+    groupPauseState: { ...groupPauseState.value.groupPauseState },
+  }
+  if (!current?.waitingUntil) {
+    next.groupPauseState[id] = { waitingUntil: nowMs + PAUSE_WAIT_MS }
+  }
+  else if (current.waitingUntil <= nowMs) {
+    next.groupPauseState[id] = { pausedUntil: nowMs + GROUP_PAUSE_MS }
+  }
+  else {
+    return
+  }
+
+  groupPauseState.value = next
+  await saveGroupPauseState(next)
 }
 
 const debouncedSave = debounce((s: Settings) => {
@@ -186,6 +229,9 @@ const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListe
   if (areaName === 'local' && changes.counters) {
     void refreshCounters()
   }
+  if (areaName === 'local' && changes.groupPauseState) {
+    void refreshGroupPauseState()
+  }
   if (areaName === 'local' && (changes.effectiveSettings || changes.effectiveSettingsLogicalDate)) {
     void refreshEffectiveSettings()
   }
@@ -197,11 +243,16 @@ onMounted(async () => {
   effectiveSettings.value = loadedEffectiveState.effectiveSettings
   settings.value = protectDailyResetTime(loadedSettings)
   counters.value = loadedCounters
+  groupPauseState.value = await loadGroupPauseState(groupPauseValidIds())
   isLoaded.value = true
+  nowTimerId = window.setInterval(() => {
+    now.value = new Date()
+  }, 1_000)
   browser.storage.onChanged.addListener(handleStorageChanged)
 })
 
 onUnmounted(() => {
+  if (nowTimerId !== undefined) window.clearInterval(nowTimerId)
   browser.storage.onChanged.removeListener(handleStorageChanged)
 })
 </script>
@@ -211,6 +262,9 @@ onUnmounted(() => {
   <ActiveSettingsDialog
     ref="activeSettingsDialogRef"
     :effective-settings="effectiveSettings"
+    :group-pause-state="groupPauseState"
+    :now="now"
+    @request-pause="requestGroupPause"
   />
   <main class="min-h-screen overflow-x-hidden bg-secondary/40 text-foreground">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -318,12 +372,16 @@ onUnmounted(() => {
               v-if="activeSection === 'groups'"
               v-model="settings.groups"
               :new-groups="newGroupDrafts"
+              :group-pause-state="groupPauseState"
+              :now="now"
+              :pause-active-settings-only="hasPendingSettings"
               :time-limit-usage-summary="timeLimitUsageSummary"
               @add-group="addGroup"
               @save-group="saveGroup"
               @save-new-group="saveNewGroup"
               @cancel-new-group="cancelNewGroup"
               @remove-group="removeGroup"
+              @request-group-pause="requestGroupPause"
             />
 
             <GlobalSettingsSection

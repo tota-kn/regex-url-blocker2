@@ -126,6 +126,24 @@ export interface UsageCountersState {
 }
 
 /**
+ * 1グループ分の一時停止状態。
+ */
+export interface GroupPauseEntry {
+  /** 1回目クリック後、10分一時停止を開始できる時刻の epoch milliseconds。 */
+  waitingUntil?: number
+  /** この時刻までブロックだけを一時停止する epoch milliseconds。 */
+  pausedUntil?: number
+}
+
+/**
+ * chrome.storage.local に保存するグループ一時停止状態。
+ */
+export interface GroupPauseState {
+  /** group id を key とする一時停止状態辞書。 */
+  groupPauseState: Record<string, GroupPauseEntry>
+}
+
+/**
  * 1グループの残り時間通知済み状態。
  */
 export interface UsageNotificationEntry {
