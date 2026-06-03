@@ -34,7 +34,7 @@ export function getGroupPauseButtonState(entry: GroupPauseEntry | undefined, now
   }
 
   return {
-    label: 'Request 10 min pause',
+    label: 'Request pause',
     paused: false,
   }
 }

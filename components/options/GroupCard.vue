@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, LockClosedIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, LockClosedIcon, PauseIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -187,7 +187,7 @@ function optionsPanelId(): string {
               :disabled="!canRequestPause"
               @click="$emit('requestPause')"
             >
-              <ClockIcon
+              <PauseIcon
                 aria-hidden="true"
                 class="size-4"
               />

@@ -167,7 +167,7 @@ test.describe('Options 画面', () => {
     await page.clock.install({ time: startTime })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await page.getByRole('button', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await expect(pauseDialog.getByText('60s remaining')).toBeVisible()
@@ -252,7 +252,7 @@ test.describe('Options 画面', () => {
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await page.getByRole('button', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
     await pauseDialog.getByRole('button', { name: 'Cancel' }).click()
@@ -266,7 +266,7 @@ test.describe('Options 画面', () => {
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
-    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await page.getByRole('button', { name: 'Request pause' }).click()
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await page.evaluate(() => window.dispatchEvent(new Event('blur')))
     await expect(pauseDialog).not.toBeVisible()
@@ -278,7 +278,7 @@ test.describe('Options 画面', () => {
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
-    await page.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await page.getByRole('button', { name: 'Request pause' }).click()
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await page.evaluate(() => {
       Object.defineProperty(document, 'visibilityState', {
@@ -618,7 +618,7 @@ test.describe('Options 画面', () => {
     expect(firstBlockedTimeBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Blocking rules table').first())
-    await activeSettingsDialog.getByRole('button', { name: 'Request 10 min pause' }).first().click()
+    await activeSettingsDialog.getByRole('button', { name: 'Request pause' }).first().click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
@@ -707,7 +707,7 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Deleted active')
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
-    await activeSettingsDialog.getByRole('button', { name: 'Request 10 min pause' }).click()
+    await activeSettingsDialog.getByRole('button', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
     await page.clock.fastForward(60_000)
