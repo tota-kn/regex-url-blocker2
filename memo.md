@@ -33,3 +33,10 @@
      3種類の通知 toggle と threshold があり、特に Blocked redirect notification は redirect のときだけ有効です。シンプルさを重視するなら、
      通知は「残り時間通知」中心にして、他は詳細設定扱いでもよさそうです。
      参照: components/options/GlobalSettingsSection.vue:197
+
+## 今後やりたいこと
+
+- ブロック画面にアフィリエイト広告を載せる。
+- グループの Edit ボタン右に3点ボタンを置き、その中にグループ削除と一時停止を入れる。
+- グループ無効化ボタンを作る。
+- 深呼吸アニメーションをもう少し大きくする。
