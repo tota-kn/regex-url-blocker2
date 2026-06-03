@@ -287,6 +287,7 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
     </div>
 
     <div
+      aria-label="Blocking rules table"
       class="max-w-full overflow-hidden rounded-lg border border-border bg-background"
       @pointerup="endCellSelection"
       @pointerleave="endCellSelection(); clearHoveredCell()"

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ClockIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { dayLabel } from '@/utils/datetime'
-import { getGroupPauseButtonState } from '@/utils/groupPause'
-import { formatBlockDestination, formatDailyRule, formatGroupMode } from '@/utils/groups'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import GroupCard from '@/components/options/GroupCard.vue'
 import type { GroupPauseEntry, GroupPauseState, Settings } from '@/utils/types'
 
 /**
@@ -31,11 +30,13 @@ const props = defineProps<Props>()
 defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
+const isOpen = ref(false)
 
 /**
  * 現在適用中の有効設定モーダルを開く。
  */
 function open(): void {
+  isOpen.value = true
   dialogRef.value?.showModal()
 }
 
@@ -46,19 +47,16 @@ function close(): void {
   dialogRef.value?.close()
 }
 
+/**
+ * ブラウザ操作で閉じられたときにダイアログ本文をアンマウントする。
+ */
+function handleClose(): void {
+  isOpen.value = false
+}
+
 /** 指定グループの一時停止状態を返す。 */
 function groupPauseEntry(groupId: string): GroupPauseEntry | undefined {
   return props.groupPauseState.groupPauseState[groupId]
-}
-
-/** 指定グループの一時停止ボタンラベルを返す。 */
-function pauseButtonLabel(groupId: string): string {
-  return getGroupPauseButtonState(groupPauseEntry(groupId), props.now).label
-}
-
-/** 指定グループの一時停止ボタンがクリック可能なら true を返す。 */
-function canRequestPause(groupId: string): boolean {
-  return getGroupPauseButtonState(groupPauseEntry(groupId), props.now).clickable
 }
 
 defineExpose({ open, close })
@@ -67,9 +65,13 @@ defineExpose({ open, close })
 <template>
   <dialog
     ref="dialogRef"
-    class="dialog-centered max-h-[85vh] w-[min(44rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-border bg-background p-0 text-foreground shadow-lg"
+    class="dialog-centered max-h-[85vh] w-[min(64rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border bg-background p-0 text-foreground shadow-lg [&[open]]:flex"
+    @close="handleClose"
   >
-    <div class="sticky top-0 flex items-center justify-between gap-3 border-b border-border bg-background px-5 py-4">
+    <div
+      aria-label="Active settings header"
+      class="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-5 py-4"
+    >
       <div>
         <h2 class="text-heading-md">
           Currently active settings
@@ -92,112 +94,31 @@ defineExpose({ open, close })
       </BaseButton>
     </div>
 
-    <div class="px-5 py-4">
+    <div
+      v-if="isOpen"
+      aria-label="Active settings content"
+      class="min-h-0 overflow-y-auto px-5 py-4"
+    >
       <section class="space-y-3">
         <h3 class="text-label-md text-secondary-foreground">
           Groups
         </h3>
-        <p
+        <EmptyState
           v-if="effectiveSettings.groups.length === 0"
           aria-label="No active groups"
-          class="rounded-md border border-border bg-surface p-3 text-body-sm text-muted"
+          spacious
         >
           No active groups
-        </p>
-        <article
+        </EmptyState>
+        <GroupCard
           v-for="group in effectiveSettings.groups"
           :key="group.id"
-          class="space-y-3 rounded-md border border-border bg-surface p-3"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h4 class="text-label-md">
-              {{ group.name }}
-            </h4>
-            <BaseButton
-              type="button"
-              :aria-label="pauseButtonLabel(group.id)"
-              variant="secondary"
-              :disabled="!canRequestPause(group.id)"
-              @click="$emit('requestPause', group.id)"
-            >
-              <ClockIcon
-                aria-hidden="true"
-                class="size-4"
-              />
-              {{ pauseButtonLabel(group.id) }}
-            </BaseButton>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              URL patterns
-            </p>
-            <ul class="mt-2 space-y-1 text-body-sm">
-              <li
-                v-for="pattern in group.patterns"
-                :key="pattern"
-                class="break-all rounded border border-border bg-background px-2 py-1 font-mono text-xs"
-              >
-                {{ pattern }}
-              </li>
-              <li
-                v-if="group.patterns.length === 0"
-                class="rounded border border-border bg-background px-2 py-1 text-muted"
-              >
-                No URL patterns yet
-              </li>
-            </ul>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              Blocking rules
-            </p>
-            <dl class="mt-1 grid gap-1 text-body-sm">
-              <div
-                v-for="rule in group.dailyRules"
-                :key="rule.dayOfWeek"
-                class="grid gap-1 rounded border border-border bg-background px-2 py-1 sm:grid-cols-[4rem_minmax(0,1fr)]"
-              >
-                <dt class="font-medium">
-                  {{ dayLabel(rule.dayOfWeek) }}
-                </dt>
-                <dd class="text-muted">
-                  {{ formatDailyRule(rule) }}
-                </dd>
-              </div>
-            </dl>
-          </div>
-          <div>
-            <p class="text-label-sm text-muted">
-              Options
-            </p>
-            <dl class="mt-1 grid gap-2 text-body-sm sm:grid-cols-2">
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  URL pattern match behavior
-                </dt>
-                <dd class="mt-1 font-medium">
-                  {{ formatGroupMode(group) }}
-                </dd>
-              </div>
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  Lock changes until next rule day
-                </dt>
-                <dd class="mt-1 font-medium">
-                  {{ group.lockMode ? 'On' : 'Off' }}
-                </dd>
-              </div>
-              <div class="rounded border border-border bg-background px-2 py-1">
-                <dt class="text-muted">
-                  Page shown when blocked
-                </dt>
-                <dd class="mt-1 break-all font-medium">
-                  {{ formatBlockDestination(group) }}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </article>
+          :group="group"
+          :pause-entry="groupPauseEntry(group.id)"
+          :now="now"
+          read-only
+          @request-pause="$emit('requestPause', group.id)"
+        />
       </section>
     </div>
   </dialog>

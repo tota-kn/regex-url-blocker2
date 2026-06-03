@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 
 const DEBOUNCE_FLUSH_MS = 400
@@ -48,6 +48,17 @@ async function expectDialogCentered(page: Page, dialog: ReturnType<Page['locator
   expect(box).not.toBeNull()
   expect(box!.x + box!.width / 2).toBeCloseTo(viewport.width / 2, 0)
   expect(box!.y + box!.height / 2).toBeCloseTo(viewport.height / 2, 0)
+}
+
+/**
+ * 指定した要素で不要な水平スクロールが発生していないことを検証する。
+ */
+async function expectNoHorizontalOverflow(locator: Locator): Promise<void> {
+  const overflow = await locator.evaluate(element => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1)
 }
 
 /**
@@ -487,20 +498,31 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Notify me when daily limit time is almost used up')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Notify me when I open a page with a daily limit')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Notify me when a redirect block happens')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Work')
+    await expect(activeSettingsDialog.getByLabel('Name').nth(1)).toHaveValue('Allowlist')
+    await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
+    await expect(activeSettingsDialog.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Blocking rules').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('URL pattern match behavior').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Block matches')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Allow only matches')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Lock changes until next rule day').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Page shown when blocked').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked page')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('active\\.example')).toBeVisible()
+    await expect(activeSettingsDialog.getByLabel('URL pattern').first()).toHaveValue('active\\.example')
     await expect(activeSettingsDialog.getByText('No URL patterns yet')).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked hours: 09:00-17:00; Daily limit: 10 min/day').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Blocked hours: No blocked hours; Daily limit: No daily limit').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByLabel('Sun blocked time ranges').first()).toHaveText('09:00-17:00')
+    await expect(activeSettingsDialog.getByLabel('Sun daily limit minutes').first()).toHaveText('10')
+    await expect(activeSettingsDialog.getByLabel('Sun blocked time ranges').nth(1)).toHaveText('No blocked hours')
+    await expect(activeSettingsDialog.getByLabel('Sun daily limit minutes').nth(1)).toHaveText('No daily limit')
+    const headerBox = await activeSettingsDialog.locator('[aria-label="Active settings header"]').boundingBox()
+    const firstBlockedTimeBox = await activeSettingsDialog.getByLabel('Sun blocked time ranges').first().boundingBox()
+    expect(headerBox).not.toBeNull()
+    expect(firstBlockedTimeBox).not.toBeNull()
+    expect(firstBlockedTimeBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
+    await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
+    await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Blocking rules table').first())
     await activeSettingsDialog.getByRole('button', { name: 'Request 10 min pause' }).first().click()
     await expect(activeSettingsDialog.getByRole('button', { name: /Wait \d+s/ }).first()).toBeDisabled()
 
@@ -584,7 +606,9 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'View active settings' }).click()
 
     const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
-    await expect(activeSettingsDialog.getByText('Deleted active')).toBeVisible()
+    await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Deleted active')
+    await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
+    await expect(activeSettingsDialog.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
     await activeSettingsDialog.getByRole('button', { name: 'Pause for 10 min' }).click()
     await expect(activeSettingsDialog.getByRole('button', { name: /Paused \d+:\d{2}/ })).toBeDisabled()
 

@@ -32,6 +32,8 @@ interface Props {
   pauseDisabledLabel?: string
   /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
   timeLimitUsageSummary?: TimeLimitUsageSummary
+  /** 読み取り専用表示にして編集・削除・保存を無効化するかどうか。 */
+  readOnly?: boolean
 }
 
 /**
@@ -56,7 +58,7 @@ const emit = defineEmits<Emits>()
  */
 const draft = ref<Group>(cloneGroup(props.group))
 
-const isEditing = ref(props.startInEdit ?? false)
+const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 const isOptionsOpen = ref(false)
 
 const draftErrors = computed(() => validateGroup(draft.value))
@@ -98,6 +100,7 @@ function patternError(index: number): string | undefined {
 
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
 function startEditing(): void {
+  if (props.readOnly) return
   draft.value = cloneGroup(props.group)
   isOptionsOpen.value = false
   isEditing.value = true
@@ -115,6 +118,7 @@ function cancelEditing(): void {
 
 /** エラーがない場合だけドラフトを保存値として親へ通知する。 */
 function saveEditing(): void {
+  if (props.readOnly) return
   if (!canSave.value) return
   emit('save', cloneGroup(draft.value))
   isOptionsOpen.value = false
@@ -178,7 +182,7 @@ function optionsPanelId(): string {
               {{ pauseButtonLabel }}
             </BaseButton>
             <BaseButton
-              v-if="!isEditing"
+              v-if="!isEditing && !readOnly"
               type="button"
               aria-label="Delete group"
               variant="danger-ghost"
@@ -191,7 +195,7 @@ function optionsPanelId(): string {
               Delete
             </BaseButton>
             <BaseButton
-              v-if="!isEditing"
+              v-if="!isEditing && !readOnly"
               type="button"
               aria-label="Edit group"
               variant="ghost"
