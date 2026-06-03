@@ -167,32 +167,37 @@ onUnmounted(() => {
           </template>
         </GlobalSettingsItemTitle>
         <div class="space-y-3">
-          <label class="flex items-start gap-3">
-            <input
-              v-model="globalSettings.remainingTimeNotificationsEnabled"
-              type="checkbox"
-              class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-              aria-label="Notify me when daily limit time is almost used up"
+          <div class="space-y-2">
+            <label class="flex min-w-0 items-start gap-3">
+              <input
+                v-model="globalSettings.remainingTimeNotificationsEnabled"
+                type="checkbox"
+                class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+                aria-label="Notify me when daily limit time is almost used up"
+              >
+              <span class="min-w-0">
+                <span class="block text-label-md text-secondary-foreground">Notify me when daily limit time is almost used up</span>
+              </span>
+            </label>
+            <BaseField
+              class="pl-7"
+              :error="error('notificationThresholdMinutes')"
             >
-            <span class="min-w-0">
-              <span class="block text-label-md text-secondary-foreground">Notify me when daily limit time is almost used up</span>
-            </span>
-          </label>
-          <BaseField
-            label="Minutes left before warning"
-            :error="error('notificationThresholdMinutes')"
-          >
-            <BaseInput
-              v-model="notificationThresholdInput"
-              type="number"
-              min="1"
-              step="1"
-              aria-label="Minutes left before warning"
-              class="w-full"
-              :disabled="!globalSettings.remainingTimeNotificationsEnabled"
-              :invalid="Boolean(error('notificationThresholdMinutes'))"
-            />
-          </BaseField>
+              <span class="flex items-center gap-2">
+                <BaseInput
+                  v-model="notificationThresholdInput"
+                  type="number"
+                  min="1"
+                  step="1"
+                  aria-label="Minutes left before warning"
+                  class="w-24"
+                  :disabled="!globalSettings.remainingTimeNotificationsEnabled"
+                  :invalid="Boolean(error('notificationThresholdMinutes'))"
+                />
+                <span class="text-body-sm text-muted-foreground">min</span>
+              </span>
+            </BaseField>
+          </div>
         </div>
         <label class="flex items-start gap-3">
           <input
