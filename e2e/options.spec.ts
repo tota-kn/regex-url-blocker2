@@ -356,7 +356,9 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.locator('main').getByText('Options')).not.toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('imported\\.example')
+    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
+    await expect(urlPatternsSection.getByText('imported\\.example', { exact: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(page.getByLabel('Sun daily limit minutes')).toHaveText('15')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
 
@@ -510,7 +512,8 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Lock changes until next rule day').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Page shown when blocked').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
-    await expect(activeSettingsDialog.getByLabel('URL pattern').first()).toHaveValue('active\\.example')
+    await expect(activeSettingsDialog.getByText('active\\.example', { exact: true })).toBeVisible()
+    await expect(activeSettingsDialog.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(activeSettingsDialog.getByText('No URL patterns yet')).toBeVisible()
     await expect(activeSettingsDialog.getByLabel('Sun blocked time ranges').first()).toHaveText('09:00-17:00')
     await expect(activeSettingsDialog.getByLabel('Sun daily limit minutes').first()).toHaveText('10')
@@ -903,10 +906,11 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
+    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
     await expect(page.getByLabel('Name')).toHaveValue('Twitter')
-    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('^https?://(www\\.)?twitter\\.com')
+    await expect(urlPatternsSection.getByText('^https?://(www\\.)?twitter\\.com', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Name')).toBeDisabled()
-    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toBeDisabled()
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete pattern' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Edit group' })).toBeVisible()
@@ -927,8 +931,10 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
+    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
     await expect(page.getByLabel('Name')).toHaveValue('DomainBlock')
-    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveValue('example.com')
+    await expect(urlPatternsSection.getByText('example.com', { exact: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
   })
 
   test('新規グループ作成をキャンセルすると保存されない', async ({ page, extensionId }) => {
@@ -1362,20 +1368,18 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    const pattern = page.getByRole('textbox', { name: 'URL pattern' })
+    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
     const ranges = page.getByLabel('Sun blocked time ranges')
     const minutes = page.getByLabel('Sun daily limit minutes')
     const sundayCell = page.getByRole('button', { name: 'Sun 09:00-09:30' })
 
-    await expect(pattern).toBeDisabled()
+    await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
+    await expect(urlPatternsSection.getByText('example\\.com', { exact: true })).toBeVisible()
     await expect(ranges).toHaveText('09:00-17:00')
     await expect(minutes).toHaveText('45')
     await expect(sundayCell).toBeDisabled()
     await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
-
-    await expect(pattern).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-    await expect(pattern).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)')
   })
 
   test('保存済みグループの閲覧時は時間帯グリッドのドラッグで変更されない', async ({ page, extensionId }) => {

@@ -71,7 +71,7 @@ function deletePattern(index: number): void {
       </h3>
     </div>
 
-    <div class="space-y-2">
+    <div :class="isEditing ? 'space-y-2' : 'space-y-1'">
       <EmptyState
         v-if="patterns.length === 0"
         aria-label="No URL patterns"
@@ -83,7 +83,10 @@ function deletePattern(index: number): void {
         :key="i"
         class="space-y-1"
       >
-        <div class="flex min-w-0 gap-2">
+        <div
+          v-if="isEditing"
+          class="flex min-w-0 gap-2"
+        >
           <BaseInput
             v-model="patterns[i]"
             aria-label="URL pattern"
@@ -91,13 +94,10 @@ function deletePattern(index: number): void {
             class="flex-1"
             size="md"
             monospace
-            :disabled="!isEditing"
-            :display="isEditing ? 'editable' : 'readonly'"
             :invalid="Boolean(visibleError(i))"
             @input="markPatternTouched(i)"
           />
           <BaseButton
-            v-if="isEditing"
             type="button"
             aria-label="Delete pattern"
             title="Delete"
@@ -111,6 +111,12 @@ function deletePattern(index: number): void {
             />
           </BaseButton>
         </div>
+        <p
+          v-else
+          class="font-mono text-sm leading-5 break-all text-input-foreground"
+        >
+          {{ patterns[i] }}
+        </p>
         <AlertMessage
           v-if="visibleError(i)"
         >
