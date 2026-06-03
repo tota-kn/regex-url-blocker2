@@ -2,18 +2,17 @@ import {
   applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
-  getLogicalDate,
   getMinimumRemainingTimeLimit,
   getRedirectUrls,
-  getTimeLimitUsageSummary,
   incrementCounters,
   normalizeCounters,
   shouldSkipUrl,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
+import { buildPageOpenNotificationPlan, buildRedirectBlockNotificationPlan, buildRemainingTimeNotificationPlans, markNotificationPlanHistory } from '@/utils/notifications'
 import { loadBlockNotificationHistory, loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
-import type { BlockNotificationHistoryState, GroupPauseState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from '@/utils/types'
+import type { BlockNotificationHistoryState, GroupPauseState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -185,112 +184,40 @@ async function mergeStoredCounters(s: Settings, now: Date): Promise<void> {
 }
 
 /**
- * 残り時間通知の本文に表示する分数を返す。
- */
-function formatRemainingNotificationMinutes(remainingSec: number): string {
-  const minutes = Math.ceil(remainingSec / 60)
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`
-}
-
-/**
  * 現在の active tab に対して、閾値以下になった閲覧上限付きグループを1日1回だけ通知する。
  */
 async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, now: Date): Promise<void> {
-  if (!s.global.remainingTimeNotificationsEnabled) return
-
-  const thresholdMinutes = s.global.notificationThresholdMinutes
-
-  const thresholdSec = thresholdMinutes * 60
-  const evaluation = evaluateUrl(s, counters, tab.url, now)
-  const targetGroupIds = new Set(evaluation.targetGroupIds)
+  const plans = buildRemainingTimeNotificationPlans(s, counters, usageNotificationHistory.usageNotificationHistory, tab.url, now)
+  if (plans.length === 0) return
   const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
-  let changed = false
 
-  for (const group of s.groups) {
-    if (!targetGroupIds.has(group.id)) continue
-
-    const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, s.global)
-    if (!summary) continue
-    if (summary.remainingSec <= 0 || summary.remainingSec > thresholdSec) continue
-    if (usageNotificationHistory.usageNotificationHistory[group.id]?.logicalDate === summary.logicalDate) continue
-
-    const notificationId = `usage-time-limit-${group.id}-${summary.logicalDate}`
-    await chromeApi.notifications.create(notificationId, {
+  for (const plan of plans) {
+    await chromeApi.notifications.create(plan.notificationId, {
       type: 'basic',
       iconUrl: browser.runtime.getURL('/icon/128.png'),
       title: ACTION_TITLE,
-      message: `${group.name}: ${formatRemainingNotificationMinutes(summary.remainingSec)} remaining today.`,
+      message: plan.message,
     })
-    usageNotificationHistory.usageNotificationHistory[group.id] = { logicalDate: summary.logicalDate }
-    changed = true
+    markNotificationPlanHistory(plan, usageNotificationHistory.usageNotificationHistory)
   }
-
-  if (changed) {
-    await saveUsageNotificationHistory(usageNotificationHistory)
-  }
-}
-
-/**
- * 指定グループ名を通知本文向けに結合する。
- */
-function formatGroupNames(groups: Array<{ name: string }>): string {
-  return groups.map(group => group.name).join(', ')
-}
-
-/**
- * 通知履歴を見て、同じ論理日の未通知グループだけを返す。
- */
-function filterUnnotifiedGroups<T extends { id: string }>(
-  groups: T[],
-  logicalDateByGroupId: Map<string, string>,
-  history: Record<string, UsageNotificationEntry>,
-): T[] {
-  return groups.filter((group) => {
-    const logicalDate = logicalDateByGroupId.get(group.id)
-    return Boolean(logicalDate) && history[group.id]?.logicalDate !== logicalDate
-  })
-}
-
-/**
- * 未通知グループを通知済み履歴へ記録する。
- */
-function markNotificationHistory(groups: Array<{ id: string }>, logicalDateByGroupId: Map<string, string>, history: Record<string, UsageNotificationEntry>): void {
-  for (const group of groups) {
-    const logicalDate = logicalDateByGroupId.get(group.id)
-    if (logicalDate) history[group.id] = { logicalDate }
-  }
+  await saveUsageNotificationHistory(usageNotificationHistory)
 }
 
 /**
  * 閲覧上限付き対象ページを開いたとき、同じ論理日・同じグループでは1回だけ通知する。
  */
 async function notifyPageOpenIfNeeded(s: Settings, evaluation: UrlEvaluation, now: Date): Promise<void> {
-  if (!s.global.pageOpenNotificationsEnabled) return
-  if (evaluation.blocked) return
-
-  const targetGroupIds = new Set(evaluation.targetGroupIds)
-  const groupsWithLimit = s.groups.filter((group) => {
-    if (!targetGroupIds.has(group.id)) return false
-    return Boolean(getTimeLimitUsageSummary(group, counters.counters[group.id], now, s.global))
-  })
-  const logicalDateByGroupId = new Map(groupsWithLimit.map((group) => {
-    const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, s.global)
-    return [group.id, summary?.logicalDate ?? '']
-  }))
-  const unnotifiedGroups = filterUnnotifiedGroups(groupsWithLimit, logicalDateByGroupId, pageOpenNotificationHistory.pageOpenNotificationHistory)
-  if (unnotifiedGroups.length === 0) return
-
-  const logicalDate = logicalDateByGroupId.get(unnotifiedGroups[0].id) ?? getLogicalDate(now, s.global.dailyResetHour).logicalDate
-  const notificationId = `page-open-limit-${logicalDate}-${unnotifiedGroups.map(group => group.id).sort().join('-')}`
+  const plan = buildPageOpenNotificationPlan(s, counters, pageOpenNotificationHistory.pageOpenNotificationHistory, evaluation, now)
+  if (!plan) return
   const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
-  await chromeApi.notifications.create(notificationId, {
+  await chromeApi.notifications.create(plan.notificationId, {
     type: 'basic',
     iconUrl: browser.runtime.getURL('/icon/128.png'),
     title: ACTION_TITLE,
-    message: `Time limit applies to ${formatGroupNames(unnotifiedGroups)} today.`,
+    message: plan.message,
   })
 
-  markNotificationHistory(unnotifiedGroups, logicalDateByGroupId, pageOpenNotificationHistory.pageOpenNotificationHistory)
+  markNotificationPlanHistory(plan, pageOpenNotificationHistory.pageOpenNotificationHistory)
   await savePageOpenNotificationHistory(pageOpenNotificationHistory)
 }
 
@@ -298,26 +225,17 @@ async function notifyPageOpenIfNeeded(s: Settings, evaluation: UrlEvaluation, no
  * redirect によるブロック発動時、同じ論理日・同じグループでは1回だけ通知する。
  */
 async function notifyRedirectBlockIfNeeded(s: Settings, evaluation: UrlEvaluation, destinationUrl: string, now: Date): Promise<void> {
-  if (!s.global.blockNotificationsEnabled) return
-  if (evaluation.blockedGroupIds.length === 0) return
-
-  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  const blockedGroups = s.groups.filter(group => blockedGroupIds.has(group.id) && group.blockAction === 'redirect' && group.redirectUrl === destinationUrl)
-  const logicalDate = getLogicalDate(now, s.global.dailyResetHour).logicalDate
-  const logicalDateByGroupId = new Map(blockedGroups.map(group => [group.id, logicalDate]))
-  const unnotifiedGroups = filterUnnotifiedGroups(blockedGroups, logicalDateByGroupId, blockNotificationHistory.blockNotificationHistory)
-  if (unnotifiedGroups.length === 0) return
-
-  const notificationId = `redirect-block-${logicalDate}-${unnotifiedGroups.map(group => group.id).sort().join('-')}`
+  const plan = buildRedirectBlockNotificationPlan(s, blockNotificationHistory.blockNotificationHistory, evaluation, destinationUrl, now)
+  if (!plan) return
   const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
-  await chromeApi.notifications.create(notificationId, {
+  await chromeApi.notifications.create(plan.notificationId, {
     type: 'basic',
     iconUrl: browser.runtime.getURL('/icon/128.png'),
     title: ACTION_TITLE,
-    message: `Blocked and redirected: ${formatGroupNames(unnotifiedGroups)}.`,
+    message: plan.message,
   })
 
-  markNotificationHistory(unnotifiedGroups, logicalDateByGroupId, blockNotificationHistory.blockNotificationHistory)
+  markNotificationPlanHistory(plan, blockNotificationHistory.blockNotificationHistory)
   await saveBlockNotificationHistory(blockNotificationHistory)
 }
 

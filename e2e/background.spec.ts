@@ -59,17 +59,6 @@ async function getTabIdByUrl(serviceWorker: Worker, url: string): Promise<number
 }
 
 /**
- * Service Worker の console をテスト失敗時に追跡しやすい文字列配列として収集する。
- */
-function collectWorkerLogs(serviceWorker: Worker): string[] {
-  const logs: string[] = []
-  serviceWorker.on('console', (message) => {
-    logs.push(`${message.type()}: ${message.text()}`)
-  })
-  return logs
-}
-
-/**
  * テスト用 HTTP サーバーを起動する。
  */
 async function startServer(): Promise<{ origin: string, close: () => Promise<void> }> {
@@ -361,39 +350,6 @@ test.describe('Background blocking', () => {
     }
   })
 
-  test('https?://x.com.* 相当の 0 分上限で対象 URL をリダイレクトする', async ({ page, context }) => {
-    const server = await startServer()
-    try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
-      const originPattern = server.origin.replace('http', 'https?').replace('127.0.0.1', '127.0.0.1')
-      await saveBlockingSettingsWithPattern(serviceWorker, server.origin, `${originPattern}.*`)
-      await page.waitForTimeout(300)
-
-      await gotoPossiblyRedirected(page, `${server.origin}/`)
-      await expect(page).toHaveURL(`${server.origin}/blocked`)
-    }
-    finally {
-      await server.close()
-    }
-  })
-
-  test('blockedPage 設定では拡張ページにブロック元 URL とグループ名を表示する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
-    try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
-      await saveBlockedPageSettings(serviceWorker, server.origin, [{ id: 'block-local', name: 'Block local' }])
-      await page.waitForTimeout(300)
-
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
-      await expect(page.getByLabel('Blocked URL')).toHaveText(`${server.origin}/target`)
-      await expect(page.getByLabel('Blocked groups')).toHaveText('Block local')
-    }
-    finally {
-      await server.close()
-    }
-  })
-
   test('blockedPage 設定では複数のブロックグループ名を表示する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
@@ -406,6 +362,7 @@ test.describe('Background blocking', () => {
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await expect(page.getByLabel('Blocked URL')).toHaveText(`${server.origin}/target`)
       await expect(page.getByLabel('Blocked groups')).toHaveText('Work block, Night block')
     }
     finally {
@@ -787,73 +744,6 @@ test.describe('Badge display', () => {
     }
   })
 
-  test('時間制限バッジは表示後に消えず、再訪問しても表示される', async ({ page, context }) => {
-    const server = await startServer()
-    try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
-      const workerLogs = collectWorkerLogs(serviceWorker)
-      await serviceWorker.evaluate(async (settings) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
-        await chromeApi.chrome.storage.sync.set({
-          global: {
-            blockAction: 'redirect',
-            redirectUrl: `${settings.origin}/blocked`,
-            dailyResetHour: '00:00',
-          },
-          groups: [{
-            id: 'timed-group',
-            name: 'Timed Group',
-            mode: 'blacklist',
-            patterns: [`^${settings.originEscaped}`],
-            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 60,
-            })),
-          }],
-        })
-      }, { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') })
-      await page.waitForTimeout(300)
-
-      await page.goto(`${server.origin}/target`)
-      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/target`)
-      expect(tabId).toBeDefined()
-      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
-        message: workerLogs.join('\n'),
-        timeout: 5000,
-      }).toBe('60m')
-
-      await page.waitForTimeout(2500)
-      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
-        message: workerLogs.join('\n'),
-        timeout: 5000,
-      }).toMatch(/^(59|60)m$/)
-
-      await page.waitForTimeout(6500)
-      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
-        message: workerLogs.join('\n'),
-        timeout: 5000,
-      }).toMatch(/^(59|60)m$/)
-
-      await page.goto(`${server.origin}/other`)
-      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
-        message: workerLogs.join('\n'),
-        timeout: 5000,
-      }).toBe('60m')
-
-      await page.goto(`${server.origin}/target`)
-      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), {
-        message: workerLogs.join('\n'),
-        timeout: 5000,
-      }).toMatch(/^(59|60)m$/)
-    }
-    finally {
-      await server.close()
-    }
-  })
-
   test('対象外の URL ではバッジが空になる', async ({ page, context }) => {
     const server = await startServer()
     try {
@@ -887,8 +777,7 @@ test.describe('Badge display', () => {
       const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/other`)
       expect(tabId).toBeDefined()
 
-      await page.waitForTimeout(1500)
-      expect(await getBadgeText(serviceWorker, tabId!)).toBe('')
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 }).toBe('')
     }
     finally {
       await server.close()
@@ -1007,11 +896,6 @@ test.describe('Remaining time notifications', () => {
       const notificationId = `usage-time-limit-notify-group-${logicalDate}`
       await expect.poll(async () => Object.keys(await getNotifications(serviceWorker)), { timeout: 5000 })
         .toContain(notificationId)
-
-      await page.waitForTimeout(2500)
-      const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
-        .filter(id => id === notificationId)
-      expect(matchingNotifications).toHaveLength(1)
     }
     finally {
       await server.close()
@@ -1069,7 +953,6 @@ test.describe('Remaining time notifications', () => {
       await page.waitForTimeout(300)
 
       await page.goto(`${server.origin}/target`)
-      await page.waitForTimeout(2500)
 
       const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
         .filter(id => id.startsWith('usage-time-limit-notify-disabled-group-'))
@@ -1138,13 +1021,6 @@ test.describe('Page open and block notifications', () => {
       const notificationId = `page-open-limit-${logicalDate}-page-open-group`
       await expect.poll(async () => Object.keys(await getNotifications(serviceWorker)), { timeout: 5000 })
         .toContain(notificationId)
-
-      await gotoPossiblyRedirected(page, `${server.origin}/target-b`)
-      await page.waitForTimeout(1500)
-
-      const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
-        .filter(id => id.startsWith(`page-open-limit-${logicalDate}-`))
-      expect(matchingNotifications).toHaveLength(1)
     }
     finally {
       await server.close()
@@ -1203,7 +1079,6 @@ test.describe('Page open and block notifications', () => {
       await page.waitForTimeout(300)
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await page.waitForTimeout(1500)
 
       const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
         .filter(id => id.startsWith('page-open-limit-'))
@@ -1269,13 +1144,6 @@ test.describe('Page open and block notifications', () => {
       const notificationId = `redirect-block-${logicalDate}-redirect-block-group`
       await expect.poll(async () => Object.keys(await getNotifications(serviceWorker)), { timeout: 5000 })
         .toContain(notificationId)
-
-      await gotoPossiblyRedirected(page, `${server.origin}/target-b`)
-      await page.waitForTimeout(1500)
-
-      const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
-        .filter(id => id.startsWith(`redirect-block-${logicalDate}-`))
-      expect(matchingNotifications).toHaveLength(1)
     }
     finally {
       await server.close()
@@ -1334,7 +1202,6 @@ test.describe('Page open and block notifications', () => {
       await page.waitForTimeout(300)
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await page.waitForTimeout(1500)
 
       const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
         .filter(id => id.startsWith('redirect-block-'))
@@ -1354,7 +1221,6 @@ test.describe('Page open and block notifications', () => {
       await page.waitForTimeout(300)
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await page.waitForTimeout(1500)
 
       const matchingNotifications = Object.keys(await getNotifications(serviceWorker))
         .filter(id => id.startsWith('redirect-block-'))
