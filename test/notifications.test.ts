@@ -20,6 +20,7 @@ function group(overrides: Partial<Group> = {}): Group {
     id: 'group-a',
     name: 'Group A',
     mode: 'blacklist',
+    disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
     blockAction: 'redirect',

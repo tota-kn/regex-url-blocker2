@@ -16,6 +16,7 @@ function group(overrides: Partial<Group> = {}): Group {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
+    disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
@@ -219,6 +220,16 @@ describe('effective settings', () => {
     })])
 
     expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
+  })
+
+  it('Lock Mode ON の disabled 変更は次回 reset まで effective 側へ反映されず pending にする', () => {
+    const active = settings([group({ lockMode: true, disabled: false })], '03:00')
+    const preferred = settings([group({ lockMode: true, disabled: true })], '03:00')
+
+    const merged = mergeImmediateRestrictions(active, preferred)
+
+    expect(merged.groups[0].disabled).toBe(false)
+    expect(hasPendingEffectiveSettings(preferred, merged)).toBe(true)
   })
 
   it('Lock Mode ON の group 削除は pending にする', () => {

@@ -22,6 +22,7 @@ function group(overrides: Partial<Group>): Group {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
+    disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
@@ -122,6 +123,18 @@ describe('URL target matching', () => {
 
     expect(getTargetGroupIds(s, 'https://redirect.test/')).toEqual([])
   })
+
+  it('disabled group は URL 判定と redirect URL skip 判定から除外する', () => {
+    const s = settings([group({
+      id: 'disabled',
+      disabled: true,
+      blockAction: 'redirect',
+      redirectUrl: 'https://disabled-redirect.test/',
+    })])
+
+    expect(getTargetGroupIds(s, 'https://example.com/')).toEqual([])
+    expect(getTargetGroupIds(s, 'https://disabled-redirect.test/')).toEqual([])
+  })
 })
 
 describe('logical date', () => {
@@ -140,6 +153,20 @@ describe('blocking evaluation', () => {
     const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T10:00:00+09:00'))
     expect(result.blocked).toBe(true)
     expect(result.blockedGroupIds).toEqual(['g1'])
+  })
+
+  it('disabled group はブロック判定から除外する', () => {
+    const s = settings([group({
+      disabled: true,
+      dailyRules: allDailyRules({ dailyLimitMinutes: 0 }),
+    })])
+    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
+
+    expect(result).toEqual({
+      blocked: false,
+      targetGroupIds: [],
+      blockedGroupIds: [],
+    })
   })
 
   it('日跨ぎ時間帯のブロックを判定する', () => {
@@ -276,6 +303,16 @@ describe('counters', () => {
     expect(getTimeLimitUsageSummary(s.groups[0], undefined, new Date('2026-05-06T12:00:00+09:00'), s.global)).toBeUndefined()
   })
 
+  it('disabled group の残り時間 summary は返さない', () => {
+    const s = settings([group({
+      disabled: true,
+      dailyRules: allDailyRules({ dailyLimitMinutes: 10 }),
+    })])
+
+    expect(getTimeLimitUsageSummary(s.groups[0], undefined, new Date('2026-05-06T12:00:00+09:00'), s.global)).toBeUndefined()
+    expect(getMinimumRemainingTimeLimit(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))).toBeUndefined()
+  })
+
   it('残り秒数を切り上げの分単位 badge 文字列にする', () => {
     expect(formatRemainingMinutesBadge(61)).toBe('2m')
     expect(formatRemainingMinutesBadge(60)).toBe('1m')
@@ -317,6 +354,27 @@ describe('counters', () => {
     const counters = incrementCounters(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'), 1)
     expect(counters.counters.a.consumedSec).toBe(1)
     expect(counters.counters.b.consumedSec).toBe(1)
+  })
+
+  it('disabled group の counter は正規化でも加算でも対象外にする', () => {
+    const s = settings([
+      group({ id: 'enabled', patterns: ['example'] }),
+      group({ id: 'disabled', disabled: true, patterns: ['example'] }),
+    ])
+    const normalized = normalizeCounters(s, {
+      counters: {
+        enabled: { logicalDate: '2026-05-06', consumedSec: 10 },
+        disabled: { logicalDate: '2026-05-06', consumedSec: 20 },
+      },
+    }, new Date('2026-05-06T12:00:00+09:00'))
+    const incremented = incrementCounters(s, normalized, 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'), 1)
+
+    expect(normalized.counters).toEqual({
+      enabled: { logicalDate: '2026-05-06', consumedSec: 10 },
+    })
+    expect(incremented.counters).toEqual({
+      enabled: { logicalDate: '2026-05-06', consumedSec: 11 },
+    })
   })
 
   it('一時停止中でも counter 加算対象は変わらない', () => {

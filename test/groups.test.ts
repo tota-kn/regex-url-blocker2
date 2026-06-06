@@ -17,6 +17,7 @@ function group(overrides: Partial<Group> = {}): Group {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
+    disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
     blockAction: 'blockedPage',

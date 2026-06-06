@@ -62,7 +62,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 3,
+      version: 4,
       settings,
     })
   })
@@ -97,13 +97,34 @@ describe('settings export file', () => {
     })
   })
 
-  it('v3 export/import はグループ別 block action を保持する', () => {
+  it('v4 export/import はグループ別 block action と disabled を保持する', () => {
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
-      groups: [{ ...createEmptyGroup('Imported'), blockAction: 'redirect' as const, redirectUrl: 'https://group-blocked.test' }],
+      groups: [{ ...createEmptyGroup('Imported'), disabled: true, blockAction: 'redirect' as const, redirectUrl: 'https://group-blocked.test' }],
     }
 
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
+  })
+
+  it('v3 import は disabled 欠損を false で補完する', () => {
+    const imported = parseSettingsExportJson(JSON.stringify({
+      version: 3,
+      settings: {
+        global: DEFAULT_GLOBAL_SETTINGS,
+        groups: [{
+          id: 'v3',
+          name: 'V3',
+          mode: 'blacklist',
+          lockMode: false,
+          patterns: ['example\\.com'],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://example.com',
+          dailyRules: createEmptyGroup().dailyRules,
+        }],
+      },
+    }))
+
+    expect(imported.groups[0].disabled).toBe(false)
   })
 
   it('通知設定をエクスポート/インポートでラウンドトリップする', () => {
@@ -131,6 +152,7 @@ describe('settings export file', () => {
     }))
 
     expect(imported.groups[0].mode).toBe('blacklist')
+    expect(imported.groups[0].disabled).toBe(false)
     expect(imported.groups[0].lockMode).toBe(false)
   })
 
@@ -170,6 +192,7 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
     expect(s.groups[0].mode).toBe('blacklist')
+    expect(s.groups[0].disabled).toBe(false)
     expect(s.groups[0].lockMode).toBe(false)
   })
 

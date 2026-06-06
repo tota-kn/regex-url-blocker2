@@ -89,6 +89,7 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     id: crypto.randomUUID(),
     name,
     mode: 'blacklist',
+    disabled: false,
     lockMode: false,
     patterns: createPatternsFromTemplate(templateId),
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,

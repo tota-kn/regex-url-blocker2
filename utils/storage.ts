@@ -6,14 +6,14 @@ import { validateGlobalSettings, validateGroup } from './validation'
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 3
+export const SETTINGS_EXPORT_VERSION = 4
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | typeof SETTINGS_EXPORT_VERSION
+  version: 2 | 3 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
 }
@@ -64,6 +64,7 @@ function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SET
     id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
     name: typeof g.name === 'string' ? g.name : '',
     mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
+    disabled: g.disabled === true,
     lockMode: g.lockMode === true,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
     blockAction,
@@ -207,7 +208,7 @@ export function parseSettingsExportJson(json: string): Settings {
   }
 
   const file = asRecord(parsed)
-  if (file.version !== 2 && file.version !== SETTINGS_EXPORT_VERSION) {
+  if (file.version !== 2 && file.version !== 3 && file.version !== SETTINGS_EXPORT_VERSION) {
     throw new Error('Unsupported settings file version')
   }
   if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {

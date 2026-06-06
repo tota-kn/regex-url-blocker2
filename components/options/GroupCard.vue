@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, EllipsisVerticalIcon, LockClosedIcon, PauseIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowTopRightOnSquareIcon, CheckCircleIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, EllipsisVerticalIcon, LockClosedIcon, NoSymbolIcon, PauseIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -67,6 +67,9 @@ const draftErrors = computed(() => validateGroup(draft.value))
 const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string, value: string }> = []
+  if (props.group.disabled) {
+    summaries.push({ label: 'Group status', value: 'Disabled' })
+  }
   if (props.group.mode === 'whitelist') {
     summaries.push({ label: 'URL pattern match behavior', value: formatGroupMode(props.group) })
   }
@@ -84,11 +87,13 @@ const canRequestPause = computed(() => {
   if (props.pauseDisabledLabel) return false
   return !pauseButtonState.value.paused
 })
+const disabledToggleLabel = computed(() => props.group.disabled ? 'Enable' : 'Disable')
 const showsPauseMenuItem = computed(() => !props.isNew && !pauseButtonState.value.paused)
+const showsDisabledToggleMenuItem = computed(() => !props.isNew && !props.readOnly)
 const showsDeleteMenuItem = computed(() => !props.readOnly)
 const showsActionMenu = computed(() => {
   if (isEditing.value || props.isNew) return false
-  return showsPauseMenuItem.value || showsDeleteMenuItem.value
+  return showsPauseMenuItem.value || showsDisabledToggleMenuItem.value || showsDeleteMenuItem.value
 })
 
 watch(() => props.group, (group) => {
@@ -163,6 +168,16 @@ function requestPause(): void {
   emit('requestPause')
 }
 
+/** グループの永続的な無効化状態を切り替え、保存要求として親へ通知する。 */
+function toggleGroupDisabled(): void {
+  if (props.readOnly) return
+  closeActionMenu()
+  emit('save', {
+    ...cloneGroup(props.group),
+    disabled: !props.group.disabled,
+  })
+}
+
 /** 削除要求を親へ通知し、メニューを閉じる。 */
 function removeGroup(): void {
   closeActionMenu()
@@ -232,6 +247,17 @@ onBeforeUnmount(() => {
 
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
             <span
+              v-if="!isEditing && !isNew && group.disabled"
+              class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-label-md text-muted"
+              role="status"
+            >
+              <NoSymbolIcon
+                aria-hidden="true"
+                class="size-4"
+              />
+              Disabled
+            </span>
+            <span
               v-if="!isEditing && !isNew && pauseButtonState.paused"
               class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-label-md text-secondary-foreground"
               role="status"
@@ -297,6 +323,26 @@ onBeforeUnmount(() => {
                     class="size-4 shrink-0"
                   />
                   <span>{{ pauseButtonLabel }}</span>
+                </button>
+                <button
+                  v-if="showsDisabledToggleMenuItem"
+                  type="button"
+                  role="menuitem"
+                  :aria-label="disabledToggleLabel"
+                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none"
+                  @click="toggleGroupDisabled"
+                >
+                  <CheckCircleIcon
+                    v-if="group.disabled"
+                    aria-hidden="true"
+                    class="size-4 shrink-0"
+                  />
+                  <NoSymbolIcon
+                    v-else
+                    aria-hidden="true"
+                    class="size-4 shrink-0"
+                  />
+                  <span>{{ disabledToggleLabel }}</span>
                 </button>
                 <button
                   v-if="showsDeleteMenuItem"

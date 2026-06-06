@@ -73,6 +73,7 @@ describe('validateGroup', () => {
       id: 'x',
       name: '   ',
       mode: 'blacklist',
+      disabled: false,
       lockMode: false,
       patterns: ['['],
       blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,

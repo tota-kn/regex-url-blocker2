@@ -57,6 +57,8 @@ export interface Group {
    * グループの動作モード。省略時は `'blacklist'`（既存データとの互換のため loadSettings で補完）。
    */
   mode: GroupMode
+  /** true の場合、このグループは URL 判定・counter・通知の対象から除外する。 */
+  disabled: boolean
   /** true の場合、このグループの設定変更は次回 daily reset まで有効設定へ反映しない。 */
   lockMode: boolean
   /** URL pattern の配列。裸ドメインまたは `new RegExp()` で構文チェックを通る正規表現を指定できる。 */

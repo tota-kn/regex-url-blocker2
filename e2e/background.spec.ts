@@ -216,7 +216,7 @@ function buildLogicalDate(now: Date, dailyResetHour: HHMM): string {
 /**
  * background E2E 用の設定オブジェクトを作る。
  */
-function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dailyLimitMinutes: number | undefined, lockMode = false): Settings {
+function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dailyLimitMinutes: number | undefined, lockMode = false, disabled = false): Settings {
   return {
     global: {
       blockAction: 'redirect',
@@ -231,6 +231,7 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       id: 'effective-group',
       name: 'Effective group',
       mode: 'blacklist',
+      disabled,
       lockMode,
       patterns: [`^${origin.replaceAll('.', '\\.')}`],
       blockAction: 'redirect',
@@ -612,6 +613,53 @@ test.describe('Effective settings behavior', () => {
       const dailyResetHour = buildStableDailyResetHour(now)
       const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true)
       const preferred = buildEffectiveSettingsFixture(server.origin, dailyResetHour, undefined, true)
+      await savePreferredAndEffectiveSettings(
+        serviceWorker,
+        preferred,
+        effective,
+        buildLogicalDate(now, dailyResetHour),
+      )
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/blocked`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('disabled group は対象 URL をブロックしない', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const disabled = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, false, true)
+      await savePreferredAndEffectiveSettings(
+        serviceWorker,
+        disabled,
+        disabled,
+        buildLogicalDate(now, dailyResetHour),
+      )
+      await page.waitForTimeout(300)
+
+      await page.goto(`${server.origin}/target`)
+      await expect(page).toHaveURL(`${server.origin}/target`)
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('Lock Mode ON では disabled 変更も次回 reset まで反映されずブロックされ続ける', async ({ page, context }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true, false)
+      const preferred = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true, true)
       await savePreferredAndEffectiveSettings(
         serviceWorker,
         preferred,

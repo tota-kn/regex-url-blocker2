@@ -420,7 +420,7 @@ test.describe('Options 画面', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(3)
+    expect(exported.version).toBe(4)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })
@@ -649,6 +649,69 @@ test.describe('Options 画面', () => {
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
     expect(storedPauseState.groupPauseState?.work).toBeUndefined()
+  })
+
+  test('Lock Mode ON のグループを Disable しても同じ論理日中は active settings で有効のまま表示する', async ({ page, context, extensionId }) => {
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+            local: { set: (items: Record<string, unknown>) => Promise<void> }
+          }
+        }
+      }
+      const settings = {
+        global: {
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [{
+          id: 'locked-disable',
+          name: 'Locked disable',
+          mode: 'blacklist',
+          disabled: false,
+          lockMode: true,
+          patterns: ['example\\.com'],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 0,
+          })),
+        }],
+      }
+      const now = new Date()
+      const reset = new Date(now)
+      reset.setHours(3, 0, 0, 0)
+      if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
+      const logicalDate = [
+        reset.getFullYear(),
+        String(reset.getMonth() + 1).padStart(2, '0'),
+        String(reset.getDate()).padStart(2, '0'),
+      ].join('-')
+      await chromeApi.chrome.storage.local.set({
+        effectiveSettings: settings,
+        effectiveSettingsLogicalDate: logicalDate,
+      })
+      await chromeApi.chrome.storage.sync.set(settings)
+    })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Disable' }).click()
+
+    await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
+    await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
+    await page.getByRole('button', { name: 'View active settings' }).click()
+    const activeSettingsDialog = page.locator('dialog').filter({ hasText: 'Currently active settings' })
+    await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Locked disable')
+    await expect(activeSettingsDialog.getByRole('status').filter({ hasText: 'Disabled' })).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Group status')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Lock changes until next rule day')).toBeVisible()
   })
 
   test('希望設定から削除済みの active group も active settings から一時停止できる', async ({ page, context, extensionId }) => {
@@ -1032,6 +1095,40 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('menuitem', { name: 'Delete group' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel group' })).not.toBeVisible()
+  })
+
+  test('ケバブメニューからグループを無効化し、リロード後も Disabled 表示を保持する', async ({ page, context, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Disabled target')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Disable' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
+    await expect(page.getByText('Group status')).toBeVisible()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByLabel('Name')).toHaveValue('Disabled target')
+    await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
+    await expect(page.getByText('Group status')).toBeVisible()
+    const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+    const stored = await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { sync: { get: (keys: string[]) => Promise<{ groups?: Array<Record<string, unknown>> }> } } }
+      }
+      return chromeApi.chrome.storage.sync.get(['groups'])
+    })
+    expect(stored.groups?.[0].disabled).toBe(true)
+
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Enable' }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).not.toBeVisible()
   })
 
   test('ドメイン指定の URL pattern を保存できる', async ({ page, extensionId }) => {

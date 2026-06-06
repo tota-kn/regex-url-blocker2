@@ -102,7 +102,7 @@ export function shouldSkipUrl(url: string | undefined, redirectUrls: string | st
  */
 export function getRedirectUrls(settings: Settings): string[] {
   return settings.groups
-    .filter(group => group.blockAction === 'redirect')
+    .filter(group => !group.disabled && group.blockAction === 'redirect')
     .map(group => group.redirectUrl)
 }
 
@@ -127,6 +127,7 @@ export function isTargetGroup(group: Group, url: string): boolean {
 export function getTargetGroupIds(settings: Settings, url: string | undefined): string[] {
   if (shouldSkipUrl(url, getRedirectUrls(settings)) || !url) return []
   return settings.groups
+    .filter(group => !group.disabled)
     .filter(group => isTargetGroup(group, url))
     .map(group => group.id)
 }
@@ -165,6 +166,8 @@ function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Da
  * group に今日有効な閲覧上限があれば、上限・消費・残り時間を返す。
  */
 export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): TimeLimitUsageSummary | undefined {
+  if (group.disabled) return undefined
+
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
   const dailyRule = group.dailyRules.find(rule => rule.dayOfWeek === logicalDate.dayOfWeek)
   if (!dailyRule || dailyRule.dailyLimitMinutes === undefined) return undefined
@@ -242,6 +245,7 @@ export function normalizeCounters(settings: Settings, counters: UsageCountersSta
   const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
   const normalized: UsageCountersState = { counters: {} }
   for (const group of settings.groups) {
+    if (group.disabled) continue
     const current = counters.counters[group.id]
     normalized.counters[group.id] = {
       logicalDate,
