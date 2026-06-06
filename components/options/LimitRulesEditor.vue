@@ -400,14 +400,14 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
               <output
                 v-else
                 :aria-label="`${day.label} daily limit minutes`"
-                class="flex h-8 min-w-0 items-center text-sm text-input-foreground"
+                class="flex h-8 min-w-0 items-center whitespace-nowrap text-sm text-input-foreground"
               >
                 {{ dailyLimitDisplayValue(day.value, false) }}
               </output>
             </label>
             <span
+              v-if="hasDailyLimit(day.value)"
               class="shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground"
-              :class="hasDailyLimit(day.value) ? '' : 'invisible'"
             >min/day</span>
           </div>
         </div>
