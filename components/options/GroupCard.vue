@@ -28,8 +28,8 @@ interface Props {
   pauseEntry?: GroupPauseEntry
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now?: Date
-  /** 一時停止操作を無効化するときに表示するラベル。 */
-  pauseDisabledLabel?: string
+  /** 一時停止操作を無効化するときに表示する理由。 */
+  pauseDisabledReason?: string
   /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
   timeLimitUsageSummary?: TimeLimitUsageSummary
   /** 読み取り専用表示にして編集・削除・保存を無効化するかどうか。 */
@@ -82,9 +82,10 @@ const visibleOptionSummaries = computed(() => {
   return summaries
 })
 const pauseButtonState = computed(() => getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()))
-const pauseButtonLabel = computed(() => props.pauseDisabledLabel ?? pauseButtonState.value.label)
+const pauseButtonLabel = computed(() => pauseButtonState.value.label)
+const effectivePauseDisabledReason = computed(() => props.pauseDisabledReason ?? (props.group.disabled ? 'Enable group to pause.' : undefined))
 const canRequestPause = computed(() => {
-  if (props.pauseDisabledLabel) return false
+  if (effectivePauseDisabledReason.value) return false
   return !pauseButtonState.value.paused
 })
 const disabledToggleLabel = computed(() => props.group.disabled ? 'Enable' : 'Disable')
@@ -195,6 +196,11 @@ function closeActionMenuFromOutside(event: PointerEvent): void {
 /** グループアクションメニューに紐づく一意な DOM id を返す。 */
 function actionMenuId(): string {
   return `group-actions-menu-${props.group.id}`
+}
+
+/** 一時停止操作の無効理由に紐づく一意な DOM id を返す。 */
+function pauseDisabledReasonId(): string {
+  return `group-pause-disabled-reason-${props.group.id}`
 }
 
 /** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
@@ -309,21 +315,30 @@ onBeforeUnmount(() => {
                 role="menu"
                 class="absolute right-0 z-20 mt-2 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg"
               >
-                <button
-                  v-if="showsPauseMenuItem"
-                  type="button"
-                  role="menuitem"
-                  :aria-label="pauseButtonLabel"
-                  :disabled="!canRequestPause"
-                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                  @click="requestPause"
-                >
-                  <PauseIcon
-                    aria-hidden="true"
-                    class="size-4 shrink-0"
-                  />
-                  <span>{{ pauseButtonLabel }}</span>
-                </button>
+                <div v-if="showsPauseMenuItem">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    :aria-label="pauseButtonLabel"
+                    :aria-describedby="effectivePauseDisabledReason ? pauseDisabledReasonId() : undefined"
+                    :disabled="!canRequestPause"
+                    class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                    @click="requestPause"
+                  >
+                    <PauseIcon
+                      aria-hidden="true"
+                      class="size-4 shrink-0"
+                    />
+                    <span>{{ pauseButtonLabel }}</span>
+                  </button>
+                  <p
+                    v-if="effectivePauseDisabledReason"
+                    :id="pauseDisabledReasonId()"
+                    class="px-3 pb-2 text-body-xs text-muted"
+                  >
+                    {{ effectivePauseDisabledReason }}
+                  </p>
+                </div>
                 <button
                   v-if="showsDisabledToggleMenuItem"
                   type="button"

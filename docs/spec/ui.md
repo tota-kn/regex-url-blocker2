@@ -24,7 +24,8 @@
 - グループ削除時は確認ダイアログを表示する
 - Lock Mode ON のグループに未反映の保存済み変更がある場合、Options 画面に「未反映の保存済み変更」と次回反映時刻を表示する
 - 未反映差分がある場合、現在 blocking に使われている有効設定を読み取り専用ダイアログで確認できる
-- 未反映差分がある場合、通常の Group card の一時停止ボタンは `Active settings only` として無効化し、有効設定ダイアログ内の active group から一時停止できる
+- 未反映差分がある場合、通常の Group card の一時停止ボタンは `Request pause` の表示のまま無効化し、「Use active settings to pause.」を表示する。有効設定ダイアログ内の active group から一時停止できる
+- Disabled group の Group card では一時停止ボタンを `Request pause` の表示のまま無効化し、「Enable group to pause.」を表示する。Enable 後は通常どおり一時停止できる
 - General settings 内の項目間には区切り線を表示しない
 - Settings file では「Export settings」「Import settings」を表示し、Import settings ボタンの下に「Import replaces all groups and general settings.」を表示する
 - 設定は JSON ファイルとしてエクスポート／インポートできる。インポートは全グループとグローバル設定を置換し、スキーマバージョンと内容を検証する

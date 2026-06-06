@@ -215,7 +215,7 @@ function createGroup(templateId: GroupTemplateId): void {
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
         :now="now"
-        :pause-disabled-label="pauseActiveSettingsOnly ? 'Active settings only' : undefined"
+        :pause-disabled-reason="pauseActiveSettingsOnly ? 'Use active settings to pause.' : undefined"
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"

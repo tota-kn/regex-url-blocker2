@@ -592,7 +592,9 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
     await openGroupActions(page)
-    await expect(page.getByRole('menuitem', { name: 'Active settings only' }).first()).toBeDisabled()
+    await expect(page.getByRole('menuitem', { name: 'Request pause' }).first()).toBeDisabled()
+    await expect(page.getByText('Use active settings to pause.')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Active settings only' })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'View active settings' }).click()
 
@@ -1117,6 +1119,11 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Name')).toHaveValue('Disabled target')
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
     await expect(page.getByText('Group status')).toBeVisible()
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Request pause' })).toBeDisabled()
+    await expect(page.getByText('Enable group to pause.')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeEnabled()
+
     const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
     const stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
@@ -1126,9 +1133,13 @@ test.describe('Options 画面', () => {
     })
     expect(stored.groups?.[0].disabled).toBe(true)
 
-    await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Enable' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).not.toBeVisible()
+    await expect(page.getByText('Enable group to pause.')).not.toBeVisible()
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Request pause' })).toBeEnabled()
+    await page.getByRole('menuitem', { name: 'Request pause' }).click()
+    await expect(page.locator('dialog').filter({ hasText: 'Take a breath' }).getByRole('heading', { name: 'Take a breath' })).toBeVisible()
   })
 
   test('ドメイン指定の URL pattern を保存できる', async ({ page, extensionId }) => {
