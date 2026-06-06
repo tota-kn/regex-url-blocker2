@@ -4,10 +4,12 @@ import {
   evaluateUrl,
   formatRemainingMinutesBadge,
   getActiveBlockedTimeRanges,
+  getBlockedTimeRangeReleaseAt,
   getDailyRuleForNow,
   getGroupBlockStatus,
   getLogicalDate,
   getMinimumRemainingTimeLimit,
+  getNextDailyResetAt,
   getTargetGroupIds,
   getTimeLimitUsageSummary,
   incrementCounters,
@@ -145,6 +147,53 @@ describe('logical date', () => {
     const info = getLogicalDate(new Date('2026-05-06T02:59:00+09:00'), '03:00')
     expect(info.logicalDate).toBe('2026-05-05')
     expect(info.dayOfWeek).toBe(2)
+  })
+})
+
+describe('block release time', () => {
+  it('通常時間帯ブロックの解除時刻を返す', () => {
+    const releaseAt = getBlockedTimeRangeReleaseAt(
+      { startMinute: 9 * 60, endMinute: 17 * 60 },
+      new Date('2026-05-06T10:30:00+09:00'),
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-06T08:00:00.000Z')
+  })
+
+  it('日跨ぎ時間帯ブロックの翌日側解除時刻を返す', () => {
+    const releaseAt = getBlockedTimeRangeReleaseAt(
+      { startMinute: 22 * 60, endMinute: 6 * 60 },
+      new Date('2026-05-06T23:30:00+09:00'),
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-06T21:00:00.000Z')
+  })
+
+  it('日跨ぎ時間帯ブロックの当日側解除時刻を返す', () => {
+    const releaseAt = getBlockedTimeRangeReleaseAt(
+      { startMinute: 22 * 60, endMinute: 6 * 60 },
+      new Date('2026-05-06T05:30:00+09:00'),
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-05T21:00:00.000Z')
+  })
+
+  it('start と end が同じ24時間ブロックの次の同時刻を返す', () => {
+    const releaseAt = getBlockedTimeRangeReleaseAt(
+      { startMinute: 9 * 60, endMinute: 9 * 60 },
+      new Date('2026-05-06T10:30:00+09:00'),
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-07T00:00:00.000Z')
+  })
+
+  it('daily limit 到達時の次回 daily reset 時刻を返す', () => {
+    const releaseAt = getNextDailyResetAt(
+      new Date('2026-05-06T12:00:00+09:00'),
+      settings([], '03:00').global,
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-06T18:00:00.000Z')
   })
 })
 

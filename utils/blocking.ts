@@ -68,6 +68,15 @@ export interface GroupBlockStatus {
 }
 
 /**
+ * 指定日の日内分に対応するローカル日時を返す。
+ */
+function dateAtMinuteOfDay(date: Date, minute: number): Date {
+  const result = new Date(date)
+  result.setHours(Math.floor(minute / 60), minute % 60, 0, 0)
+  return result
+}
+
+/**
  * "HH:MM" を日内分に変換する。不正値は 0 として扱う。
  */
 function minuteOfDay(value: string): number {
@@ -157,6 +166,35 @@ function timeInRange(nowMinute: number, startMinute: number, endMinute: number):
   if (startMinute === endMinute) return true
   if (startMinute < endMinute) return nowMinute >= startMinute && nowMinute < endMinute
   return nowMinute >= startMinute || nowMinute < endMinute
+}
+
+/**
+ * 現在有効なブロック時間帯が次に解除される日時を返す。
+ */
+export function getBlockedTimeRangeReleaseAt(range: TimeRange, now: Date): Date {
+  const nowMinute = now.getHours() * 60 + now.getMinutes()
+
+  if (range.startMinute === range.endMinute) {
+    const releaseAt = dateAtMinuteOfDay(now, range.endMinute)
+    if (releaseAt.getTime() <= now.getTime()) releaseAt.setDate(releaseAt.getDate() + 1)
+    return releaseAt
+  }
+
+  const releaseAt = dateAtMinuteOfDay(now, range.endMinute)
+  if (range.startMinute > range.endMinute && nowMinute >= range.startMinute) {
+    releaseAt.setDate(releaseAt.getDate() + 1)
+  }
+  return releaseAt
+}
+
+/**
+ * 次の daily reset 到来日時を返す。
+ */
+export function getNextDailyResetAt(now: Date, global: GlobalSettings): Date {
+  const resetMinute = minuteOfDay(global.dailyResetHour)
+  const resetAt = dateAtMinuteOfDay(now, resetMinute)
+  if (resetAt.getTime() <= now.getTime()) resetAt.setDate(resetAt.getDate() + 1)
+  return resetAt
 }
 
 /**

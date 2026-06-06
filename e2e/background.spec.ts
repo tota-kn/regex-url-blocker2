@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { Page, Worker } from '@playwright/test'
-import type { DailyRule, HHMM, Settings } from '../utils/types'
+import type { DailyRule, HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 
 /**
@@ -178,6 +178,60 @@ async function saveBlockedPageSettings(serviceWorker: Worker, origin: string, gr
 }
 
 /**
+ * Service Worker 上に理由表示を検証する blockedPage 設定を書き込む。
+ */
+async function saveBlockedPageDetailSettings(
+  serviceWorker: Worker,
+  origin: string,
+  dailyResetHour: HHMM,
+  groups: Array<{
+    id: string
+    name: string
+    blockedTimeRanges: TimeRange[]
+    dailyLimitMinutes?: number
+    counter?: UsageCounter
+  }>,
+): Promise<void> {
+  await serviceWorker.evaluate(async (settings) => {
+    const chromeApi = globalThis as unknown as {
+      chrome: {
+        storage: {
+          local: { set: (items: Record<string, unknown>) => Promise<void> }
+          sync: { set: (items: Record<string, unknown>) => Promise<void> }
+        }
+      }
+    }
+    await chromeApi.chrome.storage.sync.set({
+      global: {
+        blockAction: 'blockedPage',
+        redirectUrl: `${settings.origin}/blocked`,
+        dailyResetHour: settings.dailyResetHour,
+      },
+      groups: settings.groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        mode: 'blacklist',
+        patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
+        blockAction: 'blockedPage',
+        redirectUrl: `${settings.origin}/blocked`,
+        dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
+          dayOfWeek,
+          blockedTimeRanges: group.blockedTimeRanges,
+          dailyLimitMinutes: group.dailyLimitMinutes,
+        })),
+      })),
+    })
+    await chromeApi.chrome.storage.local.set({
+      counters: Object.fromEntries(
+        settings.groups
+          .filter(group => group.counter)
+          .map(group => [group.id, group.counter]),
+      ),
+    })
+  }, { origin, dailyResetHour, groups })
+}
+
+/**
  * 全曜日で同じ上限分数を使うテスト用 daily rules を作る。
  */
 function buildDailyRules(dailyLimitMinutes: number | undefined): DailyRule[] {
@@ -211,6 +265,25 @@ function buildLogicalDate(now: Date, dailyResetHour: HHMM): string {
     String(reset.getMonth() + 1).padStart(2, '0'),
     String(reset.getDate()).padStart(2, '0'),
   ].join('-')
+}
+
+/**
+ * 分を "HH:MM" 表示に変換する。
+ */
+function formatMinute(minute: number): string {
+  const normalized = ((minute % 1440) + 1440) % 1440
+  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`
+}
+
+/**
+ * 現在時刻を含み、近い将来に終わるテスト用時間帯を作る。
+ */
+function buildActiveTimeRange(now: Date): TimeRange {
+  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  return {
+    startMinute: (nowMinute + 1439) % 1440,
+    endMinute: (nowMinute + 60) % 1440,
+  }
 }
 
 /**
@@ -364,7 +437,103 @@ test.describe('Background blocking', () => {
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
       await expect(page.getByLabel('Blocked URL')).toHaveText(`${server.origin}/target`)
-      await expect(page.getByLabel('Blocked groups')).toHaveText('Work block, Night block')
+      await expect(page.getByText('Blocking groups')).not.toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Night block' })).toBeVisible()
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('blockedPage 設定では時間帯ブロック理由と解除時刻を表示する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const range = buildActiveTimeRange(now)
+      await saveBlockedPageDetailSettings(serviceWorker, server.origin, '00:00', [{
+        id: 'focus-hours',
+        name: 'Focus hours',
+        blockedTimeRanges: [range],
+      }])
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      const reason = page.getByLabel('Focus hours Blocked hours active')
+      await expect(reason).toContainText('Blocked hours active')
+      await expect(reason).toContainText(`${formatMinute(range.startMinute)}-${formatMinute(range.endMinute)}`)
+      await expect(reason).toContainText('Unblocks at')
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('blockedPage 設定では daily limit 理由と次回リセット時刻を表示する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      await saveBlockedPageDetailSettings(serviceWorker, server.origin, dailyResetHour, [{
+        id: 'daily-cap',
+        name: 'Daily cap',
+        blockedTimeRanges: [],
+        dailyLimitMinutes: 15,
+        counter: {
+          logicalDate: buildLogicalDate(now, dailyResetHour),
+          consumedSec: 15 * 60,
+        },
+      }])
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      const reason = page.getByLabel('Daily cap Daily limit reached')
+      await expect(reason).toContainText('Daily limit reached')
+      await expect(reason).toContainText('15 min/day')
+      await expect(reason).toContainText('Resets at')
+    }
+    finally {
+      await server.close()
+    }
+  })
+
+  test('blockedPage 設定では複数グループと複数理由を表示する', async ({ page, context, extensionId }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const now = new Date()
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const range = buildActiveTimeRange(now)
+      await saveBlockedPageDetailSettings(serviceWorker, server.origin, dailyResetHour, [
+        {
+          id: 'work',
+          name: 'Work block',
+          blockedTimeRanges: [range],
+        },
+        {
+          id: 'mixed',
+          name: 'Mixed block',
+          blockedTimeRanges: [range],
+          dailyLimitMinutes: 5,
+          counter: {
+            logicalDate: buildLogicalDate(now, dailyResetHour),
+            consumedSec: 5 * 60,
+          },
+        },
+      ])
+      await page.waitForTimeout(300)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await expect(page.getByText('Blocking groups')).not.toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Mixed block' })).toBeVisible()
+      await expect(page.getByLabel('Mixed block Blocked hours active')).toContainText('Blocked hours active')
+      await expect(page.getByLabel('Mixed block Daily limit reached')).toContainText('Daily limit reached')
     }
     finally {
       await server.close()
@@ -412,7 +581,9 @@ test.describe('Background blocking', () => {
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
-      await expect(page.getByLabel('Blocked groups')).toHaveText('First, Second')
+      await expect(page.getByText('Blocking groups')).not.toBeVisible()
+      await expect(page.getByRole('heading', { name: 'First' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Second' })).toBeVisible()
     }
     finally {
       await server.close()
@@ -596,7 +767,8 @@ test.describe('Background blocking', () => {
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
-      await expect(page.getByLabel('Blocked groups')).toHaveText('Block local')
+      await expect(page.getByText('Blocking groups')).not.toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Block local' })).toBeVisible()
     }
     finally {
       await server.close()

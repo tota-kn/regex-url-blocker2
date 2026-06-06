@@ -1,16 +1,63 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { ArrowUturnLeftIcon, ShieldExclamationIcon } from '@heroicons/vue/24/outline'
+import { onMounted, ref } from 'vue'
+import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
-import { loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
-import type { Group } from '@/utils/types'
+import { getBlockedTimeRangeReleaseAt, getGroupBlockStatus, getNextDailyResetAt, type GroupBlockStatus } from '@/utils/blocking'
+import { formatDateTime, formatTimeRange } from '@/utils/datetime'
+import { loadCounters, loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
+import type { GlobalSettings, Group } from '@/utils/types'
+
+interface BlockedReason {
+  /** ブロック理由の種類。 */
+  kind: 'timeRange' | 'dailyLimit'
+  /** 画面に表示する理由 badge。 */
+  label: string
+  /** ルール概要の表示文字列。 */
+  summary: string
+  /** 解除時刻の説明ラベル。 */
+  releaseLabel: string
+  /** 解除される日時。 */
+  releaseAt: Date
+}
+
+interface BlockedGroupDisplay {
+  /** ブロックしたグループ。 */
+  group: Group
+  /** 現在時刻のブロック状態。 */
+  status: GroupBlockStatus
+  /** 画面に表示するブロック理由。 */
+  reasons: BlockedReason[]
+}
 
 const blockedUrl = ref('')
-const blockedGroups = ref<Group[]>([])
+const blockedGroupDisplays = ref<BlockedGroupDisplay[]>([])
 const isLoaded = ref(false)
 
-const groupNames = computed(() => blockedGroups.value.map(group => group.name).join(', '))
+/**
+ * ブロック状態から画面表示用の理由一覧を作る。
+ */
+function buildReasons(status: GroupBlockStatus, now: Date, global: GlobalSettings): BlockedReason[] {
+  const timeRangeReasons = status.activeBlockedTimeRanges.map(range => ({
+    kind: 'timeRange' as const,
+    label: 'Blocked hours active',
+    summary: formatTimeRange(range),
+    releaseLabel: 'Unblocks at',
+    releaseAt: getBlockedTimeRangeReleaseAt(range, now),
+  }))
+
+  const dailyLimitReasons = status.blockedByDailyLimit && status.timeLimitSummary
+    ? [{
+        kind: 'dailyLimit' as const,
+        label: 'Daily limit reached',
+        summary: `${status.timeLimitSummary.limitMinutes} min/day`,
+        releaseLabel: 'Resets at',
+        releaseAt: getNextDailyResetAt(now, global),
+      }]
+    : []
+
+  return [...timeRangeReasons, ...dailyLimitReasons]
+}
 
 /**
  * 現在の URL query からブロックされた URL を取り出す。
@@ -36,10 +83,20 @@ function goBack(): void {
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
-  const preferredSettings = await loadSettings()
+  const [preferredSettings, counters] = await Promise.all([loadSettings(), loadCounters()])
   const { effectiveSettings } = await loadEffectiveSettingsState(preferredSettings)
+  const now = new Date()
   blockedUrl.value = parseBlockedUrl(params)
-  blockedGroups.value = effectiveSettings.groups.filter(group => groupIds.has(group.id))
+  blockedGroupDisplays.value = effectiveSettings.groups
+    .filter(group => groupIds.has(group.id))
+    .map((group) => {
+      const status = getGroupBlockStatus(group, counters.counters[group.id], now, effectiveSettings.global)
+      return {
+        group,
+        status,
+        reasons: buildReasons(status, now, effectiveSettings.global),
+      }
+    })
   isLoaded.value = true
 })
 </script>
@@ -48,10 +105,12 @@ onMounted(async () => {
   <main class="min-h-screen bg-secondary/40 px-4 py-10 text-foreground sm:px-6">
     <section class="mx-auto max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm">
       <div class="flex items-start gap-3">
-        <ShieldExclamationIcon
+        <img
+          src="/icon/48.png"
+          alt=""
           aria-hidden="true"
-          class="mt-0.5 size-7 shrink-0 text-danger"
-        />
+          class="mt-0.5 size-8 shrink-0"
+        >
         <div class="min-w-0">
           <h1 class="text-heading-lg">
             Page blocked
@@ -73,28 +132,68 @@ onMounted(async () => {
           </InfoValue>
         </div>
 
-        <div>
-          <h2 class="text-label-md text-secondary-foreground">
-            Blocking groups
-          </h2>
-          <p
-            v-if="!isLoaded"
-            class="mt-1 text-sm text-muted-foreground"
+        <p
+          v-if="!isLoaded"
+          class="text-body-sm text-muted-foreground"
+        >
+          Loading...
+        </p>
+        <InfoValue
+          v-else-if="blockedGroupDisplays.length === 0"
+          aria-label="Blocking details"
+        >
+          Unknown setting
+        </InfoValue>
+        <div
+          v-else
+          class="space-y-3"
+          aria-label="Blocking details"
+        >
+          <article
+            v-for="display in blockedGroupDisplays"
+            :key="display.group.id"
+            class="rounded-lg border border-border bg-surface-muted p-3"
           >
-            Loading...
-          </p>
-          <InfoValue
-            v-else-if="blockedGroups.length === 0"
-            aria-label="Blocked groups"
-          >
-            Unknown setting
-          </InfoValue>
-          <InfoValue
-            v-else
-            aria-label="Blocked groups"
-          >
-            {{ groupNames }}
-          </InfoValue>
+            <h3 class="text-heading-md">
+              {{ display.group.name }}
+            </h3>
+
+            <div
+              v-if="display.reasons.length > 0"
+              class="mt-3 space-y-2"
+            >
+              <div
+                v-for="reason in display.reasons"
+                :key="`${display.group.id}-${reason.kind}-${reason.summary}`"
+                class="rounded-lg border border-border bg-background px-3 py-2"
+                :aria-label="`${display.group.name} ${reason.label}`"
+              >
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="inline-flex rounded-sm border border-danger-border bg-danger-subtle px-1.5 py-1 text-label-sm text-danger">
+                    {{ reason.label }}
+                  </span>
+                  <span class="font-mono text-body-sm text-secondary-foreground">
+                    {{ reason.summary }}
+                  </span>
+                </div>
+                <dl class="mt-2 grid gap-1 text-body-sm sm:grid-cols-[max-content_1fr] sm:gap-x-3">
+                  <dt class="text-muted-foreground">
+                    {{ reason.releaseLabel }}
+                  </dt>
+                  <dd class="font-medium text-foreground">
+                    {{ formatDateTime(reason.releaseAt) }}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+
+            <p
+              v-else
+              class="mt-2 text-body-sm text-muted-foreground"
+            >
+              No active reason found.
+            </p>
+          </article>
         </div>
       </div>
 

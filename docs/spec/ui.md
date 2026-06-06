@@ -47,5 +47,8 @@
 - 採用グループの `blockAction === "blockedPage"` の場合、`blocked.html` を表示する。
 - query string の `url` にブロックされた URL、`group` にブロック状態だった group id を複数指定する。
 - 画面にはブロックされた URL と、現在の有効設定から解決したブロックグループ名を表示する。
+- グループごとに、現在有効なブロック理由を表示する。理由は `Blocked hours active` と `Daily limit reached` の badge で表示し、同じグループで複数理由が同時に成立する場合は両方表示する。
+- `Blocked hours active` では、該当する blocked hours の範囲と解除時刻を表示する。URL pattern と mode は表示しない。
+- `Daily limit reached` では、当日の上限分数（例: `15 min/day`）と次回 daily reset 時刻を表示する。
 - 該当グループが有効設定に存在しない場合は `Unknown setting` と表示する。
 - `Back` ボタンはブラウザ履歴の直前ページへ戻る。
