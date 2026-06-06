@@ -4,19 +4,23 @@ import { Cog6ToothIcon } from '@heroicons/vue/24/outline'
 import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { getRedirectUrls, getTargetGroupIds, getTimeLimitUsageSummary, shouldSkipUrl, type TimeLimitUsageSummary } from '@/utils/blocking'
-import { loadCounters, loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
-import type { Group, Settings, UsageCountersState } from '@/utils/types'
+import { getGroupBlockStatus, getRedirectUrls, getTargetGroupIds, shouldSkipUrl, type GroupBlockStatus, type TimeLimitUsageSummary } from '@/utils/blocking'
+import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
+import { loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadSettings } from '@/utils/storage'
+import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 
-interface DisplaySummary {
-  /** 残り時間を表示する対象グループ。 */
+interface DisplayGroup {
+  /** 状態を表示する対象グループ。 */
   group: Group
-  /** 今日の上限利用状況。 */
-  summary: TimeLimitUsageSummary
+  /** 現在時刻のブロック状態。 */
+  status: GroupBlockStatus
+  /** 一時停止状態の表示情報。 */
+  pauseState: GroupPauseDisplayState
 }
 
 const settings = ref<Settings | undefined>()
 const counters = ref<UsageCountersState>({ counters: {} })
+const groupPauseState = ref<GroupPauseState>({ groupPauseState: {} })
 const activeUrl = ref<string | undefined>()
 const now = ref(new Date())
 const counterLoadedAt = ref(new Date())
@@ -34,13 +38,33 @@ const targetGroups = computed(() => {
   return settings.value.groups.filter(group => ids.has(group.id))
 })
 
-const displaySummaries = computed<DisplaySummary[]>(() => {
+const displayGroups = computed<DisplayGroup[]>(() => {
   if (!settings.value) return []
   return targetGroups.value.flatMap((group) => {
-    const summary = getTimeLimitUsageSummary(group, counters.value.counters[group.id], now.value, settings.value!.global)
-    return summary ? [{ group, summary }] : []
+    const status = getGroupBlockStatus(group, counters.value.counters[group.id], now.value, settings.value!.global)
+    const pauseState = getGroupPauseDisplayState(groupPauseState.value.groupPauseState[group.id], now.value)
+    const hasBlockedTimeRule = (status.dailyRule?.blockedTimeRanges.length ?? 0) > 0
+    const hasDisplayState = hasBlockedTimeRule || status.timeLimitSummary || pauseState.kind !== 'none'
+    return hasDisplayState ? [{ group, status, pauseState }] : []
   })
 })
+
+/**
+ * group が現在ブロック表示を出すべきなら true を返す。
+ */
+function isBlockedNow(status: GroupBlockStatus, pauseState: GroupPauseDisplayState): boolean {
+  if (pauseState.kind === 'paused') return false
+  return status.blocked
+}
+
+/**
+ * 状態 badge の配色を返す。
+ */
+function statusBadgeClass(kind: 'danger' | 'warning' | 'muted'): string {
+  if (kind === 'danger') return 'border-danger-border bg-danger-subtle text-danger'
+  if (kind === 'warning') return 'border-warning/30 bg-warning/10 text-warning-text'
+  return 'border-border bg-surface-subtle text-secondary-foreground'
+}
 
 /**
  * counter 読み込み後の経過秒数を反映した残り秒数を返す。
@@ -82,14 +106,19 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
 async function refreshState(): Promise<void> {
   const [preferredSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
   const loadedEffectiveState = await loadEffectiveSettingsState(preferredSettings)
+  const loadedGroupPauseState = await loadGroupPauseState(
+    loadedEffectiveState.effectiveSettings.groups.map(group => group.id),
+    Date.now(),
+  )
   settings.value = loadedEffectiveState.effectiveSettings
   counters.value = loadedCounters
+  groupPauseState.value = loadedGroupPauseState
   now.value = new Date()
   counterLoadedAt.value = now.value
 }
 
 const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, areaName) => {
-  if (areaName === 'local' && changes.counters) {
+  if (areaName === 'local' && (changes.counters || changes.groupPauseState)) {
     void refreshState()
   }
   if (areaName === 'local' && (changes.effectiveSettings || changes.effectiveSettingsLogicalDate)) {
@@ -156,27 +185,67 @@ onUnmounted(() => {
       </EmptyState>
 
       <EmptyState
-        v-else-if="displaySummaries.length === 0"
+        v-else-if="displayGroups.length === 0"
       >
-        No daily limits apply to this page.
+        No active limits apply to this page.
       </EmptyState>
 
       <ul
         v-else
-        aria-label="Remaining time for this page"
+        aria-label="Active limits for this page"
         class="space-y-2"
       >
         <li
-          v-for="{ group, summary } in displaySummaries"
+          v-for="{ group, status, pauseState } in displayGroups"
           :key="group.id"
           class="space-y-2 rounded-lg border border-border bg-surface p-3"
         >
-          <p class="text-label-md truncate">
-            {{ group.name }}
-          </p>
+          <div class="flex min-w-0 items-start justify-between gap-2">
+            <p class="truncate text-label-md">
+              {{ group.name }}
+            </p>
+            <span
+              v-if="isBlockedNow(status, pauseState)"
+              :class="['shrink-0 rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('danger')]"
+            >
+              Blocked now
+            </span>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5">
+            <span
+              v-if="status.blockedByTimeRange"
+              :class="['rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('danger')]"
+            >
+              Blocked hours active
+            </span>
+            <span
+              v-else-if="(status.dailyRule?.blockedTimeRanges.length ?? 0) > 0"
+              :class="['rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('muted')]"
+            >
+              Blocked hours scheduled
+            </span>
+            <span
+              v-if="status.blockedByDailyLimit"
+              :class="['rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('danger')]"
+            >
+              Daily limit reached
+            </span>
+            <span
+              v-if="pauseState.kind !== 'none'"
+              :class="[
+                'rounded-sm border px-1.5 py-1 text-label-sm',
+                statusBadgeClass(pauseState.kind === 'paused' ? 'warning' : 'muted'),
+              ]"
+            >
+              {{ pauseState.label }}
+            </span>
+          </div>
+
           <TimeLimitMeter
-            :summary="summary"
-            :remaining-sec="realtimeRemainingSeconds(summary)"
+            v-if="status.timeLimitSummary"
+            :summary="status.timeLimitSummary"
+            :remaining-sec="realtimeRemainingSeconds(status.timeLimitSummary)"
             :aria-label="`Remaining time for ${group.name}`"
             :show-label="false"
             compact

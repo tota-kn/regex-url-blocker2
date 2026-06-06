@@ -3,6 +3,9 @@ import {
   applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
+  getActiveBlockedTimeRanges,
+  getDailyRuleForNow,
+  getGroupBlockStatus,
   getLogicalDate,
   getMinimumRemainingTimeLimit,
   getTargetGroupIds,
@@ -246,6 +249,55 @@ describe('blocking evaluation', () => {
     expect(result.blocked).toBe(false)
     expect(result.targetGroupIds).toEqual(['paused'])
     expect(result.blockedGroupIds).toEqual([])
+  })
+
+  it('popup 用 status は時間帯ブロック中の状態を返す', () => {
+    const s = settings([group({
+      dailyRules: allDailyRules({ blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }),
+    })])
+    const now = new Date('2026-05-06T10:00:00+09:00')
+    const status = getGroupBlockStatus(s.groups[0], undefined, now, s.global)
+
+    expect(getActiveBlockedTimeRanges(s.groups[0], now, s.global)).toEqual([{ startMinute: 540, endMinute: 1020 }])
+    expect(status.blockedByTimeRange).toBe(true)
+    expect(status.blocked).toBe(true)
+  })
+
+  it('popup 用 status は daily limit 到達中の状態を返す', () => {
+    const s = settings([group({
+      dailyRules: allDailyRules({ dailyLimitMinutes: 1 }),
+    })])
+    const status = getGroupBlockStatus(
+      s.groups[0],
+      { logicalDate: '2026-05-06', consumedSec: 60 },
+      new Date('2026-05-06T12:00:00+09:00'),
+      s.global,
+    )
+
+    expect(status.blockedByDailyLimit).toBe(true)
+    expect(status.timeLimitSummary?.remainingSec).toBe(0)
+    expect(status.blocked).toBe(true)
+  })
+
+  it('popup 用 status は disabled group を対象外にする', () => {
+    const s = settings([group({
+      disabled: true,
+      dailyRules: allDailyRules({
+        blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }],
+        dailyLimitMinutes: 0,
+      }),
+    })])
+    const status = getGroupBlockStatus(s.groups[0], undefined, new Date('2026-05-06T12:00:00+09:00'), s.global)
+
+    expect(getDailyRuleForNow(s.groups[0], new Date('2026-05-06T12:00:00+09:00'), s.global)).toBeUndefined()
+    expect(status).toEqual({
+      dailyRule: undefined,
+      activeBlockedTimeRanges: [],
+      timeLimitSummary: undefined,
+      blockedByTimeRange: false,
+      blockedByDailyLimit: false,
+      blocked: false,
+    })
   })
 })
 
