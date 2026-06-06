@@ -429,33 +429,29 @@ onBeforeUnmount(() => {
       <template v-if="isEditing">
         <button
           type="button"
-          class="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm font-semibold text-secondary-foreground"
+          class="flex w-full items-center gap-3 bg-transparent py-2.5 text-left text-sm font-semibold text-secondary-foreground transition hover:bg-field-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           :aria-expanded="isOptionsOpen"
           :aria-controls="optionsPanelId()"
           @click="toggleOptions"
         >
           <span class="flex min-w-0 items-center gap-1.5">
-            <LockClosedIcon
+            <ChevronDownIcon
               aria-hidden="true"
-              class="size-4 shrink-0 text-muted"
+              class="size-4 shrink-0 text-muted transition-transform"
+              :class="isOptionsOpen ? 'rotate-0' : '-rotate-90'"
             />
             <span>Options</span>
           </span>
-          <ChevronDownIcon
-            aria-hidden="true"
-            class="size-4 shrink-0 text-muted transition-transform"
-            :class="isOptionsOpen ? 'rotate-180' : ''"
-          />
         </button>
 
         <div
           v-if="isOptionsOpen"
           :id="optionsPanelId()"
-          class="space-y-2 rounded-md border border-border bg-surface p-3"
+          class="divide-y divide-border"
         >
           <fieldset
             aria-label="URL pattern match behavior"
-            class="space-y-2"
+            class="py-3"
           >
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
@@ -492,7 +488,7 @@ onBeforeUnmount(() => {
 
           <fieldset
             aria-label="Lock changes until next rule day"
-            class="space-y-2 border-t border-border pt-3"
+            class="py-3"
           >
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
@@ -529,7 +525,7 @@ onBeforeUnmount(() => {
 
           <fieldset
             aria-label="Page shown when blocked"
-            class="space-y-2 border-t border-border pt-3"
+            class="space-y-3 py-3"
           >
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
@@ -569,7 +565,7 @@ onBeforeUnmount(() => {
             </AlertMessage>
             <label
               v-if="draft.blockAction === 'redirect'"
-              class="block min-w-0 space-y-1.5"
+              class="block min-w-0 space-y-1.5 pl-6"
             >
               <span class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
                 <ArrowTopRightOnSquareIcon

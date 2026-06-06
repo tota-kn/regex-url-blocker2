@@ -123,9 +123,9 @@ test.describe('Options 画面', () => {
     await expect(page.locator('main .border-t')).toHaveCount(0)
     const notification = page.getByLabel('Notification')
     await expect(notification).toBeVisible()
-    await expect(notification.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).toBeChecked()
-    await expect(notification.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('5')
-    await expect(notification.getByLabel('Minutes left before warning', { exact: true })).toHaveAttribute('min', '1')
+    await expect(notification.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' })).toBeChecked()
+    await expect(notification.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveValue('5')
+    await expect(notification.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveAttribute('min', '1')
     await expect(notification.getByLabel('Notify me when I open a page with a daily limit')).toBeChecked()
     await expect(notification.getByLabel('Notify me when a redirect block happens')).toBeChecked()
     const incognitoMode = page.getByLabel('Allow this extension in Incognito')
@@ -364,26 +364,26 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGeneralSettings(page)
-    await page.getByLabel('Minutes left before warning', { exact: true }).fill('12')
+    await page.getByLabel('Minutes before daily limit warning', { exact: true }).fill('12')
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
-    await expect(page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).toBeChecked()
-    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('12')
+    await expect(page.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' })).toBeChecked()
+    await expect(page.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveValue('12')
 
-    await page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' }).uncheck()
+    await page.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' }).uncheck()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
     await openGeneralSettings(page)
-    await expect(page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).not.toBeChecked()
-    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toBeDisabled()
-    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('12')
+    await expect(page.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' })).not.toBeChecked()
+    await expect(page.getByLabel('Minutes before daily limit warning', { exact: true })).toBeDisabled()
+    await expect(page.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveValue('12')
 
-    await page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' }).check()
-    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toBeEnabled()
-    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('12')
+    await page.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' }).check()
+    await expect(page.getByLabel('Minutes before daily limit warning', { exact: true })).toBeEnabled()
+    await expect(page.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveValue('12')
 
-    await page.getByLabel('Minutes left before warning', { exact: true }).fill('0')
+    await page.getByLabel('Minutes before daily limit warning', { exact: true }).fill('0')
     await expect(page.getByText('Use 1+ integer')).toBeVisible()
   })
 
@@ -455,8 +455,8 @@ test.describe('Options 画面', () => {
     }))
 
     await expect(page.getByLabel('Start a new rule day at this time')).toHaveValue('04:30')
-    await expect(page.getByRole('checkbox', { name: 'Notify me when daily limit time is almost used up' })).toBeChecked()
-    await expect(page.getByLabel('Minutes left before warning', { exact: true })).toHaveValue('9')
+    await expect(page.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' })).toBeChecked()
+    await expect(page.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
     await expect(page.locator('main').getByText('Options')).not.toBeVisible()
@@ -603,7 +603,7 @@ test.describe('Options 画面', () => {
     await expectDialogCentered(page, activeSettingsDialog)
     await expect(activeSettingsDialog.getByText('General settings')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Start a new rule day at this time')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Notify me when daily limit time is almost used up')).not.toBeVisible()
+    await expect(activeSettingsDialog.getByText('Notify me')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Notify me when I open a page with a daily limit')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Notify me when a redirect block happens')).not.toBeVisible()
     await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Work')
@@ -1064,7 +1064,7 @@ test.describe('Options 画面', () => {
     await openGeneralSettings(page)
     const generalInputs = [
       page.getByLabel('Start a new rule day at this time'),
-      page.getByLabel('Minutes left before warning', { exact: true }),
+      page.getByLabel('Minutes before daily limit warning', { exact: true }),
     ]
 
     for (const input of generalInputs) {

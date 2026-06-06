@@ -168,35 +168,37 @@ onUnmounted(() => {
         </GlobalSettingsItemTitle>
         <div class="space-y-3">
           <div class="space-y-2">
-            <label class="flex min-w-0 items-start gap-3">
+            <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 pl-7">
               <input
+                id="remaining-time-notifications-enabled"
                 v-model="globalSettings.remainingTimeNotificationsEnabled"
                 type="checkbox"
-                class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-                aria-label="Notify me when daily limit time is almost used up"
+                class="-ml-7 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+                aria-label="Notify me before the daily limit is reached"
               >
-              <span class="min-w-0">
-                <span class="block text-label-md text-secondary-foreground">Notify me when daily limit time is almost used up</span>
-              </span>
-            </label>
-            <BaseField
-              class="pl-7"
-              :error="error('notificationThresholdMinutes')"
-            >
-              <span class="flex items-center gap-2">
+              <label
+                for="remaining-time-notifications-enabled"
+                class="text-label-md text-secondary-foreground"
+              >
+                Notify me
+              </label>
+              <BaseField
+                class="min-w-0"
+                :error="error('notificationThresholdMinutes')"
+              >
                 <BaseInput
                   v-model="notificationThresholdInput"
                   type="number"
                   min="1"
                   step="1"
-                  aria-label="Minutes left before warning"
+                  aria-label="Minutes before daily limit warning"
                   class="w-24"
                   :disabled="!globalSettings.remainingTimeNotificationsEnabled"
                   :invalid="Boolean(error('notificationThresholdMinutes'))"
                 />
-                <span class="text-body-sm text-muted-foreground">min</span>
-              </span>
-            </BaseField>
+              </BaseField>
+              <span class="text-label-md text-secondary-foreground">min before the daily limit is reached</span>
+            </div>
           </div>
         </div>
         <label class="flex items-start gap-3">
