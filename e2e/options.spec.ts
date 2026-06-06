@@ -77,6 +77,13 @@ async function openGroupOptions(page: Page): Promise<void> {
   await optionsButton.click()
 }
 
+/**
+ * グループカードのアクションメニューを開く。
+ */
+async function openGroupActions(scope: Page | Locator): Promise<void> {
+  await scope.getByRole('button', { name: 'Group actions' }).first().click()
+}
+
 test.describe('Options 画面', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -167,7 +174,8 @@ test.describe('Options 画面', () => {
     await page.clock.install({ time: startTime })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await page.getByRole('button', { name: 'Request pause' }).click()
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await expect(pauseDialog.getByText('60s remaining')).toBeVisible()
@@ -252,7 +260,8 @@ test.describe('Options 画面', () => {
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await page.getByRole('button', { name: 'Request pause' }).click()
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
     await pauseDialog.getByRole('button', { name: 'Cancel' }).click()
@@ -266,7 +275,8 @@ test.describe('Options 画面', () => {
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
-    await page.getByRole('button', { name: 'Request pause' }).click()
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Request pause' }).click()
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await page.evaluate(() => window.dispatchEvent(new Event('blur')))
     await expect(pauseDialog).not.toBeVisible()
@@ -278,7 +288,8 @@ test.describe('Options 画面', () => {
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
-    await page.getByRole('button', { name: 'Request pause' }).click()
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Request pause' }).click()
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await page.evaluate(() => {
       Object.defineProperty(document, 'visibilityState', {
@@ -580,7 +591,8 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Sun daily limit minutes').first()).toHaveText('30')
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Active settings only' }).first()).toBeDisabled()
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Active settings only' }).first()).toBeDisabled()
 
     await page.getByRole('button', { name: 'View active settings' }).click()
 
@@ -618,7 +630,8 @@ test.describe('Options 画面', () => {
     expect(firstBlockedTimeBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Blocking rules table').first())
-    await activeSettingsDialog.getByRole('button', { name: 'Request pause' }).first().click()
+    await openGroupActions(activeSettingsDialog)
+    await activeSettingsDialog.getByRole('menuitem', { name: 'Request pause' }).first().click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
@@ -707,7 +720,8 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Deleted active')
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
-    await activeSettingsDialog.getByRole('button', { name: 'Request pause' }).click()
+    await openGroupActions(activeSettingsDialog)
+    await activeSettingsDialog.getByRole('menuitem', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
     await page.clock.fastForward(60_000)
@@ -1014,7 +1028,8 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete pattern' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Edit group' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Delete group' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Group actions' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Delete group' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel group' })).not.toBeVisible()
   })
@@ -1059,7 +1074,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Delete group' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Cancel group' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeVisible()
     await page.getByLabel('Name').fill('Unsaved')
@@ -1340,7 +1355,8 @@ test.describe('Options 画面', () => {
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
-    await page.getByRole('button', { name: 'Delete group' }).click()
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Delete group' }).click()
     await expectDialogCentered(page, page.locator('dialog').filter({ hasText: 'Delete group?' }))
     await page.getByRole('button', { name: 'Confirm delete' }).click()
 
@@ -1350,20 +1366,24 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
   })
 
-  test('保存済みグループの削除ボタンは Edit ボタンの左に配置される', async ({ page, extensionId }) => {
+  test('保存済みグループのアクションメニューは Edit ボタンの右に配置される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LeftDelete')
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    const deleteBox = await page.getByRole('button', { name: 'Delete group' }).boundingBox()
     const editBox = await page.getByRole('button', { name: 'Edit group' }).boundingBox()
+    const actionsBox = await page.getByRole('button', { name: 'Group actions' }).boundingBox()
 
-    expect(deleteBox).not.toBeNull()
     expect(editBox).not.toBeNull()
-    expect(deleteBox!.x + deleteBox!.width).toBeLessThanOrEqual(editBox!.x)
-    expect(Math.abs(deleteBox!.y - editBox!.y)).toBeLessThan(4)
+    expect(actionsBox).not.toBeNull()
+    await expect(page.getByRole('menuitem', { name: 'Delete group' })).not.toBeVisible()
+    expect(editBox!.x + editBox!.width).toBeLessThanOrEqual(actionsBox!.x)
+    expect(Math.abs(editBox!.y - actionsBox!.y)).toBeLessThan(4)
+
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Delete group' })).toBeVisible()
   })
 
   test('グループ別 redirectUrl を編集して永続化される', async ({ page, extensionId }) => {

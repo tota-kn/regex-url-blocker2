@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, LockClosedIcon, PauseIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { computed, ref, watch } from 'vue'
+import { ArrowTopRightOnSquareIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, EllipsisVerticalIcon, LockClosedIcon, PauseIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -60,6 +60,8 @@ const draft = ref<Group>(cloneGroup(props.group))
 
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 const isOptionsOpen = ref(false)
+const isActionMenuOpen = ref(false)
+const actionMenuRoot = ref<HTMLElement | null>(null)
 
 const draftErrors = computed(() => validateGroup(draft.value))
 const canSave = computed(() => draftErrors.value.length === 0)
@@ -82,11 +84,22 @@ const canRequestPause = computed(() => {
   if (props.pauseDisabledLabel) return false
   return !pauseButtonState.value.paused
 })
+const showsPauseMenuItem = computed(() => !props.isNew && !pauseButtonState.value.paused)
+const showsDeleteMenuItem = computed(() => !props.readOnly)
+const showsActionMenu = computed(() => {
+  if (isEditing.value || props.isNew) return false
+  return showsPauseMenuItem.value || showsDeleteMenuItem.value
+})
 
 watch(() => props.group, (group) => {
   if (isEditing.value) return
   draft.value = cloneGroup(group)
 }, { deep: true })
+
+watch(showsActionMenu, (visible) => {
+  if (visible) return
+  closeActionMenu()
+})
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {
@@ -103,6 +116,7 @@ function startEditing(): void {
   if (props.readOnly) return
   draft.value = cloneGroup(props.group)
   isOptionsOpen.value = false
+  closeActionMenu()
   isEditing.value = true
 }
 
@@ -122,6 +136,7 @@ function saveEditing(): void {
   if (!canSave.value) return
   emit('save', cloneGroup(draft.value))
   isOptionsOpen.value = false
+  closeActionMenu()
   isEditing.value = false
 }
 
@@ -130,10 +145,59 @@ function toggleOptions(): void {
   isOptionsOpen.value = !isOptionsOpen.value
 }
 
+/** グループアクションメニューを開閉する。 */
+function toggleActionMenu(): void {
+  if (!showsActionMenu.value) return
+  isActionMenuOpen.value = !isActionMenuOpen.value
+}
+
+/** グループアクションメニューを閉じる。 */
+function closeActionMenu(): void {
+  isActionMenuOpen.value = false
+}
+
+/** 一時停止要求を親へ通知し、メニューを閉じる。 */
+function requestPause(): void {
+  if (!canRequestPause.value) return
+  closeActionMenu()
+  emit('requestPause')
+}
+
+/** 削除要求を親へ通知し、メニューを閉じる。 */
+function removeGroup(): void {
+  closeActionMenu()
+  emit('remove')
+}
+
+/** グループアクションメニュー外のクリックでメニューを閉じる。 */
+function closeActionMenuFromOutside(event: PointerEvent): void {
+  if (!isActionMenuOpen.value) return
+  const target = event.target
+  if (target instanceof Node && actionMenuRoot.value?.contains(target)) return
+  closeActionMenu()
+}
+
+/** グループアクションメニューに紐づく一意な DOM id を返す。 */
+function actionMenuId(): string {
+  return `group-actions-menu-${props.group.id}`
+}
+
 /** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
 function optionsPanelId(): string {
   return `options-panel-${props.group.id}`
 }
+
+watch(isActionMenuOpen, (open) => {
+  if (open) {
+    document.addEventListener('pointerdown', closeActionMenuFromOutside, true)
+    return
+  }
+  document.removeEventListener('pointerdown', closeActionMenuFromOutside, true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', closeActionMenuFromOutside, true)
+})
 </script>
 
 <template>
@@ -180,33 +244,6 @@ function optionsPanelId(): string {
               {{ pauseButtonState.label }}
             </span>
             <BaseButton
-              v-else-if="!isEditing && !isNew"
-              type="button"
-              :aria-label="pauseButtonLabel"
-              variant="secondary"
-              :disabled="!canRequestPause"
-              @click="$emit('requestPause')"
-            >
-              <PauseIcon
-                aria-hidden="true"
-                class="size-4"
-              />
-              {{ pauseButtonLabel }}
-            </BaseButton>
-            <BaseButton
-              v-if="!isEditing && !readOnly"
-              type="button"
-              aria-label="Delete group"
-              variant="danger-ghost"
-              @click="$emit('remove')"
-            >
-              <TrashIcon
-                aria-hidden="true"
-                class="size-4"
-              />
-              Delete
-            </BaseButton>
-            <BaseButton
               v-if="!isEditing && !readOnly"
               type="button"
               aria-label="Edit group"
@@ -219,6 +256,64 @@ function optionsPanelId(): string {
               />
               Edit
             </BaseButton>
+            <div
+              v-if="showsActionMenu"
+              ref="actionMenuRoot"
+              class="relative"
+              @keydown.escape.stop.prevent="closeActionMenu"
+            >
+              <BaseButton
+                type="button"
+                aria-label="Group actions"
+                aria-haspopup="menu"
+                :aria-controls="actionMenuId()"
+                :aria-expanded="isActionMenuOpen"
+                size="icon-md"
+                @click="toggleActionMenu"
+              >
+                <EllipsisVerticalIcon
+                  aria-hidden="true"
+                  class="size-5"
+                />
+              </BaseButton>
+
+              <div
+                v-if="isActionMenuOpen"
+                :id="actionMenuId()"
+                role="menu"
+                class="absolute right-0 z-20 mt-2 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg"
+              >
+                <button
+                  v-if="showsPauseMenuItem"
+                  type="button"
+                  role="menuitem"
+                  :aria-label="pauseButtonLabel"
+                  :disabled="!canRequestPause"
+                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                  @click="requestPause"
+                >
+                  <PauseIcon
+                    aria-hidden="true"
+                    class="size-4 shrink-0"
+                  />
+                  <span>{{ pauseButtonLabel }}</span>
+                </button>
+                <button
+                  v-if="showsDeleteMenuItem"
+                  type="button"
+                  role="menuitem"
+                  aria-label="Delete group"
+                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-danger transition hover:bg-danger-subtle focus:bg-danger-subtle focus:outline-none"
+                  @click="removeGroup"
+                >
+                  <TrashIcon
+                    aria-hidden="true"
+                    class="size-4 shrink-0"
+                  />
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
