@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import type { Locator, Page } from '@playwright/test'
+import { GROUP_PAUSE_DURATION_MS, PAUSE_COUNTDOWN_WAIT_MS } from '../utils/constants'
 import { expect, test } from './fixtures'
 
 const DEBOUNCE_FLUSH_MS = 400
@@ -219,8 +220,8 @@ test.describe('Options 画面', () => {
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
     const pausedUntil = stored.groupPauseState?.['pause-target']?.pausedUntil
-    expect(pausedUntil).toBeGreaterThanOrEqual(startTime.getTime() + 11 * 60_000)
-    expect(pausedUntil).toBeLessThan(startTime.getTime() + 11 * 60_000 + 1_000)
+    expect(pausedUntil).toBeGreaterThanOrEqual(startTime.getTime() + PAUSE_COUNTDOWN_WAIT_MS + GROUP_PAUSE_DURATION_MS)
+    expect(pausedUntil).toBeLessThan(startTime.getTime() + PAUSE_COUNTDOWN_WAIT_MS + GROUP_PAUSE_DURATION_MS + 1_000)
     expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
   })
 
@@ -789,7 +790,7 @@ test.describe('Options 画面', () => {
     await activeSettingsDialog.getByRole('menuitem', { name: 'Request pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
-    await page.clock.fastForward(60_000)
+    await page.clock.fastForward(PAUSE_COUNTDOWN_WAIT_MS)
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeEnabled()
     await pauseDialog.getByRole('button', { name: 'Pause 10 min' }).click()
     await expect(activeSettingsDialog.getByText(/Paused \d+:\d{2}/)).toBeVisible()
@@ -806,7 +807,7 @@ test.describe('Options 画面', () => {
       }
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
-    expect(storedPauseState.groupPauseState?.['deleted-active']?.pausedUntil).toBeGreaterThanOrEqual(beforePauseStart + 10 * 60_000)
+    expect(storedPauseState.groupPauseState?.['deleted-active']?.pausedUntil).toBeGreaterThanOrEqual(beforePauseStart + GROUP_PAUSE_DURATION_MS)
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {

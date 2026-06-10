@@ -62,7 +62,7 @@ function deletePattern(index: number): void {
 <template>
   <section class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
-      <h3 class="flex items-center gap-1.5 text-sm font-semibold">
+      <h3 class="flex items-center gap-1.5 text-label-md">
         <CodeBracketIcon
           aria-hidden="true"
           class="size-4 text-muted"
@@ -113,7 +113,7 @@ function deletePattern(index: number): void {
         </div>
         <p
           v-else
-          class="font-mono text-sm leading-5 break-all text-input-foreground"
+          class="text-mono-md break-all text-input-foreground"
         >
           {{ patterns[i] }}
         </p>

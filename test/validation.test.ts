@@ -5,7 +5,8 @@ import {
   validateGroup,
 } from '../utils/validation'
 import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import { createEmptyGroup } from './helpers'
 
 describe('isValidRegex', () => {
   it('正しい正規表現は true', () => {

@@ -81,7 +81,7 @@ function formatMinutesSeconds(seconds: number): string {
     <p
       :class="[
         'shrink-0 font-semibold leading-none',
-        compact ? 'text-sm' : 'text-base',
+        compact ? 'text-label-md' : 'text-heading-md',
         remainingTextClass,
       ]"
     >
@@ -103,7 +103,7 @@ function formatMinutesSeconds(seconds: number): string {
       />
     </div>
 
-    <p class="shrink-0 text-xs text-muted">
+    <p class="shrink-0 text-body-sm text-muted">
       {{ formatMinutesSeconds(displayedConsumedSec) }} / {{ formatMinutesSeconds(limitSec) }}
     </p>
   </section>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Cog6ToothIcon, ExclamationCircleIcon, EyeIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import { getNextEffectiveSettingsResetAt, hasLockModeGroup, hasPendingEffectiveSettings } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
@@ -7,7 +7,10 @@ import { DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate, type GroupTemplateId 
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
 import { cloneSettings } from '@/utils/groups'
-import { loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadSettings, parseSettingsExportJson, saveGroupPauseState, saveSettings, serializeSettingsExport } from '@/utils/storage'
+import { GROUP_PAUSE_DURATION_MS } from '@/utils/constants'
+import { loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadPageState, parseSettingsExportJson, saveGroupPauseState, saveSettings, serializeSettingsExport } from '@/utils/storage'
+import { useNowTimer } from '@/utils/useNowTimer'
+import { useStorageListener } from '@/utils/useStorageListener'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -28,7 +31,7 @@ const effectiveSettings = ref<Settings>({
 })
 const counters = ref<UsageCountersState>({ counters: {} })
 const groupPauseState = ref<GroupPauseState>({ groupPauseState: {} })
-const now = ref(new Date())
+const { now, start: startNowTimer } = useNowTimer()
 const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
@@ -36,9 +39,6 @@ const activeSettingsDialogRef = ref<InstanceType<typeof ActiveSettingsDialog> | 
 const pauseCountdownDialogRef = ref<InstanceType<typeof PauseCountdownDialog> | null>(null)
 const pauseTargetGroupId = ref<string | undefined>(undefined)
 const activeSection = ref<'groups' | 'general'>('groups')
-let nowTimerId: number | undefined
-
-const GROUP_PAUSE_MS = 10 * 60_000
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
 const groupsErrors = computed(() =>
@@ -164,7 +164,7 @@ async function confirmGroupPause(): Promise<void> {
   const next: GroupPauseState = {
     groupPauseState: { ...groupPauseState.value.groupPauseState },
   }
-  next.groupPauseState[id] = { pausedUntil: nowMs + GROUP_PAUSE_MS }
+  next.groupPauseState[id] = { pausedUntil: nowMs + GROUP_PAUSE_DURATION_MS }
 
   groupPauseState.value = next
   await saveGroupPauseState(next)
@@ -245,23 +245,16 @@ const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListe
   }
 }
 
+useStorageListener(handleStorageChanged)
+
 onMounted(async () => {
-  const [loadedSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
-  const loadedEffectiveState = await loadEffectiveSettingsState(loadedSettings)
-  effectiveSettings.value = loadedEffectiveState.effectiveSettings
+  const { settings: loadedSettings, counters: loadedCounters, effectiveSettings: loadedEffectiveSettings } = await loadPageState()
+  effectiveSettings.value = loadedEffectiveSettings
   settings.value = protectDailyResetTime(loadedSettings)
   counters.value = loadedCounters
   groupPauseState.value = await loadGroupPauseState(groupPauseValidIds())
   isLoaded.value = true
-  nowTimerId = window.setInterval(() => {
-    now.value = new Date()
-  }, 1_000)
-  browser.storage.onChanged.addListener(handleStorageChanged)
-})
-
-onUnmounted(() => {
-  if (nowTimerId !== undefined) window.clearInterval(nowTimerId)
-  browser.storage.onChanged.removeListener(handleStorageChanged)
+  startNowTimer()
 })
 </script>
 
@@ -282,7 +275,7 @@ onUnmounted(() => {
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <p
         v-if="!isLoaded"
-        class="rounded-lg border border-border bg-background p-5 text-sm text-muted shadow-sm"
+        class="rounded-lg border border-border bg-background p-5 text-body-md text-muted shadow-sm"
       >
         Loading...
       </p>

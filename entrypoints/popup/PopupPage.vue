@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Cog6ToothIcon } from '@heroicons/vue/24/outline'
 import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { getGroupBlockStatus, getRedirectUrls, getTargetGroupIds, shouldSkipUrl, type GroupBlockStatus, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
-import { loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadSettings } from '@/utils/storage'
+import { loadGroupPauseState, loadPageState } from '@/utils/storage'
+import { useNowTimer } from '@/utils/useNowTimer'
+import { useStorageListener } from '@/utils/useStorageListener'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 
 interface DisplayGroup {
@@ -22,10 +25,9 @@ const settings = ref<Settings | undefined>()
 const counters = ref<UsageCountersState>({ counters: {} })
 const groupPauseState = ref<GroupPauseState>({ groupPauseState: {} })
 const activeUrl = ref<string | undefined>()
-const now = ref(new Date())
+const { now, start: startNowTimer } = useNowTimer()
 const counterLoadedAt = ref(new Date())
 const isLoaded = ref(false)
-let tickingTimer: ReturnType<typeof setInterval> | undefined
 
 const isSkippedPage = computed(() => {
   if (!settings.value) return false
@@ -55,15 +57,6 @@ const displayGroups = computed<DisplayGroup[]>(() => {
 function isBlockedNow(status: GroupBlockStatus, pauseState: GroupPauseDisplayState): boolean {
   if (pauseState.kind === 'paused') return false
   return status.blocked
-}
-
-/**
- * 状態 badge の配色を返す。
- */
-function statusBadgeClass(kind: 'danger' | 'warning' | 'muted'): string {
-  if (kind === 'danger') return 'border-danger-border bg-danger-subtle text-danger'
-  if (kind === 'warning') return 'border-warning/30 bg-warning/10 text-warning-text'
-  return 'border-border bg-surface-subtle text-secondary-foreground'
 }
 
 /**
@@ -104,13 +97,12 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
  * 設定とカウンタを再読み込みする。
  */
 async function refreshState(): Promise<void> {
-  const [preferredSettings, loadedCounters] = await Promise.all([loadSettings(), loadCounters()])
-  const loadedEffectiveState = await loadEffectiveSettingsState(preferredSettings)
+  const { counters: loadedCounters, effectiveSettings } = await loadPageState()
   const loadedGroupPauseState = await loadGroupPauseState(
-    loadedEffectiveState.effectiveSettings.groups.map(group => group.id),
+    effectiveSettings.groups.map(group => group.id),
     Date.now(),
   )
-  settings.value = loadedEffectiveState.effectiveSettings
+  settings.value = effectiveSettings
   counters.value = loadedCounters
   groupPauseState.value = loadedGroupPauseState
   now.value = new Date()
@@ -129,19 +121,13 @@ const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListe
   }
 }
 
+useStorageListener(handleStorageChanged)
+
 onMounted(async () => {
   await refreshState()
   if (settings.value) await refreshActiveUrl(settings.value)
   isLoaded.value = true
-  browser.storage.onChanged.addListener(handleStorageChanged)
-  tickingTimer = setInterval(() => {
-    now.value = new Date()
-  }, 1_000)
-})
-
-onUnmounted(() => {
-  browser.storage.onChanged.removeListener(handleStorageChanged)
-  if (tickingTimer) clearInterval(tickingTimer)
+  startNowTimer()
 })
 </script>
 
@@ -166,7 +152,7 @@ onUnmounted(() => {
 
     <p
       v-if="!isLoaded"
-      class="text-sm text-muted-foreground"
+      class="text-body-md text-muted-foreground"
     >
       Loading...
     </p>
@@ -204,42 +190,40 @@ onUnmounted(() => {
             <p class="truncate text-label-md">
               {{ group.name }}
             </p>
-            <span
+            <StatusBadge
               v-if="isBlockedNow(status, pauseState)"
-              :class="['shrink-0 rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('danger')]"
+              kind="danger"
+              class="shrink-0"
             >
               Blocked now
-            </span>
+            </StatusBadge>
           </div>
 
           <div class="flex flex-wrap gap-1.5">
-            <span
+            <StatusBadge
               v-if="status.blockedByTimeRange"
-              :class="['rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('danger')]"
+              kind="danger"
             >
               Blocked hours active
-            </span>
-            <span
+            </StatusBadge>
+            <StatusBadge
               v-else-if="(status.dailyRule?.blockedTimeRanges.length ?? 0) > 0"
-              :class="['rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('muted')]"
+              kind="muted"
             >
               Blocked hours scheduled
-            </span>
-            <span
+            </StatusBadge>
+            <StatusBadge
               v-if="status.blockedByDailyLimit"
-              :class="['rounded-sm border px-1.5 py-1 text-label-sm', statusBadgeClass('danger')]"
+              kind="danger"
             >
               Daily limit reached
-            </span>
-            <span
+            </StatusBadge>
+            <StatusBadge
               v-if="pauseState.kind !== 'none'"
-              :class="[
-                'rounded-sm border px-1.5 py-1 text-label-sm',
-                statusBadgeClass(pauseState.kind === 'paused' ? 'warning' : 'muted'),
-              ]"
+              :kind="pauseState.kind === 'paused' ? 'warning' : 'muted'"
             >
               {{ pauseState.label }}
-            </span>
+            </StatusBadge>
           </div>
 
           <TimeLimitMeter

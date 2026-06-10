@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { loadBlockNotificationHistory, loadCounters, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveBlockNotificationHistory, saveCounters, saveGroupPauseState, savePageOpenNotificationHistory, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import { createEmptyGroup } from './helpers'
 
 describe('loadSettings', () => {
   it('未設定時は DEFAULT を返す', async () => {

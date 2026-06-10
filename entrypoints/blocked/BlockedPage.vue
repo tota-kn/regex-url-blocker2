@@ -3,9 +3,10 @@ import { onMounted, ref } from 'vue'
 import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { getBlockedTimeRangeReleaseAt, getGroupBlockStatus, getNextDailyResetAt, type GroupBlockStatus } from '@/utils/blocking'
 import { formatDateTime, formatTimeRange } from '@/utils/datetime'
-import { loadCounters, loadEffectiveSettingsState, loadSettings } from '@/utils/storage'
+import { loadPageState } from '@/utils/storage'
 import type { GlobalSettings, Group } from '@/utils/types'
 
 interface BlockedReason {
@@ -83,8 +84,7 @@ function goBack(): void {
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
-  const [preferredSettings, counters] = await Promise.all([loadSettings(), loadCounters()])
-  const { effectiveSettings } = await loadEffectiveSettingsState(preferredSettings)
+  const { counters, effectiveSettings } = await loadPageState()
   const now = new Date()
   blockedUrl.value = parseBlockedUrl(params)
   blockedGroupDisplays.value = effectiveSettings.groups
@@ -115,7 +115,7 @@ onMounted(async () => {
           <h1 class="text-heading-lg">
             Page blocked
           </h1>
-          <p class="mt-1 text-sm text-secondary-foreground">
+          <p class="mt-1 text-body-md text-secondary-foreground">
             This page was blocked by Regex URL Guard.
           </p>
         </div>
@@ -169,9 +169,12 @@ onMounted(async () => {
                 :aria-label="`${display.group.name} ${reason.label}`"
               >
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="inline-flex rounded-sm border border-danger-border bg-danger-subtle px-1.5 py-1 text-label-sm text-danger">
+                  <StatusBadge
+                    kind="danger"
+                    class="inline-flex"
+                  >
                     {{ reason.label }}
-                  </span>
+                  </StatusBadge>
                   <span class="font-mono text-body-sm text-secondary-foreground">
                     {{ reason.summary }}
                   </span>

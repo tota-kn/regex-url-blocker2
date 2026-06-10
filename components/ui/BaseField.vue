@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AlertMessage from '@/components/ui/AlertMessage.vue'
+
 /**
  * 入力フィールド外枠の props。
  */
@@ -30,11 +32,10 @@ defineProps<Props>()
     >
       {{ description }}
     </span>
-    <span
+    <AlertMessage
       v-if="error"
-      class="mt-2 block rounded-md bg-danger-subtle px-3 py-2 text-sm text-danger"
-    >
-      {{ error }}
-    </span>
+      class="mt-2"
+      :message="error"
+    />
   </label>
 </template>

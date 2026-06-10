@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
                   <p
                     v-if="effectivePauseDisabledReason"
                     :id="pauseDisabledReasonId()"
-                    class="px-3 pb-2 text-body-xs text-muted"
+                    class="px-3 pb-2 text-body-sm text-muted"
                   >
                     {{ effectivePauseDisabledReason }}
                   </p>
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
     >
       <h3
         v-if="!isEditing"
-        class="flex items-center gap-1.5 text-sm font-semibold"
+        class="flex items-center gap-1.5 text-label-md"
       >
         <LockClosedIcon
           aria-hidden="true"
@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
       <template v-if="isEditing">
         <button
           type="button"
-          class="flex w-full items-center gap-3 bg-transparent py-2.5 text-left text-sm font-semibold text-secondary-foreground transition hover:bg-field-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          class="flex w-full items-center gap-3 bg-transparent py-2.5 text-left text-label-md text-secondary-foreground transition hover:bg-field-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           :aria-expanded="isOptionsOpen"
           :aria-controls="optionsPanelId()"
           @click="toggleOptions"
@@ -581,12 +581,12 @@ onBeforeUnmount(() => {
                 class="w-full"
                 :invalid="Boolean(draftError('redirectUrl'))"
               />
-              <span
+              <AlertMessage
                 v-if="draftError('redirectUrl')"
-                class="mt-2 block rounded-md bg-danger-subtle px-3 py-2 text-sm text-danger"
+                class="mt-2"
               >
                 {{ draftError('redirectUrl') }}
-              </span>
+              </AlertMessage>
             </label>
           </fieldset>
         </div>

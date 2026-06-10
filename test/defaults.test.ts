@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyGroup, createGroupFromTemplate } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate } from '../utils/defaults'
+import { createEmptyGroup } from './helpers'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
   it('仕様書の既定値と一致する', () => {

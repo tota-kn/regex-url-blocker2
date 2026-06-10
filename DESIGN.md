@@ -10,11 +10,25 @@ colors:
   secondary-hover: "#e5e7eb"
   secondary-foreground: "#4b5563"
   foreground: "#1f2937"
+  background: "#ffffff"
   surface: "#ffffff"
   surface-muted: "#f9fafb"
   surface-subtle: "#f3f4f6"
   border: "#e5e7eb"
   border-hover: "#d1d5db"
+  field: "#ffffff"
+  field-hover: "#f9fafb"
+  field-readonly: "transparent"
+  field-disabled: "#f3f4f6"
+  field-border: "#d1d5db"
+  field-border-hover: "#9ca3af"
+  input-foreground: "#1f2937"
+  tag-selected-bg: "#dbeafe"
+  tag-selected-text: "#1e40af"
+  tag-selected-border: "#93c5fd"
+  tag-default-bg: "#f3f4f6"
+  tag-default-text: "#4b5563"
+  tag-default-border: "#e5e7eb"
   muted: "#9ca3af"
   muted-foreground: "#6b7280"
   accent: "#eff6ff"
@@ -123,12 +137,12 @@ components:
     rounded: "{rounded.lg}"
     padding: 16px
   tag-selected:
-    backgroundColor: "#dbeafe"
-    textColor: "#1e40af"
+    backgroundColor: "{colors.tag-selected-bg}"
+    textColor: "{colors.tag-selected-text}"
     rounded: "{rounded.sm}"
   tag-default:
-    backgroundColor: "{colors.surface-subtle}"
-    textColor: "{colors.secondary-foreground}"
+    backgroundColor: "{colors.tag-default-bg}"
+    textColor: "{colors.tag-default-text}"
     rounded: "{rounded.sm}"
 ---
 
@@ -145,12 +159,17 @@ The palette is a high-contrast, accessibility-conscious combination of cool gray
 - **Primary (#3b82f6):** Blue 500. Used exclusively for the most important interactive elements: primary buttons, active states, focus rings, and progress meter fills when time remains.
 - **Primary Hover (#2563eb):** Blue 600. Darken on hover to signal interactivity.
 - **Foreground (#1f2937):** Gray 800. Default text on light backgrounds.
+- **Background (#ffffff):** Pure white. Root background of popup, options, and blocked pages.
 - **Surface (#ffffff):** Pure white. Card and input backgrounds.
 - **Surface Muted (#f9fafb):** Gray 50. Page background and secondary input hover states.
 - **Surface Subtle (#f3f4f6):** Gray 100. Segmented control backgrounds, disabled fields.
 - **Secondary (#f3f4f6 / #e5e7eb):** Gray 100/200. Secondary button and control backgrounds.
 - **Secondary Foreground (#4b5563):** Gray 600. Secondary text, descriptions, and secondary button labels.
 - **Border (#e5e7eb):** Gray 200. Card borders, input borders, dividers.
+- **Field (#ffffff / hover #f9fafb):** Input field backgrounds. Readonly fields are transparent (read like inline text); disabled fields use Gray 100.
+- **Field Border (#d1d5db / hover #9ca3af):** Gray 300/400. Input field borders, slightly darker than card borders to make editable areas discoverable.
+- **Input Foreground (#1f2937):** Gray 800. Text inside input fields and read-only field values.
+- **Tag Selected (#dbeafe / #1e40af / #93c5fd) and Tag Default (#f3f4f6 / #4b5563 / #e5e7eb):** Background / text / border for day-of-week tags (see Tags component).
 - **Muted (#9ca3af):** Gray 400. Placeholder text, icon fills in passive states.
 - **Muted Foreground (#6b7280):** Gray 500. Supplementary annotations.
 - **Accent (#eff6ff):** Blue 50. Ghost button hover background; subtle highlights.

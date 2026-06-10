@@ -32,9 +32,6 @@ html {
   --color-danger-subtle: #fef2f2;
   --color-danger-border: #fecaca;
   --color-danger-foreground: #ffffff;
-  --color-destructive: #dc2626;     /* 既存互換 */
-  --color-destructive-hover: #b91c1c;
-  --color-destructive-foreground: #ffffff;
 
   /* ボーダー、ディバイダー */
   --color-border: #e5e7eb;          /* グレー200 - 境界線 */
@@ -47,8 +44,6 @@ html {
   --color-field-disabled: #f3f4f6;
   --color-field-border: #d1d5db;
   --color-field-border-hover: #9ca3af;
-  --color-input: #ffffff;           /* 既存互換 */
-  --color-input-border: #d1d5db;    /* 既存互換 */
   --color-input-foreground: #1f2937; /* グレー800 - 入力テキスト */
 
   /* タグ関連 */

@@ -39,7 +39,7 @@ defineExpose({ open })
 <template>
   <dialog
     ref="dialogRef"
-    class="dialog-centered w-80 rounded-lg border border-border bg-background p-6 text-foreground shadow-lg"
+    class="dialog-centered w-80 rounded-lg border border-border bg-background p-6 text-foreground shadow-lg backdrop:bg-black/30"
   >
     <p class="mb-4">
       {{ message }}

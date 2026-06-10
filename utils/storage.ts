@@ -176,6 +176,27 @@ export async function loadEffectiveSettingsState(fallbackSettings: Settings, now
 }
 
 /**
+ * 画面の初期表示・再読み込みに必要なストレージ読み込み結果。
+ */
+export interface PageState {
+  /** 保存済み設定。 */
+  settings: Settings
+  /** 利用カウンタ。 */
+  counters: UsageCountersState
+  /** 現在適用中の有効設定。 */
+  effectiveSettings: Settings
+}
+
+/**
+ * 画面表示に必要な保存済み設定・利用カウンタ・有効設定をまとめて読み込む。
+ */
+export async function loadPageState(now = new Date()): Promise<PageState> {
+  const [settings, counters] = await Promise.all([loadSettings(), loadCounters()])
+  const { effectiveSettings } = await loadEffectiveSettingsState(settings, now)
+  return { settings, counters, effectiveSettings }
+}
+
+/**
  * browser.storage.local に有効設定スナップショットを書き込む。
  */
 export async function saveEffectiveSettingsState(state: EffectiveSettingsState): Promise<void> {

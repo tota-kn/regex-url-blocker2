@@ -65,7 +65,7 @@ defineExpose({ open, close })
 <template>
   <dialog
     ref="dialogRef"
-    class="dialog-centered max-h-[85vh] w-[min(64rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border bg-background p-0 text-foreground shadow-lg [&[open]]:flex"
+    class="dialog-centered max-h-[85vh] w-[min(64rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/30 [&[open]]:flex"
     @close="handleClose"
   >
     <div

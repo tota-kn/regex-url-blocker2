@@ -55,7 +55,7 @@ regex-url-blocker2/
 
 ### Tailwind CSS v4
 
-Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合はブラウザが返す計算済みスタイルの値に合わせて比較する。ルート [tailwind.config.js](tailwind.config.js) は v3 互換の残骸で実質未使用。
+Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合はブラウザが返す計算済みスタイルの値に合わせて比較する。
 
 ### E2E テスト基盤
 

@@ -274,7 +274,7 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
 <template>
   <section class="min-w-0 space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h3 class="flex items-center gap-1.5 text-sm font-semibold">
+      <h3 class="flex items-center gap-1.5 text-label-md">
         <ClockIcon
           aria-hidden="true"
           class="size-4 text-muted"
@@ -319,7 +319,7 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
           :key="day.value"
           class="grid w-full grid-cols-[3.75rem_minmax(0,1fr)] items-stretch border-b border-border px-2 py-2 last:border-b-0 sm:grid-cols-[3.75rem_20rem_minmax(12rem,1fr)_7.5rem]"
         >
-          <div class="flex items-center pr-3 text-sm font-semibold text-secondary-foreground">
+          <div class="flex items-center pr-3 text-label-md text-secondary-foreground">
             {{ day.label }}
           </div>
 
@@ -349,7 +349,7 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
             />
             <div
               v-if="hoveredCell?.day === day.value"
-              class="pointer-events-none absolute -top-8 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-sm"
+              class="pointer-events-none absolute -top-8 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-label-sm text-background shadow-sm"
               :style="{ left: `${hoveredCell.leftPercent}%` }"
             >
               {{ hoveredCellLabel(hoveredCell) }}
@@ -374,7 +374,7 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
               <output
                 v-else
                 :aria-label="`${day.label} blocked time ranges`"
-                class="flex h-8 min-w-0 items-center truncate text-sm font-mono text-input-foreground"
+                class="flex h-8 min-w-0 items-center truncate text-mono-md text-input-foreground"
               >
                 {{ blockedTimeDisplayValue(day.value) }}
               </output>
@@ -400,14 +400,14 @@ function isTimeRangeTextInvalid(day: DayOfWeek): boolean {
               <output
                 v-else
                 :aria-label="`${day.label} daily limit minutes`"
-                class="flex h-8 min-w-0 items-center whitespace-nowrap text-sm text-input-foreground"
+                class="flex h-8 min-w-0 items-center whitespace-nowrap text-body-md text-input-foreground"
               >
                 {{ dailyLimitDisplayValue(day.value, false) }}
               </output>
             </label>
             <span
               v-if="hasDailyLimit(day.value)"
-              class="shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground"
+              class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
             >min/day</span>
           </div>
         </div>

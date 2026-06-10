@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
-
-const WAIT_MS = 60_000
-const TICK_MS = 250
+import { PAUSE_COUNTDOWN_TICK_MS, PAUSE_COUNTDOWN_WAIT_MS } from '@/utils/constants'
+import { useNowTimer } from '@/utils/useNowTimer'
 
 /**
  * 一時停止前カウントダウンダイアログが親へ通知するイベント。
@@ -18,37 +17,28 @@ const emit = defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const startedAt = ref(0)
-const currentTime = ref(Date.now())
-let timerId: number | undefined
+const { now, start: startTimer, stop: stopTimer } = useNowTimer(PAUSE_COUNTDOWN_TICK_MS)
 
-const elapsedMs = computed(() => Math.max(0, currentTime.value - startedAt.value))
-const remainingMs = computed(() => Math.max(0, WAIT_MS - elapsedMs.value))
+const elapsedMs = computed(() => Math.max(0, now.value.getTime() - startedAt.value))
+const remainingMs = computed(() => Math.max(0, PAUSE_COUNTDOWN_WAIT_MS - elapsedMs.value))
 const remainingSeconds = computed(() => Math.ceil(remainingMs.value / 1_000))
-const isReady = computed(() => elapsedMs.value >= WAIT_MS)
+const isReady = computed(() => elapsedMs.value >= PAUSE_COUNTDOWN_WAIT_MS)
+
+watch(now, () => {
+  if (!dialogRef.value?.open) return
+  if (shouldCancelForLostAttention()) close()
+})
 
 /** ダイアログを開いてカウントダウンを開始する。 */
 function open(): void {
   stopTimer()
   startedAt.value = Date.now()
-  currentTime.value = startedAt.value
+  now.value = new Date(startedAt.value)
   dialogRef.value?.showModal()
   window.addEventListener('blur', cancelForFocusLoss, true)
   document.addEventListener('blur', cancelForFocusLoss, true)
   document.addEventListener('visibilitychange', cancelForVisibilityChange)
-  timerId = window.setInterval(() => {
-    if (shouldCancelForLostAttention()) {
-      close()
-      return
-    }
-    currentTime.value = Date.now()
-  }, TICK_MS)
-}
-
-/** カウントダウン用タイマーを停止する。 */
-function stopTimer(): void {
-  if (timerId === undefined) return
-  window.clearInterval(timerId)
-  timerId = undefined
+  startTimer()
 }
 
 /** フォーカス喪失時のイベント監視を解除する。 */
