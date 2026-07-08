@@ -1,16 +1,31 @@
-import type { DailyRule, DayOfWeek, GlobalSettings, Group, GroupPauseState, Settings, TimeRange, UsageCounter, UsageCountersState } from './types'
+import type { DayOfWeek, GlobalSettings, Group, GroupPauseState, ScheduleRuleCondition, Settings, TimeRange, UsageCounter, UsageCountersState } from './types'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
 
 /**
- * 論理日と、その論理日開始時点の曜日。
+ * 論理日と、その論理日開始時点の暦情報。
  */
 export interface LogicalDateInfo {
   /** 論理日を一意に表すローカル日付文字列。 */
   logicalDate: string
   /** 論理日開始時点のローカル曜日。 */
   dayOfWeek: DayOfWeek
+  /** 論理日開始時点のローカル月（1-12）。 */
+  month: number
+  /** 論理日開始時点のローカル日（1-31）。 */
+  dayOfMonth: number
+}
+
+/**
+ * 論理日にマッチした全スケジュールルールを合成した実効制限。
+ * ブロック時間帯はマッチ全ルールの和集合、上限はマッチ全ルールの最小値。
+ */
+export interface EffectiveDayRestrictions {
+  /** この論理日に即ブロックする時間帯。 */
+  blockedTimeRanges: TimeRange[]
+  /** この論理日の閲覧上限分数。undefined は上限なし、0 は即ブロック。 */
+  dailyLimitMinutes?: number
 }
 
 /**
@@ -53,8 +68,8 @@ export interface MinimumRemainingTimeLimit {
  * 1グループの現在時刻におけるブロック状態。
  */
 export interface GroupBlockStatus {
-  /** 今日有効な曜日ルール。 */
-  dailyRule?: DailyRule
+  /** 今日有効な実効制限。disabled group では undefined。 */
+  restrictions?: EffectiveDayRestrictions
   /** 現在有効な時間帯ブロック。 */
   activeBlockedTimeRanges: TimeRange[]
   /** 今日の上限利用状況。 */
@@ -111,6 +126,8 @@ export function getLogicalDate(now: Date, dailyResetHour: string): LogicalDateIn
   return {
     logicalDate: dateId(start),
     dayOfWeek: start.getDay() as DayOfWeek,
+    month: start.getMonth() + 1,
+    dayOfMonth: start.getDate(),
   }
 }
 
@@ -198,24 +215,59 @@ export function getNextDailyResetAt(now: Date, global: GlobalSettings): Date {
 }
 
 /**
- * group に現在の論理日で有効な曜日ルールがあれば返す。
+ * スケジュールルールの条件が指定した論理日に一致するなら true を返す。
  */
-export function getDailyRuleForNow(group: Group, now: Date, global: GlobalSettings): DailyRule | undefined {
+export function matchesScheduleRuleCondition(condition: ScheduleRuleCondition, info: LogicalDateInfo): boolean {
+  if (condition.type === 'weekly') return condition.daysOfWeek.includes(info.dayOfWeek)
+  if (condition.type === 'monthly') return condition.daysOfMonth.includes(info.dayOfMonth)
+  if (condition.type === 'period') {
+    const start = monthDayKey(condition.start.month, condition.start.day)
+    const end = monthDayKey(condition.end.month, condition.end.day)
+    const key = monthDayKey(info.month, info.dayOfMonth)
+    return start <= end ? key >= start && key <= end : key >= start || key <= end
+  }
+  return true
+}
+
+/**
+ * 月日を比較可能な数値キーへ変換する。
+ */
+function monthDayKey(month: number, day: number): number {
+  return month * 100 + day
+}
+
+/**
+ * group のスケジュールルールのうち指定した論理日に一致する全ルールを合成した実効制限を返す。
+ */
+export function resolveEffectiveRestrictions(group: Group, info: LogicalDateInfo): EffectiveDayRestrictions {
+  const matched = group.scheduleRules.filter(rule => matchesScheduleRuleCondition(rule.condition, info))
+  const limits = matched
+    .map(rule => rule.dailyLimitMinutes)
+    .filter((limit): limit is number => limit !== undefined)
+  return {
+    blockedTimeRanges: matched.flatMap(rule => rule.blockedTimeRanges),
+    dailyLimitMinutes: limits.length > 0 ? Math.min(...limits) : undefined,
+  }
+}
+
+/**
+ * group に現在の論理日で有効な実効制限を返す。disabled group では undefined。
+ */
+export function getRestrictionsForNow(group: Group, now: Date, global: GlobalSettings): EffectiveDayRestrictions | undefined {
   if (group.disabled) return undefined
 
-  const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  return group.dailyRules.find(rule => rule.dayOfWeek === logicalDate.dayOfWeek)
+  return resolveEffectiveRestrictions(group, getLogicalDate(now, global.dailyResetHour))
 }
 
 /**
  * group の現在時刻に該当する時間帯ブロックを返す。
  */
 export function getActiveBlockedTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
-  const dailyRule = getDailyRuleForNow(group, now, global)
-  if (!dailyRule) return []
+  const restrictions = getRestrictionsForNow(group, now, global)
+  if (!restrictions) return []
 
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  return dailyRule.blockedTimeRanges.filter(range =>
+  return restrictions.blockedTimeRanges.filter(range =>
     timeInRange(nowMinute, range.startMinute, range.endMinute),
   )
 }
@@ -225,20 +277,19 @@ export function getActiveBlockedTimeRanges(group: Group, now: Date, global: Glob
  */
 function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): boolean {
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  const dailyRule = group.dailyRules.find(rule => rule.dayOfWeek === logicalDate.dayOfWeek)
-  if (!dailyRule) return false
-  if (dailyRule.blockedTimeRanges.length === 0 && dailyRule.dailyLimitMinutes === undefined) return false
+  const restrictions = resolveEffectiveRestrictions(group, logicalDate)
+  if (restrictions.blockedTimeRanges.length === 0 && restrictions.dailyLimitMinutes === undefined) return false
 
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  const blockedBySlot = dailyRule.blockedTimeRanges.some(range =>
+  const blockedBySlot = restrictions.blockedTimeRanges.some(range =>
     timeInRange(nowMinute, range.startMinute, range.endMinute),
   )
   if (blockedBySlot) return true
 
-  if (dailyRule.dailyLimitMinutes === undefined) return false
+  if (restrictions.dailyLimitMinutes === undefined) return false
 
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
-  return consumedSec >= dailyRule.dailyLimitMinutes * 60
+  return consumedSec >= restrictions.dailyLimitMinutes * 60
 }
 
 /**
@@ -248,10 +299,10 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
   if (group.disabled) return undefined
 
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  const dailyRule = getDailyRuleForNow(group, now, global)
-  if (!dailyRule || dailyRule.dailyLimitMinutes === undefined) return undefined
+  const restrictions = getRestrictionsForNow(group, now, global)
+  if (!restrictions || restrictions.dailyLimitMinutes === undefined) return undefined
 
-  const limitMinutes = dailyRule.dailyLimitMinutes
+  const limitMinutes = restrictions.dailyLimitMinutes
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
   const limitSec = limitMinutes * 60
   return {
@@ -266,19 +317,40 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
  * group の popup 表示向けブロック状態を返す。
  */
 export function getGroupBlockStatus(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): GroupBlockStatus {
-  const dailyRule = getDailyRuleForNow(group, now, global)
+  const restrictions = getRestrictionsForNow(group, now, global)
   const activeBlockedTimeRanges = getActiveBlockedTimeRanges(group, now, global)
   const timeLimitSummary = getTimeLimitUsageSummary(group, counter, now, global)
   const blockedByDailyLimit = timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
 
   return {
-    dailyRule,
+    restrictions,
     activeBlockedTimeRanges,
     timeLimitSummary,
     blockedByTimeRange: activeBlockedTimeRanges.length > 0,
     blockedByDailyLimit,
     blocked: activeBlockedTimeRanges.length > 0 || blockedByDailyLimit,
   }
+}
+
+/**
+ * 現在有効な時間帯ブロックが実際に解除される日時を返す。
+ * 翌論理日は別ルールになりうるため、論理日境界ごとに実効制限を再評価しながら先へ進める。
+ * 最大366ステップ探索しても解除されない場合は undefined（実質常時ブロック）を返す。
+ */
+export function getTimeRangeUnblockAt(group: Group, now: Date, global: GlobalSettings): Date | undefined {
+  const MAX_STEPS = 366
+  let t = new Date(now)
+  for (let step = 0; step < MAX_STEPS; step += 1) {
+    const activeRanges = getActiveBlockedTimeRanges(group, t, global)
+    if (activeRanges.length === 0) return t
+
+    const nextBoundaries = [
+      ...activeRanges.map(range => getBlockedTimeRangeReleaseAt(range, t).getTime()),
+      getNextDailyResetAt(t, global).getTime(),
+    ]
+    t = new Date(Math.min(...nextBoundaries))
+  }
+  return undefined
 }
 
 /**

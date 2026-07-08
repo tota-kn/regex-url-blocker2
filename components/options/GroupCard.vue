@@ -11,8 +11,8 @@ import { cloneGroup, formatBlockDestination, formatGroupMode } from '@/utils/gro
 import type { Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
-import LimitRulesEditor from './LimitRulesEditor.vue'
 import PatternListEditor from './PatternListEditor.vue'
+import ScheduleRulesEditor from './ScheduleRulesEditor.vue'
 
 /**
  * グループカードの props。
@@ -115,6 +115,11 @@ function draftError(field: string): string | undefined {
 /** 指定パターン番号のドラフト検証エラーメッセージを返す。 */
 function patternError(index: number): string | undefined {
   return draftError(`patterns[${index}]`)
+}
+
+/** 指定スケジュールルール番号のドラフト検証エラーメッセージを返す。 */
+function scheduleRuleError(index: number): string | undefined {
+  return draftErrors.value.find(e => e.field.startsWith(`scheduleRules[${index}]`))?.message
 }
 
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
@@ -405,9 +410,10 @@ onBeforeUnmount(() => {
         :is-editing="isEditing"
         :error="patternError"
       />
-      <LimitRulesEditor
-        v-model:daily-rules="draft.dailyRules"
+      <ScheduleRulesEditor
+        v-model="draft.scheduleRules"
         :is-editing="isEditing"
+        :rule-error="scheduleRuleError"
       />
     </fieldset>
 

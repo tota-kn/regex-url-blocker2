@@ -1,4 +1,4 @@
-import type { Group } from '../utils/types'
+import type { DayOfWeek, Group, ScheduleRule } from '../utils/types'
 import { createGroupFromTemplate } from '../utils/defaults'
 
 /**
@@ -7,4 +7,30 @@ import { createGroupFromTemplate } from '../utils/defaults'
  */
 export function createEmptyGroup(name = ''): Group {
   return createGroupFromTemplate('blank', name)
+}
+
+/**
+ * テスト用に毎日条件のスケジュールルールを1件だけ持つ配列を生成する。
+ */
+export function dailyScheduleRules(override: Partial<Pick<ScheduleRule, 'blockedTimeRanges' | 'dailyLimitMinutes'>> = {}): ScheduleRule[] {
+  return [{
+    id: 'daily-rule',
+    condition: { type: 'daily' },
+    blockedTimeRanges: [],
+    dailyLimitMinutes: undefined,
+    ...override,
+  }]
+}
+
+/**
+ * テスト用に毎週条件のスケジュールルールを1件だけ持つ配列を生成する。
+ */
+export function weeklyScheduleRules(daysOfWeek: DayOfWeek[], override: Partial<Pick<ScheduleRule, 'blockedTimeRanges' | 'dailyLimitMinutes'>> = {}): ScheduleRule[] {
+  return [{
+    id: 'weekly-rule',
+    condition: { type: 'weekly', daysOfWeek },
+    blockedTimeRanges: [],
+    dailyLimitMinutes: undefined,
+    ...override,
+  }]
 }

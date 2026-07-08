@@ -20,14 +20,40 @@ export interface TimeRange {
 }
 
 /**
- * 1曜日分の制限ルール。
+ * 毎年繰り返す月日（1始まり）。
  */
-export interface DailyRule {
-  /** JS Date 互換の曜日番号。 */
-  dayOfWeek: DayOfWeek
-  /** この曜日に即ブロックする時間帯。 */
+export interface MonthDay {
+  /** 月。1-12。 */
+  month: number
+  /** 日。1-31。 */
+  day: number
+}
+
+/**
+ * スケジュールルールの適用条件。論理日単位で判定する。
+ * - `'daily'`: 毎日。
+ * - `'weekly'`: 指定曜日。
+ * - `'monthly'`: 毎月の指定日。
+ * - `'period'`: 毎年繰り返す期間（両端含む・年跨ぎ可・start===end は単日）。
+ */
+export type ScheduleRuleCondition =
+  | { type: 'daily' }
+  | { type: 'weekly', daysOfWeek: DayOfWeek[] }
+  | { type: 'monthly', daysOfMonth: number[] }
+  | { type: 'period', start: MonthDay, end: MonthDay }
+
+/**
+ * 条件に一致した論理日に適用する制限ルール。
+ * 同じ日に複数ルールが一致した場合はすべて適用され、ブロック時間帯は和集合、上限は最小値になる。
+ */
+export interface ScheduleRule {
+  /** crypto.randomUUID() で自動採番される一意識別子。 */
+  id: string
+  /** このルールを適用する日の条件。 */
+  condition: ScheduleRuleCondition
+  /** 条件に一致した日に即ブロックする時間帯。 */
   blockedTimeRanges: TimeRange[]
-  /** 1日の閲覧上限分数。undefined は上限なし、0 は即ブロック。 */
+  /** 条件に一致した日の閲覧上限分数。undefined はこのルールでは上限を課さない、0 は即ブロック。 */
   dailyLimitMinutes?: number
 }
 
@@ -67,8 +93,8 @@ export interface Group {
   blockAction: BlockAction
   /** このグループで redirect を選んだ場合の遷移先 URL。 */
   redirectUrl: string
-  /** 曜日別の制限ルール。0=日曜から6=土曜まで必ず7件。 */
-  dailyRules: DailyRule[]
+  /** 条件付きの制限ルール。空配列は制限なし。 */
+  scheduleRules: ScheduleRule[]
 }
 
 /**

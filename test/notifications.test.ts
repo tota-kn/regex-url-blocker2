@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateUrl } from '../utils/blocking'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyDailyRules } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import {
   buildPageOpenNotificationPlan,
   buildRedirectBlockNotificationPlan,
@@ -8,6 +8,7 @@ import {
   markNotificationPlanHistory,
 } from '../utils/notifications'
 import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from '../utils/types'
+import { dailyScheduleRules } from './helpers'
 
 const NOW = new Date('2026-05-06T12:00:00+09:00')
 const LOGICAL_DATE = '2026-05-06'
@@ -25,7 +26,7 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: 'redirect',
     redirectUrl: 'https://blocked.test/',
-    dailyRules: createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 60 })),
+    scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 60 }),
     ...overrides,
   }
 }
@@ -150,7 +151,7 @@ describe('page open notification plans', () => {
 
 describe('redirect block notification plans', () => {
   it('redirect ブロック通知を同じ論理日では1回にする', () => {
-    const s = settings([group({ dailyRules: createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 0 })) })])
+    const s = settings([group({ scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 0 }) })])
     const evaluation = evaluateUrl(s, counters({ 'group-a': 0 }), 'https://example.com/', NOW)
     const history: Record<string, UsageNotificationEntry> = {}
 
@@ -164,7 +165,7 @@ describe('redirect block notification plans', () => {
 
   it('redirect ブロック通知が無効なら通知計画を作らない', () => {
     const s = settings([
-      group({ dailyRules: createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 0 })) }),
+      group({ scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 0 }) }),
     ], { blockNotificationsEnabled: false })
     const evaluation = evaluateUrl(s, counters({ 'group-a': 0 }), 'https://example.com/', NOW)
 
@@ -175,7 +176,7 @@ describe('redirect block notification plans', () => {
     const s = settings([
       group({
         blockAction: 'blockedPage',
-        dailyRules: createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 0 })),
+        scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 0 }),
       }),
     ])
     const evaluation = evaluateUrl(s, counters({ 'group-a': 0 }), 'https://example.com/', NOW)

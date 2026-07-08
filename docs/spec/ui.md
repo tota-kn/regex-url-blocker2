@@ -3,12 +3,17 @@
 ## Options 画面（編集）
 
 - グループの追加・編集・削除
-- 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`blockAction`、`redirectUrl`、`dailyRules[]`
+- 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`blockAction`、`redirectUrl`、`scheduleRules[]`
 - `mode` は Group card の Options 配下にある「URL pattern match behavior」で `Block matches` / `Allow only matches` として選択できる。URL patterns セクションには mode の選択肢を表示しない
 - Group card の Options は、項目ごとではなく Options セクション全体を1つの disclosure として折りたたむ。編集時の初期状態では Options 全体を閉じる
 - Options 展開時は「URL pattern match behavior」「Lock changes until next rule day」「Page shown when blocked」を常時並べ、各項目の radio は項目名行の右側へ配置する
-- ブロック時間帯は曜日ごとに `HH:MM-HH:MM` のカンマ区切りテキスト、または30分グリッドで編集する。終了時刻には `24:00` を指定できる
-- 上限は曜日ごとに上限分数を入力する。空欄なら上限なし
+- 制限は「Schedule rules」セクションで文章型フォームとして編集する。ヘッダに「All matching rules combine: blocked hours add up and the smallest daily limit wins.」の説明を表示する
+  - 「Add schedule rule」で複数のルールを追加でき、各ルールは削除できる
+  - 条件は select で `Every day` / `Weekly` / `Monthly` / `Period` を選ぶ。`Weekly` は曜日チェックボックス、`Monthly` は `1, 15` のようなカンマ区切りの日付入力、`Period` は `MM/DD`–`MM/DD` の2入力（毎年繰り返し、年跨ぎ可）で指定する
+  - ブロック時間帯は `HH:MM-HH:MM` のカンマ区切りテキストで入力する。終了時刻には `24:00`、`00:00-00:00` で終日ブロックを指定できる
+  - 上限は上限分数を入力する。空欄なら上限なし
+  - ブロック時間帯と上限の両方が空のルールは保存時に検証エラーとし、保存を止める
+  - 読み取り表示ではルールごとに条件と内容を1行の文章（例: `Weekly Sat, Sun — Blocked hours: 22:00-06:00; Daily limit: 120 min/day`）で表示する
 - 制限テンプレートとして「Blank group」「Core SNS 15 min/day」「Video 30 min/day」「Work hours focus」を新規グループ作成時に選択できる
 - グローバル設定（`dailyResetHour`、`remainingTimeNotificationsEnabled`、`notificationThresholdMinutes`、`pageOpenNotificationsEnabled`、`blockNotificationsEnabled`）の編集
   - General settings は補足説明に依存せず、項目名そのもので意味が伝わる文言にする
@@ -48,7 +53,7 @@
 - query string の `url` にブロックされた URL、`group` にブロック状態だった group id を複数指定する。
 - 画面にはブロックされた URL と、現在の有効設定から解決したブロックグループ名を表示する。
 - グループごとに、現在有効なブロック理由を表示する。理由は `Blocked hours active` と `Daily limit reached` の badge で表示し、同じグループで複数理由が同時に成立する場合は両方表示する。
-- `Blocked hours active` では、該当する blocked hours の範囲と解除時刻を表示する。URL pattern と mode は表示しない。
+- `Blocked hours active` では、該当する blocked hours の範囲と解除時刻を表示する。翌論理日が別ルールになりうるため解除時刻は論理日境界ごとに再評価して算出し、解除予定が存在しない場合は `Not scheduled` と表示する。URL pattern と mode は表示しない。
 - `Daily limit reached` では、当日の上限分数（例: `15 min/day`）と次回 daily reset 時刻を表示する。
 - 該当グループが有効設定に存在しない場合は `Unknown setting` と表示する。
 - `Back` ボタンはブラウザ履歴の直前ページへ戻る。

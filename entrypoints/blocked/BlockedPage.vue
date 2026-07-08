@@ -4,7 +4,7 @@ import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import { getBlockedTimeRangeReleaseAt, getGroupBlockStatus, getNextDailyResetAt, type GroupBlockStatus } from '@/utils/blocking'
+import { getGroupBlockStatus, getNextDailyResetAt, getTimeRangeUnblockAt, type GroupBlockStatus } from '@/utils/blocking'
 import { formatDateTime, formatTimeRange } from '@/utils/datetime'
 import { loadPageState } from '@/utils/storage'
 import type { GlobalSettings, Group } from '@/utils/types'
@@ -18,8 +18,8 @@ interface BlockedReason {
   summary: string
   /** 解除時刻の説明ラベル。 */
   releaseLabel: string
-  /** 解除される日時。 */
-  releaseAt: Date
+  /** 解除される日時。実質常時ブロックで解除予定がない場合は undefined。 */
+  releaseAt?: Date
 }
 
 interface BlockedGroupDisplay {
@@ -38,13 +38,16 @@ const isLoaded = ref(false)
 /**
  * ブロック状態から画面表示用の理由一覧を作る。
  */
-function buildReasons(status: GroupBlockStatus, now: Date, global: GlobalSettings): BlockedReason[] {
+function buildReasons(group: Group, status: GroupBlockStatus, now: Date, global: GlobalSettings): BlockedReason[] {
+  const timeRangeUnblockAt = status.activeBlockedTimeRanges.length > 0
+    ? getTimeRangeUnblockAt(group, now, global)
+    : undefined
   const timeRangeReasons = status.activeBlockedTimeRanges.map(range => ({
     kind: 'timeRange' as const,
     label: 'Blocked hours active',
     summary: formatTimeRange(range),
     releaseLabel: 'Unblocks at',
-    releaseAt: getBlockedTimeRangeReleaseAt(range, now),
+    releaseAt: timeRangeUnblockAt,
   }))
 
   const dailyLimitReasons = status.blockedByDailyLimit && status.timeLimitSummary
@@ -94,7 +97,7 @@ onMounted(async () => {
       return {
         group,
         status,
-        reasons: buildReasons(status, now, effectiveSettings.global),
+        reasons: buildReasons(group, status, now, effectiveSettings.global),
       }
     })
   isLoaded.value = true
@@ -184,7 +187,7 @@ onMounted(async () => {
                     {{ reason.releaseLabel }}
                   </dt>
                   <dd class="font-medium text-foreground">
-                    {{ formatDateTime(reason.releaseAt) }}
+                    {{ reason.releaseAt ? formatDateTime(reason.releaseAt) : 'Not scheduled' }}
                   </dd>
                 </dl>
               </div>

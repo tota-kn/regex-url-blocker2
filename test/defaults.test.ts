@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate } from '../utils/defaults'
+import { DEFAULT_GLOBAL_SETTINGS, createEmptyScheduleRule, createGroupFromTemplate } from '../utils/defaults'
 import { createEmptyGroup } from './helpers'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
@@ -14,6 +14,17 @@ describe('DEFAULT_GLOBAL_SETTINGS', () => {
   })
 })
 
+describe('createEmptyScheduleRule', () => {
+  it('毎日条件・制限なしのルールを一意な id で生成する', () => {
+    const rule = createEmptyScheduleRule()
+    expect(rule.condition).toEqual({ type: 'daily' })
+    expect(rule.blockedTimeRanges).toEqual([])
+    expect(rule.dailyLimitMinutes).toBeUndefined()
+    expect(rule.id.length).toBeGreaterThan(0)
+    expect(createEmptyScheduleRule().id).not.toBe(rule.id)
+  })
+})
+
 describe('createEmptyGroup', () => {
   it('仕様書準拠の空グループを返す', () => {
     const g = createEmptyGroup()
@@ -24,15 +35,7 @@ describe('createEmptyGroup', () => {
     expect(g.patterns).toEqual([])
     expect(g.blockAction).toBe('blockedPage')
     expect(g.redirectUrl).toBe('https://example.com')
-    expect(g.dailyRules).toEqual([
-      { dayOfWeek: 0, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-      { dayOfWeek: 1, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-      { dayOfWeek: 2, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-      { dayOfWeek: 3, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-      { dayOfWeek: 4, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-      { dayOfWeek: 5, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-      { dayOfWeek: 6, blockedTimeRanges: [], dailyLimitMinutes: undefined },
-    ])
+    expect(g.scheduleRules).toEqual([])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {
@@ -55,14 +58,14 @@ describe('createEmptyGroup', () => {
 })
 
 describe('createGroupFromTemplate', () => {
-  it('blank は空のURLパターンと曜日別ルールを返す', () => {
+  it('blank は空のURLパターンとスケジュールルールを返す', () => {
     const group = createGroupFromTemplate('blank')
 
     expect(group.patterns).toEqual([])
-    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules)
+    expect(group.scheduleRules).toEqual([])
   })
 
-  it('core-sns-15min はSNSパターンと全曜日15分上限を設定する', () => {
+  it('core-sns-15min はSNSパターンと毎日15分上限のルールを設定する', () => {
     const group = createGroupFromTemplate('core-sns-15min')
 
     expect(group.patterns).toEqual([
@@ -74,13 +77,15 @@ describe('createGroupFromTemplate', () => {
       'threads.net',
       'bsky.app',
     ])
-    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
-      ...rule,
+    expect(group.scheduleRules).toHaveLength(1)
+    expect(group.scheduleRules[0]).toMatchObject({
+      condition: { type: 'daily' },
+      blockedTimeRanges: [],
       dailyLimitMinutes: 15,
-    })))
+    })
   })
 
-  it('video-30min は動画パターンと全曜日30分上限を設定する', () => {
+  it('video-30min は動画パターンと毎日30分上限のルールを設定する', () => {
     const group = createGroupFromTemplate('video-30min')
 
     expect(group.patterns).toEqual([
@@ -92,21 +97,23 @@ describe('createGroupFromTemplate', () => {
       'abema.tv',
       'nicovideo.jp',
     ])
-    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
-      ...rule,
+    expect(group.scheduleRules).toHaveLength(1)
+    expect(group.scheduleRules[0]).toMatchObject({
+      condition: { type: 'daily' },
+      blockedTimeRanges: [],
       dailyLimitMinutes: 30,
-    })))
+    })
   })
 
-  it('work-hours-focus は平日に09:00-18:00のブロック時間帯を設定する', () => {
+  it('work-hours-focus は平日09:00-18:00のブロック時間帯ルールを設定する', () => {
     const group = createGroupFromTemplate('work-hours-focus')
 
     expect(group.patterns).toEqual([])
-    expect(group.dailyRules).toEqual(createEmptyGroup().dailyRules.map(rule => ({
-      ...rule,
-      blockedTimeRanges: rule.dayOfWeek >= 1 && rule.dayOfWeek <= 5
-        ? [{ startMinute: 540, endMinute: 1080 }]
-        : [],
-    })))
+    expect(group.scheduleRules).toHaveLength(1)
+    expect(group.scheduleRules[0]).toMatchObject({
+      condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+      blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      dailyLimitMinutes: undefined,
+    })
   })
 })

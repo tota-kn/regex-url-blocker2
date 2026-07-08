@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { Page, Worker } from '@playwright/test'
-import type { DailyRule, HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
+import type { HHMM, ScheduleRule, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 
 /**
@@ -232,14 +232,16 @@ async function saveBlockedPageDetailSettings(
 }
 
 /**
- * 全曜日で同じ上限分数を使うテスト用 daily rules を作る。
+ * 毎日同じ上限分数を使うテスト用 schedule rules を作る。undefined は制限なし。
  */
-function buildDailyRules(dailyLimitMinutes: number | undefined): DailyRule[] {
-  return Array.from({ length: 7 }, (_, dayOfWeek) => ({
-    dayOfWeek: dayOfWeek as DailyRule['dayOfWeek'],
+function buildScheduleRules(dailyLimitMinutes: number | undefined): ScheduleRule[] {
+  if (dailyLimitMinutes === undefined) return []
+  return [{
+    id: 'daily-rule',
+    condition: { type: 'daily' },
     blockedTimeRanges: [],
     dailyLimitMinutes,
-  }))
+  }]
 }
 
 /**
@@ -309,7 +311,7 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       patterns: [`^${origin.replaceAll('.', '\\.')}`],
       blockAction: 'redirect',
       redirectUrl: `${origin}/blocked`,
-      dailyRules: buildDailyRules(dailyLimitMinutes),
+      scheduleRules: buildScheduleRules(dailyLimitMinutes),
     }],
   }
 }

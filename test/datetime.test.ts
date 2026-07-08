@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  cellsToRanges,
+  formatMonthDay,
   minutesToTime,
+  parseDaysOfMonthText,
+  parseMonthDayText,
   parseTimeRangeText,
-  rangeToOverlappingCells,
-  selectedCellsToRangeText,
   timeToMinutes,
 } from '../utils/datetime'
 
@@ -29,17 +29,28 @@ describe('datetime utilities', () => {
     expect(parseTimeRangeText('')).toEqual([])
   })
 
-  it('日跨ぎ範囲を30分セルへ反映する', () => {
-    const cells = rangeToOverlappingCells({ startMinute: 1320, endMinute: 90 })
-
-    expect(cells).toEqual([0, 1, 2, 44, 45, 46, 47])
+  it('カンマ区切りの日付テキストを毎月の日付配列へ解析する', () => {
+    expect(parseDaysOfMonthText('1, 15')).toEqual([1, 15])
+    expect(parseDaysOfMonthText('31,1,15,1')).toEqual([1, 15, 31])
+    expect(parseDaysOfMonthText('')).toEqual([])
   })
 
-  it('24時間範囲を30分セルへ反映し、セルから保存形式へ戻す', () => {
-    const cells = rangeToOverlappingCells({ startMinute: 0, endMinute: 0 })
+  it('範囲外や数値以外の日付テキストは解析エラーにする', () => {
+    expect(parseDaysOfMonthText('0')).toBeUndefined()
+    expect(parseDaysOfMonthText('32')).toBeUndefined()
+    expect(parseDaysOfMonthText('1, abc')).toBeUndefined()
+  })
 
-    expect(cells).toHaveLength(48)
-    expect(selectedCellsToRangeText(cells.map(() => true))).toBe('00:00-24:00')
-    expect(cellsToRanges(cells.map(() => true))).toEqual([{ startMinute: 0, endMinute: 1440 }])
+  it('MM/DD テキストと月日を相互変換する', () => {
+    expect(parseMonthDayText('12/28')).toEqual({ month: 12, day: 28 })
+    expect(parseMonthDayText('1/3')).toEqual({ month: 1, day: 3 })
+    expect(formatMonthDay({ month: 1, day: 3 })).toBe('01/03')
+  })
+
+  it('範囲外や形式不正の MM/DD テキストは解析エラーにする', () => {
+    expect(parseMonthDayText('13/01')).toBeUndefined()
+    expect(parseMonthDayText('00/10')).toBeUndefined()
+    expect(parseMonthDayText('01/32')).toBeUndefined()
+    expect(parseMonthDayText('0110')).toBeUndefined()
   })
 })

@@ -45,7 +45,7 @@ const displayGroups = computed<DisplayGroup[]>(() => {
   return targetGroups.value.flatMap((group) => {
     const status = getGroupBlockStatus(group, counters.value.counters[group.id], now.value, settings.value!.global)
     const pauseState = getGroupPauseDisplayState(groupPauseState.value.groupPauseState[group.id], now.value)
-    const hasBlockedTimeRule = (status.dailyRule?.blockedTimeRanges.length ?? 0) > 0
+    const hasBlockedTimeRule = (status.restrictions?.blockedTimeRanges.length ?? 0) > 0
     const hasDisplayState = hasBlockedTimeRule || status.timeLimitSummary || pauseState.kind !== 'none'
     return hasDisplayState ? [{ group, status, pauseState }] : []
   })
@@ -207,7 +207,7 @@ onMounted(async () => {
               Blocked hours active
             </StatusBadge>
             <StatusBadge
-              v-else-if="(status.dailyRule?.blockedTimeRanges.length ?? 0) > 0"
+              v-else-if="(status.restrictions?.blockedTimeRanges.length ?? 0) > 0"
               kind="muted"
             >
               Blocked hours scheduled

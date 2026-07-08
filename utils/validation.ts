@@ -1,4 +1,4 @@
-import type { DailyRule, DayOfWeek, GlobalSettings, Group, TimeRange } from './types'
+import type { DayOfWeek, GlobalSettings, Group, MonthDay, ScheduleRule, TimeRange } from './types'
 import { isValidUrlPattern } from './urlPatterns'
 
 /**
@@ -93,19 +93,63 @@ function validateTimeRange(range: TimeRange, prefix: string): ValidationError[] 
   return errors
 }
 
+/** 月ごとの最大日数（2月は閏年の29日を許容）。 */
+const MAX_DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
 /**
- * 1曜日分の制限ルールをバリデーションし、エラー配列を返す。
+ * 月日が実在しうる日付（2/29 は許容、2/30 は拒否）であるかを返す。
  */
-function validateDailyRule(rule: DailyRule, prefix: string): ValidationError[] {
+function isValidMonthDay(value: MonthDay): boolean {
+  if (!Number.isInteger(value.month) || value.month < 1 || value.month > 12) return false
+  return Number.isInteger(value.day) && value.day >= 1 && value.day <= MAX_DAYS_IN_MONTH[value.month - 1]
+}
+
+/**
+ * スケジュールルールの適用条件をバリデーションし、エラー配列を返す。
+ */
+function validateScheduleRuleCondition(rule: ScheduleRule, prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
-  if (!isValidDayOfWeek(rule.dayOfWeek)) {
-    errors.push({ field: `${prefix}.dayOfWeek`, message: 'Use day 0-6' })
+  const condition = rule.condition
+  if (condition.type === 'weekly') {
+    if (condition.daysOfWeek.length === 0) {
+      errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Select 1+ days' })
+    }
+    if (condition.daysOfWeek.some(day => !isValidDayOfWeek(day)) || new Set(condition.daysOfWeek).size !== condition.daysOfWeek.length) {
+      errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Use each day 0-6 once' })
+    }
   }
+  else if (condition.type === 'monthly') {
+    if (condition.daysOfMonth.length === 0) {
+      errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
+    }
+    if (condition.daysOfMonth.some(day => !Number.isInteger(day) || day < 1 || day > 31) || new Set(condition.daysOfMonth).size !== condition.daysOfMonth.length) {
+      errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
+    }
+  }
+  else if (condition.type === 'period') {
+    if (!isValidMonthDay(condition.start)) {
+      errors.push({ field: `${prefix}.condition.start`, message: 'Use MM/DD' })
+    }
+    if (!isValidMonthDay(condition.end)) {
+      errors.push({ field: `${prefix}.condition.end`, message: 'Use MM/DD' })
+    }
+  }
+  return errors
+}
+
+/**
+ * 1件のスケジュールルールをバリデーションし、エラー配列を返す。
+ */
+function validateScheduleRule(rule: ScheduleRule, prefix: string): ValidationError[] {
+  const errors: ValidationError[] = validateScheduleRuleCondition(rule, prefix)
   rule.blockedTimeRanges.forEach((range, i) => {
     errors.push(...validateTimeRange(range, `${prefix}.blockedTimeRanges[${i}]`))
   })
   if (rule.dailyLimitMinutes !== undefined && (!Number.isInteger(rule.dailyLimitMinutes) || rule.dailyLimitMinutes < 0)) {
     errors.push({ field: `${prefix}.dailyLimitMinutes`, message: 'Use 0+ integer or empty' })
+  }
+  if (rule.blockedTimeRanges.length === 0 && rule.dailyLimitMinutes === undefined) {
+    errors.push({ field: prefix, message: 'Set blocked hours or a daily limit' })
   }
   return errors
 }
@@ -148,15 +192,8 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   })
 
-  if (group.dailyRules.length !== 7) {
-    errors.push({ field: 'dailyRules', message: 'Use 7 daily rules' })
-  }
-  const days = group.dailyRules.map(rule => rule.dayOfWeek)
-  if (days.some(day => !isValidDayOfWeek(day)) || new Set(days).size !== 7) {
-    errors.push({ field: 'dailyRules', message: 'Use each day 0-6 once' })
-  }
-  group.dailyRules.forEach((rule, i) => {
-    errors.push(...validateDailyRule(rule, `dailyRules[${i}]`))
+  group.scheduleRules.forEach((rule, i) => {
+    errors.push(...validateScheduleRule(rule, `scheduleRules[${i}]`))
   })
 
   return errors

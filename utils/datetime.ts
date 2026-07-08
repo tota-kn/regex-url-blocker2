@@ -1,4 +1,4 @@
-import type { DayOfWeek, TimeRange } from './types'
+import type { DayOfWeek, MonthDay, TimeRange } from './types'
 
 /**
  * 曜日表示に使う短縮名とアクセシブル名。
@@ -24,26 +24,6 @@ export const DAYS: DayOption[] = [
   { value: 5, label: 'Fri', ariaLabel: 'Friday' },
   { value: 6, label: 'Sat', ariaLabel: 'Saturday' },
 ]
-
-/**
- * 30分刻みのセル番号を返す。
- */
-export const HALF_HOUR_CELLS = Array.from({ length: 48 }, (_, index) => index)
-
-/**
- * 曜日ごとの値を持つ record を作成する。
- */
-export function createDayRecord<T>(createValue: () => T): Record<DayOfWeek, T> {
-  return {
-    0: createValue(),
-    1: createValue(),
-    2: createValue(),
-    3: createValue(),
-    4: createValue(),
-    5: createValue(),
-    6: createValue(),
-  }
-}
 
 /**
  * 曜日番号の短縮ラベルを返す。
@@ -118,63 +98,42 @@ export function parseTimeRangeText(text: string): TimeRange[] | undefined {
 }
 
 /**
- * 時間帯範囲に少しでも重なる30分セル番号の配列を返す。
+ * カンマ区切りの日付テキスト（例 "1, 15"）を毎月の日付配列へ解析する。
+ * 空文字は空配列、1-31 の整数以外を含む場合は undefined を返す。
  */
-export function rangeToOverlappingCells(range: TimeRange): number[] {
-  if (range.startMinute === range.endMinute) return [...HALF_HOUR_CELLS]
+export function parseDaysOfMonthText(text: string): number[] | undefined {
+  const trimmed = text.trim()
+  if (trimmed === '') return []
 
-  const ranges = range.endMinute > range.startMinute
-    ? [range]
-    : [
-        { startMinute: range.startMinute, endMinute: 1440 },
-        { startMinute: 0, endMinute: range.endMinute },
-      ]
+  const days: number[] = []
+  for (const part of trimmed.split(',')) {
+    const match = /^\s*(\d{1,2})\s*$/.exec(part)
+    if (!match) return undefined
 
-  return HALF_HOUR_CELLS.filter((index) => {
-    const cellStart = index * 30
-    const cellEnd = cellStart + 30
-    return ranges.some(current => current.startMinute < cellEnd && current.endMinute > cellStart)
-  })
+    const day = Number(match[1])
+    if (day < 1 || day > 31) return undefined
+    if (!days.includes(day)) days.push(day)
+  }
+
+  return days.sort((a, b) => a - b)
 }
 
 /**
- * 選択済みセルをカンマ区切りの時間帯テキストへ変換する。
+ * "MM/DD" 形式のテキストを月日へ解析する。月 1-12・日 1-31 の範囲外は undefined を返す。
  */
-export function selectedCellsToRangeText(cells: boolean[]): string {
-  const ranges: string[] = []
-  let start: number | undefined
+export function parseMonthDayText(text: string): MonthDay | undefined {
+  const match = /^\s*(\d{1,2})\/(\d{1,2})\s*$/.exec(text)
+  if (!match) return undefined
 
-  for (let index = 0; index <= cells.length; index += 1) {
-    if (cells[index]) {
-      start ??= index
-      continue
-    }
-    if (start === undefined) continue
-
-    ranges.push(`${minutesToTime(start * 30)}-${minutesToTime(index * 30)}`)
-    start = undefined
-  }
-
-  return ranges.join(', ')
+  const month = Number(match[1])
+  const day = Number(match[2])
+  if (month < 1 || month > 12 || day < 1 || day > 31) return undefined
+  return { month, day }
 }
 
 /**
- * 選択済みセルを保存用の分単位時間帯へ変換する。
+ * 月日を "MM/DD" 形式のテキストへ変換する。
  */
-export function cellsToRanges(cells: boolean[]): TimeRange[] {
-  const ranges: TimeRange[] = []
-  let start: number | undefined
-
-  for (let index = 0; index <= cells.length; index += 1) {
-    if (cells[index]) {
-      start ??= index
-      continue
-    }
-    if (start === undefined) continue
-
-    ranges.push({ startMinute: start * 30, endMinute: index * 30 })
-    start = undefined
-  }
-
-  return ranges
+export function formatMonthDay(monthDay: MonthDay): string {
+  return `${String(monthDay.month).padStart(2, '0')}/${String(monthDay.day).padStart(2, '0')}`
 }

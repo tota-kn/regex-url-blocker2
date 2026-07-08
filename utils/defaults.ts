@@ -1,4 +1,4 @@
-import type { DailyRule, DayOfWeek, GlobalSettings, Group } from './types'
+import type { GlobalSettings, Group, ScheduleRule } from './types'
 
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
@@ -19,35 +19,35 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 }
 
 /**
- * 曜日別ルールを空の状態で7件生成する。
+ * 空のスケジュールルールを1件生成する。UI の「ルール追加」の初期値。
  */
-export function createEmptyDailyRules(): DailyRule[] {
-  return ([0, 1, 2, 3, 4, 5, 6] as DayOfWeek[]).map(dayOfWeek => ({
-    dayOfWeek,
+export function createEmptyScheduleRule(): ScheduleRule {
+  return {
+    id: crypto.randomUUID(),
+    condition: { type: 'daily' },
     blockedTimeRanges: [],
     dailyLimitMinutes: undefined,
-  }))
+  }
 }
 
 /**
- * 指定テンプレートに対応する曜日別ルールを7件生成する。
+ * 指定テンプレートに対応するスケジュールルールを生成する。
  */
-function createDailyRulesFromTemplate(templateId: GroupTemplateId): DailyRule[] {
+function createScheduleRulesFromTemplate(templateId: GroupTemplateId): ScheduleRule[] {
   if (templateId === 'core-sns-15min') {
-    return createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 15 }))
+    return [{ ...createEmptyScheduleRule(), dailyLimitMinutes: 15 }]
   }
   if (templateId === 'video-30min') {
-    return createEmptyDailyRules().map(rule => ({ ...rule, dailyLimitMinutes: 30 }))
+    return [{ ...createEmptyScheduleRule(), dailyLimitMinutes: 30 }]
   }
   if (templateId === 'work-hours-focus') {
-    return createEmptyDailyRules().map(rule => ({
-      ...rule,
-      blockedTimeRanges: rule.dayOfWeek >= 1 && rule.dayOfWeek <= 5
-        ? [{ startMinute: 540, endMinute: 1080 }]
-        : [],
-    }))
+    return [{
+      ...createEmptyScheduleRule(),
+      condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+      blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
+    }]
   }
-  return createEmptyDailyRules()
+  return []
 }
 
 /**
@@ -94,6 +94,6 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     patterns: createPatternsFromTemplate(templateId),
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-    dailyRules: createDailyRulesFromTemplate(templateId),
+    scheduleRules: createScheduleRulesFromTemplate(templateId),
   }
 }

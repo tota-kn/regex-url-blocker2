@@ -7,8 +7,9 @@
 - **正規表現** — URL 文字列全体に対して部分一致を行うパターン。JS の `RegExp` 構文。
 - **論理日** — グローバル設定の「リセット時刻」を起点とする1日。`floor((now - resetHour) / 24h)` で算出。
 - **消費秒数** — グループ単位で計測される、1日に該当グループの URL を閲覧した累積秒数。
-- **ブロック時間帯** — アクセスを即座にブロックする時間帯。曜日ごとの分単位範囲として定義する。
-- **上限** — ブロック時間帯以外の時間に対する1日の累積閲覧上限（分）。曜日ごとに設定可能。
+- **ブロック時間帯** — アクセスを即座にブロックする時間帯。分単位範囲として定義する。
+- **上限** — ブロック時間帯以外の時間に対する1日の累積閲覧上限（分）。
+- **スケジュールルール** — 「条件（どの日に適用するか）」＋「内容（ブロック時間帯・上限）」の組。グループは複数のスケジュールルールを持ち、論理日に一致した全ルールを合成して当日の制限を決める。
 
 ## グループ
 
@@ -18,17 +19,27 @@
   - `mode`: 対象 URL の判定モード。`blacklist`（既定）または `whitelist`
   - `lockMode`: `true` の場合、このグループの変更は次回 daily reset まで有効設定へ反映しない。既定 `false`
   - `patterns`: URL pattern 文字列の配列
-  - `dailyRules`: 曜日別ルールの配列。0=日曜から6=土曜まで必ず7件
+  - `scheduleRules`: スケジュールルールの配列。空配列は制限なし
 - `mode` の意味：
   - `blacklist`: `patterns` のいずれかにマッチした URL を制限対象とする
   - `whitelist`: `patterns` のいずれにもマッチしない URL を制限対象とする
   - 旧データなどで `mode` が欠損している場合は `blacklist` として扱う
-- 各 `dailyRules[]` は以下の属性を持つ：
-  - `dayOfWeek`: 0=日, 1=月, ..., 6=土（JS `Date.getDay()` 互換）
+- 各 `scheduleRules[]` は以下の属性を持つ：
+  - `id`: UUID（自動採番）
+  - `condition`: このルールを適用する日の条件（下記4種の判別共用体）
   - `blockedTimeRanges`: ブロック時間帯の配列。各要素は `startMinute` / `endMinute`（0..1440）。`endMinute < startMinute` なら日跨ぎ、`endMinute === startMinute` なら 24 時間ブロック
-  - `dailyLimitMinutes`: 1日あたり閲覧上限（分）。未定義なら上限なし、`0` で「即ブロック」を表現
+  - `dailyLimitMinutes`: 1日あたり閲覧上限（分）。未定義ならこのルールでは上限を課さない、`0` で「即ブロック」を表現
+  - `blockedTimeRanges` が空かつ `dailyLimitMinutes` が未定義のルールは無意味なため、保存時のバリデーションで拒否する
+- `condition` の種類（`type` で判別）：
+  - `daily`: 毎日一致する
+  - `weekly`: `daysOfWeek`（0=日〜6=土）に含まれる曜日に一致する
+  - `monthly`: `daysOfMonth`（1〜31）に含まれる日に一致する。31 は日数の少ない月では一致しない（「月末」エイリアスは非対応）
+  - `period`: 毎年繰り返す期間。`start` / `end`（`MonthDay = { month, day }`）で表し両端を含む。`start > end`（月日比較）なら年末年始のような年跨ぎ期間、`start === end` は単日。`2/29` は閏年のみ一致する
+- スケジュールルールの合成（同じ論理日に複数ルールが一致した場合）：
+  - **一致した全ルールを適用する**。ブロック時間帯は全ルールの和集合、上限は全ルールの `dailyLimitMinutes` の最小値
+  - リストの順序は結果に影響しない
+- 条件マッチの判定は **論理日切り替え時点の暦（曜日・月・日）**（リセット時刻起点）で行う。例: リセット `03:00` のとき `1/2 02:00` は論理日 `1/1` 扱いで、曜日・月日も `1/1` として判定する。
 - グループは追加順に表示する（v1 では並び替え非対応）。
-- 曜日判定は **論理日切り替え時点の曜日**（リセット時刻起点）で行う。
 - 各グループはブロック時の遷移先設定を持つ：
   - `blockAction`: `redirect` または `blockedPage`（既定）
   - `redirectUrl`: `blockAction === "redirect"` の場合のリダイレクト先 URL。デフォルト `https://example.com`
@@ -56,12 +67,12 @@
 
 ## ブロック判定
 
-- グループ単位の判定式（時刻 T、曜日 D）：
+- グループ単位の判定式（時刻 T、論理日情報）：
   - まず URL が対象グループに該当するかを `mode` と `patterns` で判定する。該当しないグループは許可状態
-  - D に該当する `dailyRules[]` を1件取得する
-  - `blockedTimeRanges` が空で `dailyLimitMinutes` も未定義なら、そのグループは常に許可状態
-  - `blockedTimeRanges` のうち T が `[startMinute, endMinute)` に含まれるものが1つでも存在 → ブロック状態
-  - `dailyLimitMinutes` が定義されており、`consumedSec >= dailyLimitMinutes * 60` ならブロック状態
+  - 論理日に条件が一致する全 `scheduleRules[]` を合成し、当日の実効制限（ブロック時間帯の和集合・上限の最小値）を求める
+  - 実効制限のブロック時間帯が空で上限も未定義なら、そのグループは常に許可状態
+  - 実効ブロック時間帯のうち T が `[startMinute, endMinute)` に含まれるものが1つでも存在 → ブロック状態
+  - 実効上限が定義されており、`consumedSec >= dailyLimitMinutes * 60` ならブロック状態
 - URL 単位の判定：
   - URL がマッチするグループのうち **いずれか1つでもブロック状態** なら、その URL はブロックされる
 - ブロックされた URL は、ブロック状態だったグループのうち Options 画面の表示順で最初のグループの `blockAction` に従って、当該グループの `redirectUrl` へリダイレクトされるか拡張機能のブロックページへ遷移する。
@@ -89,14 +100,15 @@
 - 既存タブの状態変化：`tabs.onUpdated`、`tabs.onActivated`、`windows.onFocusChanged`、`chrome.alarms`（1分間隔）と毎秒ティックで再評価し、ブロック状態に切り替わったタブを `tabs.update` で書き換える。
 - `tabs.update` の直前にも判定スキップ URL と全グループの `redirectUrl` 完全一致を確認し、リダイレクトループを防止する。
 - 採用グループの `blockAction === "redirect"` の場合は、そのグループの `redirectUrl` へ遷移する。
-- 採用グループの `blockAction === "blockedPage"` の場合は `blocked.html` を表示し、ブロックされた URL とブロック状態だったグループ名を表示する。
+- 採用グループの `blockAction === "blockedPage"` の場合は `blocked.html` を表示し、ブロックされた URL とブロック状態だったグループ名・理由を表示する。
+- 時間帯ブロックの解除時刻は、翌論理日が別のスケジュールルールになりうるため、論理日境界ごとに実効制限を再評価しながら次に非ブロックとなる時刻まで進めて算出する（最大 366 論理日分）。連日終日ブロックのように解除予定が存在しない場合は「Not scheduled」を表示する。
 
 ## 設定変更の反映タイミング
 
 - ユーザーが保存した設定は `chrome.storage.sync` に「希望設定」として保存する。
 - background は `chrome.storage.local` に「有効設定スナップショット」を保持し、URL 判定・badge・counter 加算にはこの有効設定を使う。
 - `lockMode: false` のグループは、追加・編集・削除を同じ論理日中でも希望設定どおり即時反映する。
-- `lockMode: true` のグループは、有効設定側のグループスナップショットを次回リセット時刻まで維持する。`patterns`、`mode`、`dailyRules`、`name`、`lockMode` の OFF、グループ削除はいずれも次回リセットで希望設定全体が昇格したときに反映する。
+- `lockMode: true` のグループは、有効設定側のグループスナップショットを次回リセット時刻まで維持する。`patterns`、`mode`、`scheduleRules`、`name`、`lockMode` の OFF、グループ削除はいずれも次回リセットで希望設定全体が昇格したときに反映する。
 - 有効設定に存在しない新規グループは即時反映する。新規グループを `lockMode: true` で保存した場合、初回保存は即時有効化され、その後の変更が次回リセットまで保留される。
 - `remainingTimeNotificationsEnabled`、`notificationThresholdMinutes`、`pageOpenNotificationsEnabled`、`blockNotificationsEnabled` は同じ論理日中でも希望設定を即時反映する。グループ別の `blockAction` と `redirectUrl` はグループ設定として反映タイミングに従う。
 - 希望設定または有効設定のどちらかに `lockMode: true` のグループがある間、`dailyResetHour` は変更できず、現在有効なリセット時刻を維持する。
@@ -108,7 +120,7 @@
 - 残り時間通知はグループごと・論理日ごとに1回だけ表示する。
 - 通知本文は対象グループ名と当日残り分数を表示する。
 - `notificationThresholdMinutes` は残り時間通知だけに適用する。
-- `pageOpenNotificationsEnabled` が `true` の場合、`webNavigation.onBeforeNavigate` / `onHistoryStateUpdated` / `tabs.onUpdated` の URL 評価時に、判定スキップ対象ではなく、当日の `dailyLimitMinutes` が定義されたグループに該当し、かつまだブロック状態ではない URL について Chrome notification を表示する。
+- `pageOpenNotificationsEnabled` が `true` の場合、`webNavigation.onBeforeNavigate` / `onHistoryStateUpdated` / `tabs.onUpdated` の URL 評価時に、判定スキップ対象ではなく、当日の実効上限が定義されたグループに該当し、かつまだブロック状態ではない URL について Chrome notification を表示する。
 - 対象ページ通知はグループごと・論理日ごとに1回だけ表示する。複数グループに該当した場合は1件の通知にまとめ、通知済み扱いは該当した各グループに記録する。
 - `blockNotificationsEnabled` が `true` かつ採用グループの `blockAction === "redirect"` の場合、時間帯ブロックまたは上限到達ブロックにより `tabs.update` でそのグループの `redirectUrl` へ遷移する直前に Chrome notification を表示する。
 - redirect ブロック通知はグループごと・論理日ごとに1回だけ表示する。複数ブロックグループに該当した場合は1件の通知にまとめ、通知済み扱いは該当した各グループに記録する。

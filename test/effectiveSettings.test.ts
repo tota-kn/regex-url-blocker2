@@ -5,8 +5,9 @@ import {
   mergeImmediateRestrictions,
   reconcileEffectiveSettings,
 } from '../utils/effectiveSettings'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyDailyRules } from '../utils/defaults'
-import type { DailyRule, DayOfWeek, Group, Settings } from '../utils/types'
+import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import type { Group, Settings } from '../utils/types'
+import { dailyScheduleRules, weeklyScheduleRules } from './helpers'
 
 /**
  * テスト用グループを生成する。
@@ -21,25 +22,9 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-    dailyRules: createEmptyDailyRules(),
+    scheduleRules: [],
     ...overrides,
   }
-}
-
-/**
- * すべての曜日へ同じルールを適用した7曜日分のルールを返す。
- */
-function allDailyRules(override: Partial<DailyRule>): DailyRule[] {
-  return createEmptyDailyRules().map(rule => ({ ...rule, ...override }))
-}
-
-/**
- * 指定曜日のルールだけ差し替えた7曜日分のルールを返す。
- */
-function dailyRule(dayOfWeek: DayOfWeek, override: Partial<DailyRule>): DailyRule[] {
-  return createEmptyDailyRules().map(rule =>
-    rule.dayOfWeek === dayOfWeek ? { ...rule, ...override } : rule,
-  )
 }
 
 /**
@@ -61,11 +46,11 @@ describe('effective settings', () => {
   it('Lock Mode OFF の group は編集が即時に有効設定へ反映される', () => {
     const active = settings([group({
       patterns: ['example\\.com'],
-      dailyRules: allDailyRules({ dailyLimitMinutes: 30 }),
+      scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 30 }),
     })])
     const preferred = settings([group({
       patterns: ['example\\.com', 'news\\.example'],
-      dailyRules: allDailyRules({
+      scheduleRules: dailyScheduleRules({
         blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
         dailyLimitMinutes: 10,
       }),
@@ -85,14 +70,14 @@ describe('effective settings', () => {
     const active = settings([group({
       lockMode: true,
       patterns: ['example\\.com', 'news\\.example'],
-      dailyRules: allDailyRules({
+      scheduleRules: dailyScheduleRules({
         blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
         dailyLimitMinutes: 10,
       }),
     })], '03:00')
     const preferred = settings([group({
       patterns: ['example\\.com'],
-      dailyRules: allDailyRules({ dailyLimitMinutes: 30 }),
+      scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 30 }),
     })], '03:00')
 
     const state = reconcileEffectiveSettings(
@@ -102,13 +87,13 @@ describe('effective settings', () => {
     )
 
     expect(state.effectiveSettings.groups[0].patterns).toEqual(['example\\.com', 'news\\.example'])
-    expect(state.effectiveSettings.groups[0].dailyRules[0].blockedTimeRanges).toEqual([{ startMinute: 540, endMinute: 1020 }])
-    expect(state.effectiveSettings.groups[0].dailyRules[0].dailyLimitMinutes).toBe(10)
+    expect(state.effectiveSettings.groups[0].scheduleRules[0].blockedTimeRanges).toEqual([{ startMinute: 540, endMinute: 1020 }])
+    expect(state.effectiveSettings.groups[0].scheduleRules[0].dailyLimitMinutes).toBe(10)
 
     const strictPreferred = settings([group({
       lockMode: true,
       patterns: ['example\\.com', 'news\\.example', 'strict\\.example'],
-      dailyRules: allDailyRules({
+      scheduleRules: dailyScheduleRules({
         blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }],
         dailyLimitMinutes: 1,
       }),
@@ -179,7 +164,7 @@ describe('effective settings', () => {
     const preferred = settings([group({
       id: 'changed',
       lockMode: false,
-      dailyRules: dailyRule(3, { dailyLimitMinutes: 60 }),
+      scheduleRules: weeklyScheduleRules([3], { dailyLimitMinutes: 60 }),
     })], '05:00')
 
     const state = reconcileEffectiveSettings(

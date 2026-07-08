@@ -1,19 +1,19 @@
-import { createEmptyDailyRules, DEFAULT_GLOBAL_SETTINGS } from './defaults'
+import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, BlockNotificationHistoryState, DailyRule, DayOfWeek, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, PageOpenNotificationHistoryState, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
+import type { BlockAction, BlockNotificationHistoryState, DayOfWeek, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, PageOpenNotificationHistoryState, ScheduleRule, ScheduleRuleCondition, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 4
+export const SETTINGS_EXPORT_VERSION = 5
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | 3 | typeof SETTINGS_EXPORT_VERSION
+  version: 2 | 3 | 4 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
 }
@@ -69,7 +69,7 @@ function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SET
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
     blockAction,
     redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
-    dailyRules: normalizeDailyRules(g.dailyRules),
+    scheduleRules: normalizeScheduleRules(g.scheduleRules, g.dailyRules),
   }
 }
 
@@ -85,23 +85,110 @@ function normalizeTimeRange(value: unknown): TimeRange {
 }
 
 /**
- * unknown の値から曜日別ルールを生成する。
+ * unknown の値から月日を生成する。数値以外は -1（validation で拒否される値）にする。
  */
-function normalizeDailyRule(value: unknown): DailyRule {
-  const rule = asRecord(value)
+function normalizeMonthDay(value: unknown): MonthDay {
+  const monthDay = asRecord(value)
   return {
-    dayOfWeek: (Number.isInteger(rule.dayOfWeek) ? rule.dayOfWeek : -1) as DayOfWeek,
+    month: typeof monthDay.month === 'number' ? monthDay.month : -1,
+    day: typeof monthDay.day === 'number' ? monthDay.day : -1,
+  }
+}
+
+/**
+ * unknown の値からスケジュールルールの条件を生成する。既知の type 以外は undefined を返す。
+ */
+function normalizeScheduleRuleCondition(value: unknown): ScheduleRuleCondition | undefined {
+  const condition = asRecord(value)
+  if (condition.type === 'daily') {
+    return { type: 'daily' }
+  }
+  if (condition.type === 'weekly') {
+    return {
+      type: 'weekly',
+      daysOfWeek: Array.isArray(condition.daysOfWeek)
+        ? condition.daysOfWeek.filter((day): day is DayOfWeek => Number.isInteger(day))
+        : [],
+    }
+  }
+  if (condition.type === 'monthly') {
+    return {
+      type: 'monthly',
+      daysOfMonth: Array.isArray(condition.daysOfMonth)
+        ? condition.daysOfMonth.filter((day): day is number => Number.isInteger(day))
+        : [],
+    }
+  }
+  if (condition.type === 'period') {
+    return {
+      type: 'period',
+      start: normalizeMonthDay(condition.start),
+      end: normalizeMonthDay(condition.end),
+    }
+  }
+  return undefined
+}
+
+/**
+ * unknown の値からスケジュールルールを生成する。条件が解釈できない要素は undefined を返す。
+ */
+function normalizeScheduleRule(value: unknown): ScheduleRule | undefined {
+  const rule = asRecord(value)
+  const condition = normalizeScheduleRuleCondition(rule.condition)
+  if (!condition) return undefined
+  return {
+    id: typeof rule.id === 'string' ? rule.id : crypto.randomUUID(),
+    condition,
     blockedTimeRanges: Array.isArray(rule.blockedTimeRanges) ? rule.blockedTimeRanges.map(normalizeTimeRange) : [],
     dailyLimitMinutes: typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined,
   }
 }
 
 /**
- * unknown の値から7曜日分のルール配列を生成する。
+ * unknown の値からスケジュールルール配列を生成する。
+ * `scheduleRules` が無く旧 `dailyRules` がある場合は weekly / daily ルールへ自動変換する。
  */
-function normalizeDailyRules(value: unknown): DailyRule[] {
-  if (!Array.isArray(value)) return createEmptyDailyRules()
-  return value.map(normalizeDailyRule)
+function normalizeScheduleRules(value: unknown, legacyDailyRules: unknown): ScheduleRule[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      const rule = normalizeScheduleRule(item)
+      return rule ? [rule] : []
+    })
+  }
+  return convertDailyRulesToScheduleRules(legacyDailyRules)
+}
+
+/**
+ * 旧フォーマットの曜日別ルール（`dailyRules`）をスケジュールルールへ変換する。
+ * 同一内容（ブロック時間帯・上限）の曜日をまとめて weekly ルール1件にし、全曜日同一なら daily ルールにする。
+ */
+function convertDailyRulesToScheduleRules(value: unknown): ScheduleRule[] {
+  if (!Array.isArray(value)) return []
+
+  const byContent = new Map<string, { daysOfWeek: Set<DayOfWeek>, blockedTimeRanges: TimeRange[], dailyLimitMinutes?: number }>()
+  for (const item of value) {
+    const rule = asRecord(item)
+    const dayOfWeek = rule.dayOfWeek
+    if (!Number.isInteger(dayOfWeek) || (dayOfWeek as number) < 0 || (dayOfWeek as number) > 6) continue
+
+    const blockedTimeRanges = Array.isArray(rule.blockedTimeRanges) ? rule.blockedTimeRanges.map(normalizeTimeRange) : []
+    const dailyLimitMinutes = typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined
+    if (blockedTimeRanges.length === 0 && dailyLimitMinutes === undefined) continue
+
+    const key = JSON.stringify([blockedTimeRanges, dailyLimitMinutes ?? null])
+    const entry = byContent.get(key) ?? { daysOfWeek: new Set<DayOfWeek>(), blockedTimeRanges, dailyLimitMinutes }
+    entry.daysOfWeek.add(dayOfWeek as DayOfWeek)
+    byContent.set(key, entry)
+  }
+
+  return [...byContent.values()].map(entry => ({
+    id: crypto.randomUUID(),
+    condition: entry.daysOfWeek.size === 7
+      ? { type: 'daily' as const }
+      : { type: 'weekly' as const, daysOfWeek: [...entry.daysOfWeek].sort((a, b) => a - b) },
+    blockedTimeRanges: entry.blockedTimeRanges,
+    dailyLimitMinutes: entry.dailyLimitMinutes,
+  }))
 }
 
 /**
@@ -133,7 +220,8 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
 /**
  * browser.storage.sync から `Settings` 全体を読み込む。
  * 未設定キーや欠損フィールドは `DEFAULT_GLOBAL_SETTINGS` で穴埋めする。
- * 旧フォーマット（`schedules` / `blockedTimeSlots` / `timeLimits`）は破棄し空の `dailyRules` で初期化する。
+ * 旧 `dailyRules` は `scheduleRules` へ自動変換し、それ以前の旧フォーマット
+ * （`schedules` / `blockedTimeSlots` / `timeLimits`）は破棄して空の `scheduleRules` で初期化する。
  */
 export async function loadSettings(): Promise<Settings> {
   const raw = await browser.storage.sync.get(['global', 'groups']) as {
@@ -229,7 +317,7 @@ export function parseSettingsExportJson(json: string): Settings {
   }
 
   const file = asRecord(parsed)
-  if (file.version !== 2 && file.version !== 3 && file.version !== SETTINGS_EXPORT_VERSION) {
+  if (file.version !== 2 && file.version !== 3 && file.version !== 4 && file.version !== SETTINGS_EXPORT_VERSION) {
     throw new Error('Unsupported settings file version')
   }
   if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {
