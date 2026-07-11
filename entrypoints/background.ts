@@ -13,9 +13,9 @@ import {
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
-import { buildPageOpenNotificationPlan, buildRedirectBlockNotificationPlan, buildRemainingTimeNotificationPlans, markNotificationPlanHistory } from '@/utils/notifications'
-import { loadBlockNotificationHistory, loadCounters, loadDelayGrantState, loadEffectiveSettingsState, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
-import type { BlockNotificationHistoryState, DelayGrantState, GroupPauseState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
+import { buildRemainingTimeNotificationPlans, markNotificationPlanHistory } from '@/utils/notifications'
+import { loadCounters, loadDelayGrantState, loadEffectiveSettingsState, loadGroupPauseState, loadSettings, loadUsageNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, saveUsageNotificationHistory } from '@/utils/storage'
+import type { DelayGrantState, GroupPauseState, Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -32,8 +32,6 @@ let counters: UsageCountersState = { counters: {} }
 let groupPauseState: GroupPauseState = { groupPauseState: {} }
 let delayGrantState: DelayGrantState = { delayGrantState: {} }
 let usageNotificationHistory: UsageNotificationHistoryState = { usageNotificationHistory: {} }
-let pageOpenNotificationHistory: PageOpenNotificationHistoryState = { pageOpenNotificationHistory: {} }
-let blockNotificationHistory: BlockNotificationHistoryState = { blockNotificationHistory: {} }
 let dirtyCounters = false
 let initPromise: Promise<void> | undefined
 let reloadPromise: Promise<void> | undefined
@@ -83,18 +81,14 @@ async function initializeState(): Promise<void> {
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, await loadCounters(), now)
   const validGroupIds = settings.groups.map(group => group.id)
-  const [pauseState, grantState, usageHistory, pageOpenHistory, blockHistory] = await Promise.all([
+  const [pauseState, grantState, usageHistory] = await Promise.all([
     loadGroupPauseState(validGroupIds, now.getTime()),
     loadDelayGrantState(validGroupIds, now.getTime()),
     loadUsageNotificationHistory(),
-    loadPageOpenNotificationHistory(),
-    loadBlockNotificationHistory(),
   ])
   groupPauseState = pauseState
   delayGrantState = grantState
   usageNotificationHistory = usageHistory
-  pageOpenNotificationHistory = pageOpenHistory
-  blockNotificationHistory = blockHistory
   dirtyCounters = true
   await saveGroupPauseState(groupPauseState)
 }
@@ -219,42 +213,6 @@ async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, no
 }
 
 /**
- * 閲覧上限付き対象ページを開いたとき、同じ論理日・同じグループでは1回だけ通知する。
- */
-async function notifyPageOpenIfNeeded(s: Settings, evaluation: UrlEvaluation, now: Date): Promise<void> {
-  const plan = buildPageOpenNotificationPlan(s, counters, pageOpenNotificationHistory.pageOpenNotificationHistory, evaluation, now)
-  if (!plan) return
-  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
-  await chromeApi.notifications.create(plan.notificationId, {
-    type: 'basic',
-    iconUrl: browser.runtime.getURL('/icon/128.png'),
-    title: ACTION_TITLE,
-    message: plan.message,
-  })
-
-  markNotificationPlanHistory(plan, pageOpenNotificationHistory.pageOpenNotificationHistory)
-  await savePageOpenNotificationHistory(pageOpenNotificationHistory)
-}
-
-/**
- * redirect によるブロック発動時、同じ論理日・同じグループでは1回だけ通知する。
- */
-async function notifyRedirectBlockIfNeeded(s: Settings, evaluation: UrlEvaluation, destinationUrl: string, now: Date): Promise<void> {
-  const plan = buildRedirectBlockNotificationPlan(s, blockNotificationHistory.blockNotificationHistory, evaluation, destinationUrl, now)
-  if (!plan) return
-  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
-  await chromeApi.notifications.create(plan.notificationId, {
-    type: 'basic',
-    iconUrl: browser.runtime.getURL('/icon/128.png'),
-    title: ACTION_TITLE,
-    message: plan.message,
-  })
-
-  markNotificationPlanHistory(plan, blockNotificationHistory.blockNotificationHistory)
-  await saveBlockNotificationHistory(blockNotificationHistory)
-}
-
-/**
  * 拡張機能のブロックページ URL を作る。
  */
 function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
@@ -289,9 +247,6 @@ function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvalu
 async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
   if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
   const destinationUrl = buildBlockDestinationUrl(url, s, evaluation, now)
-  if (getRedirectUrls(s).includes(destinationUrl)) {
-    await notifyRedirectBlockIfNeeded(s, evaluation, destinationUrl, now)
-  }
   await browser.tabs.update(tabId, { url: destinationUrl })
 }
 
@@ -442,7 +397,6 @@ async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsTy
   await mergeStoredCounters(s, now)
   const evaluation = applyGroupPauseState(evaluateUrl(s, counters, details.url, now), groupPauseState, now.getTime())
   await updateActionForTab({ id: details.tabId, url: details.url }, now)
-  await notifyPageOpenIfNeeded(s, evaluation, now)
   await enforceEvaluation(details.tabId, details.url, s, evaluation, now)
 }
 
@@ -504,7 +458,6 @@ export default defineBackground(() => {
       const now = new Date()
       await updateActionForTab({ ...tab, id: tabId, url }, now)
       const evaluation = applyGroupPauseState(evaluateUrl(s, counters, url, now), groupPauseState, now.getTime())
-      await notifyPageOpenIfNeeded(s, evaluation, now)
       await enforceEvaluation(tabId, url, s, evaluation, now)
     })
   })

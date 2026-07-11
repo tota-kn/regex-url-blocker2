@@ -1,7 +1,7 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, BlockNotificationHistoryState, DayOfWeek, DelayGrantState, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, PageOpenNotificationHistoryState, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
+import type { BlockAction, DayOfWeek, DelayGrantState, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -54,13 +54,6 @@ function normalizeNotificationThresholdMinutes(value: unknown): number {
 function normalizeRemainingTimeNotificationsEnabled(value: unknown, rawThresholdMinutes: unknown): boolean {
   if (typeof value === 'boolean') return value
   return rawThresholdMinutes !== 0
-}
-
-/**
- * 保存済み値を boolean 設定へ正規化する。
- */
-function normalizeBooleanSetting(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback
 }
 
 /**
@@ -327,13 +320,16 @@ function convertLegacyScheduleRules(rules: LegacyScheduleRule[]): RestrictionRul
  */
 function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Settings {
   const rawGlobal = asRecord(raw.global)
+  const normalizedRawGlobal = { ...rawGlobal }
+  delete normalizedRawGlobal.pageOpenNotificationsEnabled
+  delete normalizedRawGlobal.blockNotificationsEnabled
   const fallbackBlockAction = normalizeBlockAction(rawGlobal.blockAction)
   const fallbackRedirectUrl = typeof rawGlobal.redirectUrl === 'string' ? rawGlobal.redirectUrl : DEFAULT_GLOBAL_SETTINGS.redirectUrl
   const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes)
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
-      ...rawGlobal,
+      ...normalizedRawGlobal,
       blockAction: fallbackBlockAction,
       redirectUrl: fallbackRedirectUrl,
       notificationThresholdMinutes,
@@ -341,8 +337,6 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
         rawGlobal.remainingTimeNotificationsEnabled,
         rawGlobal.notificationThresholdMinutes,
       ),
-      pageOpenNotificationsEnabled: normalizeBooleanSetting(rawGlobal.pageOpenNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.pageOpenNotificationsEnabled),
-      blockNotificationsEnabled: normalizeBooleanSetting(rawGlobal.blockNotificationsEnabled, DEFAULT_GLOBAL_SETTINGS.blockNotificationsEnabled),
     },
     groups: Array.isArray(raw.groups) ? raw.groups.map(group => normalizeGroup(group, fallbackBlockAction, fallbackRedirectUrl)) : [],
   }
@@ -609,46 +603,6 @@ function normalizeNotificationHistory(value: unknown): Record<string, UsageNotif
     history[groupId] = { logicalDate: entry.logicalDate }
   }
   return history
-}
-
-/**
- * browser.storage.local から対象ページ表示通知履歴を読み込む。
- * 不正な保存値は空の履歴にフォールバックする。
- */
-export async function loadPageOpenNotificationHistory(): Promise<PageOpenNotificationHistoryState> {
-  const raw = await browser.storage.local.get(['pageOpenNotificationHistory']) as {
-    pageOpenNotificationHistory?: unknown
-  }
-  return { pageOpenNotificationHistory: normalizeNotificationHistory(raw.pageOpenNotificationHistory) }
-}
-
-/**
- * browser.storage.local に対象ページ表示通知履歴を書き込む。
- */
-export async function savePageOpenNotificationHistory(state: PageOpenNotificationHistoryState): Promise<void> {
-  await browser.storage.local.set({
-    pageOpenNotificationHistory: state.pageOpenNotificationHistory,
-  })
-}
-
-/**
- * browser.storage.local から redirect ブロック通知履歴を読み込む。
- * 不正な保存値は空の履歴にフォールバックする。
- */
-export async function loadBlockNotificationHistory(): Promise<BlockNotificationHistoryState> {
-  const raw = await browser.storage.local.get(['blockNotificationHistory']) as {
-    blockNotificationHistory?: unknown
-  }
-  return { blockNotificationHistory: normalizeNotificationHistory(raw.blockNotificationHistory) }
-}
-
-/**
- * browser.storage.local に redirect ブロック通知履歴を書き込む。
- */
-export async function saveBlockNotificationHistory(state: BlockNotificationHistoryState): Promise<void> {
-  await browser.storage.local.set({
-    blockNotificationHistory: state.blockNotificationHistory,
-  })
 }
 
 /**

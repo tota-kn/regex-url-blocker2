@@ -50,8 +50,6 @@
 - `dailyResetHour`: 論理日の境界となる時刻（`HH:MM`）。デフォルト `03:00`
 - `remainingTimeNotificationsEnabled`: 残り閲覧時間通知を有効にする。デフォルト `true`
 - `notificationThresholdMinutes`: 残り閲覧時間通知を出す閾値（分）。デフォルト `5`。1以上の整数
-- `pageOpenNotificationsEnabled`: 閲覧上限付き対象ページを開いたときの通知を有効にする。デフォルト `true`
-- `blockNotificationsEnabled`: `redirect` によるブロック発動時の通知を有効にする。デフォルト `true`
 
 ## 閲覧時間の計測
 
@@ -109,7 +107,7 @@
 - `lockMode: false` のグループは、追加・編集・削除を同じ論理日中でも希望設定どおり即時反映する。
 - `lockMode: true` のグループは、有効設定側のグループスナップショットを次回リセット時刻まで維持する。`patterns`、`mode`、`restrictionRules`、`name`、`lockMode` の OFF、グループ削除はいずれも次回リセットで希望設定全体が昇格したときに反映する。
 - 有効設定に存在しない新規グループは即時反映する。新規グループを `lockMode: true` で保存した場合、初回保存は即時有効化され、その後の変更が次回リセットまで保留される。
-- `remainingTimeNotificationsEnabled`、`notificationThresholdMinutes`、`pageOpenNotificationsEnabled`、`blockNotificationsEnabled` は同じ論理日中でも希望設定を即時反映する。グループ別の `blockAction` と `redirectUrl` はグループ設定として反映タイミングに従う。
+- `remainingTimeNotificationsEnabled` と `notificationThresholdMinutes` は同じ論理日中でも希望設定を即時反映する。グループ別の `blockAction` と `redirectUrl` はグループ設定として反映タイミングに従う。
 - 希望設定または有効設定のどちらかに `lockMode: true` のグループがある間、`dailyResetHour` は変更できず、現在有効なリセット時刻を維持する。
 - 論理日が切り替わったタイミングで、希望設定全体を有効設定へ昇格する。
 
@@ -119,11 +117,6 @@
 - 残り時間通知はグループごと・論理日ごとに1回だけ表示する。
 - 通知本文は対象グループ名と当日残り分数を表示する。
 - `notificationThresholdMinutes` は残り時間通知だけに適用する。
-- `pageOpenNotificationsEnabled` が `true` の場合、`webNavigation.onBeforeNavigate` / `onHistoryStateUpdated` / `tabs.onUpdated` の URL 評価時に、判定スキップ対象ではなく、当日の実効上限が定義されたグループに該当し、かつまだブロック状態ではない URL について Chrome notification を表示する。
-- 対象ページ通知はグループごと・論理日ごとに1回だけ表示する。複数グループに該当した場合は1件の通知にまとめ、通知済み扱いは該当した各グループに記録する。
-- `blockNotificationsEnabled` が `true` かつ採用グループの `blockAction === "redirect"` の場合、時間帯ブロックまたは上限到達ブロックにより `tabs.update` でそのグループの `redirectUrl` へ遷移する直前に Chrome notification を表示する。
-- redirect ブロック通知はグループごと・論理日ごとに1回だけ表示する。複数ブロックグループに該当した場合は1件の通知にまとめ、通知済み扱いは該当した各グループに記録する。
-- 採用グループの `blockAction === "blockedPage"` の場合はブロックページ上で理由が分かるため、redirect ブロック通知は表示しない。
 - action badge は、現在タブの対象グループのうち当日残り時間が最も短い上限を分単位切り上げ（例 `5m`）で表示する。
 - action badge の色は通常時が青、残り5分以下が警告色、残り0秒がブロック色。
 - 対象 URL に当日上限がない場合、action badge は空にする。

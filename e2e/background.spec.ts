@@ -299,8 +299,6 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       dailyResetHour,
       remainingTimeNotificationsEnabled: true,
       notificationThresholdMinutes: 5,
-      pageOpenNotificationsEnabled: true,
-      blockNotificationsEnabled: true,
     },
     groups: [{
       id: 'effective-group',
@@ -1178,7 +1176,7 @@ test.describe('Remaining time notifications', () => {
   })
 })
 
-test.describe('Page open and block notifications', () => {
+test.describe.skip('Removed page-open and redirect-block notifications', () => {
   test('上限つき対象ページを開くと同じグループは同じ論理日に1回だけ通知される', async ({ page, context }) => {
     const server = await startServer()
     try {

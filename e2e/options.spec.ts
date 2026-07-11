@@ -127,8 +127,8 @@ test.describe('Options 画面', () => {
     await expect(notification.getByRole('checkbox', { name: 'Notify me before the daily limit is reached' })).toBeChecked()
     await expect(notification.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveValue('5')
     await expect(notification.getByLabel('Minutes before daily limit warning', { exact: true })).toHaveAttribute('min', '1')
-    await expect(notification.getByLabel('Notify me when I open a page with a daily limit')).toBeChecked()
-    await expect(notification.getByLabel('Notify me when a redirect block happens')).toBeChecked()
+    await expect(notification.getByLabel('Notify me when I open a page with a daily limit')).not.toBeVisible()
+    await expect(notification.getByLabel('Notify me when a redirect block happens')).not.toBeVisible()
     const incognitoMode = page.getByLabel('Allow this extension in Incognito')
     await expect(incognitoMode).toBeVisible()
     await expect(incognitoMode.getByText(/Incognito access:\s+(Enabled|Disabled|Unable to check)/)).toBeVisible()
@@ -388,20 +388,6 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Use 1+ integer')).toBeVisible()
   })
 
-  test('通知タイミング設定を保存できる', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await openGeneralSettings(page)
-    await page.getByLabel('Notify me when I open a page with a daily limit').uncheck()
-    await page.getByLabel('Notify me when a redirect block happens').uncheck()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
-    await page.reload()
-    await openGeneralSettings(page)
-
-    await expect(page.getByLabel('Notify me when I open a page with a daily limit')).not.toBeChecked()
-    await expect(page.getByLabel('Notify me when a redirect block happens')).not.toBeChecked()
-  })
-
   test('設定を JSON ファイルとしてエクスポートできる', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -605,8 +591,6 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('General settings')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Start a new rule day at this time')).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Notify me')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Notify me when I open a page with a daily limit')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Notify me when a redirect block happens')).not.toBeVisible()
     await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Work')
     await expect(activeSettingsDialog.getByLabel('Name').nth(1)).toHaveValue('Allowlist')
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()

@@ -14,8 +14,6 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   dailyResetHour: '03:00',
   remainingTimeNotificationsEnabled: true,
   notificationThresholdMinutes: 5,
-  pageOpenNotificationsEnabled: true,
-  blockNotificationsEnabled: true,
 }
 
 /**

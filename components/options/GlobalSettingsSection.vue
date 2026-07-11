@@ -201,28 +201,6 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <label class="flex items-start gap-3">
-          <input
-            v-model="globalSettings.pageOpenNotificationsEnabled"
-            type="checkbox"
-            class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-            aria-label="Notify me when I open a page with a daily limit"
-          >
-          <span class="min-w-0">
-            <span class="block text-label-md text-secondary-foreground">Notify me when I open a page with a daily limit</span>
-          </span>
-        </label>
-        <label class="flex items-start gap-3">
-          <input
-            v-model="globalSettings.blockNotificationsEnabled"
-            type="checkbox"
-            class="mt-0.5 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-            aria-label="Notify me when a redirect block happens"
-          >
-          <span class="min-w-0">
-            <span class="block text-label-md text-secondary-foreground">Notify me when a redirect block happens</span>
-          </span>
-        </label>
       </div>
 
       <div aria-label="Allow this extension in Incognito">

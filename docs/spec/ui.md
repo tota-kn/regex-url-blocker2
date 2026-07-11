@@ -15,11 +15,11 @@
   - `Grace` の上限分数、`Wait` の待機秒数が空欄の場合は保存時に検証エラーとし、保存を止める
   - 読み取り表示ではルールごとに条件・時間帯・制限を1行の文章（例: `Weekly Sat, Sun 22:00-06:00 — Grace 120 min/day`）で表示する
 - 制限テンプレートとして「Blank group」「Core SNS 15 min/day」「Video 30 min/day」「Work hours focus」を新規グループ作成時に選択できる
-- グローバル設定（`dailyResetHour`、`remainingTimeNotificationsEnabled`、`notificationThresholdMinutes`、`pageOpenNotificationsEnabled`、`blockNotificationsEnabled`）の編集
+- グローバル設定（`dailyResetHour`、`remainingTimeNotificationsEnabled`、`notificationThresholdMinutes`）の編集
   - General settings は補足説明に依存せず、項目名そのもので意味が伝わる文言にする
   - 「Start a new rule day at this time」「Notification」「Allow this extension in Incognito」「Settings file」は共通の Vue コンポーネントでアイコン付きの太字表示にする
   - `dailyResetHour` は「Start a new rule day at this time」と表示する
-  - 通知設定は見出しを「Notification」とし、「Notify me [5] min before the daily limit is reached」「Notify me when I open a page with a daily limit」「Notify me when a redirect block happens」と表示する
+  - 通知設定は見出しを「Notification」とし、「Notify me [5] min before the daily limit is reached」と表示する
 - グループの `blockAction === "redirect"` の場合のみ `redirectUrl` を入力・検証する
 - Lock Mode group が存在する間は `dailyResetHour` 入力を無効化し、変更できない理由を表示する
 - 保存時に URL pattern を検証し、無効なら保存拒否＋インラインエラー

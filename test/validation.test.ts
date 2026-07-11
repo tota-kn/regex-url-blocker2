@@ -317,13 +317,5 @@ describe('validateGlobalSettings', () => {
       ...DEFAULT_GLOBAL_SETTINGS,
       remainingTimeNotificationsEnabled: 'yes' as unknown as boolean,
     }).some(e => e.field === 'remainingTimeNotificationsEnabled')).toBe(true)
-    expect(validateGlobalSettings({
-      ...DEFAULT_GLOBAL_SETTINGS,
-      pageOpenNotificationsEnabled: 'yes' as unknown as boolean,
-    }).some(e => e.field === 'pageOpenNotificationsEnabled')).toBe(true)
-    expect(validateGlobalSettings({
-      ...DEFAULT_GLOBAL_SETTINGS,
-      blockNotificationsEnabled: 1 as unknown as boolean,
-    }).some(e => e.field === 'blockNotificationsEnabled')).toBe(true)
   })
 })

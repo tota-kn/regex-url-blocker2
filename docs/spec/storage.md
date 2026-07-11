@@ -24,16 +24,12 @@ interface GlobalSettings {
   dailyResetHour: string
   remainingTimeNotificationsEnabled: boolean
   notificationThresholdMinutes: number
-  pageOpenNotificationsEnabled: boolean
-  blockNotificationsEnabled: boolean
 }
 ```
 
 - `dailyResetHour` は論理日の境界となる `"HH:MM"`。
 - `remainingTimeNotificationsEnabled` は残り時間通知の ON/OFF。
 - `notificationThresholdMinutes` は残り時間通知を出す閾値分数。現行スキーマでは1以上の整数。
-- `pageOpenNotificationsEnabled` は閲覧上限付き対象ページを開いたときの通知の ON/OFF。
-- `blockNotificationsEnabled` は redirect ブロック発動通知の ON/OFF。
 - `blockAction` と `redirectUrl` は現行のブロック判定ではグループ側を使う。旧データ互換と新規グループ初期値のため `global` にも保持する。
 
 `global` が未設定、または一部フィールドが欠損している場合は `DEFAULT_GLOBAL_SETTINGS` で補完する。現在の既定値は次の通り。
@@ -45,8 +41,6 @@ interface GlobalSettings {
   dailyResetHour: '03:00',
   remainingTimeNotificationsEnabled: true,
   notificationThresholdMinutes: 5,
-  pageOpenNotificationsEnabled: true,
-  blockNotificationsEnabled: true,
 }
 ```
 
@@ -104,7 +98,6 @@ interface Restriction {
 - `global.notificationThresholdMinutes` が1以上の整数でない場合は既定値に戻す。
 - 旧データの `global.notificationThresholdMinutes: 0` は残り時間通知 OFF を意味していたため、`remainingTimeNotificationsEnabled: false` として読み込む。この場合も `notificationThresholdMinutes` 自体は既定値へ正規化する。
 - `remainingTimeNotificationsEnabled` が boolean でない場合は、旧 `notificationThresholdMinutes: 0` でない限り `true` として扱う。
-- `pageOpenNotificationsEnabled` / `blockNotificationsEnabled` が boolean でない場合は既定値で補完する。
 - `groups` が配列でない場合は `[]` として扱う。
 - グループの `id` が文字列でない場合は `crypto.randomUUID()` で補完する。
 - グループの `name` が文字列でない場合は空文字で補完する。
@@ -193,26 +186,6 @@ background はカウンタをメモリ上に保持し、約7秒間隔、heartbea
 
 - 未設定、オブジェクトでない、または配列の場合は空履歴として読み込む。
 - 各エントリで値がオブジェクトでない、配列である、または `logicalDate` が文字列でない場合はそのエントリだけ除外する。
-
-### `pageOpenNotificationHistory`
-
-```ts
-{
-  pageOpenNotificationHistory: Record<string, { logicalDate: string }>
-}
-```
-
-閲覧上限付き対象ページを開いたときの通知を同一グループ・同一論理日に重複表示しないための履歴。壊れた値の扱いは `usageNotificationHistory` と同じ。
-
-### `blockNotificationHistory`
-
-```ts
-{
-  blockNotificationHistory: Record<string, { logicalDate: string }>
-}
-```
-
-redirect ブロック発動通知を同一グループ・同一論理日に重複表示しないための履歴。壊れた値の扱いは `usageNotificationHistory` と同じ。
 
 ## 設定 export/import
 

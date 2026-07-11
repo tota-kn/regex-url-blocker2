@@ -45,8 +45,6 @@ function settings(groups: Group[]): Settings {
       dailyResetHour: '03:00',
       remainingTimeNotificationsEnabled: true,
       notificationThresholdMinutes: 5,
-      pageOpenNotificationsEnabled: true,
-      blockNotificationsEnabled: true,
     },
     groups,
   }

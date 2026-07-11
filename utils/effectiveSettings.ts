@@ -51,8 +51,6 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
       dailyResetHour: lockModeExists ? active.global.dailyResetHour : preferred.global.dailyResetHour,
       remainingTimeNotificationsEnabled: preferred.global.remainingTimeNotificationsEnabled,
       notificationThresholdMinutes: preferred.global.notificationThresholdMinutes,
-      pageOpenNotificationsEnabled: preferred.global.pageOpenNotificationsEnabled,
-      blockNotificationsEnabled: preferred.global.blockNotificationsEnabled,
     },
     groups: mergedGroups,
   }

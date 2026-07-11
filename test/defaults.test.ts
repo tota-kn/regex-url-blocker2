@@ -10,8 +10,6 @@ describe('DEFAULT_GLOBAL_SETTINGS', () => {
     expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('03:00')
     expect(DEFAULT_GLOBAL_SETTINGS.remainingTimeNotificationsEnabled).toBe(true)
     expect(DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes).toBe(5)
-    expect(DEFAULT_GLOBAL_SETTINGS.pageOpenNotificationsEnabled).toBe(true)
-    expect(DEFAULT_GLOBAL_SETTINGS.blockNotificationsEnabled).toBe(true)
   })
 })
 

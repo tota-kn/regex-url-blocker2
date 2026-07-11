@@ -1,5 +1,5 @@
-import { evaluateUrl, getActiveRedirectUrl, getLogicalDate, getTimeLimitUsageSummary, type UrlEvaluation } from './blocking'
-import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from './types'
+import { evaluateUrl, getTimeLimitUsageSummary } from './blocking'
+import type { Settings, UsageCountersState, UsageNotificationEntry } from './types'
 
 /**
  * Chrome notification を作成するための判定結果。
@@ -84,71 +84,4 @@ export function buildRemainingTimeNotificationPlans(
   }
 
   return plans
-}
-
-/**
- * 閲覧上限付き対象ページを開いたときの通知計画を作る。
- */
-export function buildPageOpenNotificationPlan(
-  settings: Settings,
-  counters: UsageCountersState,
-  history: Record<string, UsageNotificationEntry>,
-  evaluation: UrlEvaluation,
-  now: Date,
-): NotificationPlan | undefined {
-  if (!settings.global.pageOpenNotificationsEnabled) return undefined
-  if (evaluation.blocked) return undefined
-
-  const targetGroupIds = new Set(evaluation.targetGroupIds)
-  const groupsWithLimit = settings.groups.filter((group) => {
-    if (!targetGroupIds.has(group.id)) return false
-    return Boolean(getTimeLimitUsageSummary(group, counters.counters[group.id], now, settings.global))
-  })
-  const logicalDateByGroupId = new Map(groupsWithLimit.map((group) => {
-    const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, settings.global)
-    return [group.id, summary?.logicalDate ?? '']
-  }))
-  const unnotifiedGroups = filterUnnotifiedGroups(groupsWithLimit, logicalDateByGroupId, history)
-  if (unnotifiedGroups.length === 0) return undefined
-
-  const logicalDate = logicalDateByGroupId.get(unnotifiedGroups[0].id) ?? getLogicalDate(now, settings.global.dailyResetHour).logicalDate
-  return {
-    notificationId: `page-open-limit-${logicalDate}-${unnotifiedGroups.map(group => group.id).sort().join('-')}`,
-    message: `Time limit applies to ${formatGroupNames(unnotifiedGroups)} today.`,
-    historyEntries: unnotifiedGroups.map(group => ({
-      groupId: group.id,
-      logicalDate: logicalDateByGroupId.get(group.id) ?? logicalDate,
-    })),
-  }
-}
-
-/**
- * redirect によるブロック発動時の通知計画を作る。
- */
-export function buildRedirectBlockNotificationPlan(
-  settings: Settings,
-  history: Record<string, UsageNotificationEntry>,
-  evaluation: UrlEvaluation,
-  destinationUrl: string,
-  now: Date,
-): NotificationPlan | undefined {
-  if (!settings.global.blockNotificationsEnabled) return undefined
-  if (evaluation.blockedGroupIds.length === 0) return undefined
-
-  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  const blockedGroups = settings.groups.filter((group: Group) =>
-    blockedGroupIds.has(group.id)
-    && ((group.blockAction === 'redirect' && group.redirectUrl === destinationUrl)
-      || getActiveRedirectUrl(group, now, settings.global) === destinationUrl),
-  )
-  const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
-  const logicalDateByGroupId = new Map(blockedGroups.map(group => [group.id, logicalDate]))
-  const unnotifiedGroups = filterUnnotifiedGroups(blockedGroups, logicalDateByGroupId, history)
-  if (unnotifiedGroups.length === 0) return undefined
-
-  return {
-    notificationId: `redirect-block-${logicalDate}-${unnotifiedGroups.map(group => group.id).sort().join('-')}`,
-    message: `Blocked and redirected: ${formatGroupNames(unnotifiedGroups)}.`,
-    historyEntries: unnotifiedGroups.map(group => ({ groupId: group.id, logicalDate })),
-  }
 }
