@@ -67,7 +67,9 @@ const groups = defineModel<Group[]>({ required: true })
 const sectionRef = ref<HTMLElement | null>(null)
 const createGroupDialogRef = ref<HTMLDialogElement | null>(null)
 const groupCount = computed(() => groups.value.length + props.newGroups.length)
-const groupCountLabel = computed(() => `${groupCount.value} ${groupCount.value === 1 ? 'group' : 'groups'}`)
+const groupCountLabel = computed(
+  () => `${groupCount.value} ${groupCount.value === 1 ? 'group' : 'groups'}`,
+)
 
 const groupTemplates: GroupTemplateOption[] = [
   {
@@ -101,11 +103,14 @@ function groupPauseEntry(groupId: string): GroupPauseEntry | undefined {
   return props.groupPauseState.groupPauseState[groupId]
 }
 
-watch(() => props.newGroups.length, async (newLength, oldLength) => {
-  if (newLength <= oldLength) return
-  await nextTick()
-  focusLastNewGroup()
-})
+watch(
+  () => props.newGroups.length,
+  async (newLength, oldLength) => {
+    if (newLength <= oldLength) return
+    await nextTick()
+    focusLastNewGroup()
+  },
+)
 
 /** 追加直後の新規グループカードを画面内に出し、名前入力へフォーカスする。 */
 function focusLastNewGroup(): void {
@@ -135,15 +140,10 @@ function createGroup(templateId: GroupTemplateId): void {
 </script>
 
 <template>
-  <section
-    ref="sectionRef"
-    class="min-w-0 space-y-3"
-  >
+  <section ref="sectionRef" class="min-w-0 space-y-3">
     <div class="flex min-h-9 items-center justify-between gap-3">
       <div class="flex min-w-0 items-baseline gap-2">
-        <h2 class="text-heading-md text-foreground">
-          Groups
-        </h2>
+        <h2 class="text-heading-md text-foreground">Groups</h2>
         <p class="text-body-sm text-muted-foreground">
           {{ groupCountLabel }}
         </p>
@@ -154,10 +154,7 @@ function createGroup(templateId: GroupTemplateId): void {
         variant="primary"
         @click="openCreateGroupDialog"
       >
-        <PlusIcon
-          aria-hidden="true"
-          class="size-4"
-        />
+        <PlusIcon aria-hidden="true" class="size-4" />
         Add Group
       </BaseButton>
     </div>
@@ -169,12 +166,7 @@ function createGroup(templateId: GroupTemplateId): void {
       @cancel.prevent="closeCreateGroupDialog"
     >
       <div class="space-y-4 p-4">
-        <h3
-          id="create-group-title"
-          class="text-heading-md"
-        >
-          Create group
-        </h3>
+        <h3 id="create-group-title" class="text-heading-md">Create group</h3>
         <div class="space-y-2">
           <button
             v-for="template in groupTemplates"
@@ -200,13 +192,7 @@ function createGroup(templateId: GroupTemplateId): void {
       </div>
     </dialog>
 
-    <EmptyState
-      v-if="groupCount === 0"
-      aria-label="No groups"
-      spacious
-    >
-      No groups yet
-    </EmptyState>
+    <EmptyState v-if="groupCount === 0" aria-label="No groups" spacious> No groups yet </EmptyState>
 
     <div class="min-w-0 space-y-4">
       <GroupCard
@@ -215,7 +201,9 @@ function createGroup(templateId: GroupTemplateId): void {
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
         :now="now"
-        :pause-disabled-reason="pauseActiveSettingsOnly ? 'Use active settings to pause.' : undefined"
+        :pause-disabled-reason="
+          pauseActiveSettingsOnly ? 'Use active settings to pause.' : undefined
+        "
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"

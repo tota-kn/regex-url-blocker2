@@ -13,6 +13,7 @@ const pathToExtension = path.resolve(projectRoot, '.output/chrome-mv3')
 const userDataDir = path.resolve(projectRoot, '.dev-browser-profile')
 
 /** ANSI エスケープシーケンスを除去する */
+// oxlint-disable-next-line no-control-regex -- ESC is intentionally matched to strip ANSI codes.
 const stripAnsi = (str) => str.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')
 
 const wxt = spawn('node_modules/.bin/wxt', [], {
@@ -34,14 +35,11 @@ const launchBrowser = async () => {
     channel: 'chromium',
     headless: false,
     viewport: null,
-    args: [
-      `--disable-extensions-except=${pathToExtension}`,
-      `--load-extension=${pathToExtension}`,
-    ],
+    args: [`--disable-extensions-except=${pathToExtension}`, `--load-extension=${pathToExtension}`],
   })
 
   const [background] = browserContext.serviceWorkers()
-  const sw = background ?? await browserContext.waitForEvent('serviceworker')
+  const sw = background ?? (await browserContext.waitForEvent('serviceworker'))
   const extensionId = sw.url().split('/')[2]
 
   console.log(`Extension ID: ${extensionId}`)
@@ -49,7 +47,9 @@ const launchBrowser = async () => {
 
   const page = await browserContext.newPage()
   await page.goto(`chrome-extension://${extensionId}/options.html`)
-  console.log('ブラウザを閉じるとスクリプトが終了します。空白の場合はページを再読み込みしてください。')
+  console.log(
+    'ブラウザを閉じるとスクリプトが終了します。空白の場合はページを再読み込みしてください。',
+  )
 
   browserContext.on('close', () => {
     wxt.kill()

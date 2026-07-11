@@ -53,12 +53,14 @@ const waitSecondsText = ref('')
 
 /** props からテキスト入力の初期状態を作る。 */
 function syncTexts(): void {
-  graceMinutesText.value = restriction.value?.type === 'grace' && restriction.value.graceMinutes !== undefined
-    ? String(restriction.value.graceMinutes)
-    : ''
-  waitSecondsText.value = restriction.value?.type === 'wait' && restriction.value.waitSeconds !== undefined
-    ? String(restriction.value.waitSeconds)
-    : ''
+  graceMinutesText.value =
+    restriction.value?.type === 'grace' && restriction.value.graceMinutes !== undefined
+      ? String(restriction.value.graceMinutes)
+      : ''
+  waitSecondsText.value =
+    restriction.value?.type === 'wait' && restriction.value.waitSeconds !== undefined
+      ? String(restriction.value.waitSeconds)
+      : ''
 }
 
 watch(restriction, syncTexts, { immediate: true, deep: true })
@@ -97,10 +99,7 @@ function preventNonDigitInput(event: InputEvent): void {
         @update:model-value="setType"
       />
 
-      <label
-        v-if="restriction.type === 'redirect'"
-        class="block min-w-0 space-y-1.5"
-      >
+      <label v-if="restriction.type === 'redirect'" class="block min-w-0 space-y-1.5">
         <span class="block text-label-md text-secondary-foreground">Redirect URL</span>
         <BaseInput
           type="url"
@@ -117,11 +116,10 @@ function preventNonDigitInput(event: InputEvent): void {
         {{ props.error('redirectUrl') }}
       </AlertMessage>
 
-      <label
-        v-if="restriction.type === 'grace'"
-        class="flex min-w-0 items-center gap-1.5"
-      >
-        <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground">Allow up to</span>
+      <label v-if="restriction.type === 'grace'" class="flex min-w-0 items-center gap-1.5">
+        <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
+          >Allow up to</span
+        >
         <BaseInput
           type="text"
           inputmode="numeric"
@@ -140,10 +138,7 @@ function preventNonDigitInput(event: InputEvent): void {
         {{ props.error('graceMinutes') }}
       </AlertMessage>
 
-      <label
-        v-if="restriction.type === 'wait'"
-        class="flex min-w-0 items-center gap-1.5"
-      >
+      <label v-if="restriction.type === 'wait'" class="flex min-w-0 items-center gap-1.5">
         <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground">Wait</span>
         <BaseInput
           type="text"
@@ -157,18 +152,16 @@ function preventNonDigitInput(event: InputEvent): void {
           @beforeinput="preventNonDigitInput"
           @update:model-value="setWaitSecondsText"
         />
-        <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">sec before access</span>
+        <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
+          >sec before access</span
+        >
       </label>
       <AlertMessage v-if="restriction.type === 'wait' && props.error('waitSeconds')">
         {{ props.error('waitSeconds') }}
       </AlertMessage>
     </template>
 
-    <output
-      v-else
-      aria-label="Restriction"
-      class="block text-body-md text-input-foreground"
-    >
+    <output v-else aria-label="Restriction" class="block text-body-md text-input-foreground">
       {{ formatStandaloneRestriction(restriction) }}
     </output>
   </div>

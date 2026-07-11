@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { ArrowDownTrayIcon, ArrowPathIcon, ArrowTopRightOnSquareIcon, ArrowUpTrayIcon, BellAlertIcon, DocumentTextIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
+import {
+  ArrowDownTrayIcon,
+  ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
+  ArrowUpTrayIcon,
+  BellAlertIcon,
+  DocumentTextIcon,
+  EyeSlashIcon,
+} from '@heroicons/vue/24/outline'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -39,7 +47,10 @@ const importInput = ref<HTMLInputElement | null>(null)
 const incognitoAccessAllowed = ref<boolean | undefined>()
 
 const notificationThresholdInput = computed({
-  get: () => Number.isFinite(globalSettings.value.notificationThresholdMinutes) ? String(globalSettings.value.notificationThresholdMinutes) : '',
+  get: () =>
+    Number.isFinite(globalSettings.value.notificationThresholdMinutes)
+      ? String(globalSettings.value.notificationThresholdMinutes)
+      : '',
   set: (value: string | number | undefined) => {
     const text = String(value ?? '')
     globalSettings.value.notificationThresholdMinutes = text === '' ? Number.NaN : Number(text)
@@ -65,8 +76,7 @@ function getChromeExtensionSettingsUrl(): string {
 async function refreshIncognitoAccess(): Promise<void> {
   try {
     incognitoAccessAllowed.value = await browser.extension.isAllowedIncognitoAccess()
-  }
-  catch {
+  } catch {
     incognitoAccessAllowed.value = undefined
   }
 }
@@ -120,22 +130,15 @@ onUnmounted(() => {
   <section class="space-y-3 lg:sticky lg:top-6">
     <div class="flex min-h-9 items-center justify-between gap-3">
       <div class="flex min-w-0 items-baseline gap-2">
-        <h2 class="text-heading-md text-foreground">
-          General settings
-        </h2>
+        <h2 class="text-heading-md text-foreground">General settings</h2>
       </div>
     </div>
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
-      <BaseField
-        :error="error('dailyResetHour')"
-      >
+      <BaseField :error="error('dailyResetHour')">
         <GlobalSettingsItemTitle label="Start a new rule day at this time">
           <template #icon>
-            <ArrowPathIcon
-              aria-hidden="true"
-              class="size-4 text-muted"
-            />
+            <ArrowPathIcon aria-hidden="true" class="size-4 text-muted" />
           </template>
         </GlobalSettingsItemTitle>
         <BaseInput
@@ -146,24 +149,15 @@ onUnmounted(() => {
           class="w-full"
           :invalid="Boolean(error('dailyResetHour'))"
         />
-        <p
-          v-if="dailyResetTimeLocked"
-          class="mt-1.5 text-body-sm text-muted"
-        >
+        <p v-if="dailyResetTimeLocked" class="mt-1.5 text-body-sm text-muted">
           Cannot change while any group has Lock Mode enabled or pending.
         </p>
       </BaseField>
 
-      <div
-        class="space-y-2"
-        aria-label="Notification"
-      >
+      <div class="space-y-2" aria-label="Notification">
         <GlobalSettingsItemTitle label="Notification">
           <template #icon>
-            <BellAlertIcon
-              aria-hidden="true"
-              class="size-4 text-muted"
-            />
+            <BellAlertIcon aria-hidden="true" class="size-4 text-muted" />
           </template>
         </GlobalSettingsItemTitle>
         <div class="space-y-3">
@@ -175,17 +169,14 @@ onUnmounted(() => {
                 type="checkbox"
                 class="-ml-7 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
                 aria-label="Notify me before the daily limit is reached"
-              >
+              />
               <label
                 for="remaining-time-notifications-enabled"
                 class="text-label-md text-secondary-foreground"
               >
                 Notify me
               </label>
-              <BaseField
-                class="min-w-0"
-                :error="error('notificationThresholdMinutes')"
-              >
+              <BaseField class="min-w-0" :error="error('notificationThresholdMinutes')">
                 <BaseInput
                   v-model="notificationThresholdInput"
                   type="number"
@@ -197,7 +188,9 @@ onUnmounted(() => {
                   :invalid="Boolean(error('notificationThresholdMinutes'))"
                 />
               </BaseField>
-              <span class="text-label-md text-secondary-foreground">min before the daily limit is reached</span>
+              <span class="text-label-md text-secondary-foreground"
+                >min before the daily limit is reached</span
+              >
             </div>
           </div>
         </div>
@@ -206,10 +199,7 @@ onUnmounted(() => {
       <div aria-label="Allow this extension in Incognito">
         <GlobalSettingsItemTitle label="Allow this extension in Incognito">
           <template #icon>
-            <EyeSlashIcon
-              aria-hidden="true"
-              class="size-4 text-muted"
-            />
+            <EyeSlashIcon aria-hidden="true" class="size-4 text-muted" />
           </template>
         </GlobalSettingsItemTitle>
         <div class="mt-3 flex flex-wrap items-center gap-3">
@@ -222,10 +212,7 @@ onUnmounted(() => {
             aria-label="Open Chrome extension settings"
             @click="openChromeExtensionSettings"
           >
-            <ArrowTopRightOnSquareIcon
-              aria-hidden="true"
-              class="size-4"
-            />
+            <ArrowTopRightOnSquareIcon aria-hidden="true" class="size-4" />
             Open Chrome extension settings
           </BaseButton>
         </div>
@@ -234,10 +221,7 @@ onUnmounted(() => {
       <div>
         <GlobalSettingsItemTitle label="Settings file">
           <template #icon>
-            <DocumentTextIcon
-              aria-hidden="true"
-              class="size-4 text-muted"
-            />
+            <DocumentTextIcon aria-hidden="true" class="size-4 text-muted" />
           </template>
         </GlobalSettingsItemTitle>
         <div class="flex flex-wrap gap-2">
@@ -246,10 +230,7 @@ onUnmounted(() => {
             aria-label="Export settings"
             @click="emit('exportSettings')"
           >
-            <ArrowDownTrayIcon
-              aria-hidden="true"
-              class="size-4"
-            />
+            <ArrowDownTrayIcon aria-hidden="true" class="size-4" />
             Export settings
           </BaseButton>
           <BaseButton
@@ -257,10 +238,7 @@ onUnmounted(() => {
             aria-label="Import settings"
             @click="openImportFilePicker"
           >
-            <ArrowUpTrayIcon
-              aria-hidden="true"
-              class="size-4"
-            />
+            <ArrowUpTrayIcon aria-hidden="true" class="size-4" />
             Import settings
           </BaseButton>
           <input
@@ -270,15 +248,10 @@ onUnmounted(() => {
             class="sr-only"
             aria-label="Settings JSON file"
             @change="handleImportFile"
-          >
+          />
         </div>
-        <p class="mt-2 text-body-sm text-muted">
-          Import replaces all groups and general settings.
-        </p>
-        <AlertMessage
-          v-if="importError"
-          class="mt-2"
-        >
+        <p class="mt-2 text-body-sm text-muted">Import replaces all groups and general settings.</p>
+        <AlertMessage v-if="importError" class="mt-2">
           {{ importError }}
         </AlertMessage>
       </div>

@@ -63,13 +63,13 @@ interface Group {
 
 type ScheduleRuleCondition =
   | { type: 'daily' }
-  | { type: 'weekly', daysOfWeek: number[] }   // 0=日〜6=土
-  | { type: 'monthly', daysOfMonth: number[] } // 1〜31
-  | { type: 'period', start: MonthDay, end: MonthDay } // 両端含む・年跨ぎ可
+  | { type: 'weekly'; daysOfWeek: number[] } // 0=日〜6=土
+  | { type: 'monthly'; daysOfMonth: number[] } // 1〜31
+  | { type: 'period'; start: MonthDay; end: MonthDay } // 両端含む・年跨ぎ可
 
 type TimeWindow =
   | { type: 'always' }
-  | { type: 'scheduled', condition: ScheduleRuleCondition, timeRanges: TimeRange[] }
+  | { type: 'scheduled'; condition: ScheduleRuleCondition; timeRanges: TimeRange[] }
 
 interface Restriction {
   type: 'block' | 'grace' | 'wait'
@@ -133,10 +133,13 @@ interface Restriction {
 
 ```ts
 {
-  counters: Record<string, {
-    logicalDate: string
-    consumedSec: number
-  }>
+  counters: Record<
+    string,
+    {
+      logicalDate: string
+      consumedSec: number
+    }
+  >
 }
 ```
 
@@ -157,10 +160,13 @@ background はカウンタをメモリ上に保持し、約7秒間隔、heartbea
 
 ```ts
 {
-  groupPauseState: Record<string, {
-    waitingUntil?: number
-    pausedUntil?: number
-  }>
+  groupPauseState: Record<
+    string,
+    {
+      waitingUntil?: number
+      pausedUntil?: number
+    }
+  >
 }
 ```
 

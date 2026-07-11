@@ -10,7 +10,10 @@ const localStore = new Map<string, unknown>()
 /**
  * 指定された in-memory store から browser.storage.get 相当の値を返す。
  */
-async function getFromStore(store: Map<string, unknown>, keys: string[]): Promise<Record<string, unknown>> {
+async function getFromStore(
+  store: Map<string, unknown>,
+  keys: string[],
+): Promise<Record<string, unknown>> {
   const result: Record<string, unknown> = {}
   for (const k of keys) {
     if (store.has(k)) result[k] = store.get(k)
@@ -21,7 +24,10 @@ async function getFromStore(store: Map<string, unknown>, keys: string[]): Promis
 /**
  * 指定された in-memory store に browser.storage.set 相当の値を書き込む。
  */
-async function setToStore(store: Map<string, unknown>, items: Record<string, unknown>): Promise<void> {
+async function setToStore(
+  store: Map<string, unknown>,
+  items: Record<string, unknown>,
+): Promise<void> {
   for (const [k, v] of Object.entries(items)) store.set(k, v)
 }
 

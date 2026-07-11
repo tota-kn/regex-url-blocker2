@@ -49,16 +49,20 @@ function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
 
 describe('effective settings', () => {
   it('Lock Mode OFF の group は編集が即時に有効設定へ反映される', () => {
-    const active = settings([group({
-      patterns: ['example\\.com'],
-      restriction: dailyRestriction('grace', { graceMinutes: 30 }),
-    })])
-    const preferred = settings([group({
-      patterns: ['example\\.com', 'news\\.example'],
-      restriction: dailyRestriction('block', {
-        timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+    const active = settings([
+      group({
+        patterns: ['example\\.com'],
+        restriction: dailyRestriction('grace', { graceMinutes: 30 }),
       }),
-    })])
+    ])
+    const preferred = settings([
+      group({
+        patterns: ['example\\.com', 'news\\.example'],
+        restriction: dailyRestriction('block', {
+          timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+        }),
+      }),
+    ])
 
     expect(mergeImmediateRestrictions(active, preferred)).toEqual(preferred)
   })
@@ -67,21 +71,31 @@ describe('effective settings', () => {
     const active = settings([group({ id: 'deleted' }), group({ id: 'kept' })])
     const preferred = settings([group({ id: 'kept' })])
 
-    expect(mergeImmediateRestrictions(active, preferred).groups.map(g => g.id)).toEqual(['kept'])
+    expect(mergeImmediateRestrictions(active, preferred).groups.map((g) => g.id)).toEqual(['kept'])
   })
 
   it('Lock Mode ON の group は厳格化も緩和も即時に有効設定へ反映されない', () => {
-    const active = settings([group({
-      lockMode: true,
-      patterns: ['example\\.com', 'news\\.example'],
-      restriction: dailyRestriction('block', {
-        timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
-      }),
-    })], '03:00')
-    const preferred = settings([group({
-      patterns: ['example\\.com'],
-      restriction: dailyRestriction('grace', { graceMinutes: 30 }),
-    })], '03:00')
+    const active = settings(
+      [
+        group({
+          lockMode: true,
+          patterns: ['example\\.com', 'news\\.example'],
+          restriction: dailyRestriction('block', {
+            timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+          }),
+        }),
+      ],
+      '03:00',
+    )
+    const preferred = settings(
+      [
+        group({
+          patterns: ['example\\.com'],
+          restriction: dailyRestriction('grace', { graceMinutes: 30 }),
+        }),
+      ],
+      '03:00',
+    )
 
     const state = reconcileEffectiveSettings(
       preferred,
@@ -90,14 +104,21 @@ describe('effective settings', () => {
     )
 
     expect(state.effectiveSettings.groups[0].patterns).toEqual(['example\\.com', 'news\\.example'])
-    expect(state.effectiveSettings.groups[0].restrictionRules?.[0]?.timeRanges).toEqual([{ startMinute: 540, endMinute: 1020 }])
+    expect(state.effectiveSettings.groups[0].restrictionRules?.[0]?.timeRanges).toEqual([
+      { startMinute: 540, endMinute: 1020 },
+    ])
     expect(state.effectiveSettings.groups[0].restrictionRules?.[0]?.type).toBe('block')
 
-    const strictPreferred = settings([group({
-      lockMode: true,
-      patterns: ['example\\.com', 'news\\.example', 'strict\\.example'],
-      restriction: dailyRestriction('grace', { graceMinutes: 1 }),
-    })], '03:00')
+    const strictPreferred = settings(
+      [
+        group({
+          lockMode: true,
+          patterns: ['example\\.com', 'news\\.example', 'strict\\.example'],
+          restriction: dailyRestriction('grace', { graceMinutes: 1 }),
+        }),
+      ],
+      '03:00',
+    )
 
     expect(mergeImmediateRestrictions(active, strictPreferred).groups[0]).toEqual(active.groups[0])
   })
@@ -139,14 +160,16 @@ describe('effective settings', () => {
       },
     }
 
-    expect(mergeImmediateRestrictions(active, preferred).global.remainingTimeNotificationsEnabled).toBe(false)
+    expect(
+      mergeImmediateRestrictions(active, preferred).global.remainingTimeNotificationsEnabled,
+    ).toBe(false)
   })
 
   it('Lock Mode ON の group 削除は次回 reset まで effective に残る', () => {
     const active = settings([group({ lockMode: true })], '03:00')
     const preferred = settings([], '03:00')
 
-    expect(mergeImmediateRestrictions(active, preferred).groups.map(g => g.id)).toEqual(['g1'])
+    expect(mergeImmediateRestrictions(active, preferred).groups.map((g) => g.id)).toEqual(['g1'])
   })
 
   it('Lock Mode ON から OFF に変更しても次回 reset までは effective 側で ON のまま維持される', () => {
@@ -157,15 +180,20 @@ describe('effective settings', () => {
   })
 
   it('次回 reset 到達時に Lock Mode group の保留変更と削除が preferred 通りに反映される', () => {
-    const active = settings([
-      group({ id: 'changed', lockMode: true }),
-      group({ id: 'deleted', lockMode: true }),
-    ], '03:00')
-    const preferred = settings([group({
-      id: 'changed',
-      lockMode: false,
-      restriction: weeklyRestriction([3], 'grace', { graceMinutes: 60 }),
-    })], '05:00')
+    const active = settings(
+      [group({ id: 'changed', lockMode: true }), group({ id: 'deleted', lockMode: true })],
+      '03:00',
+    )
+    const preferred = settings(
+      [
+        group({
+          id: 'changed',
+          lockMode: false,
+          restriction: weeklyRestriction([3], 'grace', { graceMinutes: 60 }),
+        }),
+      ],
+      '05:00',
+    )
 
     const state = reconcileEffectiveSettings(
       preferred,
@@ -195,14 +223,18 @@ describe('effective settings', () => {
   })
 
   it('Lock Mode ON の group snapshot と preferred group の差分だけを pending にする', () => {
-    const effective = settings([group({
-      lockMode: true,
-      patterns: ['example\\.com'],
-    })])
-    const preferred = settings([group({
-      lockMode: true,
-      patterns: ['example\\.com', 'news\\.example'],
-    })])
+    const effective = settings([
+      group({
+        lockMode: true,
+        patterns: ['example\\.com'],
+      }),
+    ])
+    const preferred = settings([
+      group({
+        lockMode: true,
+        patterns: ['example\\.com', 'news\\.example'],
+      }),
+    ])
 
     expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
   })
@@ -218,6 +250,8 @@ describe('effective settings', () => {
   })
 
   it('Lock Mode ON の group 削除は pending にする', () => {
-    expect(hasPendingEffectiveSettings(settings([]), settings([group({ lockMode: true })]))).toBe(true)
+    expect(hasPendingEffectiveSettings(settings([]), settings([group({ lockMode: true })]))).toBe(
+      true,
+    )
   })
 })

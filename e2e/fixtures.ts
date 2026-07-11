@@ -11,7 +11,7 @@ export const test = base.extend<{
   context: BrowserContext
   extensionId: string
 }>({
-  // eslint-disable-next-line no-empty-pattern
+  // oxlint-disable-next-line no-empty-pattern -- Playwright fixtures require object destructuring.
   context: async ({}, use) => {
     const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3')
     const context = await chromium.launchPersistentContext('', {

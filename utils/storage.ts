@@ -1,7 +1,26 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, DayOfWeek, DelayGrantState, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
+import type {
+  BlockAction,
+  DayOfWeek,
+  DelayGrantState,
+  EffectiveSettingsState,
+  Group,
+  GroupMode,
+  GroupPauseEntry,
+  GroupPauseState,
+  MonthDay,
+  Restriction,
+  RestrictionRule,
+  ScheduleRuleCondition,
+  Settings,
+  TimeRange,
+  TimeWindow,
+  UsageCountersState,
+  UsageNotificationEntry,
+  UsageNotificationHistoryState,
+} from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -38,20 +57,27 @@ interface LegacyScheduleRule {
  * 保存済み値を有効なブロック時動作へ正規化する。
  */
 function normalizeBlockAction(value: unknown): BlockAction {
-  return value === 'redirect' || value === 'blockedPage' ? value : DEFAULT_GLOBAL_SETTINGS.blockAction
+  return value === 'redirect' || value === 'blockedPage'
+    ? value
+    : DEFAULT_GLOBAL_SETTINGS.blockAction
 }
 
 /**
  * 保存済み値を残り時間通知の閾値分数へ正規化する。
  */
 function normalizeNotificationThresholdMinutes(value: unknown): number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1
+    ? value
+    : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
 }
 
 /**
  * 保存済み値を残り時間通知 ON/OFF 設定へ正規化する。
  */
-function normalizeRemainingTimeNotificationsEnabled(value: unknown, rawThresholdMinutes: unknown): boolean {
+function normalizeRemainingTimeNotificationsEnabled(
+  value: unknown,
+  rawThresholdMinutes: unknown,
+): boolean {
   if (typeof value === 'boolean') return value
   return rawThresholdMinutes !== 0
 }
@@ -60,30 +86,38 @@ function normalizeRemainingTimeNotificationsEnabled(value: unknown, rawThreshold
  * object 風の値を安全にレコードとして扱う。
  */
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 
 /**
  * unknown の値からグループ設定を生成する。
  * `restrictionRules` を優先し、旧 `restriction` や旧 `scheduleRules[]` は複数制限ルールへ移行する。
  */
-function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction, fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl): Group {
+function normalizeGroup(
+  value: unknown,
+  fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction,
+  fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+): Group {
   const g = asRecord(value)
   const blockAction = normalizeBlockAction(g.blockAction ?? fallbackBlockAction)
-  const legacyRules = normalizeRestrictionRules(g.restrictionRules, g.restriction)
-    ?? normalizeLegacyRestriction(g.restriction)
-    ?? convertLegacyScheduleRules(normalizeLegacyScheduleRules(g.scheduleRules, g.dailyRules))
+  const legacyRules =
+    normalizeRestrictionRules(g.restrictionRules, g.restriction) ??
+    normalizeLegacyRestriction(g.restriction) ??
+    convertLegacyScheduleRules(normalizeLegacyScheduleRules(g.scheduleRules, g.dailyRules))
   return {
     id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
     name: typeof g.name === 'string' ? g.name : '',
     mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
     disabled: g.disabled === true,
     lockMode: g.lockMode === true,
-    patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
+    patterns: Array.isArray(g.patterns) ? g.patterns.filter((p) => typeof p === 'string') : [],
     blockAction,
     redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
     timeWindows: normalizeTimeWindows(g.timeWindows) ?? legacyRulesToTimeWindows(legacyRules),
-    restrictions: normalizeStandaloneRestrictions(g.restrictions) ?? legacyRulesToRestrictions(legacyRules),
+    restrictions:
+      normalizeStandaloneRestrictions(g.restrictions) ?? legacyRulesToRestrictions(legacyRules),
   }
 }
 
@@ -165,9 +199,16 @@ function normalizeRestriction(value: unknown): RestrictionRule | undefined {
 /** unknown の値から分離形式の制限を生成する。 */
 function normalizeStandaloneRestriction(value: unknown): Restriction | undefined {
   const valueRecord = asRecord(value)
-  if (valueRecord.type !== 'block' && valueRecord.type !== 'redirect' && valueRecord.type !== 'grace' && valueRecord.type !== 'wait') return undefined
+  if (
+    valueRecord.type !== 'block' &&
+    valueRecord.type !== 'redirect' &&
+    valueRecord.type !== 'grace' &&
+    valueRecord.type !== 'wait'
+  )
+    return undefined
   const restriction: Restriction = { type: valueRecord.type }
-  if (typeof valueRecord.graceMinutes === 'number') restriction.graceMinutes = valueRecord.graceMinutes
+  if (typeof valueRecord.graceMinutes === 'number')
+    restriction.graceMinutes = valueRecord.graceMinutes
   if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
   if (typeof valueRecord.redirectUrl === 'string') restriction.redirectUrl = valueRecord.redirectUrl
   return restriction
@@ -194,16 +235,25 @@ function normalizeTimeWindows(value: unknown): TimeWindow[] | undefined {
     }
     if (window.type !== 'scheduled') return
     const condition = normalizeScheduleRuleCondition(window.condition)
-    if (condition) windows.push({ type: 'scheduled', condition, timeRanges: Array.isArray(window.timeRanges) ? window.timeRanges.map(normalizeTimeRange) : [] })
+    if (condition)
+      windows.push({
+        type: 'scheduled',
+        condition,
+        timeRanges: Array.isArray(window.timeRanges)
+          ? window.timeRanges.map(normalizeTimeRange)
+          : [],
+      })
   })
   return windows
 }
 
 /** 旧ペア形式を時間ウィンドウ配列へ分離する。 */
 function legacyRulesToTimeWindows(rules: RestrictionRule[]): TimeWindow[] {
-  return rules.map(rule => rule.condition.type === 'daily' && rule.timeRanges.length === 0
-    ? { type: 'always' as const }
-    : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges })
+  return rules.map((rule) =>
+    rule.condition.type === 'daily' && rule.timeRanges.length === 0
+      ? { type: 'always' as const }
+      : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges },
+  )
 }
 
 /** 旧ペア形式を制限配列へ分離する。 */
@@ -214,7 +264,10 @@ function legacyRulesToRestrictions(rules: RestrictionRule[]): Restriction[] {
 /**
  * unknown の値から現行フォーマットの制限ルール配列を生成する。
  */
-function normalizeRestrictionRules(value: unknown, legacyRestriction?: unknown): RestrictionRule[] | undefined {
+function normalizeRestrictionRules(
+  value: unknown,
+  legacyRestriction?: unknown,
+): RestrictionRule[] | undefined {
   if (!Array.isArray(value)) return undefined
   const restrictions = value.flatMap((item) => {
     const restriction = normalizeRestriction(item)
@@ -241,8 +294,11 @@ function normalizeLegacyScheduleRule(value: unknown): LegacyScheduleRule | undef
   if (!condition) return undefined
   return {
     condition,
-    blockedTimeRanges: Array.isArray(rule.blockedTimeRanges) ? rule.blockedTimeRanges.map(normalizeTimeRange) : [],
-    dailyLimitMinutes: typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined,
+    blockedTimeRanges: Array.isArray(rule.blockedTimeRanges)
+      ? rule.blockedTimeRanges.map(normalizeTimeRange)
+      : [],
+    dailyLimitMinutes:
+      typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined,
     delaySeconds: typeof rule.delaySeconds === 'number' ? rule.delaySeconds : undefined,
   }
 }
@@ -251,7 +307,10 @@ function normalizeLegacyScheduleRule(value: unknown): LegacyScheduleRule | undef
  * unknown の値から旧 `scheduleRules[]` 形式のルール配列を生成する。
  * `scheduleRules` が無く旧 `dailyRules` がある場合は weekly / daily ルールへ自動変換する。
  */
-function normalizeLegacyScheduleRules(value: unknown, legacyDailyRules: unknown): LegacyScheduleRule[] {
+function normalizeLegacyScheduleRules(
+  value: unknown,
+  legacyDailyRules: unknown,
+): LegacyScheduleRule[] {
   if (Array.isArray(value)) {
     return value.flatMap((item) => {
       const rule = normalizeLegacyScheduleRule(item)
@@ -268,26 +327,38 @@ function normalizeLegacyScheduleRules(value: unknown, legacyDailyRules: unknown)
 function convertDailyRulesToLegacyScheduleRules(value: unknown): LegacyScheduleRule[] {
   if (!Array.isArray(value)) return []
 
-  const byContent = new Map<string, { daysOfWeek: Set<DayOfWeek>, blockedTimeRanges: TimeRange[], dailyLimitMinutes?: number }>()
+  const byContent = new Map<
+    string,
+    { daysOfWeek: Set<DayOfWeek>; blockedTimeRanges: TimeRange[]; dailyLimitMinutes?: number }
+  >()
   for (const item of value) {
     const rule = asRecord(item)
     const dayOfWeek = rule.dayOfWeek
-    if (!Number.isInteger(dayOfWeek) || (dayOfWeek as number) < 0 || (dayOfWeek as number) > 6) continue
+    if (!Number.isInteger(dayOfWeek) || (dayOfWeek as number) < 0 || (dayOfWeek as number) > 6)
+      continue
 
-    const blockedTimeRanges = Array.isArray(rule.blockedTimeRanges) ? rule.blockedTimeRanges.map(normalizeTimeRange) : []
-    const dailyLimitMinutes = typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined
+    const blockedTimeRanges = Array.isArray(rule.blockedTimeRanges)
+      ? rule.blockedTimeRanges.map(normalizeTimeRange)
+      : []
+    const dailyLimitMinutes =
+      typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined
     if (blockedTimeRanges.length === 0 && dailyLimitMinutes === undefined) continue
 
     const key = JSON.stringify([blockedTimeRanges, dailyLimitMinutes ?? null])
-    const entry = byContent.get(key) ?? { daysOfWeek: new Set<DayOfWeek>(), blockedTimeRanges, dailyLimitMinutes }
+    const entry = byContent.get(key) ?? {
+      daysOfWeek: new Set<DayOfWeek>(),
+      blockedTimeRanges,
+      dailyLimitMinutes,
+    }
     entry.daysOfWeek.add(dayOfWeek as DayOfWeek)
     byContent.set(key, entry)
   }
 
-  return [...byContent.values()].map(entry => ({
-    condition: entry.daysOfWeek.size === 7
-      ? { type: 'daily' as const }
-      : { type: 'weekly' as const, daysOfWeek: [...entry.daysOfWeek].sort((a, b) => a - b) },
+  return [...byContent.values()].map((entry) => ({
+    condition:
+      entry.daysOfWeek.size === 7
+        ? { type: 'daily' as const }
+        : { type: 'weekly' as const, daysOfWeek: [...entry.daysOfWeek].toSorted((a, b) => a - b) },
     blockedTimeRanges: entry.blockedTimeRanges,
     dailyLimitMinutes: entry.dailyLimitMinutes,
   }))
@@ -303,13 +374,27 @@ function convertLegacyScheduleRules(rules: LegacyScheduleRule[]): RestrictionRul
   const waitRestrictions: RestrictionRule[] = []
   for (const rule of rules) {
     if (rule.blockedTimeRanges.length > 0) {
-      blockRestrictions.push({ condition: rule.condition, timeRanges: rule.blockedTimeRanges, type: 'block' })
+      blockRestrictions.push({
+        condition: rule.condition,
+        timeRanges: rule.blockedTimeRanges,
+        type: 'block',
+      })
     }
     if (rule.dailyLimitMinutes !== undefined) {
-      graceRestrictions.push({ condition: rule.condition, timeRanges: [], type: 'grace', graceMinutes: rule.dailyLimitMinutes })
+      graceRestrictions.push({
+        condition: rule.condition,
+        timeRanges: [],
+        type: 'grace',
+        graceMinutes: rule.dailyLimitMinutes,
+      })
     }
     if (rule.delaySeconds !== undefined && rule.delaySeconds > 0) {
-      waitRestrictions.push({ condition: rule.condition, timeRanges: [], type: 'wait', waitSeconds: rule.delaySeconds })
+      waitRestrictions.push({
+        condition: rule.condition,
+        timeRanges: [],
+        type: 'wait',
+        waitSeconds: rule.delaySeconds,
+      })
     }
   }
   return [...blockRestrictions, ...graceRestrictions, ...waitRestrictions]
@@ -318,14 +403,19 @@ function convertLegacyScheduleRules(rules: LegacyScheduleRule[]): RestrictionRul
 /**
  * unknown の値から `Settings` を生成し、欠損フィールドを補完する。
  */
-function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Settings {
+function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Settings {
   const rawGlobal = asRecord(raw.global)
   const normalizedRawGlobal = { ...rawGlobal }
   delete normalizedRawGlobal.pageOpenNotificationsEnabled
   delete normalizedRawGlobal.blockNotificationsEnabled
   const fallbackBlockAction = normalizeBlockAction(rawGlobal.blockAction)
-  const fallbackRedirectUrl = typeof rawGlobal.redirectUrl === 'string' ? rawGlobal.redirectUrl : DEFAULT_GLOBAL_SETTINGS.redirectUrl
-  const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(rawGlobal.notificationThresholdMinutes)
+  const fallbackRedirectUrl =
+    typeof rawGlobal.redirectUrl === 'string'
+      ? rawGlobal.redirectUrl
+      : DEFAULT_GLOBAL_SETTINGS.redirectUrl
+  const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(
+    rawGlobal.notificationThresholdMinutes,
+  )
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
@@ -338,7 +428,9 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
         rawGlobal.notificationThresholdMinutes,
       ),
     },
-    groups: Array.isArray(raw.groups) ? raw.groups.map(group => normalizeGroup(group, fallbackBlockAction, fallbackRedirectUrl)) : [],
+    groups: Array.isArray(raw.groups)
+      ? raw.groups.map((group) => normalizeGroup(group, fallbackBlockAction, fallbackRedirectUrl))
+      : [],
   }
 }
 
@@ -349,7 +441,7 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
  * （`schedules` / `blockedTimeSlots` / `timeLimits`）は破棄して空の `restrictionRules` で初期化する。
  */
 export async function loadSettings(): Promise<Settings> {
-  const raw = await browser.storage.sync.get(['global', 'groups']) as {
+  const raw = (await browser.storage.sync.get(['global', 'groups'])) as {
     global?: unknown
     groups?: unknown
   }
@@ -370,21 +462,32 @@ export async function saveSettings(settings: Settings): Promise<void> {
  * browser.storage.local から有効設定スナップショットを読み込む。
  * 未保存または不正な場合は指定された希望設定を初期有効設定として返す。
  */
-export async function loadEffectiveSettingsState(fallbackSettings: Settings, now = new Date()): Promise<EffectiveSettingsState> {
-  const raw = await browser.storage.local.get(['effectiveSettings', 'effectiveSettingsLogicalDate']) as {
+export async function loadEffectiveSettingsState(
+  fallbackSettings: Settings,
+  now = new Date(),
+): Promise<EffectiveSettingsState> {
+  const raw = (await browser.storage.local.get([
+    'effectiveSettings',
+    'effectiveSettingsLogicalDate',
+  ])) as {
     effectiveSettings?: unknown
     effectiveSettingsLogicalDate?: unknown
   }
-  if (!raw.effectiveSettings || typeof raw.effectiveSettings !== 'object' || Array.isArray(raw.effectiveSettings)) {
+  if (
+    !raw.effectiveSettings ||
+    typeof raw.effectiveSettings !== 'object' ||
+    Array.isArray(raw.effectiveSettings)
+  ) {
     return createEffectiveSettingsState(fallbackSettings, now)
   }
 
   const settingsRecord = raw.effectiveSettings as Record<string, unknown>
   return {
     effectiveSettings: normalizeSettings(settingsRecord),
-    effectiveSettingsLogicalDate: typeof raw.effectiveSettingsLogicalDate === 'string'
-      ? raw.effectiveSettingsLogicalDate
-      : createEffectiveSettingsState(fallbackSettings, now).effectiveSettingsLogicalDate,
+    effectiveSettingsLogicalDate:
+      typeof raw.effectiveSettingsLogicalDate === 'string'
+        ? raw.effectiveSettingsLogicalDate
+        : createEffectiveSettingsState(fallbackSettings, now).effectiveSettingsLogicalDate,
   }
 }
 
@@ -423,10 +526,14 @@ export async function saveEffectiveSettingsState(state: EffectiveSettingsState):
  * 現在の設定をエクスポート用 JSON 文字列へ変換する。
  */
 export function serializeSettingsExport(settings: Settings): string {
-  return `${JSON.stringify({
-    version: SETTINGS_EXPORT_VERSION,
-    settings,
-  } satisfies SettingsExportFile, null, 2)}\n`
+  return `${JSON.stringify(
+    {
+      version: SETTINGS_EXPORT_VERSION,
+      settings,
+    } satisfies SettingsExportFile,
+    null,
+    2,
+  )}\n`
 }
 
 /**
@@ -436,13 +543,19 @@ export function parseSettingsExportJson(json: string): Settings {
   let parsed: unknown
   try {
     parsed = JSON.parse(json)
-  }
-  catch {
+  } catch {
     throw new Error('Invalid JSON')
   }
 
   const file = asRecord(parsed)
-  if (file.version !== 2 && file.version !== 3 && file.version !== 4 && file.version !== 5 && file.version !== 6 && file.version !== SETTINGS_EXPORT_VERSION) {
+  if (
+    file.version !== 2 &&
+    file.version !== 3 &&
+    file.version !== 4 &&
+    file.version !== 5 &&
+    file.version !== 6 &&
+    file.version !== SETTINGS_EXPORT_VERSION
+  ) {
     throw new Error('Unsupported settings file version')
   }
   if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {
@@ -450,7 +563,11 @@ export function parseSettingsExportJson(json: string): Settings {
   }
 
   const rawSettings = file.settings as Record<string, unknown>
-  if (!rawSettings.global || typeof rawSettings.global !== 'object' || Array.isArray(rawSettings.global)) {
+  if (
+    !rawSettings.global ||
+    typeof rawSettings.global !== 'object' ||
+    Array.isArray(rawSettings.global)
+  ) {
     throw new Error('Settings file is missing global settings')
   }
   if (!Array.isArray(rawSettings.groups)) {
@@ -474,7 +591,7 @@ export function parseSettingsExportJson(json: string): Settings {
  * 不正な保存値は空のカウンタにフォールバックする。
  */
 export async function loadCounters(): Promise<UsageCountersState> {
-  const raw = await browser.storage.local.get(['counters']) as {
+  const raw = (await browser.storage.local.get(['counters'])) as {
     counters?: unknown
   }
   if (!raw.counters || typeof raw.counters !== 'object' || Array.isArray(raw.counters)) {
@@ -512,10 +629,18 @@ function normalizeGroupPauseEntry(value: unknown, now: number): GroupPauseEntry 
 
   const entry = value as Record<string, unknown>
   const normalized: GroupPauseEntry = {}
-  if (typeof entry.waitingUntil === 'number' && Number.isFinite(entry.waitingUntil) && entry.waitingUntil > 0) {
+  if (
+    typeof entry.waitingUntil === 'number' &&
+    Number.isFinite(entry.waitingUntil) &&
+    entry.waitingUntil > 0
+  ) {
     normalized.waitingUntil = Math.floor(entry.waitingUntil)
   }
-  if (typeof entry.pausedUntil === 'number' && Number.isFinite(entry.pausedUntil) && entry.pausedUntil > now) {
+  if (
+    typeof entry.pausedUntil === 'number' &&
+    Number.isFinite(entry.pausedUntil) &&
+    entry.pausedUntil > now
+  ) {
     normalized.pausedUntil = Math.floor(entry.pausedUntil)
   }
 
@@ -525,7 +650,11 @@ function normalizeGroupPauseEntry(value: unknown, now: number): GroupPauseEntry 
 /**
  * unknown の値から一時停止状態辞書を生成する。
  */
-export function normalizeGroupPauseState(value: unknown, validGroupIds?: Iterable<string>, now = Date.now()): GroupPauseState {
+export function normalizeGroupPauseState(
+  value: unknown,
+  validGroupIds?: Iterable<string>,
+  now = Date.now(),
+): GroupPauseState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { groupPauseState: {} }
 
   const validIds = validGroupIds ? new Set(validGroupIds) : undefined
@@ -542,8 +671,11 @@ export function normalizeGroupPauseState(value: unknown, validGroupIds?: Iterabl
  * browser.storage.local からグループ一時停止状態を読み込む。
  * 不正値、期限切れ値、指定された group id に存在しない値は除外する。
  */
-export async function loadGroupPauseState(validGroupIds?: Iterable<string>, now = Date.now()): Promise<GroupPauseState> {
-  const raw = await browser.storage.local.get(['groupPauseState']) as {
+export async function loadGroupPauseState(
+  validGroupIds?: Iterable<string>,
+  now = Date.now(),
+): Promise<GroupPauseState> {
+  const raw = (await browser.storage.local.get(['groupPauseState'])) as {
     groupPauseState?: unknown
   }
   return normalizeGroupPauseState(raw.groupPauseState, validGroupIds, now)
@@ -562,8 +694,11 @@ export async function saveGroupPauseState(state: GroupPauseState): Promise<void>
  * browser.storage.local から待機ゲートのアクセス許可状態を読み込む。
  * 不正値、期限切れ値、指定された group id に存在しない値は除外する。
  */
-export async function loadDelayGrantState(validGroupIds?: Iterable<string>, now = Date.now()): Promise<DelayGrantState> {
-  const raw = await browser.storage.local.get(['delayGrantState']) as {
+export async function loadDelayGrantState(
+  validGroupIds?: Iterable<string>,
+  now = Date.now(),
+): Promise<DelayGrantState> {
+  const raw = (await browser.storage.local.get(['delayGrantState'])) as {
     delayGrantState?: unknown
   }
   return normalizeDelayGrantState(raw.delayGrantState, validGroupIds, now)
@@ -583,7 +718,7 @@ export async function saveDelayGrantState(state: DelayGrantState): Promise<void>
  * 不正な保存値は空の履歴にフォールバックする。
  */
 export async function loadUsageNotificationHistory(): Promise<UsageNotificationHistoryState> {
-  const raw = await browser.storage.local.get(['usageNotificationHistory']) as {
+  const raw = (await browser.storage.local.get(['usageNotificationHistory'])) as {
     usageNotificationHistory?: unknown
   }
   return { usageNotificationHistory: normalizeNotificationHistory(raw.usageNotificationHistory) }
@@ -608,7 +743,9 @@ function normalizeNotificationHistory(value: unknown): Record<string, UsageNotif
 /**
  * browser.storage.local に残り時間通知履歴を書き込む。
  */
-export async function saveUsageNotificationHistory(state: UsageNotificationHistoryState): Promise<void> {
+export async function saveUsageNotificationHistory(
+  state: UsageNotificationHistoryState,
+): Promise<void> {
   await browser.storage.local.set({
     usageNotificationHistory: state.usageNotificationHistory,
   })

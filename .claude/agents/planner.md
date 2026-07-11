@@ -23,4 +23,4 @@ tools: Read, Grep, Glob, Bash, WebFetch
 - ファイルの新規作成・編集はしない（Read/Grep/Glob/Bash による調査のみ）
 - 推測で断定せず、コードを読んで裏を取る
 - 計画は implementer（Opus/Sonnet）がそのまま実行できる粒度にする
-　Ut
+  　Ut

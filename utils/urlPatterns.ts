@@ -20,15 +20,16 @@ function normalizeHostname(hostname: string): string {
 export function isDomainPattern(pattern: string): boolean {
   const normalized = normalizePattern(pattern)
   if (normalized.length === 0) return false
-  if (normalized.includes('://') || normalized.includes('/') || normalized.includes(':')) return false
+  if (normalized.includes('://') || normalized.includes('/') || normalized.includes(':'))
+    return false
   if (normalized.includes('*') || normalized.includes('\\')) return false
 
   const labels = normalized.split('.')
-  if (labels.length < 2 || labels.some(label => label.length === 0)) return false
+  if (labels.length < 2 || labels.some((label) => label.length === 0)) return false
   const topLevelDomain = labels.at(-1)
   if (!topLevelDomain || topLevelDomain.length < 2) return false
 
-  return labels.every(label => DOMAIN_LABEL_RE.test(label))
+  return labels.every((label) => DOMAIN_LABEL_RE.test(label))
 }
 
 /**
@@ -38,8 +39,7 @@ function domainPatternMatches(pattern: string, url: string): boolean {
   let hostname: string
   try {
     hostname = new URL(url).hostname
-  }
-  catch {
+  } catch {
     return false
   }
 
@@ -56,8 +56,7 @@ export function isValidRegex(pattern: string): boolean {
   try {
     new RegExp(pattern)
     return true
-  }
-  catch {
+  } catch {
     return false
   }
 }
@@ -79,8 +78,7 @@ export function urlPatternMatches(pattern: string, url: string): boolean {
 
   try {
     return new RegExp(pattern).test(url)
-  }
-  catch {
+  } catch {
     return false
   }
 }

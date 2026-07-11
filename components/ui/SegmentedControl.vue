@@ -56,11 +56,13 @@ function selectValue(value: string): void {
       :aria-pressed="option.value === modelValue"
       :disabled="!editable"
       class="inline-flex h-8 items-center justify-center gap-1 rounded-sm px-3 text-label-md transition focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-default disabled:opacity-100"
-      :class="editable
-        ? option.value === modelValue
-          ? 'bg-surface text-foreground shadow-sm'
-          : 'text-secondary-foreground hover:bg-secondary-hover'
-        : 'rounded-sm border border-border bg-surface text-secondary-foreground'"
+      :class="
+        editable
+          ? option.value === modelValue
+            ? 'bg-surface text-foreground shadow-sm'
+            : 'text-secondary-foreground hover:bg-secondary-hover'
+          : 'rounded-sm border border-border bg-surface text-secondary-foreground'
+      "
       @click="selectValue(option.value)"
     >
       {{ option.label }}

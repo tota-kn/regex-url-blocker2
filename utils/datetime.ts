@@ -29,7 +29,7 @@ export const DAYS: DayOption[] = [
  * 曜日番号の短縮ラベルを返す。
  */
 export function dayLabel(dayOfWeek: DayOfWeek): string {
-  return DAYS.find(day => day.value === dayOfWeek)?.label ?? String(dayOfWeek)
+  return DAYS.find((day) => day.value === dayOfWeek)?.label ?? String(dayOfWeek)
 }
 
 /**
@@ -115,7 +115,7 @@ export function parseDaysOfMonthText(text: string): number[] | undefined {
     if (!days.includes(day)) days.push(day)
   }
 
-  return days.sort((a, b) => a - b)
+  return days.toSorted((a, b) => a - b)
 }
 
 /**

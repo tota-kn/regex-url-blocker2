@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { formatPauseDuration, getGroupPauseButtonState, getGroupPauseDisplayState } from '../utils/groupPause'
+import {
+  formatPauseDuration,
+  getGroupPauseButtonState,
+  getGroupPauseDisplayState,
+} from '../utils/groupPause'
 
 describe('group pause button state', () => {
   const now = new Date('2026-05-06T12:00:00+09:00')

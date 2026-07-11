@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import {
-  buildRemainingTimeNotificationPlans,
-} from '../utils/notifications'
+import { buildRemainingTimeNotificationPlans } from '../utils/notifications'
 import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from '../utils/types'
 import { dailyRestriction } from './helpers'
 
@@ -49,10 +47,12 @@ function settings(groups: Group[], overrides: Partial<Settings['global']> = {}):
  */
 function counters(consumedSecByGroupId: Record<string, number>): UsageCountersState {
   return {
-    counters: Object.fromEntries(Object.entries(consumedSecByGroupId).map(([groupId, consumedSec]) => [
-      groupId,
-      { logicalDate: LOGICAL_DATE, consumedSec },
-    ])),
+    counters: Object.fromEntries(
+      Object.entries(consumedSecByGroupId).map(([groupId, consumedSec]) => [
+        groupId,
+        { logicalDate: LOGICAL_DATE, consumedSec },
+      ]),
+    ),
   }
 }
 
@@ -68,11 +68,13 @@ describe('remaining time notification plans', () => {
       NOW,
     )
 
-    expect(plans).toEqual([{
-      notificationId: `usage-time-limit-group-a-${LOGICAL_DATE}`,
-      message: 'Group A: 3 minutes remaining today.',
-      historyEntries: [{ groupId: 'group-a', logicalDate: LOGICAL_DATE }],
-    }])
+    expect(plans).toEqual([
+      {
+        notificationId: `usage-time-limit-group-a-${LOGICAL_DATE}`,
+        message: 'Group A: 3 minutes remaining today.',
+        historyEntries: [{ groupId: 'group-a', logicalDate: LOGICAL_DATE }],
+      },
+    ])
   })
 
   it('同じ論理日に通知済みなら通知計画を作らない', () => {
@@ -81,24 +83,28 @@ describe('remaining time notification plans', () => {
       'group-a': { logicalDate: LOGICAL_DATE },
     }
 
-    expect(buildRemainingTimeNotificationPlans(
-      s,
-      counters({ 'group-a': 57 * 60 }),
-      history,
-      'https://example.com/',
-      NOW,
-    )).toEqual([])
+    expect(
+      buildRemainingTimeNotificationPlans(
+        s,
+        counters({ 'group-a': 57 * 60 }),
+        history,
+        'https://example.com/',
+        NOW,
+      ),
+    ).toEqual([])
   })
 
   it('残り時間通知が無効なら通知計画を作らない', () => {
     const s = settings([group()], { remainingTimeNotificationsEnabled: false })
 
-    expect(buildRemainingTimeNotificationPlans(
-      s,
-      counters({ 'group-a': 57 * 60 }),
-      {},
-      'https://example.com/',
-      NOW,
-    )).toEqual([])
+    expect(
+      buildRemainingTimeNotificationPlans(
+        s,
+        counters({ 'group-a': 57 * 60 }),
+        {},
+        'https://example.com/',
+        NOW,
+      ),
+    ).toEqual([])
   })
 })

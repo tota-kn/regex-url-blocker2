@@ -11,7 +11,9 @@ defineProps<Props>()
 </script>
 
 <template>
-  <span class="mb-1.5 flex items-center gap-1.5 text-label-md font-semibold text-secondary-foreground">
+  <span
+    class="mb-1.5 flex items-center gap-1.5 text-label-md font-semibold text-secondary-foreground"
+  >
     <slot name="icon" />
     {{ label }}
   </span>

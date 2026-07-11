@@ -19,7 +19,9 @@ describe('normalizeDelayGrantState', () => {
       unknown: { grantedUntil: now + 60_000 },
     }
 
-    expect(normalizeDelayGrantState(value, ['active', 'expired', 'badType', 'badEntry'], now)).toEqual({
+    expect(
+      normalizeDelayGrantState(value, ['active', 'expired', 'badType', 'badEntry'], now),
+    ).toEqual({
       delayGrantState: {
         active: { grantedUntil: now + 60_000 },
       },
@@ -28,7 +30,9 @@ describe('normalizeDelayGrantState', () => {
 
   it('validGroupIds 未指定なら group id を絞り込まない', () => {
     const now = 1_000_000
-    expect(normalizeDelayGrantState({ any: { grantedUntil: now + 60_000 } }, undefined, now)).toEqual({
+    expect(
+      normalizeDelayGrantState({ any: { grantedUntil: now + 60_000 } }, undefined, now),
+    ).toEqual({
       delayGrantState: { any: { grantedUntil: now + 60_000 } },
     })
   })

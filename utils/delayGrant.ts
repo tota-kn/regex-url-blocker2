@@ -14,7 +14,11 @@ function normalizeDelayGrantEntry(value: unknown, now: number): DelayGrantEntry 
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
 
   const entry = value as Record<string, unknown>
-  if (typeof entry.grantedUntil !== 'number' || !Number.isFinite(entry.grantedUntil) || entry.grantedUntil <= now) {
+  if (
+    typeof entry.grantedUntil !== 'number' ||
+    !Number.isFinite(entry.grantedUntil) ||
+    entry.grantedUntil <= now
+  ) {
     return undefined
   }
   return { grantedUntil: Math.floor(entry.grantedUntil) }
@@ -24,7 +28,11 @@ function normalizeDelayGrantEntry(value: unknown, now: number): DelayGrantEntry 
  * unknown の値から待機ゲート許可状態辞書を生成する。
  * 不正値・期限切れ値・指定された group id に存在しない値は除外する。
  */
-export function normalizeDelayGrantState(value: unknown, validGroupIds?: Iterable<string>, now = Date.now()): DelayGrantState {
+export function normalizeDelayGrantState(
+  value: unknown,
+  validGroupIds?: Iterable<string>,
+  now = Date.now(),
+): DelayGrantState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { delayGrantState: {} }
 
   const validIds = validGroupIds ? new Set(validGroupIds) : undefined

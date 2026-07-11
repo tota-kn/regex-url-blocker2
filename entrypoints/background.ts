@@ -13,9 +13,29 @@ import {
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
-import { buildRemainingTimeNotificationPlans, markNotificationPlanHistory } from '@/utils/notifications'
-import { loadCounters, loadDelayGrantState, loadEffectiveSettingsState, loadGroupPauseState, loadSettings, loadUsageNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, saveUsageNotificationHistory } from '@/utils/storage'
-import type { DelayGrantState, GroupPauseState, Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
+import {
+  buildRemainingTimeNotificationPlans,
+  markNotificationPlanHistory,
+} from '@/utils/notifications'
+import {
+  loadCounters,
+  loadDelayGrantState,
+  loadEffectiveSettingsState,
+  loadGroupPauseState,
+  loadSettings,
+  loadUsageNotificationHistory,
+  saveCounters,
+  saveEffectiveSettingsState,
+  saveGroupPauseState,
+  saveUsageNotificationHistory,
+} from '@/utils/storage'
+import type {
+  DelayGrantState,
+  GroupPauseState,
+  Settings,
+  UsageCountersState,
+  UsageNotificationHistoryState,
+} from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -45,21 +65,24 @@ interface ActionTargetTab {
 
 interface ChromeActionPromiseApi {
   /** action badge に表示する文字列を設定する。 */
-  setBadgeText: (details: { tabId: number, text: string }) => Promise<void>
+  setBadgeText: (details: { tabId: number; text: string }) => Promise<void>
   /** action tooltip の title を設定する。 */
-  setTitle: (details: { tabId: number, title: string }) => Promise<void>
+  setTitle: (details: { tabId: number; title: string }) => Promise<void>
   /** action badge の背景色を設定する。 */
-  setBadgeBackgroundColor: (details: { tabId: number, color: string }) => Promise<void>
+  setBadgeBackgroundColor: (details: { tabId: number; color: string }) => Promise<void>
 }
 
 interface ChromeNotificationsPromiseApi {
   /** Chrome notification を作成する。 */
-  create: (notificationId: string, options: {
-    type: 'basic'
-    iconUrl: string
-    title: string
-    message: string
-  }) => Promise<string>
+  create: (
+    notificationId: string,
+    options: {
+      type: 'basic'
+      iconUrl: string
+      title: string
+      message: string
+    },
+  ) => Promise<string>
 }
 
 interface ChromePromiseApi {
@@ -76,11 +99,15 @@ async function initializeState(): Promise<void> {
   const now = new Date()
   const preferredSettings = await loadSettings()
   const storedEffectiveState = await loadEffectiveSettingsState(preferredSettings, now)
-  const nextEffectiveState = reconcileEffectiveSettings(preferredSettings, storedEffectiveState, now)
+  const nextEffectiveState = reconcileEffectiveSettings(
+    preferredSettings,
+    storedEffectiveState,
+    now,
+  )
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, await loadCounters(), now)
-  const validGroupIds = settings.groups.map(group => group.id)
+  const validGroupIds = settings.groups.map((group) => group.id)
   const [pauseState, grantState, usageHistory] = await Promise.all([
     loadGroupPauseState(validGroupIds, now.getTime()),
     loadDelayGrantState(validGroupIds, now.getTime()),
@@ -125,7 +152,10 @@ async function flushCounters(): Promise<void> {
 /**
  * メモリ上と永続化済みの counter を、同一論理日では大きい消費秒数を優先して統合する。
  */
-function mergeCounters(current: UsageCountersState, stored: UsageCountersState): UsageCountersState {
+function mergeCounters(
+  current: UsageCountersState,
+  stored: UsageCountersState,
+): UsageCountersState {
   const merged: UsageCountersState = { counters: { ...stored.counters } }
   for (const [groupId, counter] of Object.entries(current.counters)) {
     const storedCounter = merged.counters[groupId]
@@ -148,13 +178,23 @@ async function reloadSettings(): Promise<void> {
   const now = new Date()
   const preferredSettings = await loadSettings()
   const storedEffectiveState = await loadEffectiveSettingsState(preferredSettings, now)
-  const nextEffectiveState = reconcileEffectiveSettings(preferredSettings, storedEffectiveState, now)
+  const nextEffectiveState = reconcileEffectiveSettings(
+    preferredSettings,
+    storedEffectiveState,
+    now,
+  )
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
-  groupPauseState = await loadGroupPauseState(settings.groups.map(group => group.id), now.getTime())
+  groupPauseState = await loadGroupPauseState(
+    settings.groups.map((group) => group.id),
+    now.getTime(),
+  )
   await saveGroupPauseState(groupPauseState)
-  delayGrantState = await loadDelayGrantState(settings.groups.map(group => group.id), now.getTime())
+  delayGrantState = await loadDelayGrantState(
+    settings.groups.map((group) => group.id),
+    now.getTime(),
+  )
   dirtyCounters = true
 }
 
@@ -174,7 +214,7 @@ async function reloadCounters(): Promise<void> {
  */
 async function reloadGroupPauseState(): Promise<void> {
   const s = await currentSettings()
-  groupPauseState = await loadGroupPauseState(s.groups.map(group => group.id))
+  groupPauseState = await loadGroupPauseState(s.groups.map((group) => group.id))
 }
 
 /**
@@ -182,7 +222,7 @@ async function reloadGroupPauseState(): Promise<void> {
  */
 async function reloadDelayGrantState(): Promise<void> {
   const s = await currentSettings()
-  delayGrantState = await loadDelayGrantState(s.groups.map(group => group.id))
+  delayGrantState = await loadDelayGrantState(s.groups.map((group) => group.id))
 }
 
 /**
@@ -195,8 +235,18 @@ async function mergeStoredCounters(s: Settings, now: Date): Promise<void> {
 /**
  * 現在の active tab に対して、閾値以下になった閲覧上限付きグループを1日1回だけ通知する。
  */
-async function notifyRemainingTimeIfNeeded(s: Settings, tab: ActionTargetTab, now: Date): Promise<void> {
-  const plans = buildRemainingTimeNotificationPlans(s, counters, usageNotificationHistory.usageNotificationHistory, tab.url, now)
+async function notifyRemainingTimeIfNeeded(
+  s: Settings,
+  tab: ActionTargetTab,
+  now: Date,
+): Promise<void> {
+  const plans = buildRemainingTimeNotificationPlans(
+    s,
+    counters,
+    usageNotificationHistory.usageNotificationHistory,
+    tab.url,
+    now,
+  )
   if (plans.length === 0) return
   const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
 
@@ -229,9 +279,14 @@ function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
  * `type === 'redirect'` の制限が現在アクティブなら、その制限が指定する URL へ遷移する。
  * それ以外は旧来のグループ単位 `blockAction` に従い、ブロックページか redirect 先を返す。
  */
-function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvaluation, now: Date): string {
+function buildBlockDestinationUrl(
+  url: string,
+  s: Settings,
+  evaluation: UrlEvaluation,
+  now: Date,
+): string {
   const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  const firstBlockedGroup = s.groups.find(group => blockedGroupIds.has(group.id))
+  const firstBlockedGroup = s.groups.find((group) => blockedGroupIds.has(group.id))
   if (!firstBlockedGroup) {
     return buildBlockedPageUrl(url, evaluation)
   }
@@ -244,7 +299,13 @@ function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvalu
 /**
  * redirect 直前の安全確認を行ったうえでタブをブロック先へ遷移する。
  */
-async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
+async function redirectTab(
+  tabId: number,
+  url: string | undefined,
+  s: Settings,
+  evaluation: UrlEvaluation,
+  now = new Date(),
+): Promise<void> {
   if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
   const destinationUrl = buildBlockDestinationUrl(url, s, evaluation, now)
   await browser.tabs.update(tabId, { url: destinationUrl })
@@ -265,16 +326,25 @@ function buildWaitPageUrl(url: string, groupId: string, seconds: number): string
  * 待機ゲート対象タブを待機ページへ遷移する。
  * 遷移直後の再リダイレクトループを避けるため、判定直前に最新の許可状態を読み込む。
  */
-async function redirectToWaitIfNeeded(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
+async function redirectToWaitIfNeeded(
+  tabId: number,
+  url: string | undefined,
+  s: Settings,
+  evaluation: UrlEvaluation,
+  now = new Date(),
+): Promise<void> {
   if (evaluation.delayedGroupIds.length === 0) return
   if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
 
-  delayGrantState = await loadDelayGrantState(s.groups.map(group => group.id), now.getTime())
+  delayGrantState = await loadDelayGrantState(
+    s.groups.map((group) => group.id),
+    now.getTime(),
+  )
   const delayed = applyDelayGrantState(evaluation, delayGrantState, now.getTime())
   const groupId = delayed.delayedGroupIds[0]
   if (!groupId) return
 
-  const group = s.groups.find(item => item.id === groupId)
+  const group = s.groups.find((item) => item.id === groupId)
   if (!group) return
   const seconds = getEffectiveWaitSeconds(group, now, s.global)
   if (seconds === undefined) return
@@ -286,7 +356,13 @@ async function redirectToWaitIfNeeded(tabId: number, url: string | undefined, s:
  * URL 評価結果に応じてタブをブロック先または待機ページへ遷移する。
  * ハードブロックが待機ゲートより優先される。
  */
-async function enforceEvaluation(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
+async function enforceEvaluation(
+  tabId: number,
+  url: string | undefined,
+  s: Settings,
+  evaluation: UrlEvaluation,
+  now = new Date(),
+): Promise<void> {
   if (evaluation.blocked) {
     await redirectTab(tabId, url, s, evaluation, now)
     return
@@ -306,7 +382,11 @@ function badgeColor(remainingSec: number): string {
 /**
  * タブに表示すべき action badge/title 状態を作る。
  */
-function buildActionState(s: Settings, tab: ActionTargetTab, now: Date): { text: string, title: string, color: string } {
+function buildActionState(
+  s: Settings,
+  tab: ActionTargetTab,
+  now: Date,
+): { text: string; title: string; color: string } {
   const minimum = getMinimumRemainingTimeLimit(s, counters, tab.url, now)
   if (!minimum) {
     return { text: '', title: ACTION_TITLE, color: BADGE_COLOR_NORMAL }
@@ -343,7 +423,11 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
   if (typeof tab.id !== 'number') return
   const s = await currentSettings()
   await updateActionForTab(tab, now)
-  const evaluation = applyGroupPauseState(evaluateUrl(s, counters, tab.url, now), groupPauseState, now.getTime())
+  const evaluation = applyGroupPauseState(
+    evaluateUrl(s, counters, tab.url, now),
+    groupPauseState,
+    now.getTime(),
+  )
   await enforceEvaluation(tab.id, tab.url, s, evaluation, now)
 }
 
@@ -352,7 +436,7 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
  */
 async function reevaluateAllTabs(): Promise<void> {
   const tabs = await browser.tabs.query({})
-  await Promise.all(tabs.map(tab => reevaluateTab(tab)))
+  await Promise.all(tabs.map((tab) => reevaluateTab(tab)))
 }
 
 /**
@@ -390,12 +474,20 @@ async function tick(): Promise<void> {
 /**
  * webNavigation イベントの URL を先回り評価してリダイレクトする。
  */
-async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsType | WebNavigation.OnHistoryStateUpdatedDetailsType): Promise<void> {
+async function handleNavigation(
+  details:
+    | WebNavigation.OnBeforeNavigateDetailsType
+    | WebNavigation.OnHistoryStateUpdatedDetailsType,
+): Promise<void> {
   if (details.frameId !== 0) return
   const s = await currentSettings()
   const now = new Date()
   await mergeStoredCounters(s, now)
-  const evaluation = applyGroupPauseState(evaluateUrl(s, counters, details.url, now), groupPauseState, now.getTime())
+  const evaluation = applyGroupPauseState(
+    evaluateUrl(s, counters, details.url, now),
+    groupPauseState,
+    now.getTime(),
+  )
   await updateActionForTab({ id: details.tabId, url: details.url }, now)
   await enforceEvaluation(details.tabId, details.url, s, evaluation, now)
 }
@@ -423,8 +515,7 @@ export default defineBackground(() => {
       reloadPromise = reloadSettings()
       try {
         await reloadPromise
-      }
-      finally {
+      } finally {
         reloadPromise = undefined
       }
       await reevaluateAllTabs()
@@ -457,7 +548,11 @@ export default defineBackground(() => {
       const s = await currentSettings()
       const now = new Date()
       await updateActionForTab({ ...tab, id: tabId, url }, now)
-      const evaluation = applyGroupPauseState(evaluateUrl(s, counters, url, now), groupPauseState, now.getTime())
+      const evaluation = applyGroupPauseState(
+        evaluateUrl(s, counters, url, now),
+        groupPauseState,
+        now.getTime(),
+      )
       await enforceEvaluation(tabId, url, s, evaluation, now)
     })
   })
@@ -483,8 +578,7 @@ export default defineBackground(() => {
       reloadPromise = reloadSettings()
       try {
         await reloadPromise
-      }
-      finally {
+      } finally {
         reloadPromise = undefined
       }
       await reevaluateAllTabs()

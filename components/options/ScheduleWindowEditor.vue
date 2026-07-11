@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import { formatMonthDay, minutesToTime, parseDaysOfMonthText, parseMonthDayText, parseTimeRangeText } from '@/utils/datetime'
+import {
+  formatMonthDay,
+  minutesToTime,
+  parseDaysOfMonthText,
+  parseMonthDayText,
+  parseTimeRangeText,
+} from '@/utils/datetime'
 import type { DayOfWeek, ScheduleRuleCondition, TimeRange } from '@/utils/types'
 import DayOfWeekCheckboxes from './DayOfWeekCheckboxes.vue'
 
@@ -50,7 +56,7 @@ interface WindowTexts {
 function createTexts(): WindowTexts {
   return {
     timeRanges: props.timeRanges
-      .map(range => `${minutesToTime(range.startMinute)}-${minutesToTime(range.endMinute)}`)
+      .map((range) => `${minutesToTime(range.startMinute)}-${minutesToTime(range.endMinute)}`)
       .join(', '),
     daysOfMonth: props.condition.type === 'monthly' ? props.condition.daysOfMonth.join(', ') : '',
     periodStart: props.condition.type === 'period' ? formatMonthDay(props.condition.start) : '',
@@ -60,9 +66,13 @@ function createTexts(): WindowTexts {
 
 const texts = ref<WindowTexts>(createTexts())
 
-watch(() => [props.condition, props.timeRanges], () => {
-  texts.value = createTexts()
-}, { deep: true })
+watch(
+  () => [props.condition, props.timeRanges],
+  () => {
+    texts.value = createTexts()
+  },
+  { deep: true },
+)
 
 /** weekly 条件の曜日配列を返す。 */
 function weeklyDays(): DayOfWeek[] {
@@ -71,7 +81,8 @@ function weeklyDays(): DayOfWeek[] {
 
 /** weekly 条件の曜日配列を更新する。 */
 function setWeeklyDays(days: DayOfWeek[]): void {
-  if (props.condition.type === 'weekly') emit('update:condition', { type: 'weekly', daysOfWeek: days })
+  if (props.condition.type === 'weekly')
+    emit('update:condition', { type: 'weekly', daysOfWeek: days })
 }
 
 /** 毎月の日付テキストを更新し、解析できたら条件へ反映する。 */
@@ -124,18 +135,12 @@ function isTimeRangeTextInvalid(): boolean {
 
 <template>
   <section class="min-w-0 space-y-3">
-    <div
-      v-if="isEditing"
-      class="space-y-2 rounded-lg border border-border bg-surface-muted p-3"
-    >
+    <div v-if="isEditing" class="space-y-2 rounded-lg border border-border bg-surface-muted p-3">
       <div
         v-if="condition.type === 'monthly' || condition.type === 'period'"
         class="flex min-w-0 flex-wrap items-center gap-2"
       >
-        <label
-          v-if="condition.type === 'monthly'"
-          class="flex min-w-0 items-center gap-1.5"
-        >
+        <label v-if="condition.type === 'monthly'" class="flex min-w-0 items-center gap-1.5">
           <span class="sr-only">Time window days of month</span>
           <BaseInput
             type="text"
@@ -148,7 +153,9 @@ function isTimeRangeTextInvalid(): boolean {
             :invalid="isDaysOfMonthTextInvalid()"
             @update:model-value="setDaysOfMonthText"
           />
-          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">of every month</span>
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
+            >of every month</span
+          >
         </label>
 
         <template v-if="condition.type === 'period'">
@@ -166,10 +173,7 @@ function isTimeRangeTextInvalid(): boolean {
               @update:model-value="setPeriodText('start', $event)"
             />
           </label>
-          <span
-            aria-hidden="true"
-            class="shrink-0 text-label-sm text-muted-foreground"
-          >-</span>
+          <span aria-hidden="true" class="shrink-0 text-label-sm text-muted-foreground">-</span>
           <label class="min-w-0">
             <span class="sr-only">Time window period end</span>
             <BaseInput
@@ -184,7 +188,9 @@ function isTimeRangeTextInvalid(): boolean {
               @update:model-value="setPeriodText('end', $event)"
             />
           </label>
-          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">every year</span>
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
+            >every year</span
+          >
         </template>
       </div>
 
@@ -196,7 +202,9 @@ function isTimeRangeTextInvalid(): boolean {
       />
 
       <label class="flex min-w-0 flex-1 items-center gap-1.5">
-        <span class="w-36 shrink-0 whitespace-nowrap text-label-md text-secondary-foreground">Active during</span>
+        <span class="w-36 shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
+          >Active during</span
+        >
         <BaseInput
           type="text"
           aria-label="Active time ranges"

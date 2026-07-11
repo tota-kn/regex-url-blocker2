@@ -1,5 +1,17 @@
 <script setup lang="ts">
-import { CheckCircleIcon, CheckIcon, ChevronDownIcon, ClockIcon, EllipsisVerticalIcon, LockClosedIcon, NoSymbolIcon, PauseIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import {
+  CheckCircleIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  EllipsisVerticalIcon,
+  LockClosedIcon,
+  NoSymbolIcon,
+  PauseIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  XMarkIcon,
+} from '@heroicons/vue/24/outline'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -65,15 +77,19 @@ const actionMenuRoot = ref<HTMLElement | null>(null)
 const draftErrors = computed(() => validateGroup(draft.value))
 const draftTimeWindows = computed({
   get: () => draft.value.timeWindows ?? [],
-  set: (timeWindows) => { draft.value.timeWindows = timeWindows },
+  set: (timeWindows) => {
+    draft.value.timeWindows = timeWindows
+  },
 })
 const draftRestrictions = computed({
   get: () => draft.value.restrictions ?? [],
-  set: (restrictions) => { draft.value.restrictions = restrictions },
+  set: (restrictions) => {
+    draft.value.restrictions = restrictions
+  },
 })
 const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
-  const summaries: Array<{ label: string, value: string }> = []
+  const summaries: Array<{ label: string; value: string }> = []
   if (props.group.disabled) {
     summaries.push({ label: 'Group status', value: 'Disabled' })
   }
@@ -82,14 +98,18 @@ const visibleOptionSummaries = computed(() => {
   }
   return summaries
 })
-const pauseButtonState = computed(() => getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()))
+const pauseButtonState = computed(() =>
+  getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()),
+)
 const pauseButtonLabel = computed(() => pauseButtonState.value.label)
-const effectivePauseDisabledReason = computed(() => props.pauseDisabledReason ?? (props.group.disabled ? 'Enable group to pause.' : undefined))
+const effectivePauseDisabledReason = computed(
+  () => props.pauseDisabledReason ?? (props.group.disabled ? 'Enable group to pause.' : undefined),
+)
 const canRequestPause = computed(() => {
   if (effectivePauseDisabledReason.value) return false
   return !pauseButtonState.value.paused
 })
-const disabledToggleLabel = computed(() => props.group.disabled ? 'Enable' : 'Disable')
+const disabledToggleLabel = computed(() => (props.group.disabled ? 'Enable' : 'Disable'))
 const showsPauseMenuItem = computed(() => !props.isNew && !pauseButtonState.value.paused)
 const showsDisabledToggleMenuItem = computed(() => !props.isNew && !props.readOnly)
 const showsDeleteMenuItem = computed(() => !props.readOnly)
@@ -98,10 +118,14 @@ const showsActionMenu = computed(() => {
   return showsPauseMenuItem.value || showsDisabledToggleMenuItem.value || showsDeleteMenuItem.value
 })
 
-watch(() => props.group, (group) => {
-  if (isEditing.value) return
-  draft.value = cloneGroup(group)
-}, { deep: true })
+watch(
+  () => props.group,
+  (group) => {
+    if (isEditing.value) return
+    draft.value = cloneGroup(group)
+  },
+  { deep: true },
+)
 
 watch(showsActionMenu, (visible) => {
   if (visible) return
@@ -110,7 +134,7 @@ watch(showsActionMenu, (visible) => {
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {
-  return draftErrors.value.find(e => e.field === field)?.message
+  return draftErrors.value.find((e) => e.field === field)?.message
 }
 
 /** 指定パターン番号のドラフト検証エラーメッセージを返す。 */
@@ -121,13 +145,15 @@ function patternError(index: number): string | undefined {
 /** 指定 restriction rule フィールドのドラフト検証エラーメッセージを返す。 */
 function restrictionError(index: number, field: string): string | undefined {
   const prefix = `restrictions[${index}].${field}`
-  return draftErrors.value.find(e => e.field === prefix || e.field.startsWith(`${prefix}.`))?.message
+  return draftErrors.value.find((e) => e.field === prefix || e.field.startsWith(`${prefix}.`))
+    ?.message
 }
 
 /** 指定 time window フィールドのドラフト検証エラーを返す。 */
 function timeWindowError(index: number, field: string): string | undefined {
   const prefix = `timeWindows[${index}].${field}`
-  return draftErrors.value.find(e => e.field === prefix || e.field.startsWith(`${prefix}.`))?.message
+  return draftErrors.value.find((e) => e.field === prefix || e.field.startsWith(`${prefix}.`))
+    ?.message
 }
 
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
@@ -239,10 +265,7 @@ onBeforeUnmount(() => {
     class="min-w-0 overflow-hidden rounded-lg border bg-background shadow-sm"
     :class="isNew ? 'border-primary/40' : 'border-border'"
   >
-    <div
-      v-if="isNew"
-      class="border-b border-primary/20 bg-accent px-4 py-2"
-    >
+    <div v-if="isNew" class="border-b border-primary/20 bg-accent px-4 py-2">
       <span class="inline-flex rounded-sm bg-surface px-1.5 py-1 text-label-sm text-primary">
         New group
       </span>
@@ -270,10 +293,7 @@ onBeforeUnmount(() => {
               class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-label-md text-muted"
               role="status"
             >
-              <NoSymbolIcon
-                aria-hidden="true"
-                class="size-4"
-              />
+              <NoSymbolIcon aria-hidden="true" class="size-4" />
               Disabled
             </span>
             <span
@@ -282,10 +302,7 @@ onBeforeUnmount(() => {
               role="status"
               aria-live="polite"
             >
-              <ClockIcon
-                aria-hidden="true"
-                class="size-4"
-              />
+              <ClockIcon aria-hidden="true" class="size-4" />
               {{ pauseButtonState.label }}
             </span>
             <BaseButton
@@ -295,10 +312,7 @@ onBeforeUnmount(() => {
               variant="ghost"
               @click="startEditing"
             >
-              <PencilSquareIcon
-                aria-hidden="true"
-                class="size-4"
-              />
+              <PencilSquareIcon aria-hidden="true" class="size-4" />
               Edit
             </BaseButton>
             <div
@@ -316,10 +330,7 @@ onBeforeUnmount(() => {
                 size="icon-md"
                 @click="toggleActionMenu"
               >
-                <EllipsisVerticalIcon
-                  aria-hidden="true"
-                  class="size-5"
-                />
+                <EllipsisVerticalIcon aria-hidden="true" class="size-5" />
               </BaseButton>
 
               <div
@@ -333,15 +344,14 @@ onBeforeUnmount(() => {
                     type="button"
                     role="menuitem"
                     :aria-label="pauseButtonLabel"
-                    :aria-describedby="effectivePauseDisabledReason ? pauseDisabledReasonId() : undefined"
+                    :aria-describedby="
+                      effectivePauseDisabledReason ? pauseDisabledReasonId() : undefined
+                    "
                     :disabled="!canRequestPause"
                     class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                     @click="requestPause"
                   >
-                    <PauseIcon
-                      aria-hidden="true"
-                      class="size-4 shrink-0"
-                    />
+                    <PauseIcon aria-hidden="true" class="size-4 shrink-0" />
                     <span>{{ pauseButtonLabel }}</span>
                   </button>
                   <p
@@ -365,11 +375,7 @@ onBeforeUnmount(() => {
                     aria-hidden="true"
                     class="size-4 shrink-0"
                   />
-                  <NoSymbolIcon
-                    v-else
-                    aria-hidden="true"
-                    class="size-4 shrink-0"
-                  />
+                  <NoSymbolIcon v-else aria-hidden="true" class="size-4 shrink-0" />
                   <span>{{ disabledToggleLabel }}</span>
                 </button>
                 <button
@@ -380,10 +386,7 @@ onBeforeUnmount(() => {
                   class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-danger transition hover:bg-danger-subtle focus:bg-danger-subtle focus:outline-none"
                   @click="removeGroup"
                 >
-                  <TrashIcon
-                    aria-hidden="true"
-                    class="size-4 shrink-0"
-                  />
+                  <TrashIcon aria-hidden="true" class="size-4 shrink-0" />
                   <span>Delete</span>
                 </button>
               </div>
@@ -398,26 +401,14 @@ onBeforeUnmount(() => {
           class="w-full"
         />
       </div>
-      <AlertMessage
-        v-if="isEditing && draftError('name')"
-        class="mt-3"
-      >
+      <AlertMessage v-if="isEditing && draftError('name')" class="mt-3">
         {{ draftError('name') }}
       </AlertMessage>
     </div>
 
-    <fieldset
-      :disabled="!isEditing"
-      class="min-w-0 space-y-4 p-4 disabled:cursor-default"
-    >
-      <legend class="sr-only">
-        Group details
-      </legend>
-      <PatternListEditor
-        v-model="draft.patterns"
-        :is-editing="isEditing"
-        :error="patternError"
-      />
+    <fieldset :disabled="!isEditing" class="min-w-0 space-y-4 p-4 disabled:cursor-default">
+      <legend class="sr-only">Group details</legend>
+      <PatternListEditor v-model="draft.patterns" :is-editing="isEditing" :error="patternError" />
 
       <RestrictionRulesEditor
         v-model:time-windows="draftTimeWindows"
@@ -428,18 +419,9 @@ onBeforeUnmount(() => {
       />
     </fieldset>
 
-    <section
-      v-if="isEditing || visibleOptionSummaries.length > 0"
-      class="space-y-3 px-4 pb-4"
-    >
-      <h3
-        v-if="!isEditing"
-        class="flex items-center gap-1.5 text-label-md"
-      >
-        <LockClosedIcon
-          aria-hidden="true"
-          class="size-4 text-muted"
-        />
+    <section v-if="isEditing || visibleOptionSummaries.length > 0" class="space-y-3 px-4 pb-4">
+      <h3 v-if="!isEditing" class="flex items-center gap-1.5 text-label-md">
+        <LockClosedIcon aria-hidden="true" class="size-4 text-muted" />
         Options
       </h3>
 
@@ -461,42 +443,36 @@ onBeforeUnmount(() => {
           </span>
         </button>
 
-        <div
-          v-if="isOptionsOpen"
-          :id="optionsPanelId()"
-          class="divide-y divide-border"
-        >
-          <fieldset
-            aria-label="Lock changes until next rule day"
-            class="py-3"
-          >
+        <div v-if="isOptionsOpen" :id="optionsPanelId()" class="divide-y divide-border">
+          <fieldset aria-label="Lock changes until next rule day" class="py-3">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-                <LockClosedIcon
-                  aria-hidden="true"
-                  class="size-4 shrink-0 text-muted"
-                />
+                <LockClosedIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
                 <span>Lock changes until next rule day</span>
               </div>
               <div class="flex flex-wrap items-center gap-4 sm:justify-end">
-                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                <label
+                  class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
+                >
                   <input
                     v-model="draft.lockMode"
                     type="radio"
                     class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
                     aria-label="Lock changes until next rule day Off"
                     :value="false"
-                  >
+                  />
                   <span>Off</span>
                 </label>
-                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+                <label
+                  class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
+                >
                   <input
                     v-model="draft.lockMode"
                     type="radio"
                     class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
                     aria-label="Lock changes until next rule day On"
                     :value="true"
-                  >
+                  />
                   <span>On</span>
                 </label>
               </div>
@@ -504,14 +480,8 @@ onBeforeUnmount(() => {
           </fieldset>
         </div>
       </template>
-      <dl
-        v-else
-        class="grid gap-3 text-body-sm sm:grid-cols-2"
-      >
-        <div
-          v-for="summary in visibleOptionSummaries"
-          :key="summary.label"
-        >
+      <dl v-else class="grid gap-3 text-body-sm sm:grid-cols-2">
+        <div v-for="summary in visibleOptionSummaries" :key="summary.label">
           <dt class="text-label-sm text-muted">
             {{ summary.label }}
           </dt>
@@ -527,15 +497,8 @@ onBeforeUnmount(() => {
       class="flex items-center justify-end gap-2 border-t border-border bg-background p-4"
     >
       <div class="ml-auto flex items-center gap-2">
-        <BaseButton
-          type="button"
-          aria-label="Cancel group"
-          @click="cancelEditing"
-        >
-          <XMarkIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+        <BaseButton type="button" aria-label="Cancel group" @click="cancelEditing">
+          <XMarkIcon aria-hidden="true" class="size-4" />
           Cancel
         </BaseButton>
         <BaseButton
@@ -545,10 +508,7 @@ onBeforeUnmount(() => {
           variant="primary"
           @click="saveEditing"
         >
-          <CheckIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+          <CheckIcon aria-hidden="true" class="size-4" />
           Save
         </BaseButton>
       </div>

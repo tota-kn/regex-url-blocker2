@@ -15,7 +15,10 @@ interface Props {
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
   timeWindowError?: (index: number, field: 'condition' | 'timeRanges') => string | undefined
-  restrictionError?: (index: number, field: 'graceMinutes' | 'waitSeconds' | 'redirectUrl') => string | undefined
+  restrictionError?: (
+    index: number,
+    field: 'graceMinutes' | 'waitSeconds' | 'redirectUrl',
+  ) => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -75,15 +78,10 @@ function removeRestriction(index: number): void {
 <template>
   <section class="min-w-0 space-y-3">
     <div>
-      <h3 class="text-label-md">
-        Time windows
-      </h3>
+      <h3 class="text-label-md">Time windows</h3>
     </div>
 
-    <ol
-      class="space-y-3"
-      aria-label="Time windows"
-    >
+    <ol class="space-y-3" aria-label="Time windows">
       <li
         v-for="(window, index) in timeWindows"
         :key="index"
@@ -113,10 +111,7 @@ function removeRestriction(index: number): void {
               :aria-label="`Remove time window ${index + 1}`"
               @click="removeTimeWindow(index)"
             >
-              <TrashIcon
-                aria-hidden="true"
-                class="size-4"
-              />
+              <TrashIcon aria-hidden="true" class="size-4" />
             </BaseButton>
           </template>
         </div>
@@ -149,23 +144,14 @@ function removeRestriction(index: number): void {
       aria-label="Add time window"
       @click="addTimeWindow"
     >
-      <PlusIcon
-        aria-hidden="true"
-        class="size-4"
-      />
+      <PlusIcon aria-hidden="true" class="size-4" />
       Time window
     </BaseButton>
 
     <div class="pt-3">
-      <h3 class="text-label-md">
-        Restrictions
-      </h3>
+      <h3 class="text-label-md">Restrictions</h3>
     </div>
-    <ol
-      v-if="restrictions.length > 0"
-      class="space-y-3"
-      aria-label="Restrictions"
-    >
+    <ol v-if="restrictions.length > 0" class="space-y-3" aria-label="Restrictions">
       <li
         v-for="(restriction, index) in restrictions"
         :key="index"
@@ -180,23 +166,21 @@ function removeRestriction(index: number): void {
           :aria-label="`Remove restriction ${index + 1}`"
           @click="removeRestriction(index)"
         >
-          <TrashIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+          <TrashIcon aria-hidden="true" class="size-4" />
         </BaseButton>
         <RestrictionEditor
           v-if="isEditing"
           v-model="restrictions[index]"
           class="pr-10"
           :is-editing="isEditing"
-          :error="field => props.restrictionError(index, field)"
+          :error="(field) => props.restrictionError(index, field)"
         />
         <output
           v-else
           :aria-label="`Restriction ${index + 1}`"
           class="block text-body-md text-input-foreground"
-        >{{ formatStandaloneRestriction(restriction) }}</output>
+          >{{ formatStandaloneRestriction(restriction) }}</output
+        >
       </li>
     </ol>
     <BaseButton
@@ -207,10 +191,7 @@ function removeRestriction(index: number): void {
       aria-label="Add restriction"
       @click="addRestriction"
     >
-      <PlusIcon
-        aria-hidden="true"
-        class="size-4"
-      />
+      <PlusIcon aria-hidden="true" class="size-4" />
       Restriction
     </BaseButton>
   </section>

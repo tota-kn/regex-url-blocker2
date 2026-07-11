@@ -3,43 +3,43 @@ version: alpha
 name: Regex URL Guard
 description: A functional, developer-focused Chrome extension for blocking URLs by regex patterns. Clean and professional UI with high information density.
 colors:
-  primary: "#3b82f6"
-  primary-hover: "#2563eb"
-  primary-foreground: "#ffffff"
-  secondary: "#f3f4f6"
-  secondary-hover: "#e5e7eb"
-  secondary-foreground: "#4b5563"
-  foreground: "#1f2937"
-  background: "#ffffff"
-  surface: "#ffffff"
-  surface-muted: "#f9fafb"
-  surface-subtle: "#f3f4f6"
-  border: "#e5e7eb"
-  border-hover: "#d1d5db"
-  field: "#ffffff"
-  field-hover: "#f9fafb"
-  field-readonly: "transparent"
-  field-disabled: "#f3f4f6"
-  field-border: "#d1d5db"
-  field-border-hover: "#9ca3af"
-  input-foreground: "#1f2937"
-  tag-selected-bg: "#dbeafe"
-  tag-selected-text: "#1e40af"
-  tag-selected-border: "#93c5fd"
-  tag-default-bg: "#f3f4f6"
-  tag-default-text: "#4b5563"
-  tag-default-border: "#e5e7eb"
-  muted: "#9ca3af"
-  muted-foreground: "#6b7280"
-  accent: "#eff6ff"
-  ring: "#93c5fd"
-  danger: "#dc2626"
-  danger-hover: "#b91c1c"
-  danger-foreground: "#ffffff"
-  danger-subtle: "#fef2f2"
-  danger-border: "#fecaca"
-  warning: "#f59e0b"
-  warning-text: "#b45309"
+  primary: '#3b82f6'
+  primary-hover: '#2563eb'
+  primary-foreground: '#ffffff'
+  secondary: '#f3f4f6'
+  secondary-hover: '#e5e7eb'
+  secondary-foreground: '#4b5563'
+  foreground: '#1f2937'
+  background: '#ffffff'
+  surface: '#ffffff'
+  surface-muted: '#f9fafb'
+  surface-subtle: '#f3f4f6'
+  border: '#e5e7eb'
+  border-hover: '#d1d5db'
+  field: '#ffffff'
+  field-hover: '#f9fafb'
+  field-readonly: 'transparent'
+  field-disabled: '#f3f4f6'
+  field-border: '#d1d5db'
+  field-border-hover: '#9ca3af'
+  input-foreground: '#1f2937'
+  tag-selected-bg: '#dbeafe'
+  tag-selected-text: '#1e40af'
+  tag-selected-border: '#93c5fd'
+  tag-default-bg: '#f3f4f6'
+  tag-default-text: '#4b5563'
+  tag-default-border: '#e5e7eb'
+  muted: '#9ca3af'
+  muted-foreground: '#6b7280'
+  accent: '#eff6ff'
+  ring: '#93c5fd'
+  danger: '#dc2626'
+  danger-hover: '#b91c1c'
+  danger-foreground: '#ffffff'
+  danger-subtle: '#fef2f2'
+  danger-border: '#fecaca'
+  warning: '#f59e0b'
+  warning-text: '#b45309'
 typography:
   heading-lg:
     fontFamily: system-ui, sans-serif
@@ -91,59 +91,59 @@ spacing:
   2xl: 32px
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.primary-foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.primary}'
+    textColor: '{colors.primary-foreground}'
+    rounded: '{rounded.lg}'
     padding: 12px
-    typography: "{typography.label-md}"
+    typography: '{typography.label-md}'
   button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
+    backgroundColor: '{colors.primary-hover}'
   button-secondary:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.secondary-foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.secondary-foreground}'
+    rounded: '{rounded.lg}'
     padding: 12px
-    typography: "{typography.label-md}"
+    typography: '{typography.label-md}'
   button-secondary-hover:
-    backgroundColor: "{colors.secondary-hover}"
+    backgroundColor: '{colors.secondary-hover}'
   button-danger:
-    backgroundColor: "{colors.danger}"
-    textColor: "{colors.danger-foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.danger}'
+    textColor: '{colors.danger-foreground}'
+    rounded: '{rounded.lg}'
     padding: 12px
-    typography: "{typography.label-md}"
+    typography: '{typography.label-md}'
   button-danger-hover:
-    backgroundColor: "{colors.danger-hover}"
+    backgroundColor: '{colors.danger-hover}'
   button-danger-ghost:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.danger}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.danger}'
+    rounded: '{rounded.lg}'
     padding: 12px
-    typography: "{typography.label-md}"
+    typography: '{typography.label-md}'
   input-default:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.lg}'
     padding: 12px
-    typography: "{typography.body-md}"
+    typography: '{typography.body-md}'
   input-error:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.foreground}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.surface}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.lg}'
     padding: 12px
-    typography: "{typography.body-md}"
+    typography: '{typography.body-md}'
   card:
-    backgroundColor: "{colors.surface}"
-    rounded: "{rounded.lg}"
+    backgroundColor: '{colors.surface}'
+    rounded: '{rounded.lg}'
     padding: 16px
   tag-selected:
-    backgroundColor: "{colors.tag-selected-bg}"
-    textColor: "{colors.tag-selected-text}"
-    rounded: "{rounded.sm}"
+    backgroundColor: '{colors.tag-selected-bg}'
+    textColor: '{colors.tag-selected-text}'
+    rounded: '{rounded.sm}'
   tag-default:
-    backgroundColor: "{colors.tag-default-bg}"
-    textColor: "{colors.tag-default-text}"
-    rounded: "{rounded.sm}"
+    backgroundColor: '{colors.tag-default-bg}'
+    textColor: '{colors.tag-default-text}'
+    rounded: '{rounded.sm}'
 ---
 
 ## Overview
@@ -193,6 +193,7 @@ The extension uses the system UI font stack for all text. This ensures native re
 The Options page uses a **sidebar navigation layout** within a max-width-constrained workspace. The page header, pending-settings banner, and total error alert remain global. Below them, a narrow left navigation switches the main content between `Groups` and `General settings` so the two editing surfaces are not shown at the same time. The selected section does not repeat the navigation label as an additional section header.
 
 The internal structure is:
+
 - **Section navigation:** A thin, bordered nav region, not a card. `Groups` shows the current group count; `General settings` only shows an error indicator when global settings or import errors need attention.
 - **Groups section:** The default section. Group cards are stacked in the main content area, one per rule group, with a consistent internal grid—left-aligned labels, right-aligned controls.
 - **General settings section:** Global options (block action, redirect URL, daily reset hour, notifications) plus import / export controls. Import errors stay inside this section.
@@ -239,6 +240,7 @@ Button sizes: `sm` (32 px tall) for icon-adjacent controls; `md` (36 px tall) fo
 ### Inputs
 
 Text inputs have a consistent rounded-lg border. States:
+
 - **Default:** White background, Gray 300 border, focus turns border Primary blue with a Blue 300 ring.
 - **Hover:** Slightly darker field background and border.
 - **Error:** Red border (danger-border), red focus ring.
@@ -254,12 +256,14 @@ A pill-style tab bar for binary or ternary choices (e.g. "Blacklist / Whitelist"
 ### Time Limit Meter
 
 A horizontal progress component used in both the Popup and Options pages to show daily usage. Contains:
+
 - A clock icon + "Daily limit" label.
 - Remaining time in mm:ss (font-semibold, color-coded).
 - A progress bar that fills left-to-right from remaining → consumed.
 - A fraction `consumed / total` in muted text.
 
 Bar and remaining-time text color shift through three states:
+
 - **Normal (>20% left):** Primary blue bar, foreground text.
 - **Warning (≤20% left):** Amber bar, amber text.
 - **Exceeded (0 s left):** Danger red bar, danger text.
@@ -267,6 +271,7 @@ Bar and remaining-time text color shift through three states:
 ### Tags (Pattern Chips / Day Labels)
 
 Small, rounded-sm chips used for regex patterns in read mode and for day-of-week selections. Two visual states:
+
 - **Selected:** Blue-tinted background (#dbeafe), dark-blue text (#1e40af), blue border.
 - **Default:** Gray background, gray text, gray border.
 

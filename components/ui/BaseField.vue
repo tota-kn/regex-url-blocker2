@@ -26,16 +26,9 @@ defineProps<Props>()
       {{ label }}
     </span>
     <slot />
-    <span
-      v-if="description"
-      class="mt-1 block text-body-sm text-muted-foreground"
-    >
+    <span v-if="description" class="mt-1 block text-body-sm text-muted-foreground">
       {{ description }}
     </span>
-    <AlertMessage
-      v-if="error"
-      class="mt-2"
-      :message="error"
-    />
+    <AlertMessage v-if="error" class="mt-2" :message="error" />
   </label>
 </template>

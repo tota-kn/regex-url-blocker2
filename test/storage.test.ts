@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { loadCounters, loadGroupPauseState, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveCounters, saveGroupPauseState, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
+import {
+  loadCounters,
+  loadGroupPauseState,
+  loadSettings,
+  loadUsageNotificationHistory,
+  parseSettingsExportJson,
+  saveCounters,
+  saveGroupPauseState,
+  saveSettings,
+  saveUsageNotificationHistory,
+  serializeSettingsExport,
+} from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { createEmptyGroup } from './helpers'
 
@@ -30,7 +41,9 @@ describe('loadSettings', () => {
     await browser.storage.sync.set({ global: { notificationThresholdMinutes: 0 } })
     const s = await loadSettings()
     expect(s.global.remainingTimeNotificationsEnabled).toBe(false)
-    expect(s.global.notificationThresholdMinutes).toBe(DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes)
+    expect(s.global.notificationThresholdMinutes).toBe(
+      DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes,
+    )
   })
 
   it('global の blockAction が不正な場合は DEFAULT で補完される', async () => {
@@ -46,11 +59,25 @@ describe('saveSettings', () => {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://twitter\\.com'],
-      timeWindows: [{ type: 'scheduled' as const, condition: { type: 'weekly' as const, daysOfWeek: [1, 2, 3, 4, 5] as (1 | 2 | 3 | 4 | 5)[] }, timeRanges: [{ startMinute: 540, endMinute: 1080 }] }],
+      timeWindows: [
+        {
+          type: 'scheduled' as const,
+          condition: {
+            type: 'weekly' as const,
+            daysOfWeek: [1, 2, 3, 4, 5] as (1 | 2 | 3 | 4 | 5)[],
+          },
+          timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+        },
+      ],
       restrictions: [{ type: 'block' as const }],
     }
     const settings = {
-      global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
+      global: {
+        ...DEFAULT_GLOBAL_SETTINGS,
+        blockAction: 'blockedPage' as const,
+        redirectUrl: 'https://block.test',
+        dailyResetHour: '03:00',
+      },
       groups: [group],
     }
     await saveSettings(settings)
@@ -59,8 +86,16 @@ describe('saveSettings', () => {
   })
 
   it('save → load で grace / wait の restriction もラウンドトリップする', async () => {
-    const graceGroup = { ...createEmptyGroup('Grace'), timeWindows: [{ type: 'always' as const }], restrictions: [{ type: 'grace' as const, graceMinutes: 15 }] }
-    const waitGroup = { ...createEmptyGroup('Wait'), timeWindows: [{ type: 'always' as const }], restrictions: [{ type: 'wait' as const, waitSeconds: 30 }] }
+    const graceGroup = {
+      ...createEmptyGroup('Grace'),
+      timeWindows: [{ type: 'always' as const }],
+      restrictions: [{ type: 'grace' as const, graceMinutes: 15 }],
+    }
+    const waitGroup = {
+      ...createEmptyGroup('Wait'),
+      timeWindows: [{ type: 'always' as const }],
+      restrictions: [{ type: 'wait' as const, waitSeconds: 30 }],
+    }
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
       groups: [graceGroup, waitGroup],
@@ -86,7 +121,12 @@ describe('settings export file', () => {
 
   it('valid JSON import を Settings に変換する', () => {
     const settings = {
-      global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
+      global: {
+        ...DEFAULT_GLOBAL_SETTINGS,
+        blockAction: 'blockedPage' as const,
+        redirectUrl: 'https://block.test',
+        dailyResetHour: '03:00',
+      },
       groups: [{ ...createEmptyGroup('Imported'), patterns: ['example\\.com'] }],
     }
 
@@ -94,19 +134,27 @@ describe('settings export file', () => {
   })
 
   it('v2 import はグローバル block action を各グループへ移行する', () => {
-    const imported = parseSettingsExportJson(JSON.stringify({
-      version: 2,
-      settings: {
-        global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'redirect', redirectUrl: 'https://legacy-blocked.test' },
-        groups: [{
-          id: 'legacy',
-          name: 'Legacy',
-          mode: 'blacklist',
-          patterns: ['example\\.com'],
-          dailyRules: [],
-        }],
-      },
-    }))
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 2,
+        settings: {
+          global: {
+            ...DEFAULT_GLOBAL_SETTINGS,
+            blockAction: 'redirect',
+            redirectUrl: 'https://legacy-blocked.test',
+          },
+          groups: [
+            {
+              id: 'legacy',
+              name: 'Legacy',
+              mode: 'blacklist',
+              patterns: ['example\\.com'],
+              dailyRules: [],
+            },
+          ],
+        },
+      }),
+    )
 
     expect(imported.groups[0]).toMatchObject({
       blockAction: 'redirect',
@@ -117,62 +165,72 @@ describe('settings export file', () => {
   it('v9 export/import はグループ別 block action と disabled、分離した制限を保持する', () => {
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
-      groups: [{
-        ...createEmptyGroup('Imported'),
-        disabled: true,
-        blockAction: 'redirect' as const,
-        redirectUrl: 'https://group-blocked.test',
-        timeWindows: [{ type: 'always' as const }],
-        restrictions: [{ type: 'grace' as const, graceMinutes: 20 }],
-      }],
+      groups: [
+        {
+          ...createEmptyGroup('Imported'),
+          disabled: true,
+          blockAction: 'redirect' as const,
+          redirectUrl: 'https://group-blocked.test',
+          timeWindows: [{ type: 'always' as const }],
+          restrictions: [{ type: 'grace' as const, graceMinutes: 20 }],
+        },
+      ],
     }
 
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
   it('v3 import は disabled 欠損を false で補完する', () => {
-    const imported = parseSettingsExportJson(JSON.stringify({
-      version: 3,
-      settings: {
-        global: DEFAULT_GLOBAL_SETTINGS,
-        groups: [{
-          id: 'v3',
-          name: 'V3',
-          mode: 'blacklist',
-          lockMode: false,
-          patterns: ['example\\.com'],
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://example.com',
-          dailyRules: [],
-        }],
-      },
-    }))
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 3,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [
+            {
+              id: 'v3',
+              name: 'V3',
+              mode: 'blacklist',
+              lockMode: false,
+              patterns: ['example\\.com'],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://example.com',
+              dailyRules: [],
+            },
+          ],
+        },
+      }),
+    )
 
     expect(imported.groups[0].disabled).toBe(false)
   })
 
   it('v4 import は dailyRules を単一 restriction（grace）へ変換して受け入れる', () => {
-    const imported = parseSettingsExportJson(JSON.stringify({
-      version: 4,
-      settings: {
-        global: DEFAULT_GLOBAL_SETTINGS,
-        groups: [{
-          id: 'v4',
-          name: 'V4',
-          mode: 'blacklist',
-          disabled: false,
-          lockMode: false,
-          patterns: ['example\\.com'],
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://example.com',
-          dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
-            dayOfWeek,
-            blockedTimeRanges: [],
-            dailyLimitMinutes: 15,
-          })),
-        }],
-      },
-    }))
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 4,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [
+            {
+              id: 'v4',
+              name: 'V4',
+              mode: 'blacklist',
+              disabled: false,
+              lockMode: false,
+              patterns: ['example\\.com'],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://example.com',
+              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+                dayOfWeek,
+                blockedTimeRanges: [],
+                dailyLimitMinutes: 15,
+              })),
+            },
+          ],
+        },
+      }),
+    )
 
     expect(imported.groups[0].timeWindows).toEqual([{ type: 'always' }])
     expect(imported.groups[0].restrictions?.[0]).toMatchObject({
@@ -182,30 +240,51 @@ describe('settings export file', () => {
   })
 
   it('v6 import は複数 scheduleRules を block > grace > wait の複数 restriction rules へ変換する', () => {
-    const imported = parseSettingsExportJson(JSON.stringify({
-      version: 6,
-      settings: {
-        global: DEFAULT_GLOBAL_SETTINGS,
-        groups: [{
-          id: 'v6-mixed',
-          name: 'V6 Mixed',
-          mode: 'blacklist',
-          disabled: false,
-          lockMode: false,
-          patterns: ['example\\.com'],
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://example.com',
-          scheduleRules: [
-            { id: 'wait-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: undefined, delaySeconds: 30 },
-            { id: 'grace-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: 20 },
-            { id: 'block-rule', condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }] },
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 6,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [
+            {
+              id: 'v6-mixed',
+              name: 'V6 Mixed',
+              mode: 'blacklist',
+              disabled: false,
+              lockMode: false,
+              patterns: ['example\\.com'],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://example.com',
+              scheduleRules: [
+                {
+                  id: 'wait-rule',
+                  condition: { type: 'daily' },
+                  blockedTimeRanges: [],
+                  dailyLimitMinutes: undefined,
+                  delaySeconds: 30,
+                },
+                {
+                  id: 'grace-rule',
+                  condition: { type: 'daily' },
+                  blockedTimeRanges: [],
+                  dailyLimitMinutes: 20,
+                },
+                {
+                  id: 'block-rule',
+                  condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+                  blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
+                },
+              ],
+            },
           ],
-        }],
-      },
-    }))
+        },
+      }),
+    )
 
     expect(imported.groups[0].timeWindows?.[0]).toMatchObject({
-      type: 'scheduled', condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      type: 'scheduled',
+      condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
     })
     expect(imported.groups[0].restrictions?.[1]).toMatchObject({
       type: 'grace',
@@ -218,26 +297,41 @@ describe('settings export file', () => {
   })
 
   it('v6 import は block 候補が無ければ grace、wait の順で複数 restriction rules へ変換する', () => {
-    const imported = parseSettingsExportJson(JSON.stringify({
-      version: 6,
-      settings: {
-        global: DEFAULT_GLOBAL_SETTINGS,
-        groups: [{
-          id: 'v6-grace-wait',
-          name: 'V6 Grace Wait',
-          mode: 'blacklist',
-          disabled: false,
-          lockMode: false,
-          patterns: ['example\\.com'],
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://example.com',
-          scheduleRules: [
-            { id: 'wait-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: undefined, delaySeconds: 30 },
-            { id: 'grace-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: 20 },
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 6,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [
+            {
+              id: 'v6-grace-wait',
+              name: 'V6 Grace Wait',
+              mode: 'blacklist',
+              disabled: false,
+              lockMode: false,
+              patterns: ['example\\.com'],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://example.com',
+              scheduleRules: [
+                {
+                  id: 'wait-rule',
+                  condition: { type: 'daily' },
+                  blockedTimeRanges: [],
+                  dailyLimitMinutes: undefined,
+                  delaySeconds: 30,
+                },
+                {
+                  id: 'grace-rule',
+                  condition: { type: 'daily' },
+                  blockedTimeRanges: [],
+                  dailyLimitMinutes: 20,
+                },
+              ],
+            },
           ],
-        }],
-      },
-    }))
+        },
+      }),
+    )
 
     expect(imported.groups[0].restrictions?.[0]).toMatchObject({
       type: 'grace',
@@ -263,13 +357,15 @@ describe('settings export file', () => {
   })
 
   it('mode 欠損の互換データは blacklist で補完する', () => {
-    const imported = parseSettingsExportJson(JSON.stringify({
-      version: 2,
-      settings: {
-        global: DEFAULT_GLOBAL_SETTINGS,
-        groups: [{ id: 'old', name: 'Old', patterns: ['example\\.com'], dailyRules: [] }],
-      },
-    }))
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 2,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [{ id: 'old', name: 'Old', patterns: ['example\\.com'], dailyRules: [] }],
+        },
+      }),
+    )
 
     expect(imported.groups[0].mode).toBe('blacklist')
     expect(imported.groups[0].disabled).toBe(false)
@@ -281,27 +377,39 @@ describe('settings export file', () => {
   })
 
   it('version 不一致は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({ version: 1, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } })))
-      .toThrow('Unsupported settings file version')
+    expect(() =>
+      parseSettingsExportJson(
+        JSON.stringify({ version: 1, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } }),
+      ),
+    ).toThrow('Unsupported settings file version')
   })
 
   it('settings 欠損は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2 }))).toThrow('Settings file is missing settings')
+    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2 }))).toThrow(
+      'Settings file is missing settings',
+    )
   })
 
   it('groups 欠損は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({ version: 2, settings: { global: DEFAULT_GLOBAL_SETTINGS } })))
-      .toThrow('Settings file is missing groups')
+    expect(() =>
+      parseSettingsExportJson(
+        JSON.stringify({ version: 2, settings: { global: DEFAULT_GLOBAL_SETTINGS } }),
+      ),
+    ).toThrow('Settings file is missing groups')
   })
 
   it('バリデーションエラーがある設定は reject する', () => {
-    expect(() => parseSettingsExportJson(JSON.stringify({
-      version: 2,
-      settings: {
-        global: { ...DEFAULT_GLOBAL_SETTINGS, dailyResetHour: '99:99' },
-        groups: [],
-      },
-    }))).toThrow('Settings file contains invalid settings')
+    expect(() =>
+      parseSettingsExportJson(
+        JSON.stringify({
+          version: 2,
+          settings: {
+            global: { ...DEFAULT_GLOBAL_SETTINGS, dailyResetHour: '99:99' },
+            groups: [],
+          },
+        }),
+      ),
+    ).toThrow('Settings file contains invalid settings')
   })
 })
 
@@ -345,37 +453,50 @@ describe('loadSettings のマイグレーション', () => {
 
   it('旧 dailyRules は同一内容の曜日をまとめ、block 候補があれば block 制限へ変換する', async () => {
     await browser.storage.sync.set({
-      groups: [{
-        id: 'legacy-rules',
-        name: 'legacy',
-        mode: 'blacklist',
-        patterns: [],
-        dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
-          dayOfWeek,
-          blockedTimeRanges: dayOfWeek >= 1 && dayOfWeek <= 5 ? [{ startMinute: 540, endMinute: 1080 }] : [],
-          dailyLimitMinutes: 30,
-        })),
-      }],
+      groups: [
+        {
+          id: 'legacy-rules',
+          name: 'legacy',
+          mode: 'blacklist',
+          patterns: [],
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges:
+              dayOfWeek >= 1 && dayOfWeek <= 5 ? [{ startMinute: 540, endMinute: 1080 }] : [],
+            dailyLimitMinutes: 30,
+          })),
+        },
+      ],
     })
     const s = await loadSettings()
 
-    expect(s.groups[0].timeWindows?.[0]).toMatchObject({ type: 'scheduled', condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, timeRanges: [{ startMinute: 540, endMinute: 1080 }] })
-    expect(s.groups[0].restrictions?.[0]).toEqual({ type: 'block', graceMinutes: undefined, waitSeconds: undefined })
+    expect(s.groups[0].timeWindows?.[0]).toMatchObject({
+      type: 'scheduled',
+      condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+    })
+    expect(s.groups[0].restrictions?.[0]).toEqual({
+      type: 'block',
+      graceMinutes: undefined,
+      waitSeconds: undefined,
+    })
   })
 
   it('旧 dailyRules が全曜日同一で上限のみの場合は daily grace 制限1件へ変換する', async () => {
     await browser.storage.sync.set({
-      groups: [{
-        id: 'legacy-daily',
-        name: 'legacy',
-        mode: 'blacklist',
-        patterns: [],
-        dailyRules: [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
-          dayOfWeek,
-          blockedTimeRanges: [],
-          dailyLimitMinutes: 15,
-        })),
-      }],
+      groups: [
+        {
+          id: 'legacy-daily',
+          name: 'legacy',
+          mode: 'blacklist',
+          patterns: [],
+          dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+            dayOfWeek,
+            blockedTimeRanges: [],
+            dailyLimitMinutes: 15,
+          })),
+        },
+      ],
     })
     const s = await loadSettings()
 
@@ -385,16 +506,28 @@ describe('loadSettings のマイグレーション', () => {
 
   it('scheduleRules の condition.type が未知の要素は破棄され、残りのルールから集約される', async () => {
     await browser.storage.sync.set({
-      groups: [{
-        id: 'mixed',
-        name: 'mixed',
-        mode: 'blacklist',
-        patterns: [],
-        scheduleRules: [
-          { id: 'ok', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: 10 },
-          { id: 'broken', condition: { type: 'cron', expression: '* * * * *' }, blockedTimeRanges: [], dailyLimitMinutes: 5 },
-        ],
-      }],
+      groups: [
+        {
+          id: 'mixed',
+          name: 'mixed',
+          mode: 'blacklist',
+          patterns: [],
+          scheduleRules: [
+            {
+              id: 'ok',
+              condition: { type: 'daily' },
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 10,
+            },
+            {
+              id: 'broken',
+              condition: { type: 'cron', expression: '* * * * *' },
+              blockedTimeRanges: [],
+              dailyLimitMinutes: 5,
+            },
+          ],
+        },
+      ],
     })
     const s = await loadSettings()
 
@@ -404,15 +537,17 @@ describe('loadSettings のマイグレーション', () => {
 
   it('旧 schedules / blockedTimeSlots / timeLimits フィールドは破棄され制限なしで初期化される', async () => {
     await browser.storage.sync.set({
-      groups: [{
-        id: 'z',
-        name: 'old',
-        mode: 'blacklist',
-        patterns: [],
-        schedules: [{ daysOfWeek: [], start: '09:00', end: '18:00', dailyTimeLimitMinutes: 30 }],
-        blockedTimeSlots: [{ daysOfWeek: [], start: '09:00', end: '18:00' }],
-        timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
-      }],
+      groups: [
+        {
+          id: 'z',
+          name: 'old',
+          mode: 'blacklist',
+          patterns: [],
+          schedules: [{ daysOfWeek: [], start: '09:00', end: '18:00', dailyTimeLimitMinutes: 30 }],
+          blockedTimeSlots: [{ daysOfWeek: [], start: '09:00', end: '18:00' }],
+          timeLimits: [{ daysOfWeek: [], dailyMinutes: 30 }],
+        },
+      ],
     })
     const s = await loadSettings()
     expect(s.groups[0].timeWindows).toEqual([])
@@ -485,7 +620,9 @@ describe('group pause state storage', () => {
       },
     })
 
-    expect(await loadGroupPauseState(['ready', 'paused', 'expiredPause', 'badWaiting', 'badPause'], now)).toEqual({
+    expect(
+      await loadGroupPauseState(['ready', 'paused', 'expiredPause', 'badWaiting', 'badPause'], now),
+    ).toEqual({
       groupPauseState: {
         ready: { waitingUntil: now - 1 },
         paused: { pausedUntil: now + 600_000 },

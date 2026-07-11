@@ -63,7 +63,7 @@ onMounted(async () => {
   remainingSeconds.value = totalSeconds.value
 
   const { effectiveSettings } = await loadPageState()
-  groupName.value = effectiveSettings.groups.find(group => group.id === groupId.value)?.name ?? ''
+  groupName.value = effectiveSettings.groups.find((group) => group.id === groupId.value)?.name ?? ''
 
   startCountdown()
 })
@@ -77,16 +77,9 @@ onUnmounted(() => {
   <main class="min-h-screen bg-secondary/40 px-4 py-10 text-foreground sm:px-6">
     <section class="mx-auto max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm">
       <div class="flex items-start gap-3">
-        <img
-          src="/icon/48.png"
-          alt=""
-          aria-hidden="true"
-          class="mt-0.5 size-8 shrink-0"
-        >
+        <img src="/icon/48.png" alt="" aria-hidden="true" class="mt-0.5 size-8 shrink-0" />
         <div class="min-w-0">
-          <h1 class="text-heading-lg">
-            Take a moment
-          </h1>
+          <h1 class="text-heading-lg">Take a moment</h1>
           <p class="mt-1 text-body-md text-secondary-foreground">
             <template v-if="groupName">
               This page is gated by "{{ groupName }}". Wait before continuing.
@@ -109,7 +102,8 @@ onUnmounted(() => {
               class="font-mono text-heading-lg tabular-nums"
               aria-label="Remaining seconds"
               role="timer"
-            >{{ remainingSeconds }}s</span>
+              >{{ remainingSeconds }}s</span
+            >
           </div>
           <div
             class="mt-3 h-2 overflow-hidden rounded-sm bg-surface-subtle"
@@ -125,26 +119,14 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <InfoValue
-          label="URL"
-          aria-label="Waiting URL"
-          break-all
-        >
+        <InfoValue label="URL" aria-label="Waiting URL" break-all>
           {{ targetUrl || 'Unknown' }}
         </InfoValue>
       </div>
 
       <div class="mt-6 flex flex-wrap justify-end gap-2">
-        <BaseButton
-          type="button"
-          variant="secondary"
-          class="h-10 px-4"
-          @click="goBack"
-        >
-          <ArrowUturnLeftIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+        <BaseButton type="button" variant="secondary" class="h-10 px-4" @click="goBack">
+          <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
           Back
         </BaseButton>
         <BaseButton
@@ -156,10 +138,7 @@ onUnmounted(() => {
           @click="proceed"
         >
           Continue
-          <ArrowRightIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+          <ArrowRightIcon aria-hidden="true" class="size-4" />
         </BaseButton>
       </div>
     </section>

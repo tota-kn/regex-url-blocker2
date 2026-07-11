@@ -24,7 +24,7 @@ tools: Read, Grep, Glob, Bash, Edit, Write, NotebookEdit
 - TSDoc コメント必須（関数/クラス/インターフェースの宣言）
 - パスエイリアス `@/` はプロジェクトルート
 - UI 変更時は `DESIGN.md` のデザイントークンに従う
-- lint は `eslint-disable` で抑制せず、コード修正で解消する
+- lint は `oxlint-disable` で抑制せず、コード修正で解消する
 - Write/Edit 後に `pnpm lint:fix` と `pnpm typecheck` が自動実行される（失敗すると編集が止まる）
 
 ## 報告

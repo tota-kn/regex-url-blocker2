@@ -73,12 +73,8 @@ defineExpose({ open, close })
       class="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-5 py-4"
     >
       <div>
-        <h2 class="text-heading-md">
-          Currently active settings
-        </h2>
-        <p class="mt-1 text-body-sm text-muted">
-          Read-only settings used by blocking right now.
-        </p>
+        <h2 class="text-heading-md">Currently active settings</h2>
+        <p class="mt-1 text-body-sm text-muted">Read-only settings used by blocking right now.</p>
       </div>
       <BaseButton
         type="button"
@@ -87,10 +83,7 @@ defineExpose({ open, close })
         aria-label="Close active settings"
         @click="close"
       >
-        <XMarkIcon
-          aria-hidden="true"
-          class="size-4"
-        />
+        <XMarkIcon aria-hidden="true" class="size-4" />
       </BaseButton>
     </div>
 
@@ -100,9 +93,7 @@ defineExpose({ open, close })
       class="min-h-0 overflow-y-auto px-5 py-4"
     >
       <section class="space-y-3">
-        <h3 class="text-label-md text-secondary-foreground">
-          Groups
-        </h3>
+        <h3 class="text-label-md text-secondary-foreground">Groups</h3>
         <EmptyState
           v-if="effectiveSettings.groups.length === 0"
           aria-label="No active groups"

@@ -38,9 +38,9 @@ export interface MonthDay {
  */
 export type ScheduleRuleCondition =
   | { type: 'daily' }
-  | { type: 'weekly', daysOfWeek: DayOfWeek[] }
-  | { type: 'monthly', daysOfMonth: number[] }
-  | { type: 'period', start: MonthDay, end: MonthDay }
+  | { type: 'weekly'; daysOfWeek: DayOfWeek[] }
+  | { type: 'monthly'; daysOfMonth: number[] }
+  | { type: 'period'; start: MonthDay; end: MonthDay }
 
 /**
  * グループに設定できる制限の種別。
@@ -54,7 +54,7 @@ export type RestrictionType = 'block' | 'redirect' | 'grace' | 'wait'
 /** 制限を適用する時間条件。`always` は明示的な常時適用ウィンドウ。 */
 export type TimeWindow =
   | { type: 'always' }
-  | { type: 'scheduled', condition: ScheduleRuleCondition, timeRanges: TimeRange[] }
+  | { type: 'scheduled'; condition: ScheduleRuleCondition; timeRanges: TimeRange[] }
 
 /** 時間条件から独立して設定する制限内容。 */
 export interface Restriction {

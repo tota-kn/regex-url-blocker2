@@ -55,21 +55,31 @@ describe('group utilities', () => {
     expect(formatGroupMode(group({ mode: 'blacklist' }))).toBe('Block matches')
     expect(formatGroupMode(group({ mode: 'whitelist' }))).toBe('Allow only matches')
     expect(formatBlockDestination(group({ blockAction: 'blockedPage' }))).toBe('Blocked page')
-    expect(formatBlockDestination(group({
-      blockAction: 'redirect',
-      redirectUrl: 'https://blocked.test/',
-    }))).toBe('Redirect to https://blocked.test/')
+    expect(
+      formatBlockDestination(
+        group({
+          blockAction: 'redirect',
+          redirectUrl: 'https://blocked.test/',
+        }),
+      ),
+    ).toBe('Redirect to https://blocked.test/')
   })
 
   it('スケジュールルールの条件を読み取り表示用の文言にする', () => {
     expect(formatScheduleRuleCondition({ type: 'daily' })).toBe('Every day')
-    expect(formatScheduleRuleCondition({ type: 'weekly', daysOfWeek: [0, 6] })).toBe('Weekly Sun, Sat')
-    expect(formatScheduleRuleCondition({ type: 'monthly', daysOfMonth: [1, 15] })).toBe('Monthly 1, 15')
-    expect(formatScheduleRuleCondition({
-      type: 'period',
-      start: { month: 12, day: 28 },
-      end: { month: 1, day: 3 },
-    })).toBe('12/28-01/03')
+    expect(formatScheduleRuleCondition({ type: 'weekly', daysOfWeek: [0, 6] })).toBe(
+      'Weekly Sun, Sat',
+    )
+    expect(formatScheduleRuleCondition({ type: 'monthly', daysOfMonth: [1, 15] })).toBe(
+      'Monthly 1, 15',
+    )
+    expect(
+      formatScheduleRuleCondition({
+        type: 'period',
+        start: { month: 12, day: 28 },
+        end: { month: 1, day: 3 },
+      }),
+    ).toBe('12/28-01/03')
   })
 
   it('制限を読み取り表示用に要約する', () => {
@@ -99,9 +109,13 @@ describe('group utilities', () => {
 
   it('分離形式の制限を読み取り表示用に要約する', () => {
     expect(formatStandaloneRestriction({ type: 'block' })).toBe('Block')
-    expect(formatStandaloneRestriction({ type: 'redirect', redirectUrl: 'https://elsewhere.test/' })).toBe('Redirect to https://elsewhere.test/')
+    expect(
+      formatStandaloneRestriction({ type: 'redirect', redirectUrl: 'https://elsewhere.test/' }),
+    ).toBe('Redirect to https://elsewhere.test/')
     expect(formatStandaloneRestriction({ type: 'redirect' })).toBe('Redirect')
-    expect(formatStandaloneRestriction({ type: 'grace', graceMinutes: 15 })).toBe('Grace 15 min/day')
+    expect(formatStandaloneRestriction({ type: 'grace', graceMinutes: 15 })).toBe(
+      'Grace 15 min/day',
+    )
     expect(formatStandaloneRestriction({ type: 'wait', waitSeconds: 5 })).toBe('Wait 5 sec')
   })
 

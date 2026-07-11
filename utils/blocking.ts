@@ -1,4 +1,18 @@
-import type { DayOfWeek, DelayGrantState, GlobalSettings, Group, GroupPauseState, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow, UsageCounter, UsageCountersState } from './types'
+import type {
+  DayOfWeek,
+  DelayGrantState,
+  GlobalSettings,
+  Group,
+  GroupPauseState,
+  Restriction,
+  RestrictionRule,
+  ScheduleRuleCondition,
+  Settings,
+  TimeRange,
+  TimeWindow,
+  UsageCounter,
+  UsageCountersState,
+} from './types'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
@@ -89,15 +103,21 @@ export function getRestrictionRules(group: Group): RestrictionRule[] {
 /** グループの分離形式の制限を返す。旧ペア形式も互換的に変換する。 */
 export function getRestrictions(group: Group): Restriction[] {
   if (group.restrictions !== undefined) return group.restrictions
-  return getRestrictionRules(group).map(({ type, graceMinutes, waitSeconds }) => ({ type, graceMinutes, waitSeconds }))
+  return getRestrictionRules(group).map(({ type, graceMinutes, waitSeconds }) => ({
+    type,
+    graceMinutes,
+    waitSeconds,
+  }))
 }
 
 /** グループの分離形式の時間ウィンドウを返す。旧ペア形式も互換的に変換する。 */
 export function getTimeWindows(group: Group): TimeWindow[] {
   if (group.timeWindows !== undefined) return group.timeWindows
-  return getRestrictionRules(group).map(rule => rule.condition.type === 'daily' && rule.timeRanges.length === 0
-    ? { type: 'always' as const }
-    : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges })
+  return getRestrictionRules(group).map((rule) =>
+    rule.condition.type === 'daily' && rule.timeRanges.length === 0
+      ? { type: 'always' as const }
+      : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges },
+  )
 }
 
 /**
@@ -156,7 +176,7 @@ export function shouldSkipUrl(url: string | undefined, redirectUrls: string | st
   if (!url) return true
   const urls = Array.isArray(redirectUrls) ? redirectUrls : [redirectUrls]
   if (urls.includes(url)) return true
-  return SKIPPED_URL_PREFIXES.some(prefix => url.startsWith(prefix))
+  return SKIPPED_URL_PREFIXES.some((prefix) => url.startsWith(prefix))
 }
 
 /**
@@ -166,14 +186,19 @@ export function shouldSkipUrl(url: string | undefined, redirectUrls: string | st
  */
 export function getRedirectUrls(settings: Settings): string[] {
   return settings.groups
-    .filter(group => !group.disabled)
+    .filter((group) => !group.disabled)
     .flatMap((group) => {
       const urls = group.blockAction === 'redirect' ? [group.redirectUrl] : []
       return [
         ...urls,
         ...getRestrictions(group)
-          .filter(restriction => restriction.type === 'redirect' && typeof restriction.redirectUrl === 'string' && restriction.redirectUrl.trim().length > 0)
-          .map(restriction => restriction.redirectUrl as string),
+          .filter(
+            (restriction) =>
+              restriction.type === 'redirect' &&
+              typeof restriction.redirectUrl === 'string' &&
+              restriction.redirectUrl.trim().length > 0,
+          )
+          .map((restriction) => restriction.redirectUrl as string),
       ]
     })
 }
@@ -182,7 +207,7 @@ export function getRedirectUrls(settings: Settings): string[] {
  * group の有効な URL pattern のうち、URL に一致するものがあるかを返す。
  */
 function patternMatches(group: Group, url: string): boolean {
-  return group.patterns.some(pattern => urlPatternMatches(pattern, url))
+  return group.patterns.some((pattern) => urlPatternMatches(pattern, url))
 }
 
 /**
@@ -199,9 +224,9 @@ export function isTargetGroup(group: Group, url: string): boolean {
 export function getTargetGroupIds(settings: Settings, url: string | undefined): string[] {
   if (shouldSkipUrl(url, getRedirectUrls(settings)) || !url) return []
   return settings.groups
-    .filter(group => !group.disabled)
-    .filter(group => isTargetGroup(group, url))
-    .map(group => group.id)
+    .filter((group) => !group.disabled)
+    .filter((group) => isTargetGroup(group, url))
+    .map((group) => group.id)
 }
 
 /**
@@ -252,7 +277,10 @@ function monthDayKey(month: number, day: number): number {
 /**
  * スケジュールルールの条件が指定した論理日に一致するなら true を返す。
  */
-export function matchesScheduleRuleCondition(condition: ScheduleRuleCondition, info: LogicalDateInfo): boolean {
+export function matchesScheduleRuleCondition(
+  condition: ScheduleRuleCondition,
+  info: LogicalDateInfo,
+): boolean {
   if (condition.type === 'weekly') return condition.daysOfWeek.includes(info.dayOfWeek)
   if (condition.type === 'monthly') return condition.daysOfMonth.includes(info.dayOfMonth)
   if (condition.type === 'period') {
@@ -271,7 +299,9 @@ export function matchesScheduleRuleCondition(condition: ScheduleRuleCondition, i
 export function restrictionMatchesToday(group: Group, now: Date, global: GlobalSettings): boolean {
   if (group.disabled) return false
   const info = getLogicalDate(now, global.dailyResetHour)
-  return getTimeWindows(group).some(window => window.type === 'always' || matchesScheduleRuleCondition(window.condition, info))
+  return getTimeWindows(group).some(
+    (window) => window.type === 'always' || matchesScheduleRuleCondition(window.condition, info),
+  )
 }
 
 /** 時間ウィンドウが現在有効かどうかを返す。 */
@@ -281,7 +311,9 @@ function isTimeWindowActiveNow(window: TimeWindow, now: Date, global: GlobalSett
   if (!matchesScheduleRuleCondition(window.condition, info)) return false
   if (window.timeRanges.length === 0) return true
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  return window.timeRanges.some(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
+  return window.timeRanges.some((range) =>
+    timeInRange(nowMinute, range.startMinute, range.endMinute),
+  )
 }
 
 /**
@@ -290,7 +322,10 @@ function isTimeWindowActiveNow(window: TimeWindow, now: Date, global: GlobalSett
  */
 export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSettings): boolean {
   if (group.disabled) return false
-  return getRestrictions(group).length > 0 && getTimeWindows(group).some(window => isTimeWindowActiveNow(window, now, global))
+  return (
+    getRestrictions(group).length > 0 &&
+    getTimeWindows(group).some((window) => isTimeWindowActiveNow(window, now, global))
+  )
 }
 
 /**
@@ -301,12 +336,20 @@ export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSe
 function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
   if (group.disabled) return []
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  if (!getRestrictions(group).some(restriction => restriction.type === 'block' || restriction.type === 'redirect')) return []
+  if (
+    !getRestrictions(group).some(
+      (restriction) => restriction.type === 'block' || restriction.type === 'redirect',
+    )
+  )
+    return []
   return getTimeWindows(group)
-    .filter(window => isTimeWindowActiveNow(window, now, global))
+    .filter((window) => isTimeWindowActiveNow(window, now, global))
     .flatMap((window) => {
-      if (window.type === 'always' || window.timeRanges.length === 0) return [{ startMinute: 0, endMinute: 0 }]
-      return window.timeRanges.filter(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
+      if (window.type === 'always' || window.timeRanges.length === 0)
+        return [{ startMinute: 0, endMinute: 0 }]
+      return window.timeRanges.filter((range) =>
+        timeInRange(nowMinute, range.startMinute, range.endMinute),
+      )
     })
 }
 
@@ -315,15 +358,28 @@ function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): T
  * アクティブウィンドウ外でも、条件が今日に一致していれば累積消費を表示するため値を返す。
  * `type !== 'grace'` や disabled group、制限未設定では undefined。
  */
-export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): TimeLimitUsageSummary | undefined {
+export function getTimeLimitUsageSummary(
+  group: Group,
+  counter: UsageCounter | undefined,
+  now: Date,
+  global: GlobalSettings,
+): TimeLimitUsageSummary | undefined {
   if (group.disabled) return undefined
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  if (!getTimeWindows(group).some(window => window.type === 'always' || (window.type === 'scheduled' && matchesScheduleRuleCondition(window.condition, logicalDate)))) return undefined
+  if (
+    !getTimeWindows(group).some(
+      (window) =>
+        window.type === 'always' ||
+        (window.type === 'scheduled' &&
+          matchesScheduleRuleCondition(window.condition, logicalDate)),
+    )
+  )
+    return undefined
   const limitMinutes = getRestrictions(group)
-    .filter(restriction => restriction.type === 'grace' && restriction.graceMinutes !== undefined)
-    .map(restriction => restriction.graceMinutes)
+    .filter((restriction) => restriction.type === 'grace' && restriction.graceMinutes !== undefined)
+    .map((restriction) => restriction.graceMinutes)
     .filter((minutes): minutes is number => minutes !== undefined)
-    .sort((a, b) => a - b)[0]
+    .toSorted((a, b) => a - b)[0]
   if (limitMinutes === undefined) return undefined
 
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
@@ -340,10 +396,17 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
  * group の restriction が `type === 'redirect'` かつ現在アクティブなときの遷移先 URL を返す。
  * 有効な URL を持つ redirect 制限がなければ undefined。複数ある場合は最初の1件を使う。
  */
-export function getActiveRedirectUrl(group: Group, now: Date, global: GlobalSettings): string | undefined {
+export function getActiveRedirectUrl(
+  group: Group,
+  now: Date,
+  global: GlobalSettings,
+): string | undefined {
   if (!isRestrictionActiveNow(group, now, global)) return undefined
   const redirect = getRestrictions(group).find(
-    restriction => restriction.type === 'redirect' && typeof restriction.redirectUrl === 'string' && restriction.redirectUrl.trim().length > 0,
+    (restriction) =>
+      restriction.type === 'redirect' &&
+      typeof restriction.redirectUrl === 'string' &&
+      restriction.redirectUrl.trim().length > 0,
   )
   return redirect?.redirectUrl
 }
@@ -352,12 +415,16 @@ export function getActiveRedirectUrl(group: Group, now: Date, global: GlobalSett
  * group の restriction が `type === 'wait'` かつ現在アクティブなときの待機秒数を返す。
  * `waitSeconds` が undefined または 0 以下なら undefined（待機なし扱い）。
  */
-export function getEffectiveWaitSeconds(group: Group, now: Date, global: GlobalSettings): number | undefined {
+export function getEffectiveWaitSeconds(
+  group: Group,
+  now: Date,
+  global: GlobalSettings,
+): number | undefined {
   if (!isRestrictionActiveNow(group, now, global)) return undefined
   const waitSeconds = getRestrictions(group)
-    .filter(restriction => restriction.type === 'wait')
-    .filter(restriction => restriction.waitSeconds !== undefined && restriction.waitSeconds > 0)
-    .map(restriction => restriction.waitSeconds)
+    .filter((restriction) => restriction.type === 'wait')
+    .filter((restriction) => restriction.waitSeconds !== undefined && restriction.waitSeconds > 0)
+    .map((restriction) => restriction.waitSeconds)
     .filter((seconds): seconds is number => seconds !== undefined)
   return waitSeconds.length > 0 ? Math.max(...waitSeconds) : undefined
 }
@@ -366,9 +433,18 @@ export function getEffectiveWaitSeconds(group: Group, now: Date, global: GlobalS
  * group が指定時刻・counter でハードブロック状態か。
  * アクティブ かつ（block は常に true / grace は消費秒 >= graceMinutes*60 / wait は false）。
  */
-function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): boolean {
+function isGroupBlocked(
+  group: Group,
+  counter: UsageCounter | undefined,
+  now: Date,
+  global: GlobalSettings,
+): boolean {
   if (getActiveTimeRanges(group, now, global).length > 0) return true
-  if (!isRestrictionActiveNow(group, now, global) || !getRestrictions(group).some(restriction => restriction.type === 'grace')) return false
+  if (
+    !isRestrictionActiveNow(group, now, global) ||
+    !getRestrictions(group).some((restriction) => restriction.type === 'grace')
+  )
+    return false
 
   const summary = getTimeLimitUsageSummary(group, counter, now, global)
   return summary !== undefined && summary.remainingSec <= 0
@@ -377,12 +453,18 @@ function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Da
 /**
  * group の popup 表示向けブロック状態を返す。
  */
-export function getGroupBlockStatus(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): GroupBlockStatus {
+export function getGroupBlockStatus(
+  group: Group,
+  counter: UsageCounter | undefined,
+  now: Date,
+  global: GlobalSettings,
+): GroupBlockStatus {
   const restrictionRules = group.disabled ? [] : getRestrictionRules(group)
   const isActive = isRestrictionActiveNow(group, now, global)
   const activeTimeRanges = getActiveTimeRanges(group, now, global)
   const timeLimitSummary = getTimeLimitUsageSummary(group, counter, now, global)
-  const blockedByDailyLimit = isActive && timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
+  const blockedByDailyLimit =
+    isActive && timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
   const waitSeconds = getEffectiveWaitSeconds(group, now, global)
 
   return {
@@ -402,7 +484,11 @@ export function getGroupBlockStatus(group: Group, counter: UsageCounter | undefi
  * 翌論理日は条件が一致しなくなりうるため、論理日境界ごとにアクティブ状態を再評価しながら先へ進める。
  * 最大366ステップ探索しても解除されない場合は undefined（実質常時ブロック）を返す。
  */
-export function getTimeRangeUnblockAt(group: Group, now: Date, global: GlobalSettings): Date | undefined {
+export function getTimeRangeUnblockAt(
+  group: Group,
+  now: Date,
+  global: GlobalSettings,
+): Date | undefined {
   const MAX_STEPS = 366
   let t = new Date(now)
   for (let step = 0; step < MAX_STEPS; step += 1) {
@@ -410,7 +496,7 @@ export function getTimeRangeUnblockAt(group: Group, now: Date, global: GlobalSet
     if (activeRanges.length === 0) return t
 
     const nextBoundaries = [
-      ...activeRanges.map(range => getBlockedTimeRangeReleaseAt(range, t).getTime()),
+      ...activeRanges.map((range) => getBlockedTimeRangeReleaseAt(range, t).getTime()),
       getNextDailyResetAt(t, global).getTime(),
     ]
     t = new Date(Math.min(...nextBoundaries))
@@ -421,15 +507,25 @@ export function getTimeRangeUnblockAt(group: Group, now: Date, global: GlobalSet
 /**
  * URL に該当する今日有効な閲覧上限から、残り時間が最短のものを返す。
  */
-export function getMinimumRemainingTimeLimit(settings: Settings, counters: UsageCountersState, url: string | undefined, now: Date): MinimumRemainingTimeLimit | undefined {
+export function getMinimumRemainingTimeLimit(
+  settings: Settings,
+  counters: UsageCountersState,
+  url: string | undefined,
+  now: Date,
+): MinimumRemainingTimeLimit | undefined {
   const targetGroupIds = new Set(getTargetGroupIds(settings, url))
   const summaries = settings.groups
-    .filter(group => targetGroupIds.has(group.id))
+    .filter((group) => targetGroupIds.has(group.id))
     .flatMap((group) => {
-      const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, settings.global)
+      const summary = getTimeLimitUsageSummary(
+        group,
+        counters.counters[group.id],
+        now,
+        settings.global,
+      )
       return summary ? [{ group, summary }] : []
     })
-    .sort((a, b) => a.summary.remainingSec - b.summary.remainingSec)
+    .toSorted((a, b) => a.summary.remainingSec - b.summary.remainingSec)
 
   return summaries[0]
 }
@@ -444,16 +540,21 @@ export function formatRemainingMinutesBadge(remainingSec: number): string {
 /**
  * URL が現在ブロックされるかを評価する。
  */
-export function evaluateUrl(settings: Settings, counters: UsageCountersState, url: string | undefined, now: Date): UrlEvaluation {
+export function evaluateUrl(
+  settings: Settings,
+  counters: UsageCountersState,
+  url: string | undefined,
+  now: Date,
+): UrlEvaluation {
   const targetGroupIds = getTargetGroupIds(settings, url)
-  const targetGroups = settings.groups.filter(group => targetGroupIds.includes(group.id))
+  const targetGroups = settings.groups.filter((group) => targetGroupIds.includes(group.id))
   const blockedGroupIds = targetGroups
-    .filter(group => isGroupBlocked(group, counters.counters[group.id], now, settings.global))
-    .map(group => group.id)
+    .filter((group) => isGroupBlocked(group, counters.counters[group.id], now, settings.global))
+    .map((group) => group.id)
 
   const delayedGroupIds = targetGroups
-    .filter(group => getEffectiveWaitSeconds(group, now, settings.global) !== undefined)
-    .map(group => group.id)
+    .filter((group) => getEffectiveWaitSeconds(group, now, settings.global) !== undefined)
+    .map((group) => group.id)
 
   return {
     blocked: blockedGroupIds.length > 0,
@@ -466,7 +567,11 @@ export function evaluateUrl(settings: Settings, counters: UsageCountersState, ur
 /**
  * 一時停止中のグループを、URL 評価結果のブロック対象から除外する。
  */
-export function applyGroupPauseState(evaluation: UrlEvaluation, groupPauseState: GroupPauseState, now = Date.now()): UrlEvaluation {
+export function applyGroupPauseState(
+  evaluation: UrlEvaluation,
+  groupPauseState: GroupPauseState,
+  now = Date.now(),
+): UrlEvaluation {
   const blockedGroupIds = evaluation.blockedGroupIds.filter((groupId) => {
     const pausedUntil = groupPauseState.groupPauseState[groupId]?.pausedUntil
     return !(typeof pausedUntil === 'number' && pausedUntil > now)
@@ -481,7 +586,11 @@ export function applyGroupPauseState(evaluation: UrlEvaluation, groupPauseState:
 /**
  * 待機ゲートを通過済みで許可期限内のグループを、URL 評価結果の待機対象から除外する。
  */
-export function applyDelayGrantState(evaluation: UrlEvaluation, delayGrantState: DelayGrantState, now = Date.now()): UrlEvaluation {
+export function applyDelayGrantState(
+  evaluation: UrlEvaluation,
+  delayGrantState: DelayGrantState,
+  now = Date.now(),
+): UrlEvaluation {
   const delayedGroupIds = evaluation.delayedGroupIds.filter((groupId) => {
     const grantedUntil = delayGrantState.delayGrantState[groupId]?.grantedUntil
     return !(typeof grantedUntil === 'number' && grantedUntil > now)
@@ -495,7 +604,11 @@ export function applyDelayGrantState(evaluation: UrlEvaluation, delayGrantState:
 /**
  * settings に合わせて counter を現在論理日に正規化し、削除済み group の値を除去する。
  */
-export function normalizeCounters(settings: Settings, counters: UsageCountersState, now: Date): UsageCountersState {
+export function normalizeCounters(
+  settings: Settings,
+  counters: UsageCountersState,
+  now: Date,
+): UsageCountersState {
   const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
   const normalized: UsageCountersState = { counters: {} }
   for (const group of settings.groups) {
@@ -503,7 +616,8 @@ export function normalizeCounters(settings: Settings, counters: UsageCountersSta
     const current = counters.counters[group.id]
     normalized.counters[group.id] = {
       logicalDate,
-      consumedSec: current?.logicalDate === logicalDate ? Math.max(0, Math.floor(current.consumedSec)) : 0,
+      consumedSec:
+        current?.logicalDate === logicalDate ? Math.max(0, Math.floor(current.consumedSec)) : 0,
     }
   }
   return normalized
@@ -513,11 +627,17 @@ export function normalizeCounters(settings: Settings, counters: UsageCountersSta
  * URL に該当し、かつ現在制限がアクティブな group counter にだけ秒数を加算する。
  * 制限なしグループや、制限はあるが現在ウィンドウ外のグループは加算されない。
  */
-export function incrementCounters(settings: Settings, counters: UsageCountersState, url: string | undefined, now: Date, seconds: number): UsageCountersState {
+export function incrementCounters(
+  settings: Settings,
+  counters: UsageCountersState,
+  url: string | undefined,
+  now: Date,
+  seconds: number,
+): UsageCountersState {
   const normalized = normalizeCounters(settings, counters, now)
   const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
   for (const groupId of getTargetGroupIds(settings, url)) {
-    const group = settings.groups.find(g => g.id === groupId)
+    const group = settings.groups.find((g) => g.id === groupId)
     if (!group || !isRestrictionActiveNow(group, now, settings.global)) continue
     const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
     normalized.counters[groupId] = {

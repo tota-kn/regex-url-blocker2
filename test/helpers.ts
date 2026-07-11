@@ -12,7 +12,10 @@ export function createEmptyGroup(name = ''): Group {
 /**
  * テスト用に毎日条件の単一制限を生成する。
  */
-export function dailyRestriction(type: RestrictionType, overrides: Partial<Omit<RestrictionRule, 'condition' | 'type'>> = {}): RestrictionRule {
+export function dailyRestriction(
+  type: RestrictionType,
+  overrides: Partial<Omit<RestrictionRule, 'condition' | 'type'>> = {},
+): RestrictionRule {
   return {
     condition: { type: 'daily' },
     timeRanges: [],
@@ -24,7 +27,11 @@ export function dailyRestriction(type: RestrictionType, overrides: Partial<Omit<
 /**
  * テスト用に毎週条件の単一制限を生成する。
  */
-export function weeklyRestriction(daysOfWeek: DayOfWeek[], type: RestrictionType, overrides: Partial<Omit<RestrictionRule, 'condition' | 'type'>> = {}): RestrictionRule {
+export function weeklyRestriction(
+  daysOfWeek: DayOfWeek[],
+  type: RestrictionType,
+  overrides: Partial<Omit<RestrictionRule, 'condition' | 'type'>> = {},
+): RestrictionRule {
   return {
     condition: { type: 'weekly', daysOfWeek },
     timeRanges: [],

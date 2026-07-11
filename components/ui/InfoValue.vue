@@ -21,10 +21,7 @@ withDefaults(defineProps<Props>(), {
 
 <template>
   <div>
-    <h2
-      v-if="label"
-      class="text-label-md text-secondary-foreground"
-    >
+    <h2 v-if="label" class="text-label-md text-secondary-foreground">
       {{ label }}
     </h2>
     <p

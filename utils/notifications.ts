@@ -10,7 +10,7 @@ export interface NotificationPlan {
   /** Chrome notification の本文。 */
   message: string
   /** 通知済みとして履歴へ記録する group と論理日の組。 */
-  historyEntries: Array<{ groupId: string, logicalDate: string }>
+  historyEntries: Array<{ groupId: string; logicalDate: string }>
 }
 
 /**
@@ -25,7 +25,7 @@ export function formatRemainingNotificationMinutes(remainingSec: number): string
  * 指定グループ名を通知本文向けに結合する。
  */
 export function formatGroupNames(groups: Array<{ name: string }>): string {
-  return groups.map(group => group.name).join(', ')
+  return groups.map((group) => group.name).join(', ')
 }
 
 /**
@@ -45,7 +45,10 @@ export function filterUnnotifiedGroups<T extends { id: string }>(
 /**
  * 通知計画に含まれる group を通知済み履歴へ記録する。
  */
-export function markNotificationPlanHistory(plan: NotificationPlan, history: Record<string, UsageNotificationEntry>): void {
+export function markNotificationPlanHistory(
+  plan: NotificationPlan,
+  history: Record<string, UsageNotificationEntry>,
+): void {
   for (const entry of plan.historyEntries) {
     history[entry.groupId] = { logicalDate: entry.logicalDate }
   }
@@ -71,7 +74,12 @@ export function buildRemainingTimeNotificationPlans(
   for (const group of settings.groups) {
     if (!targetGroupIds.has(group.id)) continue
 
-    const summary = getTimeLimitUsageSummary(group, counters.counters[group.id], now, settings.global)
+    const summary = getTimeLimitUsageSummary(
+      group,
+      counters.counters[group.id],
+      now,
+      settings.global,
+    )
     if (!summary) continue
     if (summary.remainingSec <= 0 || summary.remainingSec > thresholdSec) continue
     if (history[group.id]?.logicalDate === summary.logicalDate) continue

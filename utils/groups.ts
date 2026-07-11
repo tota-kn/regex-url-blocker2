@@ -1,5 +1,13 @@
 import { dayLabel, formatMonthDay, formatTimeRange } from './datetime'
-import type { Group, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow } from './types'
+import type {
+  Group,
+  Restriction,
+  RestrictionRule,
+  ScheduleRuleCondition,
+  Settings,
+  TimeRange,
+  TimeWindow,
+} from './types'
 
 /**
  * グループを JSON 互換の deep clone として複製する。
@@ -57,11 +65,12 @@ function formatRestrictionWindow(timeRanges: TimeRange[]): string {
  * 読み取り専用表示用にグループの単一制限を要約する。
  */
 export function formatRestriction(restriction: RestrictionRule): string {
-  const detail = restriction.type === 'block'
-    ? 'Block'
-    : restriction.type === 'grace'
-      ? `Grace ${restriction.graceMinutes ?? 0} min/day`
-      : `Wait ${restriction.waitSeconds ?? 0} sec`
+  const detail =
+    restriction.type === 'block'
+      ? 'Block'
+      : restriction.type === 'grace'
+        ? `Grace ${restriction.graceMinutes ?? 0} min/day`
+        : `Wait ${restriction.waitSeconds ?? 0} sec`
   return `${formatScheduleRuleCondition(restriction.condition)} ${formatRestrictionWindow(restriction.timeRanges)} — ${detail}`
 }
 
@@ -74,7 +83,8 @@ export function formatTimeWindow(window: TimeWindow): string {
 /** 分離形式の制限を読み取り表示用の文言に変換する。 */
 export function formatStandaloneRestriction(restriction: Restriction): string {
   if (restriction.type === 'block') return 'Block'
-  if (restriction.type === 'redirect') return restriction.redirectUrl ? `Redirect to ${restriction.redirectUrl}` : 'Redirect'
+  if (restriction.type === 'redirect')
+    return restriction.redirectUrl ? `Redirect to ${restriction.redirectUrl}` : 'Redirect'
   if (restriction.type === 'grace') return `Grace ${restriction.graceMinutes ?? 0} min/day`
   return `Wait ${restriction.waitSeconds ?? 0} sec`
 }

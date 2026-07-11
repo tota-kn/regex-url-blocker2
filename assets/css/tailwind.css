@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 html {
   scrollbar-gutter: stable;
@@ -13,18 +13,18 @@ html {
   --color-surface-subtle: #f3f4f6;
 
   /* プライマリカラー（メインアクション、選択状態） */
-  --color-primary: #3b82f6;         /* ブルー500 - メインボタン、アクティブ要素 */
-  --color-primary-hover: #2563eb;   /* ブルー600 - ホバー時 */
+  --color-primary: #3b82f6; /* ブルー500 - メインボタン、アクティブ要素 */
+  --color-primary-hover: #2563eb; /* ブルー600 - ホバー時 */
   --color-primary-foreground: #ffffff;
 
   /* セカンダリカラー（サブアクション、非強調UI） */
-  --color-secondary: #f3f4f6;       /* グレー100 - 二次的な要素 */
+  --color-secondary: #f3f4f6; /* グレー100 - 二次的な要素 */
   --color-secondary-hover: #e5e7eb; /* グレー200 - ホバー時 */
   --color-secondary-foreground: #4b5563; /* グレー600 */
 
   /* 警告（メーター残り ≤20% 時） */
-  --color-warning: #f59e0b;          /* アンバー500 */
-  --color-warning-text: #b45309;     /* アンバー700 */
+  --color-warning: #f59e0b; /* アンバー500 */
+  --color-warning-text: #b45309; /* アンバー700 */
 
   /* 警告・危険アクション */
   --color-danger: #dc2626;
@@ -34,8 +34,8 @@ html {
   --color-danger-foreground: #ffffff;
 
   /* ボーダー、ディバイダー */
-  --color-border: #e5e7eb;          /* グレー200 - 境界線 */
-  --color-border-hover: #d1d5db;    /* グレー300 - フォーカス時など */
+  --color-border: #e5e7eb; /* グレー200 - 境界線 */
+  --color-border-hover: #d1d5db; /* グレー300 - フォーカス時など */
 
   /* 入力フィールド */
   --color-field: #ffffff;
@@ -47,21 +47,21 @@ html {
   --color-input-foreground: #1f2937; /* グレー800 - 入力テキスト */
 
   /* タグ関連 */
-  --color-tag-selected-bg: #dbeafe;  /* ブルー100 - 選択タグ背景 */
+  --color-tag-selected-bg: #dbeafe; /* ブルー100 - 選択タグ背景 */
   --color-tag-selected-text: #1e40af; /* ブルー800 - 選択タグテキスト */
   --color-tag-selected-border: #93c5fd; /* ブルー300 - 選択タグ境界線 */
 
-  --color-tag-default-bg: #f3f4f6;   /* グレー100 - 通常タグ背景 */
+  --color-tag-default-bg: #f3f4f6; /* グレー100 - 通常タグ背景 */
   --color-tag-default-text: #4b5563; /* グレー600 - 通常タグテキスト */
   --color-tag-default-border: #e5e7eb; /* グレー200 - 通常タグ境界線 */
 
   /* フォーカスとアウトライン */
-  --color-ring: #93c5fd;            /* ブルー300 - フォーカスリング */
+  --color-ring: #93c5fd; /* ブルー300 - フォーカスリング */
 
   /* その他のUI要素 */
-  --color-muted: #9ca3af;           /* グレー400 - 薄いテキスト、アイコン */
+  --color-muted: #9ca3af; /* グレー400 - 薄いテキスト、アイコン */
   --color-muted-foreground: #6b7280;
-  --color-accent: #eff6ff;          /* ブルー50 - アクセント背景 */
+  --color-accent: #eff6ff; /* ブルー50 - アクセント背景 */
 
   /* 角丸半径 */
   --radius-sm: 0.125rem;
@@ -129,7 +129,8 @@ dialog.dialog-centered {
 }
 
 @keyframes pause-breathe {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(0.82);
     opacity: 0.55;
   }

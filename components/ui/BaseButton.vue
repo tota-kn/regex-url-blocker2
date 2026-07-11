@@ -32,22 +32,31 @@ const props = withDefaults(defineProps<Props>(), {
   pressed: undefined,
 })
 
-const baseClass = 'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg text-label-md transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50'
+const baseClass =
+  'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg text-label-md transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50'
 
-const sizeClass = computed(() => ({
-  'sm': 'h-8 px-2.5',
-  'md': 'h-9 px-3',
-  'icon-sm': 'size-8',
-  'icon-md': 'size-9',
-}[props.size]))
+const sizeClass = computed(
+  () =>
+    ({
+      sm: 'h-8 px-2.5',
+      md: 'h-9 px-3',
+      'icon-sm': 'size-8',
+      'icon-md': 'size-9',
+    })[props.size],
+)
 
-const variantClass = computed(() => ({
-  'primary': 'bg-primary text-primary-foreground hover:bg-primary-hover focus:ring-ring',
-  'secondary': 'border border-border bg-surface text-secondary-foreground hover:bg-secondary-hover focus:ring-ring',
-  'ghost': 'border border-primary/30 bg-transparent text-primary hover:bg-accent focus:ring-ring',
-  'danger': 'bg-danger text-danger-foreground hover:bg-danger-hover focus:ring-danger-border',
-  'danger-ghost': 'border border-danger-border bg-surface text-danger hover:bg-danger-subtle focus:ring-danger-border',
-}[props.variant]))
+const variantClass = computed(
+  () =>
+    ({
+      primary: 'bg-primary text-primary-foreground hover:bg-primary-hover focus:ring-ring',
+      secondary:
+        'border border-border bg-surface text-secondary-foreground hover:bg-secondary-hover focus:ring-ring',
+      ghost: 'border border-primary/30 bg-transparent text-primary hover:bg-accent focus:ring-ring',
+      danger: 'bg-danger text-danger-foreground hover:bg-danger-hover focus:ring-danger-border',
+      'danger-ghost':
+        'border border-danger-border bg-surface text-danger hover:bg-danger-subtle focus:ring-danger-border',
+    })[props.variant],
+)
 </script>
 
 <template>

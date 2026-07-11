@@ -4,7 +4,12 @@ import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import { getGroupBlockStatus, getNextDailyResetAt, getTimeRangeUnblockAt, type GroupBlockStatus } from '@/utils/blocking'
+import {
+  getGroupBlockStatus,
+  getNextDailyResetAt,
+  getTimeRangeUnblockAt,
+  type GroupBlockStatus,
+} from '@/utils/blocking'
 import { formatDateTime, formatTimeRange } from '@/utils/datetime'
 import { loadPageState } from '@/utils/storage'
 import type { GlobalSettings, Group, TimeRange } from '@/utils/types'
@@ -38,10 +43,14 @@ const isLoaded = ref(false)
 /**
  * ブロック状態から画面表示用の理由一覧を作る。
  */
-function buildReasons(group: Group, status: GroupBlockStatus, now: Date, global: GlobalSettings): BlockedReason[] {
-  const timeRangeUnblockAt = status.activeTimeRanges.length > 0
-    ? getTimeRangeUnblockAt(group, now, global)
-    : undefined
+function buildReasons(
+  group: Group,
+  status: GroupBlockStatus,
+  now: Date,
+  global: GlobalSettings,
+): BlockedReason[] {
+  const timeRangeUnblockAt =
+    status.activeTimeRanges.length > 0 ? getTimeRangeUnblockAt(group, now, global) : undefined
   const timeRangeReasons = status.activeTimeRanges.map((range: TimeRange) => ({
     kind: 'timeRange' as const,
     label: 'Blocked hours active',
@@ -50,15 +59,18 @@ function buildReasons(group: Group, status: GroupBlockStatus, now: Date, global:
     releaseAt: timeRangeUnblockAt,
   }))
 
-  const dailyLimitReasons = status.blockedByDailyLimit && status.timeLimitSummary
-    ? [{
-        kind: 'dailyLimit' as const,
-        label: 'Daily limit reached',
-        summary: `${status.timeLimitSummary.limitMinutes} min/day`,
-        releaseLabel: 'Resets at',
-        releaseAt: getNextDailyResetAt(now, global),
-      }]
-    : []
+  const dailyLimitReasons =
+    status.blockedByDailyLimit && status.timeLimitSummary
+      ? [
+          {
+            kind: 'dailyLimit' as const,
+            label: 'Daily limit reached',
+            summary: `${status.timeLimitSummary.limitMinutes} min/day`,
+            releaseLabel: 'Resets at',
+            releaseAt: getNextDailyResetAt(now, global),
+          },
+        ]
+      : []
 
   return [...timeRangeReasons, ...dailyLimitReasons]
 }
@@ -91,9 +103,14 @@ onMounted(async () => {
   const now = new Date()
   blockedUrl.value = parseBlockedUrl(params)
   blockedGroupDisplays.value = effectiveSettings.groups
-    .filter(group => groupIds.has(group.id))
+    .filter((group) => groupIds.has(group.id))
     .map((group) => {
-      const status = getGroupBlockStatus(group, counters.counters[group.id], now, effectiveSettings.global)
+      const status = getGroupBlockStatus(
+        group,
+        counters.counters[group.id],
+        now,
+        effectiveSettings.global,
+      )
       return {
         group,
         status,
@@ -108,16 +125,9 @@ onMounted(async () => {
   <main class="min-h-screen bg-secondary/40 px-4 py-10 text-foreground sm:px-6">
     <section class="mx-auto max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm">
       <div class="flex items-start gap-3">
-        <img
-          src="/icon/48.png"
-          alt=""
-          aria-hidden="true"
-          class="mt-0.5 size-8 shrink-0"
-        >
+        <img src="/icon/48.png" alt="" aria-hidden="true" class="mt-0.5 size-8 shrink-0" />
         <div class="min-w-0">
-          <h1 class="text-heading-lg">
-            Page blocked
-          </h1>
+          <h1 class="text-heading-lg">Page blocked</h1>
           <p class="mt-1 text-body-md text-secondary-foreground">
             This page was blocked by Regex URL Guard.
           </p>
@@ -126,32 +136,16 @@ onMounted(async () => {
 
       <div class="mt-6 space-y-4">
         <div>
-          <InfoValue
-            label="URL"
-            aria-label="Blocked URL"
-            break-all
-          >
+          <InfoValue label="URL" aria-label="Blocked URL" break-all>
             {{ blockedUrl || 'Unknown' }}
           </InfoValue>
         </div>
 
-        <p
-          v-if="!isLoaded"
-          class="text-body-sm text-muted-foreground"
-        >
-          Loading...
-        </p>
-        <InfoValue
-          v-else-if="blockedGroupDisplays.length === 0"
-          aria-label="Blocking details"
-        >
+        <p v-if="!isLoaded" class="text-body-sm text-muted-foreground">Loading...</p>
+        <InfoValue v-else-if="blockedGroupDisplays.length === 0" aria-label="Blocking details">
           Unknown setting
         </InfoValue>
-        <div
-          v-else
-          class="space-y-3"
-          aria-label="Blocking details"
-        >
+        <div v-else class="space-y-3" aria-label="Blocking details">
           <article
             v-for="display in blockedGroupDisplays"
             :key="display.group.id"
@@ -161,10 +155,7 @@ onMounted(async () => {
               {{ display.group.name }}
             </h3>
 
-            <div
-              v-if="display.reasons.length > 0"
-              class="mt-3 space-y-2"
-            >
+            <div v-if="display.reasons.length > 0" class="mt-3 space-y-2">
               <div
                 v-for="reason in display.reasons"
                 :key="`${display.group.id}-${reason.kind}-${reason.summary}`"
@@ -172,10 +163,7 @@ onMounted(async () => {
                 :aria-label="`${display.group.name} ${reason.label}`"
               >
                 <div class="flex flex-wrap items-center gap-2">
-                  <StatusBadge
-                    kind="danger"
-                    class="inline-flex"
-                  >
+                  <StatusBadge kind="danger" class="inline-flex">
                     {{ reason.label }}
                   </StatusBadge>
                   <span class="font-mono text-body-sm text-secondary-foreground">
@@ -193,27 +181,14 @@ onMounted(async () => {
               </div>
             </div>
 
-            <p
-              v-else
-              class="mt-2 text-body-sm text-muted-foreground"
-            >
-              No active reason found.
-            </p>
+            <p v-else class="mt-2 text-body-sm text-muted-foreground">No active reason found.</p>
           </article>
         </div>
       </div>
 
       <div class="mt-6 flex justify-end">
-        <BaseButton
-          type="button"
-          variant="primary"
-          class="h-10 px-4"
-          @click="goBack"
-        >
-          <ArrowUturnLeftIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+        <BaseButton type="button" variant="primary" class="h-10 px-4" @click="goBack">
+          <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
           Back
         </BaseButton>
       </div>

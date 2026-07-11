@@ -13,14 +13,14 @@ function settingsEqual(a: Settings, b: Settings): boolean {
  * いずれかのグループが Lock Mode ON なら true を返す。
  */
 export function hasLockModeGroup(settings: Settings): boolean {
-  return settings.groups.some(group => group.lockMode)
+  return settings.groups.some((group) => group.lockMode)
 }
 
 /**
  * 希望設定から、Lock Mode ON の有効 group snapshot だけを次回 reset まで維持して合成する。
  */
 export function mergeImmediateRestrictions(active: Settings, preferred: Settings): Settings {
-  const preferredById = new Map(preferred.groups.map(group => [group.id, group]))
+  const preferredById = new Map(preferred.groups.map((group) => [group.id, group]))
   const mergedGroups: Group[] = []
   const handledIds = new Set<string>()
 
@@ -48,7 +48,9 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
     global: {
       blockAction: preferred.global.blockAction,
       redirectUrl: preferred.global.redirectUrl,
-      dailyResetHour: lockModeExists ? active.global.dailyResetHour : preferred.global.dailyResetHour,
+      dailyResetHour: lockModeExists
+        ? active.global.dailyResetHour
+        : preferred.global.dailyResetHour,
       remainingTimeNotificationsEnabled: preferred.global.remainingTimeNotificationsEnabled,
       notificationThresholdMinutes: preferred.global.notificationThresholdMinutes,
     },
@@ -60,13 +62,16 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
  * Lock Mode ON のグループ変更で、翌日まで待つ必要がある差分が残っているなら true を返す。
  */
 export function hasPendingEffectiveSettings(preferred: Settings, effective: Settings): boolean {
-  const preferredById = new Map(preferred.groups.map(group => [group.id, group]))
+  const preferredById = new Map(preferred.groups.map((group) => [group.id, group]))
   return effective.groups.some((effectiveGroup) => {
     if (!effectiveGroup.lockMode) return false
     const preferredGroup = preferredById.get(effectiveGroup.id)
-    return !preferredGroup || !settingsEqual(
-      { global: preferred.global, groups: [preferredGroup] },
-      { global: preferred.global, groups: [effectiveGroup] },
+    return (
+      !preferredGroup ||
+      !settingsEqual(
+        { global: preferred.global, groups: [preferredGroup] },
+        { global: preferred.global, groups: [effectiveGroup] },
+      )
     )
   })
 }
@@ -74,7 +79,10 @@ export function hasPendingEffectiveSettings(preferred: Settings, effective: Sett
 /**
  * 現在時刻と設定のリセット時刻から、有効設定 state の初期値を作る。
  */
-export function createEffectiveSettingsState(settings: Settings, now: Date): EffectiveSettingsState {
+export function createEffectiveSettingsState(
+  settings: Settings,
+  now: Date,
+): EffectiveSettingsState {
   return {
     effectiveSettings: cloneSettings(settings),
     effectiveSettingsLogicalDate: getLogicalDate(now, settings.global.dailyResetHour).logicalDate,
@@ -84,10 +92,17 @@ export function createEffectiveSettingsState(settings: Settings, now: Date): Eff
 /**
  * 論理日切替時は希望設定を丸ごと昇格し、それ以外は Lock Mode ON group だけを維持して反映する。
  */
-export function reconcileEffectiveSettings(preferred: Settings, current: EffectiveSettingsState | undefined, now: Date): EffectiveSettingsState {
+export function reconcileEffectiveSettings(
+  preferred: Settings,
+  current: EffectiveSettingsState | undefined,
+  now: Date,
+): EffectiveSettingsState {
   if (!current) return createEffectiveSettingsState(preferred, now)
 
-  const activeLogicalDate = getLogicalDate(now, current.effectiveSettings.global.dailyResetHour).logicalDate
+  const activeLogicalDate = getLogicalDate(
+    now,
+    current.effectiveSettings.global.dailyResetHour,
+  ).logicalDate
   if (activeLogicalDate !== current.effectiveSettingsLogicalDate) {
     return createEffectiveSettingsState(preferred, now)
   }

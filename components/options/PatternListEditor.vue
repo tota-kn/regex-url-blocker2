@@ -62,24 +62,14 @@ function deletePattern(index: number): void {
   <section class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
       <h3 class="flex items-center gap-1.5 text-label-md">
-        <CodeBracketIcon
-          aria-hidden="true"
-          class="size-4 text-muted"
-        />
+        <CodeBracketIcon aria-hidden="true" class="size-4 text-muted" />
         URL patterns
       </h3>
     </div>
 
     <div :class="isEditing ? 'space-y-2' : 'space-y-1'">
-      <div
-        v-for="(_, i) in patterns"
-        :key="i"
-        class="space-y-1"
-      >
-        <div
-          v-if="isEditing"
-          class="flex min-w-0 gap-2"
-        >
+      <div v-for="(_, i) in patterns" :key="i" class="space-y-1">
+        <div v-if="isEditing" class="flex min-w-0 gap-2">
           <BaseInput
             v-model="patterns[i]"
             aria-label="URL pattern"
@@ -98,21 +88,13 @@ function deletePattern(index: number): void {
             variant="danger-ghost"
             @click="deletePattern(i)"
           >
-            <TrashIcon
-              aria-hidden="true"
-              class="size-4"
-            />
+            <TrashIcon aria-hidden="true" class="size-4" />
           </BaseButton>
         </div>
-        <p
-          v-else
-          class="text-mono-md break-all text-input-foreground"
-        >
+        <p v-else class="text-mono-md break-all text-input-foreground">
           {{ patterns[i] }}
         </p>
-        <AlertMessage
-          v-if="visibleError(i)"
-        >
+        <AlertMessage v-if="visibleError(i)">
           {{ visibleError(i) }}
         </AlertMessage>
       </div>
@@ -124,10 +106,7 @@ function deletePattern(index: number): void {
         variant="ghost"
         @click="patterns.push('')"
       >
-        <PlusIcon
-          aria-hidden="true"
-          class="size-4"
-        />
+        <PlusIcon aria-hidden="true" class="size-4" />
         URL pattern
       </BaseButton>
     </div>

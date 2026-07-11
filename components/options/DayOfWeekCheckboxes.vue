@@ -24,18 +24,14 @@ function toggleDay(day: DayOfWeek): void {
   const idx = daysOfWeek.value.indexOf(day)
   if (idx >= 0) {
     daysOfWeek.value.splice(idx, 1)
-  }
-  else {
-    daysOfWeek.value = [...daysOfWeek.value, day].sort((a, b) => a - b)
+  } else {
+    daysOfWeek.value = [...daysOfWeek.value, day].toSorted((a, b) => a - b)
   }
 }
 </script>
 
 <template>
-  <fieldset
-    aria-label="Days"
-    class="min-w-0"
-  >
+  <fieldset aria-label="Days" class="min-w-0">
     <div class="flex min-w-0 items-center gap-x-3">
       <span
         aria-hidden="true"
@@ -47,13 +43,15 @@ function toggleDay(day: DayOfWeek): void {
         <label
           v-for="d in DAYS"
           :key="d.value"
-          :class="daysOfWeek.includes(d.value)
-            ? isEditing
-              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-tag-selected-border bg-tag-selected-bg px-2 text-label-sm text-tag-selected-text'
-              : 'inline-flex h-7 shrink-0 items-center rounded-sm border border-border bg-background px-2 text-label-sm text-secondary-foreground'
-            : isEditing
-              ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-tag-default-border bg-tag-default-bg px-2 text-label-sm text-tag-default-text hover:bg-secondary-hover'
-              : 'inline-flex h-7 shrink-0 items-center rounded-sm border border-transparent bg-transparent px-1 text-label-sm text-muted'"
+          :class="
+            daysOfWeek.includes(d.value)
+              ? isEditing
+                ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-tag-selected-border bg-tag-selected-bg px-2 text-label-sm text-tag-selected-text'
+                : 'inline-flex h-7 shrink-0 items-center rounded-sm border border-border bg-background px-2 text-label-sm text-secondary-foreground'
+              : isEditing
+                ? 'inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-tag-default-border bg-tag-default-bg px-2 text-label-sm text-tag-default-text hover:bg-secondary-hover'
+                : 'inline-flex h-7 shrink-0 items-center rounded-sm border border-transparent bg-transparent px-1 text-label-sm text-muted'
+          "
         >
           <input
             type="checkbox"
@@ -62,7 +60,7 @@ function toggleDay(day: DayOfWeek): void {
             :disabled="!isEditing"
             :class="isEditing ? 'size-3.5 accent-primary' : 'sr-only'"
             @change="toggleDay(d.value)"
-          >
+          />
           <span>{{ d.label }}</span>
         </label>
       </div>

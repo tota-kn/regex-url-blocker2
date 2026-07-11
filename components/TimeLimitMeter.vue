@@ -27,8 +27,12 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const limitSec = computed(() => props.summary.limitMinutes * 60)
-const displayedRemainingSec = computed(() => Math.max(0, Math.ceil(props.remainingSec ?? props.summary.remainingSec)))
-const displayedConsumedSec = computed(() => Math.max(0, limitSec.value - displayedRemainingSec.value))
+const displayedRemainingSec = computed(() =>
+  Math.max(0, Math.ceil(props.remainingSec ?? props.summary.remainingSec)),
+)
+const displayedConsumedSec = computed(() =>
+  Math.max(0, limitSec.value - displayedRemainingSec.value),
+)
 const usedPercent = computed(() => {
   if (limitSec.value <= 0) return 100
   return Math.min(100, Math.max(0, (displayedConsumedSec.value / limitSec.value) * 100))
@@ -71,10 +75,7 @@ function formatMinutesSeconds(seconds: number): string {
       v-if="showLabel"
       class="flex shrink-0 items-center gap-1.5 text-label-sm uppercase text-muted"
     >
-      <ClockIcon
-        aria-hidden="true"
-        class="size-3.5 shrink-0"
-      />
+      <ClockIcon aria-hidden="true" class="size-3.5 shrink-0" />
       Daily limit
     </p>
 

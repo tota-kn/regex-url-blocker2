@@ -45,14 +45,8 @@ defineExpose({ open })
       {{ message }}
     </p>
     <div class="flex justify-end gap-2">
-      <BaseButton
-        type="button"
-        @click="onCancel"
-      >
-        <XMarkIcon
-          aria-hidden="true"
-          class="size-4"
-        />
+      <BaseButton type="button" @click="onCancel">
+        <XMarkIcon aria-hidden="true" class="size-4" />
         Cancel
       </BaseButton>
       <BaseButton
@@ -61,10 +55,7 @@ defineExpose({ open })
         variant="danger-ghost"
         @click="onConfirm"
       >
-        <TrashIcon
-          aria-hidden="true"
-          class="size-4"
-        />
+        <TrashIcon aria-hidden="true" class="size-4" />
         Delete
       </BaseButton>
     </div>

@@ -110,33 +110,19 @@ onUnmounted(() => {
       </div>
 
       <div>
-        <h2
-          id="pause-countdown-title"
-          class="text-heading-md"
-        >
-          Take a breath
-        </h2>
+        <h2 id="pause-countdown-title" class="text-heading-md">Take a breath</h2>
         <p class="mt-1 text-body-sm text-muted-foreground">
           Stay here for a minute before pausing this group.
         </p>
       </div>
 
-      <p
-        class="text-mono-md text-secondary-foreground"
-        aria-live="polite"
-      >
+      <p class="text-mono-md text-secondary-foreground" aria-live="polite">
         {{ isReady ? 'Ready' : `${remainingSeconds}s remaining` }}
       </p>
 
       <div class="flex justify-end gap-2">
-        <BaseButton
-          type="button"
-          @click="cancel"
-        >
-          <XMarkIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+        <BaseButton type="button" @click="cancel">
+          <XMarkIcon aria-hidden="true" class="size-4" />
           Cancel
         </BaseButton>
         <BaseButton
@@ -146,10 +132,7 @@ onUnmounted(() => {
           :disabled="!isReady"
           @click="confirmPause"
         >
-          <CheckIcon
-            aria-hidden="true"
-            class="size-4"
-          />
+          <CheckIcon aria-hidden="true" class="size-4" />
           Pause 10 min
         </BaseButton>
       </div>

@@ -33,7 +33,10 @@ export function formatPauseDuration(milliseconds: number): string {
 /**
  * 一時停止状態から popup 用の表示ラベルと状態種別を返す。
  */
-export function getGroupPauseDisplayState(entry: GroupPauseEntry | undefined, now: Date): GroupPauseDisplayState {
+export function getGroupPauseDisplayState(
+  entry: GroupPauseEntry | undefined,
+  now: Date,
+): GroupPauseDisplayState {
   const nowMs = now.getTime()
   const pausedUntil = entry?.pausedUntil
   if (pausedUntil && pausedUntil > nowMs) {
@@ -67,7 +70,10 @@ export function getGroupPauseDisplayState(entry: GroupPauseEntry | undefined, no
 /**
  * 一時停止状態から表示ラベルと状態種別を返す。
  */
-export function getGroupPauseButtonState(entry: GroupPauseEntry | undefined, now: Date): GroupPauseButtonState {
+export function getGroupPauseButtonState(
+  entry: GroupPauseEntry | undefined,
+  now: Date,
+): GroupPauseButtonState {
   const nowMs = now.getTime()
   const pausedUntil = entry?.pausedUntil
   if (pausedUntil && pausedUntil > nowMs) {

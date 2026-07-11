@@ -1,4 +1,14 @@
-import type { DayOfWeek, GlobalSettings, Group, MonthDay, Restriction, RestrictionRule, ScheduleRuleCondition, TimeRange, TimeWindow } from './types'
+import type {
+  DayOfWeek,
+  GlobalSettings,
+  Group,
+  MonthDay,
+  Restriction,
+  RestrictionRule,
+  ScheduleRuleCondition,
+  TimeRange,
+  TimeWindow,
+} from './types'
 import { isValidUrlPattern } from './urlPatterns'
 
 /**
@@ -31,12 +41,10 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
   if (settings.blockAction === 'redirect') {
     if (settings.redirectUrl.trim().length === 0) {
       errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
-    }
-    else {
+    } else {
       try {
         new URL(settings.redirectUrl)
-      }
-      catch {
+      } catch {
         errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
       }
     }
@@ -46,7 +54,10 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
     errors.push({ field: 'dailyResetHour', message: 'Use HH:MM' })
   }
 
-  if (!Number.isInteger(settings.notificationThresholdMinutes) || settings.notificationThresholdMinutes < 1) {
+  if (
+    !Number.isInteger(settings.notificationThresholdMinutes) ||
+    settings.notificationThresholdMinutes < 1
+  ) {
     errors.push({ field: 'notificationThresholdMinutes', message: 'Use 1+ integer' })
   }
 
@@ -93,31 +104,40 @@ const MAX_DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
  */
 function isValidMonthDay(value: MonthDay): boolean {
   if (!Number.isInteger(value.month) || value.month < 1 || value.month > 12) return false
-  return Number.isInteger(value.day) && value.day >= 1 && value.day <= MAX_DAYS_IN_MONTH[value.month - 1]
+  return (
+    Number.isInteger(value.day) && value.day >= 1 && value.day <= MAX_DAYS_IN_MONTH[value.month - 1]
+  )
 }
 
 /**
  * スケジュールルールの適用条件をバリデーションし、エラー配列を返す。
  */
-function validateScheduleRuleCondition(condition: ScheduleRuleCondition, prefix: string): ValidationError[] {
+function validateScheduleRuleCondition(
+  condition: ScheduleRuleCondition,
+  prefix: string,
+): ValidationError[] {
   const errors: ValidationError[] = []
   if (condition.type === 'weekly') {
     if (condition.daysOfWeek.length === 0) {
       errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Select 1+ days' })
     }
-    if (condition.daysOfWeek.some((day: DayOfWeek) => !isValidDayOfWeek(day)) || new Set(condition.daysOfWeek).size !== condition.daysOfWeek.length) {
+    if (
+      condition.daysOfWeek.some((day: DayOfWeek) => !isValidDayOfWeek(day)) ||
+      new Set(condition.daysOfWeek).size !== condition.daysOfWeek.length
+    ) {
       errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Use each day 0-6 once' })
     }
-  }
-  else if (condition.type === 'monthly') {
+  } else if (condition.type === 'monthly') {
     if (condition.daysOfMonth.length === 0) {
       errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
     }
-    if (condition.daysOfMonth.some((day: number) => !Number.isInteger(day) || day < 1 || day > 31) || new Set(condition.daysOfMonth).size !== condition.daysOfMonth.length) {
+    if (
+      condition.daysOfMonth.some((day: number) => !Number.isInteger(day) || day < 1 || day > 31) ||
+      new Set(condition.daysOfMonth).size !== condition.daysOfMonth.length
+    ) {
       errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
     }
-  }
-  else if (condition.type === 'period') {
+  } else if (condition.type === 'period') {
     if (!isValidMonthDay(condition.start)) {
       errors.push({ field: `${prefix}.condition.start`, message: 'Use MM/DD' })
     }
@@ -136,10 +156,20 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
   restriction.timeRanges.forEach((range: TimeRange, i: number) => {
     errors.push(...validateTimeRange(range, `${prefix}.timeRanges[${i}]`))
   })
-  if (restriction.type === 'grace' && (restriction.graceMinutes === undefined || !Number.isInteger(restriction.graceMinutes) || restriction.graceMinutes < 0)) {
+  if (
+    restriction.type === 'grace' &&
+    (restriction.graceMinutes === undefined ||
+      !Number.isInteger(restriction.graceMinutes) ||
+      restriction.graceMinutes < 0)
+  ) {
     errors.push({ field: `${prefix}.graceMinutes`, message: 'Use 0+ integer' })
   }
-  if (restriction.type === 'wait' && (restriction.waitSeconds === undefined || !Number.isInteger(restriction.waitSeconds) || restriction.waitSeconds < 0)) {
+  if (
+    restriction.type === 'wait' &&
+    (restriction.waitSeconds === undefined ||
+      !Number.isInteger(restriction.waitSeconds) ||
+      restriction.waitSeconds < 0)
+  ) {
     errors.push({ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' })
   }
   return errors
@@ -149,16 +179,31 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
 function validateTimeWindow(window: TimeWindow, prefix: string): ValidationError[] {
   if (window.type === 'always') return []
   const errors = validateScheduleRuleCondition(window.condition, prefix)
-  window.timeRanges.forEach((range, index) => errors.push(...validateTimeRange(range, `${prefix}.timeRanges[${index}]`)))
+  window.timeRanges.forEach((range, index) =>
+    errors.push(...validateTimeRange(range, `${prefix}.timeRanges[${index}]`)),
+  )
   return errors
 }
 
 /** 分離形式の制限をバリデーションする。 */
-function validateStandaloneRestriction(restriction: Restriction, prefix: string): ValidationError[] {
-  if (restriction.type === 'grace' && (restriction.graceMinutes === undefined || !Number.isInteger(restriction.graceMinutes) || restriction.graceMinutes < 0)) {
+function validateStandaloneRestriction(
+  restriction: Restriction,
+  prefix: string,
+): ValidationError[] {
+  if (
+    restriction.type === 'grace' &&
+    (restriction.graceMinutes === undefined ||
+      !Number.isInteger(restriction.graceMinutes) ||
+      restriction.graceMinutes < 0)
+  ) {
     return [{ field: `${prefix}.graceMinutes`, message: 'Use 0+ integer' }]
   }
-  if (restriction.type === 'wait' && (restriction.waitSeconds === undefined || !Number.isInteger(restriction.waitSeconds) || restriction.waitSeconds < 0)) {
+  if (
+    restriction.type === 'wait' &&
+    (restriction.waitSeconds === undefined ||
+      !Number.isInteger(restriction.waitSeconds) ||
+      restriction.waitSeconds < 0)
+  ) {
     return [{ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' }]
   }
   if (restriction.type === 'redirect') {
@@ -168,8 +213,7 @@ function validateStandaloneRestriction(restriction: Restriction, prefix: string)
     }
     try {
       new URL(url)
-    }
-    catch {
+    } catch {
       return [{ field: `${prefix}.redirectUrl`, message: 'Invalid URL' }]
     }
   }
@@ -197,12 +241,10 @@ export function validateGroup(group: Group): ValidationError[] {
   if (group.blockAction === 'redirect') {
     if (group.redirectUrl.trim().length === 0) {
       errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
-    }
-    else {
+    } else {
       try {
         new URL(group.redirectUrl)
-      }
-      catch {
+      } catch {
         errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
       }
     }
@@ -215,11 +257,18 @@ export function validateGroup(group: Group): ValidationError[] {
   })
 
   if (group.timeWindows !== undefined || group.restrictions !== undefined) {
-    ;(group.timeWindows ?? []).forEach((window, index) => errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)))
-    ;(group.restrictions ?? []).forEach((restriction, index) => errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)))
-  }
-  else {
-    const restrictions = group.restrictionRules?.length ? group.restrictionRules : (group.restriction ? [group.restriction] : [])
+    ;(group.timeWindows ?? []).forEach((window, index) =>
+      errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)),
+    )
+    ;(group.restrictions ?? []).forEach((restriction, index) =>
+      errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)),
+    )
+  } else {
+    const restrictions = group.restrictionRules?.length
+      ? group.restrictionRules
+      : group.restriction
+        ? [group.restriction]
+        : []
     restrictions.forEach((restriction, index) => {
       errors.push(...validateRestriction(restriction, `restrictionRules[${index}]`))
     })

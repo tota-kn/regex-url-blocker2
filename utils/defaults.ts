@@ -1,4 +1,11 @@
-import type { GlobalSettings, Group, Restriction, RestrictionRule, RestrictionType, TimeWindow } from './types'
+import type {
+  GlobalSettings,
+  Group,
+  Restriction,
+  RestrictionRule,
+  RestrictionType,
+  TimeWindow,
+} from './types'
 
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
@@ -22,8 +29,14 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
  */
 export function createDefaultRestriction(type: RestrictionType): Restriction
 /** @deprecated 旧ペア形式の呼び出し元との互換用。 */
-export function createDefaultRestriction(type: RestrictionType, base: Pick<RestrictionRule, 'condition' | 'timeRanges'>): RestrictionRule
-export function createDefaultRestriction(type: RestrictionType, base?: Pick<RestrictionRule, 'condition' | 'timeRanges'>): Restriction | RestrictionRule {
+export function createDefaultRestriction(
+  type: RestrictionType,
+  base: Pick<RestrictionRule, 'condition' | 'timeRanges'>,
+): RestrictionRule
+export function createDefaultRestriction(
+  type: RestrictionType,
+  base?: Pick<RestrictionRule, 'condition' | 'timeRanges'>,
+): Restriction | RestrictionRule {
   if (base) return { condition: base.condition, timeRanges: base.timeRanges, type }
   if (type === 'grace') return { type, graceMinutes: 30 }
   if (type === 'wait') return { type, waitSeconds: 5 }
@@ -98,9 +111,18 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     patterns: createPatternsFromTemplate(templateId),
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-    timeWindows: templateId === 'work-hours-focus'
-      ? [{ type: 'scheduled', condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, timeRanges: [{ startMinute: 540, endMinute: 1080 }] }]
-      : (templateId === 'blank' ? [] : [{ type: 'always' }]),
+    timeWindows:
+      templateId === 'work-hours-focus'
+        ? [
+            {
+              type: 'scheduled',
+              condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+              timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+            },
+          ]
+        : templateId === 'blank'
+          ? []
+          : [{ type: 'always' }],
     restrictions: createRestrictionsFromTemplate(templateId),
   }
 }

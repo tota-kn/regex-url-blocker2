@@ -5,7 +5,16 @@ import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import { getGroupBlockStatus, getRedirectUrls, getRestrictions, getTargetGroupIds, restrictionMatchesToday, shouldSkipUrl, type GroupBlockStatus, type TimeLimitUsageSummary } from '@/utils/blocking'
+import {
+  getGroupBlockStatus,
+  getRedirectUrls,
+  getRestrictions,
+  getTargetGroupIds,
+  restrictionMatchesToday,
+  shouldSkipUrl,
+  type GroupBlockStatus,
+  type TimeLimitUsageSummary,
+} from '@/utils/blocking'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
 import { loadGroupPauseState, loadPageState } from '@/utils/storage'
 import { useNowTimer } from '@/utils/useNowTimer'
@@ -37,14 +46,22 @@ const isSkippedPage = computed(() => {
 const targetGroups = computed(() => {
   if (!settings.value) return []
   const ids = new Set(getTargetGroupIds(settings.value, activeUrl.value))
-  return settings.value.groups.filter(group => ids.has(group.id))
+  return settings.value.groups.filter((group) => ids.has(group.id))
 })
 
 const displayGroups = computed<DisplayGroup[]>(() => {
   if (!settings.value) return []
   return targetGroups.value.flatMap((group) => {
-    const status = getGroupBlockStatus(group, counters.value.counters[group.id], now.value, settings.value!.global)
-    const pauseState = getGroupPauseDisplayState(groupPauseState.value.groupPauseState[group.id], now.value)
+    const status = getGroupBlockStatus(
+      group,
+      counters.value.counters[group.id],
+      now.value,
+      settings.value!.global,
+    )
+    const pauseState = getGroupPauseDisplayState(
+      groupPauseState.value.groupPauseState[group.id],
+      now.value,
+    )
     const hasDisplayState = getRestrictions(group).length > 0 || pauseState.kind !== 'none'
     return hasDisplayState ? [{ group, status, pauseState }] : []
   })
@@ -62,7 +79,10 @@ function isBlockedNow(status: GroupBlockStatus, pauseState: GroupPauseDisplaySta
  * counter 読み込み後の経過秒数を反映した残り秒数を返す。
  */
 function realtimeRemainingSeconds(summary: TimeLimitUsageSummary): number {
-  const elapsedSec = Math.max(0, Math.floor((now.value.getTime() - counterLoadedAt.value.getTime()) / 1000))
+  const elapsedSec = Math.max(
+    0,
+    Math.floor((now.value.getTime() - counterLoadedAt.value.getTime()) / 1000),
+  )
   return Math.max(0, summary.remainingSec - elapsedSec)
 }
 
@@ -89,7 +109,9 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
   }
 
   const tabs = await browser.tabs.query({ currentWindow: true })
-  activeUrl.value = tabs.find(candidate => !shouldSkipUrl(candidate.url, getRedirectUrls(currentSettings)))?.url ?? tab?.url
+  activeUrl.value =
+    tabs.find((candidate) => !shouldSkipUrl(candidate.url, getRedirectUrls(currentSettings)))
+      ?.url ?? tab?.url
 }
 
 /**
@@ -98,7 +120,7 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
 async function refreshState(): Promise<void> {
   const { counters: loadedCounters, effectiveSettings } = await loadPageState()
   const loadedGroupPauseState = await loadGroupPauseState(
-    effectiveSettings.groups.map(group => group.id),
+    effectiveSettings.groups.map((group) => group.id),
     Date.now(),
   )
   settings.value = effectiveSettings
@@ -108,7 +130,10 @@ async function refreshState(): Promise<void> {
   counterLoadedAt.value = now.value
 }
 
-const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (changes, areaName) => {
+const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (
+  changes,
+  areaName,
+) => {
   if (areaName === 'local' && (changes.counters || changes.groupPauseState)) {
     void refreshState()
   }
@@ -133,53 +158,27 @@ onMounted(async () => {
 <template>
   <main class="w-80 space-y-4 bg-background p-4 text-foreground">
     <header class="flex items-center justify-between gap-3">
-      <h1 class="min-w-0 truncate text-heading-lg">
-        Regex URL Guard
-      </h1>
-      <BaseButton
-        size="sm"
-        aria-label="Open options"
-        @click="openOptionsPage"
-      >
-        <Cog6ToothIcon
-          class="size-4"
-          aria-hidden="true"
-        />
+      <h1 class="min-w-0 truncate text-heading-lg">Regex URL Guard</h1>
+      <BaseButton size="sm" aria-label="Open options" @click="openOptionsPage">
+        <Cog6ToothIcon class="size-4" aria-hidden="true" />
         Options
       </BaseButton>
     </header>
 
-    <p
-      v-if="!isLoaded"
-      class="text-body-md text-muted-foreground"
-    >
-      Loading...
-    </p>
+    <p v-if="!isLoaded" class="text-body-md text-muted-foreground">Loading...</p>
 
     <template v-else>
-      <EmptyState
-        v-if="isSkippedPage"
-      >
-        This page is excluded from blocking.
-      </EmptyState>
+      <EmptyState v-if="isSkippedPage"> This page is excluded from blocking. </EmptyState>
 
-      <EmptyState
-        v-else-if="targetGroups.length === 0"
-      >
+      <EmptyState v-else-if="targetGroups.length === 0">
         No matching groups for this page.
       </EmptyState>
 
-      <EmptyState
-        v-else-if="displayGroups.length === 0"
-      >
+      <EmptyState v-else-if="displayGroups.length === 0">
         No active limits apply to this page.
       </EmptyState>
 
-      <ul
-        v-else
-        aria-label="Active limits for this page"
-        class="space-y-2"
-      >
+      <ul v-else aria-label="Active limits for this page" class="space-y-2">
         <li
           v-for="{ group, status, pauseState } in displayGroups"
           :key="group.id"
@@ -189,32 +188,25 @@ onMounted(async () => {
             <p class="truncate text-label-md">
               {{ group.name }}
             </p>
-            <StatusBadge
-              v-if="isBlockedNow(status, pauseState)"
-              kind="danger"
-              class="shrink-0"
-            >
+            <StatusBadge v-if="isBlockedNow(status, pauseState)" kind="danger" class="shrink-0">
               Blocked now
             </StatusBadge>
           </div>
 
           <div class="flex flex-wrap gap-1.5">
-            <StatusBadge
-              v-if="status.blockedByTimeRange"
-              kind="danger"
-            >
+            <StatusBadge v-if="status.blockedByTimeRange" kind="danger">
               Blocked hours active
             </StatusBadge>
             <StatusBadge
-              v-else-if="getRestrictions(group).some(restriction => restriction.type === 'block') && restrictionMatchesToday(group, now, settings!.global)"
+              v-else-if="
+                getRestrictions(group).some((restriction) => restriction.type === 'block') &&
+                restrictionMatchesToday(group, now, settings!.global)
+              "
               kind="muted"
             >
               Blocked hours scheduled
             </StatusBadge>
-            <StatusBadge
-              v-if="status.blockedByDailyLimit"
-              kind="danger"
-            >
+            <StatusBadge v-if="status.blockedByDailyLimit" kind="danger">
               Daily limit reached
             </StatusBadge>
             <StatusBadge
@@ -223,10 +215,7 @@ onMounted(async () => {
             >
               {{ pauseState.label }}
             </StatusBadge>
-            <StatusBadge
-              v-if="status.waitSeconds !== undefined"
-              kind="muted"
-            >
+            <StatusBadge v-if="status.waitSeconds !== undefined" kind="muted">
               Wait {{ status.waitSeconds }}s before access
             </StatusBadge>
           </div>

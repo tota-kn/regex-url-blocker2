@@ -44,10 +44,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const modelValue = defineModel<string | number>()
 
-const sizeClass = computed(() => ({
-  sm: 'h-8 px-2',
-  md: 'h-10 px-3',
-}[props.size]))
+const sizeClass = computed(
+  () =>
+    ({
+      sm: 'h-8 px-2',
+      md: 'h-10 px-3',
+    })[props.size],
+)
 
 const stateClass = computed(() => {
   if (props.display === 'readonly') {
@@ -77,5 +80,5 @@ function onInput(event: Event): void {
     class="min-w-0 rounded-lg border text-body-md outline-none transition"
     :class="[sizeClass, stateClass, monospace ? 'font-mono' : '']"
     @input="onInput"
-  >
+  />
 </template>

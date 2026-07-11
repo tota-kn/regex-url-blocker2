@@ -5,13 +5,13 @@ import { expect, test } from './fixtures'
 /**
  * テスト用 HTTP サーバーを起動する。
  */
-async function startServer(): Promise<{ origin: string, close: () => Promise<void> }> {
+async function startServer(): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
     res.end(`<!doctype html><title>${req.url}</title><main>${req.url}</main>`)
   })
 
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (!address || typeof address === 'string') {
     throw new Error('Failed to start test server')
@@ -62,18 +62,20 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
         }
       }
     }
-    const dailyRules = (override: Record<string, unknown> = {}) => [0, 1, 2, 3, 4, 5, 6].map(dayOfWeek => ({
-      dayOfWeek,
-      blockedTimeRanges: [],
-      dailyLimitMinutes: undefined,
-      ...override,
-    }))
+    const dailyRules = (override: Record<string, unknown> = {}) =>
+      [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+        dayOfWeek,
+        blockedTimeRanges: [],
+        dailyLimitMinutes: undefined,
+        ...override,
+      }))
     const now = new Date()
     const nowMinute = now.getHours() * 60 + now.getMinutes()
     const inactiveStart = (nowMinute + 60) % 1440
-    const inactiveRange = inactiveStart + 30 <= 1440
-      ? { startMinute: inactiveStart, endMinute: inactiveStart + 30 }
-      : { startMinute: 0, endMinute: 30 }
+    const inactiveRange =
+      inactiveStart + 30 <= 1440
+        ? { startMinute: inactiveStart, endMinute: inactiveStart + 30 }
+        : { startMinute: 0, endMinute: 30 }
     await chromeApi.chrome.storage.sync.set({
       global: {
         blockAction: 'redirect',
@@ -184,7 +186,10 @@ async function savePopupCounters(serviceWorker: Worker): Promise<void> {
 /**
  * popup テスト用の一時停止状態を storage.local に保存する。
  */
-async function savePopupPauseState(serviceWorker: Worker, entry: { waitingUntil?: number, pausedUntil?: number }): Promise<void> {
+async function savePopupPauseState(
+  serviceWorker: Worker,
+  entry: { waitingUntil?: number; pausedUntil?: number },
+): Promise<void> {
   await serviceWorker.evaluate(async (entry) => {
     const chromeApi = globalThis as unknown as {
       chrome: {
@@ -208,14 +213,19 @@ async function savePopupPauseState(serviceWorker: Worker, entry: { waitingUntil?
  */
 async function savePopupFixture(serviceWorker: Worker, origin: string): Promise<void> {
   await savePopupSettings(serviceWorker, origin)
-  await new Promise(resolve => setTimeout(resolve, 300))
+  await new Promise((resolve) => setTimeout(resolve, 300))
   await savePopupCounters(serviceWorker)
 }
 
 /**
  * 現在タブを用意したうえで popup.html を開く。
  */
-async function openPopupPage(context: BrowserContext, page: Page, extensionId: string, url: string): Promise<Page> {
+async function openPopupPage(
+  context: BrowserContext,
+  page: Page,
+  extensionId: string,
+  url: string,
+): Promise<Page> {
   await page.goto(url)
   const popup = await context.newPage()
   await popup.goto(`chrome-extension://${extensionId}/popup.html`)
@@ -233,31 +243,48 @@ test.describe('Popup 画面', () => {
       const optionsPage = await optionsPagePromise
 
       await expect(optionsPage).toHaveURL(`chrome-extension://${extensionId}/options.html`)
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
 
-  test('現在ページに一致する複数グループの残り時間をすべて表示する', async ({ page, context, extensionId }) => {
+  test('現在ページに一致する複数グループの残り時間をすべて表示する', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
       await expect(popup.getByLabel('Active limits for this page')).toContainText('Limited A')
-      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('5:00 left')
-      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('25:00 / 30:00')
-      await expect(popup.getByLabel('Remaining time for Limited A summary')).not.toContainText('Daily limit')
-      await expect(popup.getByRole('meter', { name: 'Remaining time for Limited A' })).toHaveAttribute('aria-valuenow', String(25 * 60))
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
+        '5:00 left',
+      )
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
+        '25:00 / 30:00',
+      )
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).not.toContainText(
+        'Daily limit',
+      )
+      await expect(
+        popup.getByRole('meter', { name: 'Remaining time for Limited A' }),
+      ).toHaveAttribute('aria-valuenow', String(25 * 60))
       await expect(popup.getByLabel('Active limits for this page')).toContainText('Limited B')
-      await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText('2:00 left')
-      await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText('8:00 / 10:00')
-      await expect(popup.getByRole('meter', { name: 'Remaining time for Limited B' })).toHaveAttribute('aria-valuenow', String(8 * 60))
-    }
-    finally {
+      await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText(
+        '2:00 left',
+      )
+      await expect(popup.getByLabel('Remaining time for Limited B summary')).toContainText(
+        '8:00 / 10:00',
+      )
+      await expect(
+        popup.getByRole('meter', { name: 'Remaining time for Limited B' }),
+      ).toHaveAttribute('aria-valuenow', String(8 * 60))
+    } finally {
       await server.close()
     }
   })
@@ -265,11 +292,14 @@ test.describe('Popup 画面', () => {
   test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
-      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('5:00 left')
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
+        '5:00 left',
+      )
       await popup.evaluate(async (logicalDate) => {
         const chromeApi = globalThis as unknown as {
           chrome: {
@@ -294,10 +324,13 @@ test.describe('Popup 画面', () => {
         })
       }, todayId())
 
-      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('2:00 left')
-      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText('28:00 / 30:00')
-    }
-    finally {
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
+        '2:00 left',
+      )
+      await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
+        '28:00 / 30:00',
+      )
+    } finally {
       await server.close()
     }
   })
@@ -305,29 +338,33 @@ test.describe('Popup 画面', () => {
   test('一致グループがない場合は空状態を表示する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/other`)
 
       await expect(popup.getByText('No matching groups for this page.')).toBeVisible()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
 
-  test('今日の時間帯ルールも閲覧上限も一時停止状態もない場合は空状態を表示する', async ({ page, context, extensionId }) => {
+  test('今日の時間帯ルールも閲覧上限も一時停止状態もない場合は空状態を表示する', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/no-limits`)
 
       await expect(popup.getByText('No active limits apply to this page.')).toBeVisible()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
@@ -335,7 +372,8 @@ test.describe('Popup 画面', () => {
   test('時間帯ブロック中のグループ状態を表示する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/slot-active`)
@@ -343,25 +381,33 @@ test.describe('Popup 画面', () => {
       await expect(popup.getByLabel('Active limits for this page')).toContainText('Slot Only')
       await expect(popup.getByText('Blocked now')).toBeVisible()
       await expect(popup.getByText('Blocked hours active')).toBeVisible()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
 
-  test('時間帯ルールが現在時間外でもグループ状態を表示する', async ({ page, context, extensionId }) => {
+  test('時間帯ルールが現在時間外でもグループ状態を表示する', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
-      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/slot-inactive`)
+      const popup = await openPopupPage(
+        context,
+        page,
+        extensionId,
+        `${server.origin}/slot-inactive`,
+      )
 
       await expect(popup.getByLabel('Active limits for this page')).toContainText('Slot Inactive')
       await expect(popup.getByText('Blocked hours scheduled')).toBeVisible()
       await expect(popup.getByText('No active limits apply to this page.')).toBeHidden()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
@@ -369,15 +415,15 @@ test.describe('Popup 画面', () => {
   test('一時停止中のグループ状態を表示する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { pausedUntil: Date.now() + 125_000 })
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
 
       await expect(popup.getByText(/Paused 2:0[0-5]/)).toBeVisible()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
@@ -385,46 +431,54 @@ test.describe('Popup 画面', () => {
   test('一時停止リクエスト待機中の残り時間を表示する', async ({ page, context, extensionId }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 65_000 })
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
 
       await expect(popup.getByText(/Request pause 1:0[0-5] left/)).toBeVisible()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
 
-  test('一時停止リクエスト待機完了後に ready 表示へ切り替える', async ({ page, context, extensionId }) => {
+  test('一時停止リクエスト待機完了後に ready 表示へ切り替える', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 1_000 })
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
 
       await expect(popup.getByText('Request pause ready')).toBeVisible({ timeout: 4_000 })
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
 
-  test('disabled group だけが一致する URL は一致なしとして表示する', async ({ page, context, extensionId }) => {
+  test('disabled group だけが一致する URL は一致なしとして表示する', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/disabled`)
 
       await expect(popup.getByText('No matching groups for this page.')).toBeVisible()
-    }
-    finally {
+    } finally {
       await server.close()
     }
   })
