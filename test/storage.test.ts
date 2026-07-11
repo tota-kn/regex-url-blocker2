@@ -51,6 +51,53 @@ describe('loadSettings', () => {
     const s = await loadSettings()
     expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
   })
+
+  it('重複した Restrictions は厳しい値へ統合し Block を Redirect より優先する', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...createEmptyGroup('Duplicates'),
+          restrictions: [
+            { type: 'redirect', redirectUrl: 'https://first.test/' },
+            { type: 'grace', graceMinutes: 30 },
+            { type: 'wait', waitSeconds: 5 },
+            { type: 'redirect', redirectUrl: 'https://second.test/' },
+            { type: 'grace', graceMinutes: 10 },
+            { type: 'wait', waitSeconds: 20 },
+            { type: 'block' },
+          ],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+
+    expect(settings.groups[0].restrictions).toEqual([
+      { type: 'block' },
+      { type: 'grace', graceMinutes: 10 },
+      { type: 'wait', waitSeconds: 20 },
+    ])
+  })
+
+  it('Redirect 重複だけなら先頭 URL を保持する', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...createEmptyGroup('Redirect duplicates'),
+          restrictions: [
+            { type: 'redirect', redirectUrl: 'https://first.test/' },
+            { type: 'redirect', redirectUrl: 'https://second.test/' },
+          ],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+
+    expect(settings.groups[0].restrictions).toEqual([
+      { type: 'redirect', redirectUrl: 'https://first.test/' },
+    ])
+  })
 })
 
 describe('saveSettings', () => {

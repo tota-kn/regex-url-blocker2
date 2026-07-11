@@ -410,7 +410,9 @@ export function getActiveRedirectUrl(
   global: GlobalSettings,
 ): string | undefined {
   if (!isRestrictionActiveNow(group, now, global)) return undefined
-  const redirect = getRestrictions(group).find(
+  const restrictions = getRestrictions(group)
+  if (restrictions.some((restriction) => restriction.type === 'block')) return undefined
+  const redirect = restrictions.find(
     (restriction) =>
       restriction.type === 'redirect' &&
       typeof restriction.redirectUrl === 'string' &&

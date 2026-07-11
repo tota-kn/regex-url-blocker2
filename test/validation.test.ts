@@ -356,6 +356,34 @@ describe('validateRestriction (validateGroup 経由)', () => {
       true,
     )
   })
+
+  it('同種の重複と Block・Redirect の併存は type エラー', () => {
+    const duplicateGrace = validateGroup({
+      ...createEmptyGroup(),
+      name: 'Duplicate grace',
+      restrictions: [
+        { type: 'grace', graceMinutes: 30 },
+        { type: 'grace', graceMinutes: 10 },
+      ],
+    })
+    const hardConflict = validateGroup({
+      ...createEmptyGroup(),
+      name: 'Hard conflict',
+      restrictions: [
+        { type: 'redirect', redirectUrl: 'https://elsewhere.test/' },
+        { type: 'block' },
+      ],
+    })
+
+    expect(duplicateGrace).toContainEqual({
+      field: 'restrictions[1].type',
+      message: 'Only one grace restriction is allowed',
+    })
+    expect(hardConflict).toContainEqual({
+      field: 'restrictions[1].type',
+      message: 'Block and Redirect cannot be combined',
+    })
+  })
 })
 
 describe('validateGlobalSettings', () => {

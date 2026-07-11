@@ -239,6 +239,18 @@ describe('redirect restriction', () => {
     expect(getActiveRedirectUrl(noUrl, now, global)).toBeUndefined()
   })
 
+  it('未正規化データで Block と Redirect が併存しても Block を優先する', () => {
+    const g = group({
+      timeWindows: [{ type: 'always' }],
+      restrictions: [
+        { type: 'redirect', redirectUrl: 'https://elsewhere.test/' },
+        { type: 'block' },
+      ],
+    })
+
+    expect(getActiveRedirectUrl(g, now, settings([]).global)).toBeUndefined()
+  })
+
   it('getRedirectUrls は redirect 制限の URL も列挙し、その URL は判定対象外になる', () => {
     const g = group({
       blockAction: 'blockedPage',

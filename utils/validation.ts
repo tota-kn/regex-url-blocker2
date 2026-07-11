@@ -263,6 +263,21 @@ export function validateGroup(group: Group): ValidationError[] {
     ;(group.restrictions ?? []).forEach((restriction, index) =>
       errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)),
     )
+    const seenTypes = new Set<string>()
+    ;(group.restrictions ?? []).forEach((restriction, index) => {
+      const key =
+        restriction.type === 'block' || restriction.type === 'redirect' ? 'hard' : restriction.type
+      if (seenTypes.has(key)) {
+        errors.push({
+          field: `restrictions[${index}].type`,
+          message:
+            key === 'hard'
+              ? 'Block and Redirect cannot be combined'
+              : `Only one ${restriction.type} restriction is allowed`,
+        })
+      }
+      seenTypes.add(key)
+    })
   } else {
     const restrictions = group.restrictionRules?.length
       ? group.restrictionRules

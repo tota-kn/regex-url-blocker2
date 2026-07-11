@@ -1444,6 +1444,24 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Wait seconds before access')).toHaveValue('30')
   })
 
+  test('Restriction は編集中に重複できるが重複中は保存できない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await createBlankGroup(page)
+
+    const addRestriction = page.getByRole('button', { name: 'Add restriction' })
+    await addRestriction.click()
+    await page.getByLabel('Restriction type').first().selectOption('redirect')
+
+    await addRestriction.click()
+    await expect(page.getByLabel('Restriction type').nth(1)).toHaveValue('block')
+    await expect(page.getByText('Block and Redirect cannot be combined')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+
+    await page.getByLabel('Restriction type').nth(1).selectOption('wait')
+    await expect(page.getByText('Block and Redirect cannot be combined')).not.toBeVisible()
+    await expect(addRestriction).toBeEnabled()
+  })
+
   test('ケバブメニューからグループを無効化し、リロード後も Disabled 表示を保持する', async ({
     page,
     context,

@@ -11,7 +11,8 @@
   - Time window の各アイテムに個別タイトルは表示しない。select で `Always` / `Every day` / `Weekly` / `Monthly` / `Period` を直接選ぶ。片方の一覧が空なら制限は適用しない
   - `Weekly` は曜日チェックボックス、`Monthly` は `1, 15` のようなカンマ区切りの日付入力、`Period` は `MM/DD`–`MM/DD` の2入力（毎年繰り返し、年跨ぎ可）で指定する
   - Active time ranges は `HH:MM-HH:MM` のカンマ区切りテキストで入力する。終了時刻には `24:00`、`00:00-00:00` で終日を指定できる。空欄なら終日有効
-  - Restriction の各アイテムに個別タイトルは表示しない。`Block` / `Grace` / `Wait` から選び、`Grace` は上限分数、`Wait` は待機秒数を入力する
+  - Restriction の各アイテムに個別タイトルは表示しない。`Block` / `Redirect` / `Grace` / `Wait` から選び、`Redirect` は遷移先 URL、`Grace` は上限分数、`Wait` は待機秒数を入力する
+  - 編集中は Restriction の同種重複や `Block` / `Redirect` の併存を許可する。該当行にエラーを表示し、重複を解消するまで保存ボタンを無効化する
   - `Grace` の上限分数、`Wait` の待機秒数が空欄の場合は保存時に検証エラーとし、保存を止める
   - 読み取り表示ではルールごとに条件・時間帯・制限を1行の文章（例: `Weekly Sat, Sun 22:00-06:00 — Grace 120 min/day`）で表示する
 - 制限テンプレートとして「Blank group」「Core SNS 15 min/day」「Video 30 min/day」「Work hours focus」を新規グループ作成時に選択できる

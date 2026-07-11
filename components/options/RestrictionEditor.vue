@@ -13,7 +13,7 @@ interface Props {
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
-  error?: (field: 'graceMinutes' | 'waitSeconds' | 'redirectUrl') => string | undefined
+  error?: (field: 'type' | 'graceMinutes' | 'waitSeconds' | 'redirectUrl') => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -29,7 +29,7 @@ const typeOptions = [
   { value: 'redirect', label: 'Redirect' },
   { value: 'grace', label: 'Grace' },
   { value: 'wait', label: 'Wait' },
-]
+] satisfies { value: RestrictionType; label: string }[]
 
 /** 制限種別を切り替える。 */
 function setType(value: string): void {
@@ -101,6 +101,7 @@ function preventNonDigitInput(event: InputEvent): void {
           </option>
         </select>
       </label>
+      <AlertMessage v-if="props.error('type')">{{ props.error('type') }}</AlertMessage>
 
       <label v-if="restriction.type === 'redirect'" class="block min-w-0 space-y-1.5">
         <span class="block text-label-md text-secondary-foreground">Redirect URL</span>

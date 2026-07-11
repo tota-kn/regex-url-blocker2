@@ -72,9 +72,10 @@ type TimeWindow =
   | { type: 'scheduled'; condition: ScheduleRuleCondition; timeRanges: TimeRange[] }
 
 interface Restriction {
-  type: 'block' | 'grace' | 'wait'
+  type: 'block' | 'redirect' | 'grace' | 'wait'
   graceMinutes?: number
   waitSeconds?: number
+  redirectUrl?: string
 }
 ```
 
@@ -105,7 +106,8 @@ interface Restriction {
 - 旧グループで `lockMode` が欠損、または `true` 以外の場合は `false` で補完する。
 - グループの `patterns` が配列でない場合は `[]` として扱い、配列内の非文字列値は除外する。
 - 旧グループで `blockAction` / `redirectUrl` が欠損している場合は `global.blockAction` / `global.redirectUrl` から補完する。`global` 側にも有効な値がない場合は既定値で補完する。
-- `timeWindows` は `always`、または既知の条件を持つ `scheduled` 要素だけを採用する。`restrictions` は既知の `block` / `grace` / `wait` 要素だけを採用する。
+- `timeWindows` は `always`、または既知の条件を持つ `scheduled` 要素だけを採用する。`restrictions` は既知の `block` / `redirect` / `grace` / `wait` 要素だけを採用する。
+- `restrictions` の重複は読み込み時に正規化する。`block` と `redirect` が併存すれば `block`、`grace` は最小上限、`wait` は最大秒数、複数 `redirect` は先頭の URL を保持する。
 - 旧 `restrictionRules`、`restriction`、`scheduleRules`、`dailyRules` は Time window 群と Restriction 群へ分離する。旧 `daily` + 空時間帯は `always` に変換する。
 
 読み込み互換は「Service Worker や options/popup を停止させない」ことを優先する。保存 UI や import は別途 validation を行うため、読み込み時に補完された値がそのままユーザー編集後に保存されるとは限らない。

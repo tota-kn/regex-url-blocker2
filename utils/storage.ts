@@ -217,10 +217,28 @@ function normalizeStandaloneRestriction(value: unknown): Restriction | undefined
 /** unknown の値から分離形式の制限配列を生成する。 */
 function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefined {
   if (!Array.isArray(value)) return undefined
-  return value.flatMap((item) => {
+  const restrictions = value.flatMap((item) => {
     const restriction = normalizeStandaloneRestriction(item)
     return restriction ? [restriction] : []
   })
+  const block = restrictions.find((restriction) => restriction.type === 'block')
+  const redirect = restrictions.find((restriction) => restriction.type === 'redirect')
+  const graceMinutes = restrictions
+    .filter((restriction) => restriction.type === 'grace')
+    .map((restriction) => restriction.graceMinutes)
+    .filter((minutes): minutes is number => minutes !== undefined)
+  const waitSeconds = restrictions
+    .filter((restriction) => restriction.type === 'wait')
+    .map((restriction) => restriction.waitSeconds)
+    .filter((seconds): seconds is number => seconds !== undefined)
+  const normalized: Restriction[] = []
+  if (block) normalized.push({ type: 'block' })
+  else if (redirect) normalized.push(redirect)
+  if (graceMinutes.length > 0)
+    normalized.push({ type: 'grace', graceMinutes: Math.min(...graceMinutes) })
+  if (waitSeconds.length > 0)
+    normalized.push({ type: 'wait', waitSeconds: Math.max(...waitSeconds) })
+  return normalized
 }
 
 /** unknown の値から分離形式の時間ウィンドウを生成する。 */
