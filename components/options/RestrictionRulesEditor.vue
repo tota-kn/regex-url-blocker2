@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ClockIcon, PlusIcon, ShieldExclamationIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { createDefaultRestriction, createDefaultTimeWindow } from '@/utils/defaults'
 import { formatStandaloneRestriction, formatTimeWindow } from '@/utils/groups'
 import type { Restriction, ScheduleRuleCondition, TimeWindow } from '@/utils/types'
 import RestrictionEditor from './RestrictionEditor.vue'
+import RuleSectionHeader from './RuleSectionHeader.vue'
 import ScheduleWindowEditor from './ScheduleWindowEditor.vue'
 
 /**
@@ -77,9 +78,11 @@ function removeRestriction(index: number): void {
 
 <template>
   <section class="min-w-0 space-y-3">
-    <div>
-      <h3 class="text-label-md">Time windows</h3>
-    </div>
+    <RuleSectionHeader title="Time windows">
+      <template #icon>
+        <ClockIcon aria-hidden="true" class="size-4 text-muted" />
+      </template>
+    </RuleSectionHeader>
 
     <ol class="space-y-3" aria-label="Time windows">
       <li
@@ -87,33 +90,31 @@ function removeRestriction(index: number): void {
         :key="index"
         class="space-y-3 rounded-lg border border-border bg-surface p-3"
       >
-        <div class="flex min-w-0 items-center justify-between gap-2">
-          <template v-if="isEditing">
-            <label class="min-w-0">
-              <span class="sr-only">Time window type</span>
-              <select
-                aria-label="Time window type"
-                :value="window.type === 'always' ? 'always' : window.condition.type"
-                class="h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring/50"
-                @change="setTimeWindowType(index, ($event.target as HTMLSelectElement).value)"
-              >
-                <option value="always">Always</option>
-                <option value="daily">Every day</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="period">Period</option>
-              </select>
-            </label>
-            <BaseButton
-              type="button"
-              variant="danger-ghost"
-              size="icon-sm"
-              :aria-label="`Remove time window ${index + 1}`"
-              @click="removeTimeWindow(index)"
+        <div v-if="isEditing" class="flex min-w-0 items-center justify-between gap-2">
+          <label class="min-w-0">
+            <span class="sr-only">Time window type</span>
+            <select
+              aria-label="Time window type"
+              :value="window.type === 'always' ? 'always' : window.condition.type"
+              class="h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring/50"
+              @change="setTimeWindowType(index, ($event.target as HTMLSelectElement).value)"
             >
-              <TrashIcon aria-hidden="true" class="size-4" />
-            </BaseButton>
-          </template>
+              <option value="always">Always</option>
+              <option value="daily">Every day</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="period">Period</option>
+            </select>
+          </label>
+          <BaseButton
+            type="button"
+            variant="danger-ghost"
+            size="icon-sm"
+            :aria-label="`Remove time window ${index + 1}`"
+            @click="removeTimeWindow(index)"
+          >
+            <TrashIcon aria-hidden="true" class="size-4" />
+          </BaseButton>
         </div>
 
         <template v-if="isEditing">
@@ -148,9 +149,11 @@ function removeRestriction(index: number): void {
       Time window
     </BaseButton>
 
-    <div class="pt-3">
-      <h3 class="text-label-md">Restrictions</h3>
-    </div>
+    <RuleSectionHeader title="Restrictions" class="pt-3">
+      <template #icon>
+        <ShieldExclamationIcon aria-hidden="true" class="size-4 text-muted" />
+      </template>
+    </RuleSectionHeader>
     <ol v-if="restrictions.length > 0" class="space-y-3" aria-label="Restrictions">
       <li
         v-for="(restriction, index) in restrictions"

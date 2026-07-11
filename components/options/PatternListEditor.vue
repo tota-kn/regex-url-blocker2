@@ -4,6 +4,7 @@ import { ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import RuleSectionHeader from './RuleSectionHeader.vue'
 
 /**
  * URL pattern 編集コンポーネントの props。
@@ -60,12 +61,11 @@ function deletePattern(index: number): void {
 
 <template>
   <section class="space-y-3">
-    <div class="flex flex-wrap items-center gap-2">
-      <h3 class="flex items-center gap-1.5 text-label-md">
+    <RuleSectionHeader title="URL patterns">
+      <template #icon>
         <CodeBracketIcon aria-hidden="true" class="size-4 text-muted" />
-        URL patterns
-      </h3>
-    </div>
+      </template>
+    </RuleSectionHeader>
 
     <div :class="isEditing ? 'space-y-2' : 'space-y-1'">
       <div v-for="(_, i) in patterns" :key="i" class="space-y-1">

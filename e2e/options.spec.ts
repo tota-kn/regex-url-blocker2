@@ -1168,7 +1168,7 @@ test.describe('Options 画面', () => {
     // Redirect は Restriction の種別として選び、その場で URL を入力する
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
     await page.getByRole('button', { name: 'Add restriction' }).last().click()
-    await page.getByRole('button', { name: 'Restriction type Redirect' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('redirect')
     await expect(page.getByLabel('Redirect URL')).toBeVisible()
 
     await optionsButton.click()
@@ -1325,7 +1325,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByLabel('Time window type').selectOption('daily')
     await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('grace')
     const groupInputs = [
       page.getByLabel('Name'),
       page.getByRole('textbox', { name: 'URL pattern' }),
@@ -1391,7 +1391,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByRole('button', { name: 'Restriction type Wait' }).click()
+    await page.getByLabel('Restriction type').selectOption('wait')
     await page.getByLabel('Wait seconds before access').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1573,7 +1573,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:15-10:45, 22:00-01:30')
     await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1591,7 +1591,7 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('EmptyRule')
     await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('30')
     await page.getByLabel('Grace minutes per day').fill('')
 
@@ -1810,7 +1810,7 @@ test.describe('Options 画面', () => {
     await timeWindowType.selectOption('weekly')
     await page.getByRole('checkbox', { name: 'Monday' }).check()
     await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('60')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1870,7 +1870,7 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('RedirectGroup')
     await page.getByRole('button', { name: 'Add restriction' }).last().click()
-    await page.getByRole('button', { name: 'Restriction type Redirect' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('redirect')
     await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1890,7 +1890,7 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('InvalidRedirectGroup')
     await page.getByRole('button', { name: 'Add restriction' }).last().click()
-    await page.getByRole('button', { name: 'Restriction type Redirect' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('redirect')
     await page.getByLabel('Redirect URL').fill('not-a-url')
 
     await expect(page.getByText('Invalid URL')).toBeVisible()
@@ -1911,7 +1911,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
     await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
+    await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1949,8 +1949,14 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Time window 1')).toContainText('09:00-17:00')
+    const timeWindow = page.getByLabel('Time window 1')
+    await expect(timeWindow).toContainText('09:00-17:00')
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
+    const [cardBox, valueBox] = await Promise.all([
+      timeWindow.locator('..').boundingBox(),
+      timeWindow.boundingBox(),
+    ])
+    expect(valueBox!.y - cardBox!.y).toBeLessThan(16)
 
     await page.getByRole('button', { name: 'Edit group' }).click()
     await expect(page.getByLabel('Active time ranges')).toHaveValue('09:00-17:00')

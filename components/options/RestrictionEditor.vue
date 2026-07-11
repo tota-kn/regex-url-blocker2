@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { createDefaultRestriction } from '@/utils/defaults'
 import { formatStandaloneRestriction } from '@/utils/groups'
 import type { Restriction, RestrictionType } from '@/utils/types'
@@ -24,16 +23,13 @@ const props = withDefaults(defineProps<Props>(), {
 
 const restriction = defineModel<Restriction>({ required: true })
 
-/** セグメントコントロールに渡す選択肢。 */
+/** プルダウンに表示する制限種別の選択肢。 */
 const typeOptions = [
-  { value: 'block', label: 'Block', ariaLabel: 'Restriction type Block' },
-  { value: 'redirect', label: 'Redirect', ariaLabel: 'Restriction type Redirect' },
-  { value: 'grace', label: 'Grace', ariaLabel: 'Restriction type Grace' },
-  { value: 'wait', label: 'Wait', ariaLabel: 'Restriction type Wait' },
+  { value: 'block', label: 'Block' },
+  { value: 'redirect', label: 'Redirect' },
+  { value: 'grace', label: 'Grace' },
+  { value: 'wait', label: 'Wait' },
 ]
-
-/** セグメントコントロールの現在値。 */
-const selectedType = computed<string>(() => restriction.value.type)
 
 /** 制限種別を切り替える。 */
 function setType(value: string): void {
@@ -92,12 +88,19 @@ function preventNonDigitInput(event: InputEvent): void {
 <template>
   <div class="min-w-0 space-y-3">
     <template v-if="isEditing">
-      <SegmentedControl
-        aria-label="Restriction type"
-        :options="typeOptions"
-        :model-value="selectedType"
-        @update:model-value="setType"
-      />
+      <label class="block min-w-0">
+        <span class="sr-only">Restriction type</span>
+        <select
+          aria-label="Restriction type"
+          :value="restriction.type"
+          class="h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring/50"
+          @change="setType(($event.target as HTMLSelectElement).value)"
+        >
+          <option v-for="option in typeOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
 
       <label v-if="restriction.type === 'redirect'" class="block min-w-0 space-y-1.5">
         <span class="block text-label-md text-secondary-foreground">Redirect URL</span>
