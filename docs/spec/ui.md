@@ -6,7 +6,7 @@
 - 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`blockAction`、`redirectUrl`、`timeWindows[]`、`restrictions[]`
 - `mode` は Group card の Options 配下にある「URL pattern match behavior」で `Block matches` / `Allow only matches` として選択できる。URL patterns セクションには mode の選択肢を表示しない
 - Group card の Options は、項目ごとではなく Options セクション全体を1つの disclosure として折りたたむ。編集時の初期状態では Options 全体を閉じる
-- Options 展開時は「URL pattern match behavior」「Lock changes until next rule day」「Page shown when blocked」を常時並べ、各項目の radio は項目名行の右側へ配置する
+- Options 展開時は「URL pattern match behavior」「Delay relaxed restrictions until next rule day」「Page shown when blocked」を常時並べ、各項目の radio は項目名行の右側へ配置する。Lock Mode には、厳格化は即時適用し、緩和は次の rule day に反映する旨の補足を表示する
 - 制限は「Time windows」と「Restrictions」の独立したセクションで編集する。どちらも複数追加・削除でき、任意の Time window が有効な間に全 Restrictions を適用する
   - Time window の各アイテムに個別タイトルは表示しない。select で `Always` / `Every day` / `Weekly` / `Monthly` / `Period` を直接選ぶ。片方の一覧が空なら制限は適用しない
   - `Weekly` は曜日チェックボックス、`Monthly` は `1, 15` のようなカンマ区切りの日付入力、`Period` は `MM/DD`–`MM/DD` の2入力（毎年繰り返し、年跨ぎ可）で指定する
@@ -27,8 +27,8 @@
 - グループカードは通常は読み取り表示で、編集ボタンから編集モードに入る。グループ単位で保存・キャンセルできる
 - 未保存の新規グループはキャンセルで破棄できる
 - グループ削除時は確認ダイアログを表示する
-- Lock Mode ON のグループに未反映の保存済み変更がある場合、Options 画面に「未反映の保存済み変更」と次回反映時刻を表示する
-- 未反映差分がある場合、現在 blocking に使われている有効設定を読み取り専用ダイアログで確認できる
+- Lock Mode ON のグループで基準設定と希望設定に制限差分がある場合、Options 画面に「厳格化は即時適用され、緩和は次の rule day に適用される」ことと次回反映時刻を表示する
+- 制限差分がある場合、希望設定と併用されている rule day の基準設定を読み取り専用ダイアログで確認できる
 - 未反映差分がある場合、通常の Group card の一時停止ボタンは `Request pause` の表示のまま無効化し、「Use active settings to pause.」を表示する。有効設定ダイアログ内の active group から一時停止できる
 - Disabled group の Group card では一時停止ボタンを `Request pause` の表示のまま無効化し、「Enable group to pause.」を表示する。Enable 後は通常どおり一時停止できる
 - General settings 内の項目間には区切り線を表示しない

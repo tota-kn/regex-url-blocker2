@@ -91,6 +91,14 @@ export interface GroupBlockStatus {
   blocked: boolean
 }
 
+/** 二重評価されたグループの表示情報。 */
+export interface EffectiveGroupBlockStatus {
+  /** 最新の表示用メタデータを持つグループ。 */
+  group: Group
+  /** 基準設定と最新設定から合成した状態。 */
+  status: GroupBlockStatus
+}
+
 /**
  * group が持つ現行制限ルール配列を返す。旧 `restriction` だけを持つ値も互換的に扱う。
  */
@@ -531,6 +539,34 @@ export function getMinimumRemainingTimeLimit(
 }
 
 /**
+ * 基準設定と最新設定を独立に調べ、残り時間が最短の閲覧上限を返す。
+ */
+export function getMinimumEffectiveRemainingTimeLimit(
+  baseline: Settings,
+  preferred: Settings,
+  counters: UsageCountersState,
+  url: string | undefined,
+  now: Date,
+): MinimumRemainingTimeLimit | undefined {
+  return [baseline, preferred]
+    .flatMap((item) => {
+      const targetIds = new Set(getTargetGroupIds(item, url))
+      return item.groups
+        .filter((group) => targetIds.has(group.id))
+        .flatMap((group) => {
+          const summary = getTimeLimitUsageSummary(
+            group,
+            counters.counters[group.id],
+            now,
+            item.global,
+          )
+          return summary ? [{ group, summary }] : []
+        })
+    })
+    .toSorted((a, b) => a.summary.remainingSec - b.summary.remainingSec)[0]
+}
+
+/**
  * 残り秒数を切り上げの分単位 badge 文字列に変換する。
  */
 export function formatRemainingMinutesBadge(remainingSec: number): string {
@@ -562,6 +598,131 @@ export function evaluateUrl(
     blockedGroupIds,
     delayedGroupIds,
   }
+}
+
+/**
+ * rule day の基準設定と最新設定を独立評価し、制限が強い側の結果を合成する。
+ */
+export function evaluateEffectiveUrl(
+  baseline: Settings,
+  preferred: Settings,
+  counters: UsageCountersState,
+  url: string | undefined,
+  now: Date,
+): UrlEvaluation {
+  const evaluations = [
+    evaluateUrl(baseline, counters, url, now),
+    evaluateUrl(preferred, counters, url, now),
+  ]
+  const unique = (values: string[]): string[] => [...new Set(values)]
+  const targetGroupIds = unique(evaluations.flatMap((item) => item.targetGroupIds))
+  const blockedGroupIds = unique(evaluations.flatMap((item) => item.blockedGroupIds))
+  const delayedGroupIds = unique(evaluations.flatMap((item) => item.delayedGroupIds))
+  return {
+    blocked: blockedGroupIds.length > 0,
+    targetGroupIds,
+    blockedGroupIds,
+    delayedGroupIds,
+  }
+}
+
+/**
+ * URL に独立して該当した基準・最新グループだけから、表示用の厳しい状態を合成する。
+ */
+export function getEffectiveGroupBlockStatus(
+  groupId: string,
+  baseline: Settings,
+  preferred: Settings,
+  counter: UsageCounter | undefined,
+  url: string | undefined,
+  now: Date,
+): EffectiveGroupBlockStatus | undefined {
+  if (!url) return undefined
+  const variants = [baseline, preferred].flatMap((settings) => {
+    const group = settings.groups.find((candidate) => candidate.id === groupId)
+    if (!group || group.disabled || !isTargetGroup(group, url)) return []
+    return [
+      {
+        group,
+        global: settings.global,
+        status: getGroupBlockStatus(group, counter, now, settings.global),
+      },
+    ]
+  })
+  const uniqueVariants = variants.filter(
+    (variant, index, all) =>
+      all.findIndex(
+        (candidate) => JSON.stringify(candidate.group) === JSON.stringify(variant.group),
+      ) === index,
+  )
+  if (uniqueVariants.length === 0) return undefined
+  const preferredGroup = preferred.groups.find((group) => group.id === groupId)
+  const summaries = uniqueVariants
+    .flatMap((item) => (item.status.timeLimitSummary ? [item.status.timeLimitSummary] : []))
+    .toSorted((a, b) => a.remainingSec - b.remainingSec)
+  const waitSeconds = uniqueVariants
+    .flatMap((item) => (item.status.waitSeconds === undefined ? [] : [item.status.waitSeconds]))
+    .toSorted((a, b) => b - a)[0]
+  const uniqueObjects = <T>(values: T[]): T[] => [
+    ...new Map(values.map((value) => [JSON.stringify(value), value])).values(),
+  ]
+  const restrictionRules = uniqueObjects(
+    uniqueVariants.flatMap((item) => item.status.restrictionRules),
+  )
+  const activeTimeRanges = uniqueObjects(
+    uniqueVariants.flatMap((item) => item.status.activeTimeRanges),
+  )
+  const blockedByTimeRange = uniqueVariants.some((item) => item.status.blockedByTimeRange)
+  const blockedByDailyLimit = uniqueVariants.some((item) => item.status.blockedByDailyLimit)
+  return {
+    group: preferredGroup ?? uniqueVariants[0]!.group,
+    status: {
+      restrictionRules,
+      isActive: uniqueVariants.some((item) => item.status.isActive),
+      activeTimeRanges,
+      timeLimitSummary: summaries[0],
+      waitSeconds,
+      blockedByTimeRange,
+      blockedByDailyLimit,
+      blocked: blockedByTimeRange || blockedByDailyLimit,
+    },
+  }
+}
+
+/**
+ * 基準設定または最新設定で対象かつアクティブなグループへ、共有 counter を一度だけ加算する。
+ */
+export function incrementEffectiveCounters(
+  baseline: Settings,
+  preferred: Settings,
+  counters: UsageCountersState,
+  url: string | undefined,
+  now: Date,
+  seconds: number,
+): UsageCountersState {
+  const settings = [baseline, preferred]
+  const allGroups = settings.flatMap((item) => item.groups)
+  const normalizationSettings: Settings = {
+    global: baseline.global,
+    groups: [...new Map(allGroups.map((group) => [group.id, group])).values()],
+  }
+  const normalized = normalizeCounters(normalizationSettings, counters, now)
+  const logicalDate = getLogicalDate(now, baseline.global.dailyResetHour).logicalDate
+  const activeIds = new Set<string>()
+
+  for (const item of settings) {
+    const targetIds = new Set(getTargetGroupIds(item, url))
+    for (const group of item.groups) {
+      if (targetIds.has(group.id) && isRestrictionActiveNow(group, now, item.global)) {
+        activeIds.add(group.id)
+      }
+    }
+  }
+  for (const groupId of activeIds) {
+    const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
+    normalized.counters[groupId] = { logicalDate, consumedSec: current.consumedSec + seconds }
+  }
+  return normalized
 }
 
 /**

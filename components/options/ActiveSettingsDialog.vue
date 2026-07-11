@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import GroupCard from '@/components/options/GroupCard.vue'
-import type { GroupPauseEntry, GroupPauseState, Settings } from '@/utils/types'
+import type { Group, GroupPauseEntry, GroupPauseState, Settings } from '@/utils/types'
 
 /**
  * 現在有効な設定ダイアログの props。
@@ -12,6 +12,8 @@ import type { GroupPauseEntry, GroupPauseState, Settings } from '@/utils/types'
 interface Props {
   /** background 判定に現在使われている有効設定。 */
   effectiveSettings: Settings
+  /** ユーザーが最後に保存した設定。 */
+  preferredSettings: Settings
   /** group id ごとの一時停止状態。 */
   groupPauseState: GroupPauseState
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
@@ -31,6 +33,30 @@ defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const isOpen = ref(false)
+
+/** 制限強度に関係するフィールドだけを比較可能な値として返す。 */
+function restrictionFields(group: Group): unknown {
+  return {
+    mode: group.mode,
+    disabled: group.disabled,
+    lockMode: group.lockMode,
+    patterns: group.patterns,
+    timeWindows: group.timeWindows,
+    restrictions: group.restrictions,
+  }
+}
+
+/** 最新設定とは異なるため、同時に適用されている rule-day 基準グループ。 */
+const retainedBaselineGroups = computed(() => {
+  const preferredById = new Map(props.preferredSettings.groups.map((group) => [group.id, group]))
+  return props.effectiveSettings.groups.filter((baseline) => {
+    const preferred = preferredById.get(baseline.id)
+    return (
+      !preferred ||
+      JSON.stringify(restrictionFields(baseline)) !== JSON.stringify(restrictionFields(preferred))
+    )
+  })
+})
 
 /**
  * 現在適用中の有効設定モーダルを開く。
@@ -74,7 +100,10 @@ defineExpose({ open, close })
     >
       <div>
         <h2 class="text-heading-md">Currently active settings</h2>
-        <p class="mt-1 text-body-sm text-muted">Read-only settings used by blocking right now.</p>
+        <p class="mt-1 text-body-sm text-muted">
+          Saved restrictions and retained rule-day restrictions are evaluated independently. The
+          stricter result is used for each URL and time.
+        </p>
       </div>
       <BaseButton
         type="button"
@@ -93,17 +122,35 @@ defineExpose({ open, close })
       class="min-h-0 overflow-y-auto px-5 py-4"
     >
       <section class="space-y-3">
-        <h3 class="text-label-md text-secondary-foreground">Groups</h3>
+        <h3 class="text-label-md text-secondary-foreground">Latest saved settings</h3>
         <EmptyState
-          v-if="effectiveSettings.groups.length === 0"
+          v-if="preferredSettings.groups.length === 0"
           aria-label="No active groups"
           spacious
         >
           No active groups
         </EmptyState>
         <GroupCard
-          v-for="group in effectiveSettings.groups"
+          v-for="group in preferredSettings.groups"
           :key="group.id"
+          :group="group"
+          :pause-entry="groupPauseEntry(group.id)"
+          :now="now"
+          read-only
+          @request-pause="$emit('requestPause', group.id)"
+        />
+      </section>
+
+      <section v-if="retainedBaselineGroups.length > 0" class="mt-6 space-y-3">
+        <div>
+          <h3 class="text-label-md text-secondary-foreground">Earlier restrictions still active</h3>
+          <p class="mt-1 text-body-sm text-muted">
+            These are evaluated alongside the saved settings until the next rule day.
+          </p>
+        </div>
+        <GroupCard
+          v-for="group in retainedBaselineGroups"
+          :key="`baseline-${group.id}`"
           :group="group"
           :pause-entry="groupPauseEntry(group.id)"
           :now="now"

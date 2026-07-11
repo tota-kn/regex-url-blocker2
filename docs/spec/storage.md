@@ -123,7 +123,7 @@ interface Restriction {
 }
 ```
 
-`effectiveSettings` は URL 判定、badge、counter 加算に使う有効設定スナップショット。`lockMode` グループがある場合、希望設定と有効設定が次回 daily reset まで一時的に異なることがある。
+`effectiveSettings` は現在の rule day の基準設定スナップショット。`lockMode` グループがある場合は希望設定と独立に URL 判定し、両方のうち厳しい結果を URL 判定、badge、counter 加算へ使う。希望設定と基準設定は次回 daily reset まで一時的に異なることがある。
 
 - `effectiveSettings` が未設定、オブジェクトでない、または配列の場合は、`chrome.storage.sync` から読んだ希望設定を現在時刻の有効設定として作り直す。
 - `effectiveSettings` がオブジェクトの場合は `loadSettings()` と同じ規則で正規化する。

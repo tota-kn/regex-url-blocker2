@@ -303,6 +303,7 @@ onMounted(async () => {
   <ActiveSettingsDialog
     ref="activeSettingsDialogRef"
     :effective-settings="effectiveSettings"
+    :preferred-settings="settings"
     :group-pause-state="groupPauseState"
     :now="now"
     @request-pause="requestGroupPause"
@@ -322,9 +323,11 @@ onMounted(async () => {
           class="flex flex-col gap-3 rounded-lg border border-warning bg-warning/10 p-4 text-warning-text sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
-            <p class="text-label-md">Some saved changes are not active yet.</p>
-            <p class="mt-1 text-body-sm">Active until reset: {{ resetTimeLabel }}</p>
-            <p class="text-body-sm">Applies after: {{ appliesAfterLabel }}</p>
+            <p class="text-label-md">Earlier restrictions are still active.</p>
+            <p class="mt-1 text-body-sm">
+              Stricter saved changes apply now. Changes that relax restrictions apply after
+              {{ appliesAfterLabel }} (rule day starts at {{ resetTimeLabel }}).
+            </p>
           </div>
           <BaseButton
             type="button"

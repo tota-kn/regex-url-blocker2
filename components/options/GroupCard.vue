@@ -94,7 +94,7 @@ const visibleOptionSummaries = computed(() => {
     summaries.push({ label: 'Group status', value: 'Disabled' })
   }
   if (props.group.lockMode) {
-    summaries.push({ label: 'Lock changes until next rule day', value: 'On' })
+    summaries.push({ label: 'Delay relaxed restrictions until next rule day', value: 'On' })
   }
   return summaries
 })
@@ -444,11 +444,17 @@ onBeforeUnmount(() => {
         </button>
 
         <div v-if="isOptionsOpen" :id="optionsPanelId()" class="divide-y divide-border">
-          <fieldset aria-label="Lock changes until next rule day" class="py-3">
+          <fieldset aria-label="Delay relaxed restrictions until next rule day" class="py-3">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-                <LockClosedIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
-                <span>Lock changes until next rule day</span>
+              <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
+                <LockClosedIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
+                <div>
+                  <span class="text-label-md">Delay relaxed restrictions until next rule day</span>
+                  <p class="mt-1 text-body-sm text-muted">
+                    Stricter changes apply immediately. Relaxed restrictions take effect on the next
+                    rule day.
+                  </p>
+                </div>
               </div>
               <div class="flex flex-wrap items-center gap-4 sm:justify-end">
                 <label
@@ -458,7 +464,7 @@ onBeforeUnmount(() => {
                     v-model="draft.lockMode"
                     type="radio"
                     class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                    aria-label="Lock changes until next rule day Off"
+                    aria-label="Delay relaxed restrictions until next rule day Off"
                     :value="false"
                   />
                   <span>Off</span>
@@ -470,7 +476,7 @@ onBeforeUnmount(() => {
                     v-model="draft.lockMode"
                     type="radio"
                     class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                    aria-label="Lock changes until next rule day On"
+                    aria-label="Delay relaxed restrictions until next rule day On"
                     :value="true"
                   />
                   <span>On</span>

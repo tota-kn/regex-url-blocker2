@@ -6,9 +6,8 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import {
-  getGroupBlockStatus,
+  getEffectiveGroupBlockStatus,
   getRedirectUrls,
-  getRestrictions,
   getTargetGroupIds,
   restrictionMatchesToday,
   shouldSkipUrl,
@@ -31,6 +30,7 @@ interface DisplayGroup {
 }
 
 const settings = ref<Settings | undefined>()
+const baselineSettings = ref<Settings | undefined>()
 const counters = ref<UsageCountersState>({ counters: {} })
 const groupPauseState = ref<GroupPauseState>({ groupPauseState: {} })
 const activeUrl = ref<string | undefined>()
@@ -40,30 +40,47 @@ const isLoaded = ref(false)
 
 const isSkippedPage = computed(() => {
   if (!settings.value) return false
-  return shouldSkipUrl(activeUrl.value, getRedirectUrls(settings.value))
+  return (
+    shouldSkipUrl(activeUrl.value, getRedirectUrls(settings.value)) ||
+    (baselineSettings.value
+      ? shouldSkipUrl(activeUrl.value, getRedirectUrls(baselineSettings.value))
+      : false)
+  )
 })
 
 const targetGroups = computed(() => {
-  if (!settings.value) return []
-  const ids = new Set(getTargetGroupIds(settings.value, activeUrl.value))
-  return settings.value.groups.filter((group) => ids.has(group.id))
+  if (!settings.value || !baselineSettings.value) return []
+  const ids = new Set([
+    ...getTargetGroupIds(settings.value, activeUrl.value),
+    ...getTargetGroupIds(baselineSettings.value, activeUrl.value),
+  ])
+  const groups = [...baselineSettings.value.groups, ...settings.value.groups]
+  return [
+    ...new Map(
+      groups.filter((group) => ids.has(group.id)).map((group) => [group.id, group]),
+    ).values(),
+  ]
 })
 
 const displayGroups = computed<DisplayGroup[]>(() => {
-  if (!settings.value) return []
+  if (!settings.value || !baselineSettings.value) return []
   return targetGroups.value.flatMap((group) => {
-    const status = getGroupBlockStatus(
-      group,
+    const effective = getEffectiveGroupBlockStatus(
+      group.id,
+      baselineSettings.value!,
+      settings.value!,
       counters.value.counters[group.id],
+      activeUrl.value,
       now.value,
-      settings.value!.global,
     )
+    if (!effective) return []
+    const { group: displayGroup, status } = effective
     const pauseState = getGroupPauseDisplayState(
       groupPauseState.value.groupPauseState[group.id],
       now.value,
     )
-    const hasDisplayState = getRestrictions(group).length > 0 || pauseState.kind !== 'none'
-    return hasDisplayState ? [{ group, status, pauseState }] : []
+    const hasDisplayState = status.restrictionRules.length > 0 || pauseState.kind !== 'none'
+    return hasDisplayState ? [{ group: displayGroup, status, pauseState }] : []
   })
 })
 
@@ -118,12 +135,13 @@ async function refreshActiveUrl(currentSettings: Settings): Promise<void> {
  * 設定とカウンタを再読み込みする。
  */
 async function refreshState(): Promise<void> {
-  const { counters: loadedCounters, effectiveSettings } = await loadPageState()
+  const { settings: preferred, counters: loadedCounters, effectiveSettings } = await loadPageState()
   const loadedGroupPauseState = await loadGroupPauseState(
     effectiveSettings.groups.map((group) => group.id),
     Date.now(),
   )
-  settings.value = effectiveSettings
+  settings.value = preferred
+  baselineSettings.value = effectiveSettings
   counters.value = loadedCounters
   groupPauseState.value = loadedGroupPauseState
   now.value = new Date()

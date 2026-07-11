@@ -1,20 +1,21 @@
 import {
   applyDelayGrantState,
   applyGroupPauseState,
-  evaluateUrl,
+  evaluateEffectiveUrl,
   formatRemainingMinutesBadge,
   getActiveRedirectUrl,
   getEffectiveWaitSeconds,
-  getMinimumRemainingTimeLimit,
+  getMinimumEffectiveRemainingTimeLimit,
   getRedirectUrls,
-  incrementCounters,
+  isTargetGroup,
+  incrementEffectiveCounters,
   normalizeCounters,
   shouldSkipUrl,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import {
-  buildRemainingTimeNotificationPlans,
+  buildEffectiveRemainingTimeNotificationPlans,
   markNotificationPlanHistory,
 } from '@/utils/notifications'
 import {
@@ -48,6 +49,7 @@ const BADGE_COLOR_WARNING = '#f59e0b'
 const BADGE_COLOR_BLOCKED = '#dc2626'
 
 let settings: Settings | undefined
+let preferredSettings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
 let groupPauseState: GroupPauseState = { groupPauseState: {} }
 let delayGrantState: DelayGrantState = { delayGrantState: {} }
@@ -106,6 +108,7 @@ async function initializeState(): Promise<void> {
   )
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
+  globalThisPreferredSettings(preferredSettings)
   counters = normalizeCounters(settings, await loadCounters(), now)
   const validGroupIds = settings.groups.map((group) => group.id)
   const [pauseState, grantState, usageHistory] = await Promise.all([
@@ -138,6 +141,16 @@ async function currentSettings(): Promise<Settings> {
     throw new Error('Settings are not initialized')
   }
   return settings
+}
+
+/** 最新の希望設定を background の評価用 state に保存する。 */
+function globalThisPreferredSettings(next: Settings): void {
+  preferredSettings = next
+}
+
+/** 基準設定と最新設定を使って URL を評価する。 */
+function evaluateCurrentUrl(s: Settings, url: string | undefined, now: Date): UrlEvaluation {
+  return evaluateEffectiveUrl(s, preferredSettings ?? s, counters, url, now)
 }
 
 /**
@@ -185,6 +198,7 @@ async function reloadSettings(): Promise<void> {
   )
   await saveEffectiveSettingsState(nextEffectiveState)
   settings = nextEffectiveState.effectiveSettings
+  globalThisPreferredSettings(preferredSettings)
   counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
   groupPauseState = await loadGroupPauseState(
     settings.groups.map((group) => group.id),
@@ -240,8 +254,9 @@ async function notifyRemainingTimeIfNeeded(
   tab: ActionTargetTab,
   now: Date,
 ): Promise<void> {
-  const plans = buildRemainingTimeNotificationPlans(
+  const plans = buildEffectiveRemainingTimeNotificationPlans(
     s,
+    preferredSettings ?? s,
     counters,
     usageNotificationHistory.usageNotificationHistory,
     tab.url,
@@ -344,9 +359,15 @@ async function redirectToWaitIfNeeded(
   const groupId = delayed.delayedGroupIds[0]
   if (!groupId) return
 
-  const group = s.groups.find((item) => item.id === groupId)
-  if (!group) return
-  const seconds = getEffectiveWaitSeconds(group, now, s.global)
+  const candidates = [s, preferredSettings ?? s].flatMap((item) => {
+    const group = item.groups.find((candidate) => candidate.id === groupId)
+    return group && isTargetGroup(group, url)
+      ? [getEffectiveWaitSeconds(group, now, item.global)]
+      : []
+  })
+  const seconds = candidates
+    .filter((value): value is number => value !== undefined)
+    .toSorted((a, b) => b - a)[0]
   if (seconds === undefined) return
 
   await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds) })
@@ -387,7 +408,13 @@ function buildActionState(
   tab: ActionTargetTab,
   now: Date,
 ): { text: string; title: string; color: string } {
-  const minimum = getMinimumRemainingTimeLimit(s, counters, tab.url, now)
+  const minimum = getMinimumEffectiveRemainingTimeLimit(
+    s,
+    preferredSettings ?? s,
+    counters,
+    tab.url,
+    now,
+  )
   if (!minimum) {
     return { text: '', title: ACTION_TITLE, color: BADGE_COLOR_NORMAL }
   }
@@ -424,7 +451,7 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
   const s = await currentSettings()
   await updateActionForTab(tab, now)
   const evaluation = applyGroupPauseState(
-    evaluateUrl(s, counters, tab.url, now),
+    evaluateCurrentUrl(s, tab.url, now),
     groupPauseState,
     now.getTime(),
   )
@@ -460,7 +487,14 @@ async function tick(): Promise<void> {
 
   const now = new Date()
   if (idleState === 'active') {
-    const nextCounters = incrementCounters(s, counters, activeTab.url, now, 1)
+    const nextCounters = incrementEffectiveCounters(
+      s,
+      preferredSettings ?? s,
+      counters,
+      activeTab.url,
+      now,
+      1,
+    )
     if (JSON.stringify(nextCounters) !== JSON.stringify(counters)) {
       counters = nextCounters
       dirtyCounters = true
@@ -484,7 +518,7 @@ async function handleNavigation(
   const now = new Date()
   await mergeStoredCounters(s, now)
   const evaluation = applyGroupPauseState(
-    evaluateUrl(s, counters, details.url, now),
+    evaluateCurrentUrl(s, details.url, now),
     groupPauseState,
     now.getTime(),
   )
@@ -549,7 +583,7 @@ export default defineBackground(() => {
       const now = new Date()
       await updateActionForTab({ ...tab, id: tabId, url }, now)
       const evaluation = applyGroupPauseState(
-        evaluateUrl(s, counters, url, now),
+        evaluateCurrentUrl(s, url, now),
         groupPauseState,
         now.getTime(),
       )

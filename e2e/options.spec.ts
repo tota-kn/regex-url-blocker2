@@ -748,8 +748,10 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Time window 1').first()).toContainText('Always')
     await expect(page.getByLabel('Restriction 1').first()).toContainText('30 min/day')
-    await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
-    await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
+    await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
+    await expect(
+      page.getByText(/Stricter saved changes apply now\..*rule day starts at 03:00/s),
+    ).toBeVisible()
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Request pause' }).first()).toBeDisabled()
     await expect(page.getByText('Use active settings to pause.')).toBeVisible()
@@ -769,6 +771,7 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Notify me')).not.toBeVisible()
     await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Work')
     await expect(activeSettingsDialog.getByLabel('Name').nth(1)).toHaveValue('Allowlist')
+    await expect(activeSettingsDialog.getByText('Earlier restrictions still active')).toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(
       activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
@@ -777,16 +780,21 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Restrictions').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
     await expect(
-      activeSettingsDialog.getByText('Lock changes until next rule day').first(),
+      activeSettingsDialog.getByText('Delay relaxed restrictions until next rule day').first(),
     ).toBeVisible()
-    await expect(activeSettingsDialog.getByText('active\\.example', { exact: true })).toBeVisible()
+    await expect(
+      activeSettingsDialog.getByText('active\\.example', { exact: true }).first(),
+    ).toBeVisible()
     await expect(activeSettingsDialog.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
-    await expect(activeSettingsDialog.getByLabel('Time window 1').first()).toContainText(
-      '09:00-17:00',
+    await expect(activeSettingsDialog.getByLabel('Time window 1').first()).toContainText('Always')
+    await expect(activeSettingsDialog.getByLabel('Restriction 1').first()).toContainText(
+      '30 min/day',
     )
-    await expect(activeSettingsDialog.getByLabel('Restriction 2').first()).toContainText(
-      '10 min/day',
-    )
+    const retainedSettings = activeSettingsDialog
+      .locator('section')
+      .filter({ hasText: 'Earlier restrictions still active' })
+    await expect(retainedSettings.getByLabel('Time window 1')).toContainText('09:00-17:00')
+    await expect(retainedSettings.getByLabel('Restriction 2')).toContainText('10 min/day')
     const headerBox = await activeSettingsDialog
       .locator('[aria-label="Active settings header"]')
       .boundingBox()
@@ -882,17 +890,24 @@ test.describe('Options 画面', () => {
     await page.getByRole('menuitem', { name: 'Disable' }).click()
 
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
-    await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
+    await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
     await page.getByRole('button', { name: 'View active settings' }).click()
     const activeSettingsDialog = page
       .locator('dialog')
       .filter({ hasText: 'Currently active settings' })
-    await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Locked disable')
+    await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Locked disable')
     await expect(
-      activeSettingsDialog.getByRole('status').filter({ hasText: 'Disabled' }),
+      activeSettingsDialog.getByRole('status').filter({ hasText: 'Disabled' }).first(),
+    ).toBeVisible()
+    const retainedSettings = activeSettingsDialog
+      .locator('section')
+      .filter({ hasText: 'Earlier restrictions still active' })
+    await expect(
+      retainedSettings.getByRole('status').filter({ hasText: 'Disabled' }),
     ).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Group status')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Lock changes until next rule day')).toBeVisible()
+    await expect(
+      activeSettingsDialog.getByText('Delay relaxed restrictions until next rule day').first(),
+    ).toBeVisible()
   })
 
   test('希望設定から削除済みの active group も active settings から一時停止できる', async ({
@@ -963,7 +978,7 @@ test.describe('Options 画面', () => {
     await page.clock.install({ time: beforePauseStart })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
+    await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
     await page.getByRole('button', { name: 'View active settings' }).click()
 
@@ -1162,7 +1177,7 @@ test.describe('Options 画面', () => {
     ).toHaveCount(0)
     await expect(page.locator('fieldset[aria-label="Page shown when blocked"]')).toHaveCount(0)
     await expect(
-      page.getByRole('radio', { name: 'Lock changes until next rule day Off' }),
+      page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day Off' }),
     ).not.toBeVisible()
 
     // Redirect は Restriction の種別として選び、その場で URL を入力する
@@ -1178,14 +1193,27 @@ test.describe('Options 画面', () => {
       optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Block matches' }),
     ).toHaveCount(0)
     await expect(
-      optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day Off' }),
+      optionsPanel.getByRole('radio', {
+        name: 'Delay relaxed restrictions until next rule day Off',
+      }),
     ).toBeChecked()
     await expect(
-      optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' }),
+      optionsPanel.getByRole('radio', {
+        name: 'Delay relaxed restrictions until next rule day On',
+      }),
     ).toBeVisible()
-    await optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' }).check()
     await expect(
-      optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' }),
+      optionsPanel.getByText(
+        'Stricter changes apply immediately. Relaxed restrictions take effect on the next rule day.',
+      ),
+    ).toBeVisible()
+    await optionsPanel
+      .getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' })
+      .check()
+    await expect(
+      optionsPanel.getByRole('radio', {
+        name: 'Delay relaxed restrictions until next rule day On',
+      }),
     ).toBeChecked()
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1193,22 +1221,31 @@ test.describe('Options 画面', () => {
     await page.reload()
 
     await expect(page.locator('main').getByText('Options')).toBeVisible()
-    await expect(page.locator('main').getByText('Lock changes until next rule day')).toBeVisible()
+    await expect(
+      page.locator('main').getByText('Delay relaxed restrictions until next rule day'),
+    ).toBeVisible()
+    await expect(
+      page.getByText(
+        'Stricter changes apply immediately. Relaxed restrictions take effect on the next rule day.',
+      ),
+    ).not.toBeVisible()
     await expect(page.locator('main').getByText('On', { exact: true })).toBeVisible()
     await expect(
       page.locator('main').getByText('Page shown when blocked', { exact: true }),
     ).not.toBeVisible()
     await expect(
-      page.getByRole('radio', { name: 'Lock changes until next rule day On' }),
+      page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' }),
     ).not.toBeVisible()
     await page.getByRole('button', { name: 'Edit group' }).click()
     await openGroupOptions(page)
     await expect(
-      page.getByRole('radio', { name: 'Lock changes until next rule day On' }),
+      page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' }),
     ).toBeChecked()
-    await page.getByRole('radio', { name: 'Lock changes until next rule day Off' }).check()
+    await page
+      .getByRole('radio', { name: 'Delay relaxed restrictions until next rule day Off' })
+      .check()
     await expect(
-      page.getByRole('radio', { name: 'Lock changes until next rule day Off' }),
+      page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day Off' }),
     ).toBeChecked()
   })
 
@@ -1221,7 +1258,9 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LockedReset')
     await openGroupOptions(page)
-    await page.getByRole('radio', { name: 'Lock changes until next rule day On' }).check()
+    await page
+      .getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' })
+      .check()
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 

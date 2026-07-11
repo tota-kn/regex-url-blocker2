@@ -27,7 +27,13 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
   for (const group of active.groups) {
     const preferredGroup = preferredById.get(group.id)
     if (group.lockMode) {
-      mergedGroups.push(cloneGroup(group))
+      const baseline = cloneGroup(group)
+      if (preferredGroup) {
+        baseline.name = preferredGroup.name
+        baseline.blockAction = preferredGroup.blockAction
+        baseline.redirectUrl = preferredGroup.redirectUrl
+      }
+      mergedGroups.push(baseline)
       handledIds.add(group.id)
       continue
     }

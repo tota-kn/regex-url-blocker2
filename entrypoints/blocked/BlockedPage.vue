@@ -5,7 +5,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import {
-  getGroupBlockStatus,
+  getEffectiveGroupBlockStatus,
   getNextDailyResetAt,
   getTimeRangeUnblockAt,
   type GroupBlockStatus,
@@ -99,24 +99,26 @@ function goBack(): void {
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
-  const { counters, effectiveSettings } = await loadPageState()
+  const { settings, counters, effectiveSettings } = await loadPageState()
   const now = new Date()
   blockedUrl.value = parseBlockedUrl(params)
-  blockedGroupDisplays.value = effectiveSettings.groups
-    .filter((group) => groupIds.has(group.id))
-    .map((group) => {
-      const status = getGroupBlockStatus(
-        group,
-        counters.counters[group.id],
-        now,
-        effectiveSettings.global,
-      )
-      return {
-        group,
-        status,
-        reasons: buildReasons(group, status, now, effectiveSettings.global),
-      }
-    })
+  blockedGroupDisplays.value = [...groupIds].flatMap((groupId) => {
+    const effective = getEffectiveGroupBlockStatus(
+      groupId,
+      effectiveSettings,
+      settings,
+      counters.counters[groupId],
+      blockedUrl.value,
+      now,
+    )
+    if (!effective) return []
+    const { group, status } = effective
+    return {
+      group,
+      status,
+      reasons: buildReasons(group, status, now, effectiveSettings.global),
+    }
+  })
   isLoaded.value = true
 })
 </script>

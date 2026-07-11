@@ -114,7 +114,7 @@ export interface Group {
   mode: GroupMode
   /** true の場合、このグループは URL 判定・counter・通知の対象から除外する。 */
   disabled: boolean
-  /** true の場合、このグループの設定変更は次回 daily reset まで有効設定へ反映しない。 */
+  /** true の場合、制限を緩和する変更は次回 daily reset まで基準設定と併用する。 */
   lockMode: boolean
   /** URL pattern の配列。裸ドメインまたは `new RegExp()` で構文チェックを通る正規表現を指定できる。 */
   patterns: string[]
@@ -157,10 +157,10 @@ export interface Settings {
 }
 
 /**
- * chrome.storage.local に保存される、現在 background 判定に使う有効設定スナップショット。
+ * chrome.storage.local に保存される、現在の rule day の制限基準スナップショット。
  */
 export interface EffectiveSettingsState {
-  /** 現在の URL 判定・badge・counter 加算に使う設定。 */
+  /** 最新設定と独立評価し、厳しい結果を採用するための基準設定。 */
   effectiveSettings: Settings
   /** `effectiveSettings.global.dailyResetHour` で算出した保存時点の論理日。 */
   effectiveSettingsLogicalDate: string

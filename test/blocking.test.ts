@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyDelayGrantState,
   applyGroupPauseState,
+  evaluateEffectiveUrl,
   evaluateUrl,
   formatRemainingMinutesBadge,
   getActiveRedirectUrl,
@@ -16,6 +17,7 @@ import {
   getTimeLimitUsageSummary,
   getTimeRangeUnblockAt,
   incrementCounters,
+  incrementEffectiveCounters,
   isRestrictionActiveNow,
   matchesScheduleRuleCondition,
   normalizeCounters,
@@ -1176,5 +1178,45 @@ describe('wait gate', () => {
       now.getTime(),
     )
     expect(expired.delayedGroupIds).toEqual(['g1'])
+  })
+
+  it('基準設定と最新版は pattern と制限を交差させずに合成する', () => {
+    const baseline = settings([
+      group({
+        patterns: ['old\\.test'],
+        restriction: dailyRestriction('grace', { graceMinutes: 30 }),
+      }),
+    ])
+    const preferred = settings([
+      group({ patterns: ['new\\.test'], restriction: dailyRestriction('block') }),
+    ])
+    const now = new Date('2026-05-06T12:00:00+09:00')
+
+    expect(
+      evaluateEffectiveUrl(baseline, preferred, emptyCounters(), 'https://old.test/', now).blocked,
+    ).toBe(false)
+    expect(
+      evaluateEffectiveUrl(baseline, preferred, emptyCounters(), 'https://new.test/', now).blocked,
+    ).toBe(true)
+  })
+
+  it('両設定で対象でも共有 counter は一度だけ加算する', () => {
+    const baseline = settings([
+      group({ restriction: dailyRestriction('grace', { graceMinutes: 30 }) }),
+    ])
+    const preferred = settings([
+      group({ restriction: dailyRestriction('grace', { graceMinutes: 10 }) }),
+    ])
+    const now = new Date('2026-05-06T12:00:00+09:00')
+
+    const result = incrementEffectiveCounters(
+      baseline,
+      preferred,
+      emptyCounters(),
+      'https://example.com/',
+      now,
+      1,
+    )
+    expect(result.counters.g1?.consumedSec).toBe(1)
   })
 })

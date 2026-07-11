@@ -105,11 +105,12 @@
 - ユーザーが保存した設定は `chrome.storage.sync` に「希望設定」として保存する。
 - background は `chrome.storage.local` に「有効設定スナップショット」を保持し、URL 判定・badge・counter 加算にはこの有効設定を使う。
 - `lockMode: false` のグループは、追加・編集・削除を同じ論理日中でも希望設定どおり即時反映する。
-- `lockMode: true` のグループは、有効設定側のグループスナップショットを次回リセット時刻まで維持する。`patterns`、`mode`、`restrictionRules`、`name`、`lockMode` の OFF、グループ削除はいずれも次回リセットで希望設定全体が昇格したときに反映する。
+- `lockMode: true` のグループは、rule day 開始時（同日中に ON にした場合は ON 時点）の制限設定を基準として次回リセット時刻まで維持する。基準設定と最新の希望設定を独立に評価し、対象 URL は和集合、block は OR、grace は残り時間が短い方、wait は長い方を採用する。これにより厳格化は即時反映し、緩和だけを次回リセットまで保留する。
+- 二重評価する制限設定は `patterns`、`mode`、`disabled`、`timeWindows`、`restrictions`、Lock Mode の OFF、グループ削除とする。`name`、`blockAction`、`redirectUrl` は希望設定を即時反映する。
 - 有効設定に存在しない新規グループは即時反映する。新規グループを `lockMode: true` で保存した場合、初回保存は即時有効化され、その後の変更が次回リセットまで保留される。
 - `remainingTimeNotificationsEnabled` と `notificationThresholdMinutes` は同じ論理日中でも希望設定を即時反映する。グループ別の `blockAction` と `redirectUrl` はグループ設定として反映タイミングに従う。
 - 希望設定または有効設定のどちらかに `lockMode: true` のグループがある間、`dailyResetHour` は変更できず、現在有効なリセット時刻を維持する。
-- 論理日が切り替わったタイミングで、希望設定全体を有効設定へ昇格する。
+- 論理日が切り替わったタイミングで希望設定全体を新しい基準へ昇格する。Lock Mode が OFF または削除済みのグループの旧基準は破棄する。
 
 ## 残り時間通知・Action Badge
 

@@ -74,7 +74,7 @@ describe('effective settings', () => {
     expect(mergeImmediateRestrictions(active, preferred).groups.map((g) => g.id)).toEqual(['kept'])
   })
 
-  it('Lock Mode ON の group は厳格化も緩和も即時に有効設定へ反映されない', () => {
+  it('Lock Mode ON の group は rule day 開始時の制限スナップショットを維持する', () => {
     const active = settings(
       [
         group({
@@ -121,6 +121,41 @@ describe('effective settings', () => {
     )
 
     expect(mergeImmediateRestrictions(active, strictPreferred).groups[0]).toEqual(active.groups[0])
+  })
+
+  it('Lock Mode ON の group は名前と遷移先だけを即時反映する', () => {
+    const active = settings([
+      group({
+        name: 'Old name',
+        lockMode: true,
+        patterns: ['old\\.test'],
+        blockAction: 'blockedPage',
+      }),
+    ])
+    const preferred = settings([
+      group({
+        name: 'New name',
+        lockMode: true,
+        patterns: ['new\\.test'],
+        blockAction: 'redirect',
+        redirectUrl: 'https://new.test/',
+      }),
+    ])
+
+    expect(mergeImmediateRestrictions(active, preferred).groups[0]).toMatchObject({
+      name: 'New name',
+      lockMode: true,
+      patterns: ['old\\.test'],
+      blockAction: 'redirect',
+      redirectUrl: 'https://new.test/',
+    })
+  })
+
+  it('同日中に Lock Mode を ON にするとその時点の設定を基準にする', () => {
+    const active = settings([group({ lockMode: false, patterns: ['old\\.test'] })])
+    const preferred = settings([group({ lockMode: true, patterns: ['new\\.test'] })])
+
+    expect(mergeImmediateRestrictions(active, preferred).groups[0]).toEqual(preferred.groups[0])
   })
 
   it('Lock Mode group がある場合、dailyResetHour 変更は保存・reconcile 後も反映されない', () => {

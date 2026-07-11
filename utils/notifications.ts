@@ -93,3 +93,49 @@ export function buildRemainingTimeNotificationPlans(
 
   return plans
 }
+
+/**
+ * 基準設定と最新設定のうち、より短い残り時間だけをグループごとに通知する。
+ */
+export function buildEffectiveRemainingTimeNotificationPlans(
+  baseline: Settings,
+  preferred: Settings,
+  counters: UsageCountersState,
+  history: Record<string, UsageNotificationEntry>,
+  tabUrl: string | undefined,
+  now: Date,
+): NotificationPlan[] {
+  if (!preferred.global.remainingTimeNotificationsEnabled) return []
+  const thresholdSec = preferred.global.notificationThresholdMinutes * 60
+  const candidates = [baseline, preferred].flatMap((settings) => {
+    const targetIds = new Set(evaluateUrl(settings, counters, tabUrl, now).targetGroupIds)
+    return settings.groups.flatMap((group) => {
+      if (!targetIds.has(group.id)) return []
+      const summary = getTimeLimitUsageSummary(
+        group,
+        counters.counters[group.id],
+        now,
+        settings.global,
+      )
+      return summary ? [{ group, summary }] : []
+    })
+  })
+  const strictest = new Map<string, (typeof candidates)[number]>()
+  for (const candidate of candidates) {
+    const current = strictest.get(candidate.group.id)
+    if (!current || candidate.summary.remainingSec < current.summary.remainingSec) {
+      strictest.set(candidate.group.id, candidate)
+    }
+  }
+  return [...strictest.values()].flatMap(({ group, summary }) => {
+    if (summary.remainingSec <= 0 || summary.remainingSec > thresholdSec) return []
+    if (history[group.id]?.logicalDate === summary.logicalDate) return []
+    return [
+      {
+        notificationId: `usage-time-limit-${group.id}-${summary.logicalDate}`,
+        message: `${group.name}: ${formatRemainingNotificationMinutes(summary.remainingSec)} remaining today.`,
+        historyEntries: [{ groupId: group.id, logicalDate: summary.logicalDate }],
+      },
+    ]
+  })
+}
