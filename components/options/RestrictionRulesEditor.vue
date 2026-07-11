@@ -15,7 +15,7 @@ interface Props {
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
   timeWindowError?: (index: number, field: 'condition' | 'timeRanges') => string | undefined
-  restrictionError?: (index: number, field: 'graceMinutes' | 'waitSeconds') => string | undefined
+  restrictionError?: (index: number, field: 'graceMinutes' | 'waitSeconds' | 'redirectUrl') => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -108,7 +108,7 @@ function removeRestriction(index: number): void {
             </label>
             <BaseButton
               type="button"
-              variant="ghost"
+              variant="danger-ghost"
               size="icon-sm"
               :aria-label="`Remove time window ${index + 1}`"
               @click="removeTimeWindow(index)"
@@ -174,7 +174,7 @@ function removeRestriction(index: number): void {
         <BaseButton
           v-if="isEditing"
           type="button"
-          variant="ghost"
+          variant="danger-ghost"
           size="icon-sm"
           class="absolute right-3 top-3"
           :aria-label="`Remove restriction ${index + 1}`"

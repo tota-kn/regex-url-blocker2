@@ -614,11 +614,7 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Restrictions').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('URL pattern match behavior').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Allow only matches')).toBeVisible()
     await expect(activeSettingsDialog.getByText('Lock changes until next rule day').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Page shown when blocked').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example', { exact: true })).toBeVisible()
     await expect(activeSettingsDialog.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(activeSettingsDialog.getByLabel('Time window 1').first()).toContainText('09:00-17:00')
@@ -928,7 +924,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Time window 1')).toContainText('09:00-18:00')
   })
 
-  test('Redirect 設定は Restriction の直後で、Options disclosure には高度な設定だけを表示する', async ({ page, extensionId }) => {
+  test('Options disclosure には高度な設定だけを表示し、Redirect は Restriction 種別で選ぶ', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
@@ -936,37 +932,23 @@ test.describe('Options 画面', () => {
     const optionsButton = page.locator('main').getByRole('button', { name: 'Options' }).last()
     await expect(optionsButton).toBeVisible()
     await expect(optionsButton).toHaveAttribute('aria-expanded', 'false')
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeVisible()
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeVisible()
+    // 廃止済み: URL pattern match behavior / Page shown when blocked セクション
+    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).toHaveCount(0)
+    await expect(page.locator('fieldset[aria-label="Page shown when blocked"]')).toHaveCount(0)
     await expect(page.getByRole('radio', { name: 'Lock changes until next rule day Off' })).not.toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Lock changes until next rule day On' })).not.toBeVisible()
-    const blockDestination = page.locator('fieldset[aria-label="Page shown when blocked"]').last()
-    await expect(blockDestination.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
-    await expect(blockDestination.getByRole('radio', { name: 'Page shown when blocked Redirect' })).toBeVisible()
-    const restrictionSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Time windows' }) }).last()
-    const [addRestrictionBox, blockDestinationBox] = await Promise.all([
-      restrictionSection.getByRole('button', { name: 'Add restriction' }).boundingBox(),
-      blockDestination.boundingBox(),
-    ])
-    expect(addRestrictionBox).not.toBeNull()
-    expect(blockDestinationBox).not.toBeNull()
-    expect(blockDestinationBox!.y).toBeGreaterThan(addRestrictionBox!.y)
-    const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
-    await expect(urlPatternsSection).not.toContainText('Block matches')
-    await expect(urlPatternsSection).not.toContainText('Allow only matches')
+
+    // Redirect は Restriction の種別として選び、その場で URL を入力する
+    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await page.getByRole('button', { name: 'Add restriction' }).last().click()
+    await page.getByRole('button', { name: 'Restriction type Redirect' }).last().click()
+    await expect(page.getByLabel('Redirect URL')).toBeVisible()
 
     await optionsButton.click()
     await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
     const optionsPanel = page.locator('main [id^="options-panel-"]').last()
-    await expect(optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).toBeChecked()
-    await expect(optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeChecked()
+    await expect(optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).toHaveCount(0)
     await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day Off' })).toBeChecked()
     await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeVisible()
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await blockDestination.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
-    await expect(page.getByLabel('Redirect URL')).toBeVisible()
-    await blockDestination.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
     await optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' }).check()
     await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeChecked()
     await page.getByRole('button', { name: 'Save group' }).click()
@@ -1075,7 +1057,9 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('textbox', { name: 'URL pattern' }).blur()
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByLabel('Time window type').selectOption('daily')
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
     const groupInputs = [
       page.getByLabel('Name'),
@@ -1134,7 +1118,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Wait gate')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Restriction type Wait' }).click()
     await page.getByLabel('Wait seconds before access').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
@@ -1284,9 +1268,10 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LimitedSite')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:15-10:45, 22:00-01:30')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
     await page.getByLabel('Grace minutes per day').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
@@ -1296,7 +1281,7 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByLabel('Time window 1')).toContainText('Every day')
     await expect(page.getByLabel('Time window 1')).toContainText('09:15-10:45, 22:00-01:30')
-    await expect(page.getByLabel('Restriction 2')).toContainText('30 min/day')
+    await expect(page.getByLabel('Restriction 1')).toContainText('30 min/day')
   })
 
   test('スケジュールルールが時間帯も上限もないと保存できない', async ({ page, extensionId }) => {
@@ -1304,7 +1289,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('EmptyRule')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
     await page.getByLabel('Grace minutes per day').fill('30')
     await page.getByLabel('Grace minutes per day').fill('')
@@ -1483,7 +1468,8 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('NightBlock')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('22:00-06:00')
     await page.getByRole('button', { name: 'Save group' }).click()
 
@@ -1498,12 +1484,13 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('CustomDays')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add time window' }).click()
     const timeWindowType = page.getByLabel('Time window type')
     await expect(timeWindowType.locator('option')).toHaveText(['Always', 'Every day', 'Weekly', 'Monthly', 'Period'])
     await expect(page.getByRole('heading', { name: /Time window 1|Restriction 1/ })).toHaveCount(0)
     await timeWindowType.selectOption('weekly')
     await page.getByRole('checkbox', { name: 'Monday' }).check()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
     await page.getByLabel('Grace minutes per day').fill('60')
     await page.getByRole('button', { name: 'Save group' }).click()
@@ -1555,92 +1542,35 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('menuitem', { name: 'Delete group' })).toBeVisible()
   })
 
-  test('グループ別 redirectUrl を編集して永続化される', async ({ page, extensionId }) => {
+  test('Redirect 制限の遷移先 URL を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('RedirectGroup')
-    await openGroupOptions(page)
-    await expect(page.getByRole('radio', { name: 'Page shown when blocked Redirect' })).toBeVisible()
-    await page.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await page.getByRole('button', { name: 'Add restriction' }).last().click()
+    await page.getByRole('button', { name: 'Restriction type Redirect' }).last().click()
     await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.locator('main').getByText('Redirect to https://blocked.example.test')).toBeVisible()
+    await expect(page.getByLabel('Restriction 1').first()).toContainText('Redirect to https://blocked.example.test')
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await openGroupOptions(page)
     await expect(page.getByLabel('Redirect URL')).toHaveValue('https://blocked.example.test')
   })
 
-  test('グループ別ブロック時動作を拡張ページに切り替えて永続化される', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await createBlankGroup(page)
-    await page.getByLabel('Name').fill('BlockedPageGroup')
-    await openGroupOptions(page)
-    await expect(page.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await page.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
-    await page.getByLabel('Redirect URL').fill('https://ignored.example.test')
-    await page.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
-    await page.reload()
-
-    await expect(page.locator('main').getByText('Options')).not.toBeVisible()
-    await page.getByRole('button', { name: 'Edit group' }).click()
-    await openGroupOptions(page)
-    await expect(page.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'Page shown when blocked Redirect' })).not.toBeChecked()
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-  })
-
-  test('グループ別 redirectUrl 検証エラー時は保存できない', async ({ page, extensionId }) => {
+  test('Redirect 制限の URL が不正なら保存できない', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('InvalidRedirectGroup')
-    await expect(page.locator('main').getByText('Options')).toBeVisible()
-    await openGroupOptions(page)
-    await page.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await page.getByRole('button', { name: 'Add restriction' }).last().click()
+    await page.getByRole('button', { name: 'Restriction type Redirect' }).last().click()
     await page.getByLabel('Redirect URL').fill('not-a-url')
 
     await expect(page.getByText('Invalid URL')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
-  })
-
-  test('モード切替（ホワイトリスト）が永続化される', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await createBlankGroup(page)
-    await page.getByLabel('Name').fill('AllowOnly')
-    await openGroupOptions(page)
-
-    // デフォルトはブラックリスト
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeChecked()
-
-    // ホワイトリストに切替
-    await page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' }).check()
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).toBeChecked()
-    await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
-    await page.reload()
-
-    // リロード後も保持
-    await expect(page.locator('main').getByText('URL pattern match behavior')).toBeVisible()
-    await expect(page.locator('main').getByText('Allow only matches')).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeVisible()
-    await page.getByRole('button', { name: 'Edit group' }).click()
-    await openGroupOptions(page)
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).toBeChecked()
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeChecked()
   })
 
   test('保存済みグループの閲覧時はフォーム部品が操作可能に見えない', async ({ page, extensionId }) => {
@@ -1650,9 +1580,10 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('ReadonlyVisuals')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
     await page.getByLabel('Grace minutes per day').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
@@ -1665,10 +1596,10 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(urlPatternsSection.getByText('example\\.com', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Time window 1')).toContainText('09:00-17:00')
-    await expect(page.getByLabel('Restriction 2')).toContainText('45 min/day')
+    await expect(page.getByLabel('Restriction 1')).toContainText('45 min/day')
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Add restriction rule' })).not.toBeVisible()
-    await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add restriction' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add time window' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
   })
 
@@ -1677,7 +1608,8 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('ReadonlyRules')
-    await page.getByRole('button', { name: 'Add restriction rule' }).click()
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
     await page.getByRole('button', { name: 'Save group' }).click()
 

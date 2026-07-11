@@ -4,8 +4,10 @@ import {
   applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
+  getActiveRedirectUrl,
   getBlockedTimeRangeReleaseAt,
   getEffectiveWaitSeconds,
+  getRedirectUrls,
   getGroupBlockStatus,
   getLogicalDate,
   getMinimumRemainingTimeLimit,
@@ -167,6 +169,36 @@ describe('分離した Time window と Restriction', () => {
     const global = settings([]).global
     expect(isRestrictionActiveNow(group({ timeWindows: [], restrictions: [{ type: 'block' }] }), new Date('2026-05-06T12:00:00+09:00'), global)).toBe(false)
     expect(isRestrictionActiveNow(group({ timeWindows: [{ type: 'always' }], restrictions: [] }), new Date('2026-05-06T12:00:00+09:00'), global)).toBe(false)
+  })
+})
+
+describe('redirect restriction', () => {
+  const now = new Date('2026-05-06T12:00:00+09:00')
+
+  it('redirect 制限はアクティブウィンドウ中にハードブロックする', () => {
+    const g = group({ timeWindows: [{ type: 'always' }], restrictions: [{ type: 'redirect', redirectUrl: 'https://elsewhere.test/' }] })
+    const evaluation = evaluateUrl(settings([g]), emptyCounters(), 'https://example.com/', now)
+    expect(evaluation.blocked).toBe(true)
+    expect(evaluation.blockedGroupIds).toEqual(['g1'])
+  })
+
+  it('getActiveRedirectUrl はアクティブな redirect 制限の URL を返す', () => {
+    const global = settings([]).global
+    const active = group({ timeWindows: [{ type: 'always' }], restrictions: [{ type: 'redirect', redirectUrl: 'https://elsewhere.test/' }] })
+    expect(getActiveRedirectUrl(active, now, global)).toBe('https://elsewhere.test/')
+
+    const inactive = group({ timeWindows: [], restrictions: [{ type: 'redirect', redirectUrl: 'https://elsewhere.test/' }] })
+    expect(getActiveRedirectUrl(inactive, now, global)).toBeUndefined()
+
+    const noUrl = group({ timeWindows: [{ type: 'always' }], restrictions: [{ type: 'redirect', redirectUrl: '' }] })
+    expect(getActiveRedirectUrl(noUrl, now, global)).toBeUndefined()
+  })
+
+  it('getRedirectUrls は redirect 制限の URL も列挙し、その URL は判定対象外になる', () => {
+    const g = group({ blockAction: 'blockedPage', timeWindows: [{ type: 'always' }], restrictions: [{ type: 'redirect', redirectUrl: 'https://elsewhere.test/' }] })
+    const s = settings([g])
+    expect(getRedirectUrls(s)).toContain('https://elsewhere.test/')
+    expect(getTargetGroupIds(s, 'https://elsewhere.test/')).toEqual([])
   })
 })
 

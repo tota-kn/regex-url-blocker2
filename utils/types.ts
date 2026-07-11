@@ -44,11 +44,12 @@ export type ScheduleRuleCondition =
 
 /**
  * グループに設定できる制限の種別。
- * - `'block'`: 有効ウィンドウ中は常にアクセスを禁止する。
+ * - `'block'`: 有効ウィンドウ中は常にアクセスを禁止し、拡張機能のブロックページを表示する。
+ * - `'redirect'`: 有効ウィンドウ中は常にアクセスを禁止し、指定 URL へ遷移させる。
  * - `'grace'`: 有効ウィンドウ中の閲覧秒数を積算し、1日の上限分数に達するとブロックする。
  * - `'wait'`: 有効ウィンドウ中、アクセス前に待機ゲート（カウントダウン）を課す。
  */
-export type RestrictionType = 'block' | 'grace' | 'wait'
+export type RestrictionType = 'block' | 'redirect' | 'grace' | 'wait'
 
 /** 制限を適用する時間条件。`always` は明示的な常時適用ウィンドウ。 */
 export type TimeWindow =
@@ -63,6 +64,8 @@ export interface Restriction {
   graceMinutes?: number
   /** `type === 'wait'` のときのアクセス前待機秒数。 */
   waitSeconds?: number
+  /** `type === 'redirect'` のときの遷移先 URL。 */
+  redirectUrl?: string
 }
 
 /**

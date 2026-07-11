@@ -3,6 +3,7 @@ import {
   applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
+  getActiveRedirectUrl,
   getEffectiveWaitSeconds,
   getMinimumRemainingTimeLimit,
   getRedirectUrls,
@@ -267,14 +268,19 @@ function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
 
 /**
  * ブロック時にタブを書き換える遷移先 URL を作る。
+ * `type === 'redirect'` の制限が現在アクティブなら、その制限が指定する URL へ遷移する。
+ * それ以外は旧来のグループ単位 `blockAction` に従い、ブロックページか redirect 先を返す。
  */
-function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvaluation): string {
+function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvaluation, now: Date): string {
   const blockedGroupIds = new Set(evaluation.blockedGroupIds)
   const firstBlockedGroup = s.groups.find(group => blockedGroupIds.has(group.id))
-  if (!firstBlockedGroup || firstBlockedGroup.blockAction === 'blockedPage') {
+  if (!firstBlockedGroup) {
     return buildBlockedPageUrl(url, evaluation)
   }
-  return firstBlockedGroup.redirectUrl
+  const activeRedirectUrl = getActiveRedirectUrl(firstBlockedGroup, now, s.global)
+  if (activeRedirectUrl) return activeRedirectUrl
+  if (firstBlockedGroup.blockAction === 'redirect') return firstBlockedGroup.redirectUrl
+  return buildBlockedPageUrl(url, evaluation)
 }
 
 /**
@@ -282,7 +288,7 @@ function buildBlockDestinationUrl(url: string, s: Settings, evaluation: UrlEvalu
  */
 async function redirectTab(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
   if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
-  const destinationUrl = buildBlockDestinationUrl(url, s, evaluation)
+  const destinationUrl = buildBlockDestinationUrl(url, s, evaluation, now)
   if (getRedirectUrls(s).includes(destinationUrl)) {
     await notifyRedirectBlockIfNeeded(s, evaluation, destinationUrl, now)
   }

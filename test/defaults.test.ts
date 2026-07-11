@@ -26,6 +26,15 @@ describe('createDefaultRestriction', () => {
     const restriction = createDefaultRestriction('grace', base)
     expect(restriction).toEqual({ condition: base.condition, timeRanges: base.timeRanges, type: 'grace' })
   })
+
+  it('grace/wait は初期表示でエラーにならない既定値を持つ', () => {
+    expect(createDefaultRestriction('grace')).toEqual({ type: 'grace', graceMinutes: 30 })
+    expect(createDefaultRestriction('wait')).toEqual({ type: 'wait', waitSeconds: 5 })
+  })
+
+  it('redirect は既定の遷移先 URL を持つ', () => {
+    expect(createDefaultRestriction('redirect')).toEqual({ type: 'redirect', redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl })
+  })
 })
 
 describe('createDefaultTimeWindow', () => {

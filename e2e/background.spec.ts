@@ -373,25 +373,6 @@ async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
   }
 }
 
-/**
- * Service Worker 上の storage.sync から先頭グループの blockAction を読む。
- */
-async function getStoredGroupBlockAction(serviceWorker: Worker): Promise<unknown> {
-  return serviceWorker.evaluate(async () => {
-    const chromeApi = globalThis as unknown as {
-      chrome: {
-        storage: {
-          sync: {
-            get: (keys: string[]) => Promise<{ groups?: Array<{ blockAction?: unknown }> }>
-          }
-        }
-      }
-    }
-    const result = await chromeApi.chrome.storage.sync.get(['groups'])
-    return result.groups?.[0]?.blockAction
-  })
-}
-
 test.describe('Background blocking', () => {
   test('該当 URL への新規ナビゲーションを redirectUrl に書き換える', async ({ page, context }) => {
     const server = await startServer()
@@ -755,22 +736,33 @@ test.describe('Background blocking', () => {
     }
   })
 
-  test('Options で Blocked page に切り替えた後は拡張ページへ遷移する', async ({ page, context, extensionId }) => {
+  test('redirect 制限は指定 URL へ遷移する', async ({ page, context }) => {
     const server = await startServer()
     try {
       const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
-      await saveBlockingSettings(serviceWorker, server.origin)
-      await page.goto(`chrome-extension://${extensionId}/options.html`)
-      await page.getByRole('button', { name: 'Edit group' }).click()
-      await page.getByRole('button', { name: 'Options' }).click()
-      await page.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
-      await page.getByRole('button', { name: 'Save group' }).click()
-      await expect.poll(async () => getStoredGroupBlockAction(serviceWorker)).toBe('blockedPage')
+      const origin = server.origin
+      await serviceWorker.evaluate(async (settings) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: { blockAction: 'blockedPage', redirectUrl: `${settings.origin}/unused`, dailyResetHour: '00:00' },
+          groups: [{
+            id: 'redirect-local',
+            name: 'Redirect local',
+            mode: 'blacklist',
+            patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
+            blockAction: 'blockedPage',
+            redirectUrl: `${settings.origin}/unused`,
+            timeWindows: [{ type: 'always' }],
+            restrictions: [{ type: 'redirect', redirectUrl: `${settings.origin}/blocked` }],
+          }],
+        })
+      }, { origin })
+      await page.waitForTimeout(300)
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
-      await expect(page.getByText('Blocking groups')).not.toBeVisible()
-      await expect(page.getByRole('heading', { name: 'Block local' })).toBeVisible()
+      await expect(page).toHaveURL(`${server.origin}/blocked`)
     }
     finally {
       await server.close()

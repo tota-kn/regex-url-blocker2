@@ -14,7 +14,7 @@ interface Props {
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
-  error?: (field: 'graceMinutes' | 'waitSeconds') => string | undefined
+  error?: (field: 'graceMinutes' | 'waitSeconds' | 'redirectUrl') => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -27,6 +27,7 @@ const restriction = defineModel<Restriction>({ required: true })
 /** セグメントコントロールに渡す選択肢。 */
 const typeOptions = [
   { value: 'block', label: 'Block', ariaLabel: 'Restriction type Block' },
+  { value: 'redirect', label: 'Redirect', ariaLabel: 'Restriction type Redirect' },
   { value: 'grace', label: 'Grace', ariaLabel: 'Restriction type Grace' },
   { value: 'wait', label: 'Wait', ariaLabel: 'Restriction type Wait' },
 ]
@@ -36,8 +37,14 @@ const selectedType = computed<string>(() => restriction.value.type)
 
 /** 制限種別を切り替える。 */
 function setType(value: string): void {
-  if (value !== 'block' && value !== 'grace' && value !== 'wait') return
+  if (value !== 'block' && value !== 'redirect' && value !== 'grace' && value !== 'wait') return
   restriction.value = createDefaultRestriction(value as RestrictionType)
+}
+
+/** redirect の遷移先 URL を更新する。 */
+function setRedirectUrl(value: string | number | undefined): void {
+  if (restriction.value.type !== 'redirect') return
+  restriction.value.redirectUrl = value === undefined ? '' : String(value)
 }
 
 /** 猶予・待機のテキスト入力の作業状態。 */
@@ -89,6 +96,26 @@ function preventNonDigitInput(event: InputEvent): void {
         :model-value="selectedType"
         @update:model-value="setType"
       />
+
+      <label
+        v-if="restriction.type === 'redirect'"
+        class="block min-w-0 space-y-1.5"
+      >
+        <span class="block text-label-md text-secondary-foreground">Redirect URL</span>
+        <BaseInput
+          type="url"
+          aria-label="Redirect URL"
+          placeholder="https://example.com"
+          class="w-full"
+          size="sm"
+          :model-value="restriction.redirectUrl ?? ''"
+          :invalid="Boolean(props.error('redirectUrl'))"
+          @update:model-value="setRedirectUrl"
+        />
+      </label>
+      <AlertMessage v-if="restriction.type === 'redirect' && props.error('redirectUrl')">
+        {{ props.error('redirectUrl') }}
+      </AlertMessage>
 
       <label
         v-if="restriction.type === 'grace'"

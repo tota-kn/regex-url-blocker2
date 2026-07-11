@@ -6,6 +6,7 @@ import {
   formatGroupMode,
   formatRestriction,
   formatScheduleRuleCondition,
+  formatStandaloneRestriction,
 } from '../utils/groups'
 import type { Group, RestrictionRule, Settings } from '../utils/types'
 import { dailyRestriction } from './helpers'
@@ -96,6 +97,14 @@ describe('group utilities', () => {
       waitSeconds: 30,
     }
     expect(formatRestriction(waitRestriction)).toBe('Every day All day — Wait 30 sec')
+  })
+
+  it('分離形式の制限を読み取り表示用に要約する', () => {
+    expect(formatStandaloneRestriction({ type: 'block' })).toBe('Block')
+    expect(formatStandaloneRestriction({ type: 'redirect', redirectUrl: 'https://elsewhere.test/' })).toBe('Redirect to https://elsewhere.test/')
+    expect(formatStandaloneRestriction({ type: 'redirect' })).toBe('Redirect')
+    expect(formatStandaloneRestriction({ type: 'grace', graceMinutes: 15 })).toBe('Grace 15 min/day')
+    expect(formatStandaloneRestriction({ type: 'wait', waitSeconds: 5 })).toBe('Wait 5 sec')
   })
 
   it('グループを独立した deep clone として複製する', () => {

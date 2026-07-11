@@ -1,7 +1,7 @@
 ---
 name: planner
 description: 要件から実装計画を立てる設計担当。コードは書かず、段取り・影響ファイル・トレードオフ・テスト方針を返す。実装に入る前の設計フェーズで使う。
-model: fable
+model: opus
 tools: Read, Grep, Glob, Bash, WebFetch
 ---
 

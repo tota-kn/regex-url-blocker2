@@ -161,11 +161,21 @@ export function shouldSkipUrl(url: string | undefined, redirectUrls: string | st
 
 /**
  * settings 内の全グループが持つ redirect URL を返す。
+ * グループ単位の `blockAction === 'redirect'` と、`type === 'redirect'` の制限が指定する URL の両方を集める。
+ * redirect 先自体を再びブロックしないための除外判定に使うため、時刻ウィンドウは問わず列挙する。
  */
 export function getRedirectUrls(settings: Settings): string[] {
   return settings.groups
-    .filter(group => !group.disabled && group.blockAction === 'redirect')
-    .map(group => group.redirectUrl)
+    .filter(group => !group.disabled)
+    .flatMap((group) => {
+      const urls = group.blockAction === 'redirect' ? [group.redirectUrl] : []
+      return [
+        ...urls,
+        ...getRestrictions(group)
+          .filter(restriction => restriction.type === 'redirect' && typeof restriction.redirectUrl === 'string' && restriction.redirectUrl.trim().length > 0)
+          .map(restriction => restriction.redirectUrl as string),
+      ]
+    })
 }
 
 /**
@@ -284,13 +294,14 @@ export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSe
 }
 
 /**
- * group の restriction が `type === 'block'` かつ現在アクティブなら、
+ * group の restriction が `type === 'block'` または `type === 'redirect'` かつ現在アクティブなら、
  * 現在該当する time range 配列を返す。空配列 `timeRanges`（終日）は24時間ブロック相当の1件を返す。
+ * block と redirect はどちらも有効ウィンドウ中は常にアクセスを禁止するハードブロックである。
  */
 function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
   if (group.disabled) return []
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  if (!getRestrictions(group).some(restriction => restriction.type === 'block')) return []
+  if (!getRestrictions(group).some(restriction => restriction.type === 'block' || restriction.type === 'redirect')) return []
   return getTimeWindows(group)
     .filter(window => isTimeWindowActiveNow(window, now, global))
     .flatMap((window) => {
@@ -323,6 +334,18 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
     consumedSec,
     remainingSec: Math.max(0, limitSec - consumedSec),
   }
+}
+
+/**
+ * group の restriction が `type === 'redirect'` かつ現在アクティブなときの遷移先 URL を返す。
+ * 有効な URL を持つ redirect 制限がなければ undefined。複数ある場合は最初の1件を使う。
+ */
+export function getActiveRedirectUrl(group: Group, now: Date, global: GlobalSettings): string | undefined {
+  if (!isRestrictionActiveNow(group, now, global)) return undefined
+  const redirect = getRestrictions(group).find(
+    restriction => restriction.type === 'redirect' && typeof restriction.redirectUrl === 'string' && restriction.redirectUrl.trim().length > 0,
+  )
+  return redirect?.redirectUrl
 }
 
 /**

@@ -169,6 +169,18 @@ function validateStandaloneRestriction(restriction: Restriction, prefix: string)
   if (restriction.type === 'wait' && (restriction.waitSeconds === undefined || !Number.isInteger(restriction.waitSeconds) || restriction.waitSeconds < 0)) {
     return [{ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' }]
   }
+  if (restriction.type === 'redirect') {
+    const url = restriction.redirectUrl ?? ''
+    if (url.trim().length === 0) {
+      return [{ field: `${prefix}.redirectUrl`, message: 'Invalid URL' }]
+    }
+    try {
+      new URL(url)
+    }
+    catch {
+      return [{ field: `${prefix}.redirectUrl`, message: 'Invalid URL' }]
+    }
+  }
   return []
 }
 

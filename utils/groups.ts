@@ -74,6 +74,7 @@ export function formatTimeWindow(window: TimeWindow): string {
 /** 分離形式の制限を読み取り表示用の文言に変換する。 */
 export function formatStandaloneRestriction(restriction: Restriction): string {
   if (restriction.type === 'block') return 'Block'
+  if (restriction.type === 'redirect') return restriction.redirectUrl ? `Redirect to ${restriction.redirectUrl}` : 'Redirect'
   if (restriction.type === 'grace') return `Grace ${restriction.graceMinutes ?? 0} min/day`
   return `Wait ${restriction.waitSeconds ?? 0} sec`
 }

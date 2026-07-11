@@ -27,6 +27,9 @@ export function createDefaultRestriction(type: RestrictionType): Restriction
 export function createDefaultRestriction(type: RestrictionType, base: Pick<RestrictionRule, 'condition' | 'timeRanges'>): RestrictionRule
 export function createDefaultRestriction(type: RestrictionType, base?: Pick<RestrictionRule, 'condition' | 'timeRanges'>): Restriction | RestrictionRule {
   if (base) return { condition: base.condition, timeRanges: base.timeRanges, type }
+  if (type === 'grace') return { type, graceMinutes: 30 }
+  if (type === 'wait') return { type, waitSeconds: 5 }
+  if (type === 'redirect') return { type, redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl }
   return {
     type,
   }

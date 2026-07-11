@@ -172,10 +172,11 @@ function normalizeRestriction(value: unknown): RestrictionRule | undefined {
 /** unknown の値から分離形式の制限を生成する。 */
 function normalizeStandaloneRestriction(value: unknown): Restriction | undefined {
   const valueRecord = asRecord(value)
-  if (valueRecord.type !== 'block' && valueRecord.type !== 'grace' && valueRecord.type !== 'wait') return undefined
+  if (valueRecord.type !== 'block' && valueRecord.type !== 'redirect' && valueRecord.type !== 'grace' && valueRecord.type !== 'wait') return undefined
   const restriction: Restriction = { type: valueRecord.type }
   if (typeof valueRecord.graceMinutes === 'number') restriction.graceMinutes = valueRecord.graceMinutes
   if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
+  if (typeof valueRecord.redirectUrl === 'string') restriction.redirectUrl = valueRecord.redirectUrl
   return restriction
 }
 

@@ -1,13 +1,13 @@
 ---
 name: plan-and-implement
-description: 要件を planner エージェント（Fable）で計画し、その計画を implementer エージェント（Sonnet）で実装させる二段構えのワークフロー。「planner で計画して implementer に実装させて」「計画→実装で進めて」と頼まれたとき、または新機能・改修の実装依頼を計画と実装に分けて進めたいときに使う。
+description: 要件を planner エージェント（Opus）で計画し、その計画を implementer エージェント（Sonnet）で実装させる二段構えのワークフロー。「planner で計画して implementer に実装させて」「計画→実装で進めて」と頼まれたとき、または新機能・改修の実装依頼を計画と実装に分けて進めたいときに使う。
 ---
 
 # Plan → Implement ワークフロー
 
-要件を **planner（Fable）で計画** → **implementer（Sonnet）で実装** の二段で進める。
+要件を **planner（Opus）で計画** → **implementer（Sonnet）で実装** の二段で進める。
 計画と実装を別モデル・別コンテキストのサブエージェントに分担させるための段取り。
-implementer は advisor（fable）を継承しており、実装中に詰まった局面では自動で Fable に相談する（手動ルーティングは不要）。
+implementer は advisor（Fable）を継承しており、実装中に詰まった局面では自動で Fable に相談する（手動ルーティングは不要）。
 
 ## 手順
 

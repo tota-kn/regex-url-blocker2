@@ -1,4 +1,4 @@
-import { evaluateUrl, getLogicalDate, getTimeLimitUsageSummary, type UrlEvaluation } from './blocking'
+import { evaluateUrl, getActiveRedirectUrl, getLogicalDate, getTimeLimitUsageSummary, type UrlEvaluation } from './blocking'
 import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from './types'
 
 /**
@@ -137,7 +137,9 @@ export function buildRedirectBlockNotificationPlan(
 
   const blockedGroupIds = new Set(evaluation.blockedGroupIds)
   const blockedGroups = settings.groups.filter((group: Group) =>
-    blockedGroupIds.has(group.id) && group.blockAction === 'redirect' && group.redirectUrl === destinationUrl,
+    blockedGroupIds.has(group.id)
+    && ((group.blockAction === 'redirect' && group.redirectUrl === destinationUrl)
+      || getActiveRedirectUrl(group, now, settings.global) === destinationUrl),
   )
   const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
   const logicalDateByGroupId = new Map(blockedGroups.map(group => [group.id, logicalDate]))

@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ArrowTopRightOnSquareIcon, CheckCircleIcon, CheckIcon, ChevronDownIcon, ClockIcon, DocumentTextIcon, EllipsisVerticalIcon, LockClosedIcon, NoSymbolIcon, PauseIcon, PencilSquareIcon, ShieldExclamationIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, CheckIcon, ChevronDownIcon, ClockIcon, EllipsisVerticalIcon, LockClosedIcon, NoSymbolIcon, PauseIcon, PencilSquareIcon, TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
-import { DEFAULT_GLOBAL_SETTINGS } from '@/utils/defaults'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
-import { cloneGroup, formatBlockDestination, formatGroupMode } from '@/utils/groups'
+import { cloneGroup } from '@/utils/groups'
 import type { Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
@@ -78,14 +77,8 @@ const visibleOptionSummaries = computed(() => {
   if (props.group.disabled) {
     summaries.push({ label: 'Group status', value: 'Disabled' })
   }
-  if (props.group.mode === 'whitelist') {
-    summaries.push({ label: 'URL pattern match behavior', value: formatGroupMode(props.group) })
-  }
   if (props.group.lockMode) {
     summaries.push({ label: 'Lock changes until next rule day', value: 'On' })
-  }
-  if (props.group.blockAction !== DEFAULT_GLOBAL_SETTINGS.blockAction) {
-    summaries.push({ label: 'Page shown when blocked', value: formatBlockDestination(props.group) })
   }
   return summaries
 })
@@ -433,74 +426,6 @@ onBeforeUnmount(() => {
         :time-window-error="timeWindowError"
         :restriction-error="restrictionError"
       />
-
-      <fieldset
-        v-if="isEditing"
-        aria-label="Page shown when blocked"
-        class="space-y-3 border-t border-border pt-4"
-      >
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-            <DocumentTextIcon
-              aria-hidden="true"
-              class="size-4 shrink-0 text-muted"
-            />
-            <span>Page shown when blocked</span>
-          </div>
-          <div class="flex flex-wrap items-center gap-4 sm:justify-end">
-            <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-              <input
-                v-model="draft.blockAction"
-                type="radio"
-                class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                aria-label="Page shown when blocked Blocked page"
-                value="blockedPage"
-              >
-              <span>Blocked page</span>
-            </label>
-            <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-              <input
-                v-model="draft.blockAction"
-                type="radio"
-                class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                aria-label="Page shown when blocked Redirect"
-                value="redirect"
-              >
-              <span>Redirect</span>
-            </label>
-          </div>
-        </div>
-        <AlertMessage
-          v-if="draftError('blockAction')"
-        >
-          {{ draftError('blockAction') }}
-        </AlertMessage>
-        <label
-          v-if="draft.blockAction === 'redirect'"
-          class="block min-w-0 space-y-1.5 pl-6"
-        >
-          <span class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-            <ArrowTopRightOnSquareIcon
-              aria-hidden="true"
-              class="size-4 shrink-0 text-muted"
-            />
-            <span>Redirect URL</span>
-          </span>
-          <BaseInput
-            v-model="draft.redirectUrl"
-            type="url"
-            aria-label="Redirect URL"
-            class="w-full"
-            :invalid="Boolean(draftError('redirectUrl'))"
-          />
-          <AlertMessage
-            v-if="draftError('redirectUrl')"
-            class="mt-2"
-          >
-            {{ draftError('redirectUrl') }}
-          </AlertMessage>
-        </label>
-      </fieldset>
     </fieldset>
 
     <section
@@ -541,43 +466,6 @@ onBeforeUnmount(() => {
           :id="optionsPanelId()"
           class="divide-y divide-border"
         >
-          <fieldset
-            aria-label="URL pattern match behavior"
-            class="py-3"
-          >
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-                <ShieldExclamationIcon
-                  aria-hidden="true"
-                  class="size-4 shrink-0 text-muted"
-                />
-                <span>URL pattern match behavior</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-4 sm:justify-end">
-                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                  <input
-                    v-model="draft.mode"
-                    type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                    aria-label="URL pattern match behavior Block matches"
-                    value="blacklist"
-                  >
-                  <span>Block matches</span>
-                </label>
-                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                  <input
-                    v-model="draft.mode"
-                    type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                    aria-label="URL pattern match behavior Allow only matches"
-                    value="whitelist"
-                  >
-                  <span>Allow only matches</span>
-                </label>
-              </div>
-            </div>
-          </fieldset>
-
           <fieldset
             aria-label="Lock changes until next rule day"
             class="py-3"

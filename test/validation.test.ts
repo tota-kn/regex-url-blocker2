@@ -225,6 +225,19 @@ describe('validateRestriction (validateGroup 経由)', () => {
     expect(validateRestrictionRule(restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 1.5 }))
       .some(e => e.field === 'restrictions[0].waitSeconds')).toBe(true)
   })
+
+  it('redirect は redirectUrl が有効な URL でないとエラー', () => {
+    const withRedirect = (redirectUrl: string | undefined): ReturnType<typeof validateGroup> => validateGroup({
+      ...createEmptyGroup(),
+      name: 'X',
+      timeWindows: [{ type: 'always' }],
+      restrictions: [{ type: 'redirect', redirectUrl }],
+    })
+    expect(withRedirect('https://elsewhere.test/')).toEqual([])
+    expect(withRedirect(undefined).some(e => e.field === 'restrictions[0].redirectUrl')).toBe(true)
+    expect(withRedirect('').some(e => e.field === 'restrictions[0].redirectUrl')).toBe(true)
+    expect(withRedirect('not-url').some(e => e.field === 'restrictions[0].redirectUrl')).toBe(true)
+  })
 })
 
 describe('validateGlobalSettings', () => {
