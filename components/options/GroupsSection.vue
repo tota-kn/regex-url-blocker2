@@ -52,6 +52,8 @@ interface Emits {
   cancelNewGroup: [id: string]
   /** グループ削除が要求されたときに対象 id を通知する。 */
   removeGroup: [id: string]
+  /** グループ複製が要求されたときに対象 id を通知する。 */
+  duplicateGroup: [id: string]
   /** グループ一時停止操作が要求されたときに対象 id を通知する。 */
   requestGroupPause: [id: string]
 }
@@ -207,6 +209,7 @@ function createGroup(templateId: GroupTemplateId): void {
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"
+        @duplicate="$emit('duplicateGroup', groups[i].id)"
         @request-pause="$emit('requestGroupPause', groups[i].id)"
       />
       <GroupCard

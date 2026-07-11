@@ -774,6 +774,9 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Earlier restrictions still active')).toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(
+      activeSettingsDialog.getByRole('menuitem', { name: 'Duplicate group' }),
+    ).not.toBeVisible()
+    await expect(
       activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
     ).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
@@ -1517,6 +1520,54 @@ test.describe('Options 画面', () => {
         .filter({ hasText: 'Take a breath' })
         .getByRole('heading', { name: 'Take a breath' }),
     ).toBeVisible()
+  })
+
+  test('ケバブメニューからグループを編集可能な新規ドラフトとして複製する', async ({
+    page,
+    extensionId,
+  }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Focus')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Duplicate group' }).click()
+
+    const duplicatedCard = page.locator('[data-new-group-card="true"]')
+    await expect(page.getByText('2 groups')).toBeVisible()
+    await expect(duplicatedCard.getByLabel('Name')).toHaveValue('Focus copy')
+    await expect(duplicatedCard.getByLabel('Name')).toBeEnabled()
+    await expect(duplicatedCard.getByRole('textbox', { name: 'URL pattern' })).toHaveValue(
+      'example\\.com',
+    )
+
+    await duplicatedCard.getByRole('button', { name: 'Save group' }).click()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+
+    await expect(page.getByLabel('Name')).toHaveCount(2)
+    await expect(page.getByLabel('Name').nth(0)).toHaveValue('Focus')
+    await expect(page.getByLabel('Name').nth(1)).toHaveValue('Focus copy')
+  })
+
+  test('グループの複製ドラフトをキャンセルすると保存しない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Focus')
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Duplicate group' }).click()
+    await page.getByRole('button', { name: 'Cancel group' }).click()
+
+    await expect(page.getByText('1 group', { exact: true })).toBeVisible()
+    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await page.reload()
+    await expect(page.getByLabel('Name')).toHaveCount(1)
   })
 
   test('ドメイン指定の URL pattern を保存できる', async ({ page, extensionId }) => {

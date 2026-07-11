@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ClockIcon,
+  DocumentDuplicateIcon,
   EllipsisVerticalIcon,
   LockClosedIcon,
   NoSymbolIcon,
@@ -57,6 +58,8 @@ interface Emits {
   cancel: []
   /** グループ削除が要求されたときに発火する。 */
   remove: []
+  /** グループ複製が要求されたときに発火する。 */
+  duplicate: []
   /** グループ一時停止操作が要求されたときに発火する。 */
   requestPause: []
 }
@@ -112,10 +115,16 @@ const canRequestPause = computed(() => {
 const disabledToggleLabel = computed(() => (props.group.disabled ? 'Enable' : 'Disable'))
 const showsPauseMenuItem = computed(() => !props.isNew && !pauseButtonState.value.paused)
 const showsDisabledToggleMenuItem = computed(() => !props.isNew && !props.readOnly)
+const showsDuplicateMenuItem = computed(() => !props.isNew && !props.readOnly)
 const showsDeleteMenuItem = computed(() => !props.readOnly)
 const showsActionMenu = computed(() => {
   if (isEditing.value || props.isNew) return false
-  return showsPauseMenuItem.value || showsDisabledToggleMenuItem.value || showsDeleteMenuItem.value
+  return (
+    showsPauseMenuItem.value ||
+    showsDisabledToggleMenuItem.value ||
+    showsDuplicateMenuItem.value ||
+    showsDeleteMenuItem.value
+  )
 })
 
 watch(
@@ -216,6 +225,13 @@ function toggleGroupDisabled(): void {
     ...cloneGroup(props.group),
     disabled: !props.group.disabled,
   })
+}
+
+/** グループ複製要求を親へ通知し、メニューを閉じる。 */
+function duplicateGroup(): void {
+  if (props.readOnly || props.isNew) return
+  closeActionMenu()
+  emit('duplicate')
 }
 
 /** 削除要求を親へ通知し、メニューを閉じる。 */
@@ -377,6 +393,17 @@ onBeforeUnmount(() => {
                   />
                   <NoSymbolIcon v-else aria-hidden="true" class="size-4 shrink-0" />
                   <span>{{ disabledToggleLabel }}</span>
+                </button>
+                <button
+                  v-if="showsDuplicateMenuItem"
+                  type="button"
+                  role="menuitem"
+                  aria-label="Duplicate group"
+                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none"
+                  @click="duplicateGroup"
+                >
+                  <DocumentDuplicateIcon aria-hidden="true" class="size-4 shrink-0" />
+                  <span>Duplicate</span>
                 </button>
                 <button
                   v-if="showsDeleteMenuItem"

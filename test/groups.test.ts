@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cloneGroup,
   cloneSettings,
+  duplicateGroup,
   formatBlockDestination,
   formatGroupMode,
   formatRestriction,
@@ -132,6 +133,29 @@ describe('group utilities', () => {
 
     expect(original.patterns).toEqual(['example\\.com'])
     expect(original.restrictionRules![0].timeRanges[0].startMinute).toBe(540)
+  })
+
+  it('新しい id と copy 名で編集可能な複製値を作る', () => {
+    const original = group({
+      name: 'Focus',
+      disabled: true,
+      lockMode: true,
+      timeWindows: [{ type: 'always' }],
+      restrictions: [{ type: 'grace', graceMinutes: 15 }],
+    })
+    const duplicated = duplicateGroup(original)
+
+    expect(duplicated).toEqual({
+      ...original,
+      id: expect.any(String),
+      name: 'Focus copy',
+    })
+    expect(duplicated.id).not.toBe(original.id)
+
+    duplicated.patterns.push('news.example')
+    duplicated.restrictions![0].graceMinutes = 30
+    expect(original.patterns).toEqual(['example\\.com'])
+    expect(original.restrictions![0].graceMinutes).toBe(15)
   })
 
   it('設定を独立した deep clone として複製する', () => {

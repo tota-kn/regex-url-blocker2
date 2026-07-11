@@ -18,6 +18,17 @@ export function cloneGroup(group: Group): Group {
 }
 
 /**
+ * 保存済みグループから、新規編集用の独立した複製値を作る。
+ */
+export function duplicateGroup(group: Group): Group {
+  return {
+    ...cloneGroup(group),
+    id: crypto.randomUUID(),
+    name: `${group.name} copy`,
+  }
+}
+
+/**
  * 設定値を JSON 互換の deep clone として複製する。
  */
 export function cloneSettings(settings: Settings): Settings {

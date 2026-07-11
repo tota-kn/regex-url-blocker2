@@ -19,7 +19,7 @@ import {
 } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
-import { cloneSettings } from '@/utils/groups'
+import { cloneSettings, duplicateGroup as createGroupDuplicate } from '@/utils/groups'
 import { GROUP_PAUSE_DURATION_MS } from '@/utils/constants'
 import {
   loadCounters,
@@ -162,6 +162,13 @@ function saveNewGroup(group: Group): void {
 /** 新規グループドラフトを破棄する。 */
 function cancelNewGroup(id: string): void {
   newGroupDrafts.value = newGroupDrafts.value.filter((group) => group.id !== id)
+}
+
+/** 保存済みグループを新規編集ドラフトとして複製する。 */
+function duplicateGroup(id: string): void {
+  const source = settings.value.groups.find((group) => group.id === id)
+  if (!source) return
+  newGroupDrafts.value.push(createGroupDuplicate(source))
 }
 
 /** グループ削除の確認ダイアログを表示し、承認された場合にグループを削除する。 */
@@ -411,6 +418,7 @@ onMounted(async () => {
               @save-new-group="saveNewGroup"
               @cancel-new-group="cancelNewGroup"
               @remove-group="removeGroup"
+              @duplicate-group="duplicateGroup"
               @request-group-pause="requestGroupPause"
             />
 
