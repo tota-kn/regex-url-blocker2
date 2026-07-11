@@ -1,55 +1,10 @@
-import { createServer, type Server } from 'node:http'
-import type { Page, Worker } from '@playwright/test'
+import type { Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
+import { gotoPossiblyRedirected, startTestServer } from './helpers'
 
 /**
  * テスト用 HTTP サーバーを起動する。
  */
-async function startServer(): Promise<{ origin: string; close: () => Promise<void> }> {
-  const server = createServer((req, res) => {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-    res.end(`<!doctype html><title>${req.url}</title><main>${req.url}</main>`)
-  })
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const address = server.address()
-  if (!address || typeof address === 'string') {
-    throw new Error('Failed to start test server')
-  }
-
-  return {
-    origin: `http://127.0.0.1:${address.port}`,
-    close: async () => closeServer(server),
-  }
-}
-
-/**
- * HTTP サーバーを停止する。
- */
-async function closeServer(server: Server): Promise<void> {
-  server.closeAllConnections()
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
-      if (error) reject(error)
-      else resolve()
-    })
-  })
-}
-
-/**
- * redirect で中断されうる navigation を実行する。
- */
-async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
-  try {
-    await page.goto(url)
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('net::ERR_ABORTED')) return
-    if (error instanceof Error && error.message.includes('is interrupted by another navigation'))
-      return
-    throw error
-  }
-}
-
 /**
  * Service Worker 上の storage.sync に待機ゲート設定を書き込む。
  */
@@ -79,12 +34,8 @@ async function saveWaitGateSettings(
             patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
             blockAction: 'blockedPage',
             redirectUrl: `${settings.origin}/redirect`,
-            restriction: {
-              condition: { type: 'daily' },
-              timeRanges: [],
-              type: 'wait',
-              waitSeconds: settings.delaySeconds,
-            },
+            timeWindows: [{ type: 'always' }],
+            restrictions: [{ type: 'wait', waitSeconds: settings.delaySeconds }],
           },
         ],
       })
@@ -99,7 +50,7 @@ test.describe('Wait gate', () => {
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -130,7 +81,7 @@ test.describe('Wait gate', () => {
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))

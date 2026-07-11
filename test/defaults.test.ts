@@ -5,7 +5,6 @@ import {
   DEFAULT_GLOBAL_SETTINGS,
   createGroupFromTemplate,
 } from '../utils/defaults'
-import type { DayOfWeek } from '../utils/types'
 import { createEmptyGroup } from './helpers'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
@@ -22,19 +21,6 @@ describe('createDefaultRestriction', () => {
   it('base 省略時は制限内容だけを生成する', () => {
     const restriction = createDefaultRestriction('block')
     expect(restriction).toEqual({ type: 'block' })
-  })
-
-  it('base 指定時は condition/timeRanges を引き継ぎ type だけ切り替える', () => {
-    const base = {
-      condition: { type: 'weekly' as const, daysOfWeek: [1, 2] as DayOfWeek[] },
-      timeRanges: [{ startMinute: 60, endMinute: 120 }],
-    }
-    const restriction = createDefaultRestriction('grace', base)
-    expect(restriction).toEqual({
-      condition: base.condition,
-      timeRanges: base.timeRanges,
-      type: 'grace',
-    })
   })
 
   it('grace/wait は初期表示でエラーにならない既定値を持つ', () => {

@@ -1,7 +1,8 @@
-import { createServer, type Server } from 'node:http'
-import type { Page, Worker } from '@playwright/test'
+import { createServer } from 'node:http'
+import type { Worker } from '@playwright/test'
 import type { HHMM, RestrictionRule, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
+import { closeServer, gotoPossiblyRedirected } from './helpers'
 
 /**
  * Service Worker 経由で指定タブのアクション badge テキストを取得する。
@@ -91,19 +92,6 @@ async function startServer(): Promise<{ origin: string; close: () => Promise<voi
     origin: `http://127.0.0.1:${address.port}`,
     close: async () => closeServer(server),
   }
-}
-
-/**
- * HTTP サーバーを停止する。
- */
-async function closeServer(server: Server): Promise<void> {
-  server.closeAllConnections()
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
-      if (error) reject(error)
-      else resolve()
-    })
-  })
 }
 
 /**
@@ -400,20 +388,6 @@ async function savePreferredSettings(serviceWorker: Worker, preferred: Settings)
       groups: settings.groups,
     })
   }, preferred)
-}
-
-/**
- * redirect で中断されうる navigation を実行する。
- */
-async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
-  try {
-    await page.goto(url)
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('net::ERR_ABORTED')) return
-    if (error instanceof Error && error.message.includes('is interrupted by another navigation'))
-      return
-    throw error
-  }
 }
 
 test.describe('Background blocking', () => {

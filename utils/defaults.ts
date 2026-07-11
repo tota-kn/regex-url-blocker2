@@ -1,11 +1,4 @@
-import type {
-  GlobalSettings,
-  Group,
-  Restriction,
-  RestrictionRule,
-  RestrictionType,
-  TimeWindow,
-} from './types'
+import type { GlobalSettings, Group, Restriction, RestrictionType, TimeWindow } from './types'
 
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
@@ -24,20 +17,9 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 }
 
 /**
- * 指定 type の既定 `RestrictionRule` を作る。
- * `base` を渡すと `condition`/`timeRanges` を引き継いだまま type だけ切り替える（制限種別の切替 UI で使用）。
+ * 指定 type の既定制限を作る。
  */
-export function createDefaultRestriction(type: RestrictionType): Restriction
-/** @deprecated 旧ペア形式の呼び出し元との互換用。 */
-export function createDefaultRestriction(
-  type: RestrictionType,
-  base: Pick<RestrictionRule, 'condition' | 'timeRanges'>,
-): RestrictionRule
-export function createDefaultRestriction(
-  type: RestrictionType,
-  base?: Pick<RestrictionRule, 'condition' | 'timeRanges'>,
-): Restriction | RestrictionRule {
-  if (base) return { condition: base.condition, timeRanges: base.timeRanges, type }
+export function createDefaultRestriction(type: RestrictionType): Restriction {
   if (type === 'grace') return { type, graceMinutes: 30 }
   if (type === 'wait') return { type, waitSeconds: 5 }
   if (type === 'redirect') return { type, redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl }
