@@ -4,7 +4,6 @@ import { ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
 
 /**
  * URL pattern 編集コンポーネントの props。
@@ -72,12 +71,6 @@ function deletePattern(index: number): void {
     </div>
 
     <div :class="isEditing ? 'space-y-2' : 'space-y-1'">
-      <EmptyState
-        v-if="patterns.length === 0"
-        aria-label="No URL patterns"
-      >
-        No URL patterns yet
-      </EmptyState>
       <div
         v-for="(_, i) in patterns"
         :key="i"

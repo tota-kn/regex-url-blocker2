@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import EmptyState from '@/components/ui/EmptyState.vue'
 import { createDefaultRestriction, createDefaultTimeWindow } from '@/utils/defaults'
 import { formatStandaloneRestriction, formatTimeWindow } from '@/utils/groups'
 import type { Restriction, TimeWindow } from '@/utils/types'
@@ -51,31 +50,11 @@ function removeRestriction(index: number): void {
 
 <template>
   <section class="min-w-0 space-y-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+    <div>
       <h3 class="text-label-md">
         Time windows
       </h3>
-      <BaseButton
-        v-if="isEditing"
-        type="button"
-        size="sm"
-        aria-label="Add time window"
-        @click="addTimeWindow"
-      >
-        <PlusIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Add time window
-      </BaseButton>
     </div>
-
-    <EmptyState
-      v-if="timeWindows.length === 0"
-      aria-label="No time windows"
-    >
-      No time windows. Restrictions will not apply.
-    </EmptyState>
 
     <ol
       class="space-y-3"
@@ -137,33 +116,28 @@ function removeRestriction(index: number): void {
         </output>
       </li>
     </ol>
+    <BaseButton
+      v-if="isEditing"
+      type="button"
+      size="sm"
+      variant="ghost"
+      aria-label="Add time window"
+      @click="addTimeWindow"
+    >
+      <PlusIcon
+        aria-hidden="true"
+        class="size-4"
+      />
+      Time window
+    </BaseButton>
 
-    <div class="flex flex-wrap items-center justify-between gap-2 pt-3">
+    <div class="pt-3">
       <h3 class="text-label-md">
         Restrictions
       </h3>
-      <BaseButton
-        v-if="isEditing"
-        type="button"
-        size="sm"
-        aria-label="Add restriction"
-        @click="addRestriction"
-      >
-        <PlusIcon
-          aria-hidden="true"
-          class="size-4"
-        />
-        Add restriction
-      </BaseButton>
     </div>
-    <EmptyState
-      v-if="restrictions.length === 0"
-      aria-label="No restrictions"
-    >
-      No restrictions.
-    </EmptyState>
     <ol
-      v-else
+      v-if="restrictions.length > 0"
       class="space-y-3"
       aria-label="Restrictions"
     >
@@ -203,5 +177,19 @@ function removeRestriction(index: number): void {
         >{{ formatStandaloneRestriction(restriction) }}</output>
       </li>
     </ol>
+    <BaseButton
+      v-if="isEditing"
+      type="button"
+      size="sm"
+      variant="ghost"
+      aria-label="Add restriction"
+      @click="addRestriction"
+    >
+      <PlusIcon
+        aria-hidden="true"
+        class="size-4"
+      />
+      Restriction
+    </BaseButton>
   </section>
 </template>

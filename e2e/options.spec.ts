@@ -1025,23 +1025,42 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
   })
 
-  test('空の URL patterns セクションでは空状態の下に追加ボタンを表示する', async ({ page, extensionId }) => {
+  test('空の各ルールセクションでは空状態を表示せず、統一された追加ボタンを表示する', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
-    const emptyState = urlPatternsSection.getByLabel('No URL patterns')
-    const addButton = urlPatternsSection.getByRole('button', { name: 'Add URL pattern' })
+    const restrictionSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Time windows' }) }).last()
+    const addButtons = [
+      urlPatternsSection.getByRole('button', { name: 'Add URL pattern' }),
+      restrictionSection.getByRole('button', { name: 'Add time window' }),
+      restrictionSection.getByRole('button', { name: 'Add restriction' }),
+    ]
 
-    await expect(emptyState).toHaveText('No URL patterns yet')
-    await expect(addButton).toBeVisible()
-    const [emptyBox, buttonBox] = await Promise.all([
-      emptyState.boundingBox(),
-      addButton.boundingBox(),
+    await expect(page.getByLabel('No URL patterns')).toHaveCount(0)
+    await expect(page.getByLabel('No time windows')).toHaveCount(0)
+    await expect(page.getByLabel('No restrictions')).toHaveCount(0)
+
+    for (const addButton of addButtons) {
+      await expect(addButton).toBeVisible()
+      await expect(addButton).toHaveClass(/border-primary\/30/)
+    }
+
+    await expect(addButtons[0]).toHaveText('URL pattern')
+    await expect(addButtons[1]).toHaveText('Time window')
+    await expect(addButtons[2]).toHaveText('Restriction')
+
+    const [patternsHeadingBox, patternButtonBox, timeWindowsHeadingBox, timeWindowButtonBox, restrictionsHeadingBox, restrictionButtonBox] = await Promise.all([
+      urlPatternsSection.getByRole('heading', { name: 'URL patterns' }).boundingBox(),
+      addButtons[0].boundingBox(),
+      restrictionSection.getByRole('heading', { name: 'Time windows' }).boundingBox(),
+      addButtons[1].boundingBox(),
+      restrictionSection.getByRole('heading', { name: 'Restrictions' }).boundingBox(),
+      addButtons[2].boundingBox(),
     ])
-    expect(emptyBox).not.toBeNull()
-    expect(buttonBox).not.toBeNull()
-    expect(buttonBox!.y).toBeGreaterThan(emptyBox!.y)
+    expect(patternButtonBox!.y).toBeGreaterThan(patternsHeadingBox!.y)
+    expect(timeWindowButtonBox!.y).toBeGreaterThan(timeWindowsHeadingBox!.y)
+    expect(restrictionButtonBox!.y).toBeGreaterThan(restrictionsHeadingBox!.y)
   })
 
   test('編集可能な入力欄は共通の field 色で表示される', async ({ page, extensionId }) => {
