@@ -464,7 +464,7 @@ test.describe('Options 画面', () => {
     const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
     await expect(urlPatternsSection.getByText('imported\\.example', { exact: true })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('15 min/day')
+    await expect(page.getByLabel('Restriction 1')).toContainText('15 min/day')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
 
     const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
@@ -588,8 +588,8 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Start a new rule day at this time')).toBeDisabled()
     await expect(page.getByText('Cannot change while any group has Lock Mode enabled or pending.')).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Restriction rule 1').first()).toContainText('All day')
-    await expect(page.getByLabel('Restriction rule 1').first()).toContainText('30 min/day')
+    await expect(page.getByLabel('Time window 1').first()).toContainText('Always')
+    await expect(page.getByLabel('Restriction 1').first()).toContainText('30 min/day')
     await expect(page.getByText('Some saved changes are not active yet.')).toBeVisible()
     await expect(page.getByText('Active until reset: 03:00')).toBeVisible()
     await openGroupActions(page)
@@ -612,7 +612,7 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Restriction rules').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Restrictions').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('URL pattern match behavior').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Allow only matches')).toBeVisible()
@@ -621,12 +621,10 @@ test.describe('Options 画面', () => {
     await expect(activeSettingsDialog.getByText('Redirect to https://active-blocked.test')).toBeVisible()
     await expect(activeSettingsDialog.getByText('active\\.example', { exact: true })).toBeVisible()
     await expect(activeSettingsDialog.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
-    await expect(activeSettingsDialog.getByText('No URL patterns yet')).toBeVisible()
-    await expect(activeSettingsDialog.getByLabel('Restriction rule 1').first()).toContainText('09:00-17:00')
-    await expect(activeSettingsDialog.getByLabel('Restriction rule 2').first()).toContainText('10 min/day')
-    await expect(activeSettingsDialog.getByLabel('No restriction rules').first()).toHaveText('No restriction rules.')
+    await expect(activeSettingsDialog.getByLabel('Time window 1').first()).toContainText('09:00-17:00')
+    await expect(activeSettingsDialog.getByLabel('Restriction 2').first()).toContainText('10 min/day')
     const headerBox = await activeSettingsDialog.locator('[aria-label="Active settings header"]').boundingBox()
-    const firstRuleBox = await activeSettingsDialog.getByLabel('Restriction rule 1').first().boundingBox()
+    const firstRuleBox = await activeSettingsDialog.getByLabel('Time window 1').first().boundingBox()
     expect(headerBox).not.toBeNull()
     expect(firstRuleBox).not.toBeNull()
     expect(firstRuleBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
@@ -881,7 +879,7 @@ test.describe('Options 画面', () => {
       await expect(patternInputs.nth(index)).toHaveValue(pattern)
     }
 
-    await expect(page.getByLabel('Time window condition type')).toHaveValue('daily')
+    await expect(page.getByLabel('Time window type')).toHaveValue('always')
     await expect(page.getByLabel('Grace minutes per day')).toHaveValue('15')
   })
 
@@ -906,7 +904,7 @@ test.describe('Options 画面', () => {
       await expect(patternInputs.nth(index)).toHaveValue(pattern)
     }
 
-    await expect(page.getByLabel('Time window condition type')).toHaveValue('daily')
+    await expect(page.getByLabel('Time window type')).toHaveValue('always')
     await expect(page.getByLabel('Grace minutes per day')).toHaveValue('30')
   })
 
@@ -916,7 +914,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByRole('button', { name: 'Create group from work hours focus template' }).click()
 
-    await expect(page.getByLabel('Time window condition type')).toHaveValue('weekly')
+    await expect(page.getByLabel('Time window type')).toHaveValue('weekly')
     await expect(page.getByLabel('Active time ranges')).toHaveValue('09:00-18:00')
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
       await expect(page.getByRole('checkbox', { name: day })).toBeChecked()
@@ -926,8 +924,8 @@ test.describe('Options 画面', () => {
     }
 
     await page.getByRole('button', { name: 'Save group' }).click()
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('Weekly Mon, Tue, Wed, Thu, Fri')
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('09:00-18:00')
+    await expect(page.getByLabel('Time window 1')).toContainText('Weekly Mon, Tue, Wed, Thu, Fri')
+    await expect(page.getByLabel('Time window 1')).toContainText('09:00-18:00')
   })
 
   test('Options disclosure で group ごとの動作を操作できる', async ({ page, extensionId }) => {
@@ -1134,12 +1132,12 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Wait seconds before access').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('Wait 30 sec')
+    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('Wait 30 sec')
+    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec')
     await page.getByRole('button', { name: 'Edit group' }).click()
     await expect(page.getByLabel('Wait seconds before access')).toHaveValue('30')
   })
@@ -1289,9 +1287,9 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('Every day')
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('09:15-10:45, 22:00-01:30')
-    await expect(page.getByLabel('Restriction rule 2')).toContainText('30 min/day')
+    await expect(page.getByLabel('Time window 1')).toContainText('Every day')
+    await expect(page.getByLabel('Time window 1')).toContainText('09:15-10:45, 22:00-01:30')
+    await expect(page.getByLabel('Restriction 2')).toContainText('30 min/day')
   })
 
   test('スケジュールルールが時間帯も上限もないと保存できない', async ({ page, extensionId }) => {
@@ -1485,7 +1483,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('22:00-06:00')
+    await expect(page.getByLabel('Time window 1')).toContainText('22:00-06:00')
   })
 
   test('曜日指定の上限ルールを個別に永続化できる', async ({ page, extensionId }) => {
@@ -1494,7 +1492,10 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('CustomDays')
     await page.getByRole('button', { name: 'Add restriction rule' }).click()
-    await page.getByLabel('Time window condition type').selectOption('weekly')
+    const timeWindowType = page.getByLabel('Time window type')
+    await expect(timeWindowType.locator('option')).toHaveText(['Always', 'Every day', 'Weekly', 'Monthly', 'Period'])
+    await expect(page.getByRole('heading', { name: /Time window 1|Restriction 1/ })).toHaveCount(0)
+    await timeWindowType.selectOption('weekly')
     await page.getByRole('checkbox', { name: 'Monday' }).check()
     await page.getByRole('button', { name: 'Restriction type Grace' }).last().click()
     await page.getByLabel('Grace minutes per day').fill('60')
@@ -1503,8 +1504,8 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('Weekly Mon')
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('60 min/day')
+    await expect(page.getByLabel('Time window 1')).toContainText('Weekly Mon')
+    await expect(page.getByLabel('Restriction 1')).toContainText('60 min/day')
   })
 
   test('グループを削除して永続化される', async ({ page, extensionId }) => {
@@ -1656,8 +1657,8 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(urlPatternsSection.getByText('example\\.com', { exact: true })).toBeVisible()
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('09:00-17:00')
-    await expect(page.getByLabel('Restriction rule 2')).toContainText('45 min/day')
+    await expect(page.getByLabel('Time window 1')).toContainText('09:00-17:00')
+    await expect(page.getByLabel('Restriction 2')).toContainText('45 min/day')
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Add restriction rule' })).not.toBeVisible()
     await expect(page.getByRole('radio', { name: 'URL pattern match behavior Block matches' })).not.toBeVisible()
@@ -1676,7 +1677,7 @@ test.describe('Options 画面', () => {
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction rule 1')).toContainText('09:00-17:00')
+    await expect(page.getByLabel('Time window 1')).toContainText('09:00-17:00')
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Edit group' }).click()

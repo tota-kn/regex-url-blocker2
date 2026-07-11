@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ClockIcon } from '@heroicons/vue/24/outline'
 import { ref, watch } from 'vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import { formatMonthDay, minutesToTime, parseDaysOfMonthText, parseMonthDayText, parseTimeRangeText } from '@/utils/datetime'
@@ -65,19 +64,6 @@ watch(() => [props.condition, props.timeRanges], () => {
   texts.value = createTexts()
 }, { deep: true })
 
-/** 条件タイプ変更時に対応する既定の条件へ差し替える。 */
-function setConditionType(value: string): void {
-  if (value === props.condition.type) return
-  const conditions: Record<string, ScheduleRuleCondition> = {
-    daily: { type: 'daily' },
-    weekly: { type: 'weekly', daysOfWeek: [] },
-    monthly: { type: 'monthly', daysOfMonth: [] },
-    period: { type: 'period', start: { month: 1, day: 1 }, end: { month: 12, day: 31 } },
-  }
-  const condition = conditions[value]
-  if (condition) emit('update:condition', condition)
-}
-
 /** weekly 条件の曜日配列を返す。 */
 function weeklyDays(): DayOfWeek[] {
   return props.condition.type === 'weekly' ? props.condition.daysOfWeek : []
@@ -138,47 +124,14 @@ function isTimeRangeTextInvalid(): boolean {
 
 <template>
   <section class="min-w-0 space-y-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <h3 class="flex items-center gap-1.5 text-label-md">
-        <ClockIcon
-          aria-hidden="true"
-          class="size-4 text-muted"
-        />
-        Time window
-      </h3>
-      <p class="basis-full text-body-sm text-muted">
-        Choose the day condition and time ranges when the restriction below is active. Empty time ranges mean all day.
-      </p>
-    </div>
-
     <div
       v-if="isEditing"
       class="space-y-2 rounded-lg border border-border bg-surface-muted p-3"
     >
-      <div class="flex min-w-0 flex-wrap items-center gap-2">
-        <label class="min-w-0">
-          <span class="sr-only">Time window condition type</span>
-          <select
-            aria-label="Time window condition type"
-            :value="condition.type"
-            class="h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring/50"
-            @change="setConditionType(($event.target as HTMLSelectElement).value)"
-          >
-            <option value="daily">
-              Every day
-            </option>
-            <option value="weekly">
-              Weekly
-            </option>
-            <option value="monthly">
-              Monthly
-            </option>
-            <option value="period">
-              Period
-            </option>
-          </select>
-        </label>
-
+      <div
+        v-if="condition.type === 'monthly' || condition.type === 'period'"
+        class="flex min-w-0 flex-wrap items-center gap-2"
+      >
         <label
           v-if="condition.type === 'monthly'"
           class="flex min-w-0 items-center gap-1.5"
