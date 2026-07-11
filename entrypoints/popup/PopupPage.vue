@@ -5,7 +5,7 @@ import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import { getGroupBlockStatus, getRedirectUrls, getRestrictionRules, getTargetGroupIds, restrictionMatchesToday, shouldSkipUrl, type GroupBlockStatus, type TimeLimitUsageSummary } from '@/utils/blocking'
+import { getGroupBlockStatus, getRedirectUrls, getRestrictions, getTargetGroupIds, restrictionMatchesToday, shouldSkipUrl, type GroupBlockStatus, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
 import { loadGroupPauseState, loadPageState } from '@/utils/storage'
 import { useNowTimer } from '@/utils/useNowTimer'
@@ -45,7 +45,7 @@ const displayGroups = computed<DisplayGroup[]>(() => {
   return targetGroups.value.flatMap((group) => {
     const status = getGroupBlockStatus(group, counters.value.counters[group.id], now.value, settings.value!.global)
     const pauseState = getGroupPauseDisplayState(groupPauseState.value.groupPauseState[group.id], now.value)
-    const hasDisplayState = status.restrictionRules.length > 0 || pauseState.kind !== 'none'
+    const hasDisplayState = getRestrictions(group).length > 0 || pauseState.kind !== 'none'
     return hasDisplayState ? [{ group, status, pauseState }] : []
   })
 })
@@ -206,7 +206,7 @@ onMounted(async () => {
               Blocked hours active
             </StatusBadge>
             <StatusBadge
-              v-else-if="getRestrictionRules(group).some(restriction => restriction.type === 'block') && restrictionMatchesToday(group, now, settings!.global)"
+              v-else-if="getRestrictions(group).some(restriction => restriction.type === 'block') && restrictionMatchesToday(group, now, settings!.global)"
               kind="muted"
             >
               Blocked hours scheduled

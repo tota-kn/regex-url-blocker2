@@ -1,20 +1,20 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, BlockNotificationHistoryState, DayOfWeek, DelayGrantState, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, PageOpenNotificationHistoryState, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
+import type { BlockAction, BlockNotificationHistoryState, DayOfWeek, DelayGrantState, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, PageOpenNotificationHistoryState, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 8
+export const SETTINGS_EXPORT_VERSION = 9
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | 3 | 4 | 5 | 6 | 7 | typeof SETTINGS_EXPORT_VERSION
+  version: 2 | 3 | 4 | 5 | 6 | 7 | 8 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
 }
@@ -77,6 +77,9 @@ function asRecord(value: unknown): Record<string, unknown> {
 function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction, fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl): Group {
   const g = asRecord(value)
   const blockAction = normalizeBlockAction(g.blockAction ?? fallbackBlockAction)
+  const legacyRules = normalizeRestrictionRules(g.restrictionRules, g.restriction)
+    ?? normalizeLegacyRestriction(g.restriction)
+    ?? convertLegacyScheduleRules(normalizeLegacyScheduleRules(g.scheduleRules, g.dailyRules))
   return {
     id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
     name: typeof g.name === 'string' ? g.name : '',
@@ -86,9 +89,8 @@ function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SET
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
     blockAction,
     redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
-    restrictionRules: normalizeRestrictionRules(g.restrictionRules, g.restriction)
-      ?? normalizeLegacyRestriction(g.restriction)
-      ?? convertLegacyScheduleRules(normalizeLegacyScheduleRules(g.scheduleRules, g.dailyRules)),
+    timeWindows: normalizeTimeWindows(g.timeWindows) ?? legacyRulesToTimeWindows(legacyRules),
+    restrictions: normalizeStandaloneRestrictions(g.restrictions) ?? legacyRulesToRestrictions(legacyRules),
   }
 }
 
@@ -165,6 +167,54 @@ function normalizeRestriction(value: unknown): RestrictionRule | undefined {
   if (typeof r.graceMinutes === 'number') restriction.graceMinutes = r.graceMinutes
   if (typeof r.waitSeconds === 'number') restriction.waitSeconds = r.waitSeconds
   return restriction
+}
+
+/** unknown の値から分離形式の制限を生成する。 */
+function normalizeStandaloneRestriction(value: unknown): Restriction | undefined {
+  const valueRecord = asRecord(value)
+  if (valueRecord.type !== 'block' && valueRecord.type !== 'grace' && valueRecord.type !== 'wait') return undefined
+  const restriction: Restriction = { type: valueRecord.type }
+  if (typeof valueRecord.graceMinutes === 'number') restriction.graceMinutes = valueRecord.graceMinutes
+  if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
+  return restriction
+}
+
+/** unknown の値から分離形式の制限配列を生成する。 */
+function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return value.flatMap((item) => {
+    const restriction = normalizeStandaloneRestriction(item)
+    return restriction ? [restriction] : []
+  })
+}
+
+/** unknown の値から分離形式の時間ウィンドウを生成する。 */
+function normalizeTimeWindows(value: unknown): TimeWindow[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const windows: TimeWindow[] = []
+  value.forEach((item) => {
+    const window = asRecord(item)
+    if (window.type === 'always') {
+      windows.push({ type: 'always' })
+      return
+    }
+    if (window.type !== 'scheduled') return
+    const condition = normalizeScheduleRuleCondition(window.condition)
+    if (condition) windows.push({ type: 'scheduled', condition, timeRanges: Array.isArray(window.timeRanges) ? window.timeRanges.map(normalizeTimeRange) : [] })
+  })
+  return windows
+}
+
+/** 旧ペア形式を時間ウィンドウ配列へ分離する。 */
+function legacyRulesToTimeWindows(rules: RestrictionRule[]): TimeWindow[] {
+  return rules.map(rule => rule.condition.type === 'daily' && rule.timeRanges.length === 0
+    ? { type: 'always' as const }
+    : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges })
+}
+
+/** 旧ペア形式を制限配列へ分離する。 */
+function legacyRulesToRestrictions(rules: RestrictionRule[]): Restriction[] {
+  return rules.map(({ type, graceMinutes, waitSeconds }) => ({ type, graceMinutes, waitSeconds }))
 }
 
 /**

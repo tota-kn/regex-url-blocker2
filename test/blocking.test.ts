@@ -143,6 +143,33 @@ describe('URL target matching', () => {
   })
 })
 
+describe('分離した Time window と Restriction', () => {
+  it('任意の有効 window に登録済みの全 restriction を適用する', () => {
+    const g = group({
+      timeWindows: [
+        { type: 'scheduled', condition: { type: 'weekly', daysOfWeek: [3] }, timeRanges: [{ startMinute: 9 * 60, endMinute: 12 * 60 }] },
+        { type: 'scheduled', condition: { type: 'weekly', daysOfWeek: [3] }, timeRanges: [{ startMinute: 18 * 60, endMinute: 21 * 60 }] },
+      ],
+      restrictions: [{ type: 'block' }, { type: 'wait', waitSeconds: 30 }],
+    })
+    const global = settings([]).global
+    expect(isRestrictionActiveNow(g, new Date('2026-05-06T10:00:00+09:00'), global)).toBe(true)
+    expect(getEffectiveWaitSeconds(g, new Date('2026-05-06T19:00:00+09:00'), global)).toBe(30)
+    expect(evaluateUrl(settings([g]), emptyCounters(), 'https://example.com/', new Date('2026-05-06T19:00:00+09:00')).blocked).toBe(true)
+  })
+
+  it('Always window は常時有効になる', () => {
+    const g = group({ timeWindows: [{ type: 'always' }], restrictions: [{ type: 'block' }] })
+    expect(isRestrictionActiveNow(g, new Date('2026-05-06T02:00:00+09:00'), settings([]).global)).toBe(true)
+  })
+
+  it('window または restriction が空なら適用しない', () => {
+    const global = settings([]).global
+    expect(isRestrictionActiveNow(group({ timeWindows: [], restrictions: [{ type: 'block' }] }), new Date('2026-05-06T12:00:00+09:00'), global)).toBe(false)
+    expect(isRestrictionActiveNow(group({ timeWindows: [{ type: 'always' }], restrictions: [] }), new Date('2026-05-06T12:00:00+09:00'), global)).toBe(false)
+  })
+})
+
 describe('logical date', () => {
   it('リセット時刻前は前日を論理日にし、曜日・月日も論理日開始時点で判定する', () => {
     const info = getLogicalDate(new Date('2026-05-06T02:59:00+09:00'), '03:00')

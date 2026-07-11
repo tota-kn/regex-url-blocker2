@@ -50,6 +50,21 @@ export type ScheduleRuleCondition =
  */
 export type RestrictionType = 'block' | 'grace' | 'wait'
 
+/** 制限を適用する時間条件。`always` は明示的な常時適用ウィンドウ。 */
+export type TimeWindow =
+  | { type: 'always' }
+  | { type: 'scheduled', condition: ScheduleRuleCondition, timeRanges: TimeRange[] }
+
+/** 時間条件から独立して設定する制限内容。 */
+export interface Restriction {
+  /** 制限種別。 */
+  type: RestrictionType
+  /** `type === 'grace'` のときの1日の閲覧上限分数。 */
+  graceMinutes?: number
+  /** `type === 'wait'` のときのアクセス前待機秒数。 */
+  waitSeconds?: number
+}
+
 /**
  * グループに設定する1件の制限ルール。
  * `condition` と `timeRanges` は制限が有効になる「有効ウィンドウ」を表し、
@@ -104,9 +119,13 @@ export interface Group {
   blockAction: BlockAction
   /** このグループで redirect を選んだ場合の遷移先 URL。 */
   redirectUrl: string
-  /** このグループに設定する制限ルールの配列。空配列は制限なし。 */
+  /** このグループに設定する時間ウィンドウの配列。 */
+  timeWindows?: TimeWindow[]
+  /** このグループに設定する制限の配列。 */
+  restrictions?: Restriction[]
+  /** @deprecated v9 移行用の旧ペア形式。読み込み時に分離形式へ変換する。 */
   restrictionRules?: RestrictionRule[]
-  /** @deprecated v7 移行用の旧単一制限。読み込み時に `restrictionRules` へ変換する。 */
+  /** @deprecated v7 移行用の旧単一制限。 */
   restriction?: RestrictionRule
 }
 

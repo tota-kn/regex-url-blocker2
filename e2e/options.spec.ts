@@ -421,7 +421,7 @@ test.describe('Options 画面', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(8)
+    expect(exported.version).toBe(9)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })

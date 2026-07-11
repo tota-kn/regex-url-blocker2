@@ -3,12 +3,12 @@
 ## Options 画面（編集）
 
 - グループの追加・編集・削除
-- 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`blockAction`、`redirectUrl`、`restrictionRules[]`
+- 各グループ：`name`、`mode`、`lockMode`、`patterns[]`、`blockAction`、`redirectUrl`、`timeWindows[]`、`restrictions[]`
 - `mode` は Group card の Options 配下にある「URL pattern match behavior」で `Block matches` / `Allow only matches` として選択できる。URL patterns セクションには mode の選択肢を表示しない
 - Group card の Options は、項目ごとではなく Options セクション全体を1つの disclosure として折りたたむ。編集時の初期状態では Options 全体を閉じる
 - Options 展開時は「URL pattern match behavior」「Lock changes until next rule day」「Page shown when blocked」を常時並べ、各項目の radio は項目名行の右側へ配置する
-- 制限は「Restriction rules」セクションで編集する。各ルールは Time window と Restriction のペアとして扱う
-  - 「Add rule」で複数のルールを追加でき、各ルールは削除できる
+- 制限は「Time windows」と「Restrictions」の独立したセクションで編集する。どちらも複数追加・削除でき、任意の Time window が有効な間に全 Restrictions を適用する
+  - Time window は `Always` または scheduled 条件を選ぶ。片方の一覧が空なら制限は適用しない
   - 条件は select で `Every day` / `Weekly` / `Monthly` / `Period` を選ぶ。`Weekly` は曜日チェックボックス、`Monthly` は `1, 15` のようなカンマ区切りの日付入力、`Period` は `MM/DD`–`MM/DD` の2入力（毎年繰り返し、年跨ぎ可）で指定する
   - Active time ranges は `HH:MM-HH:MM` のカンマ区切りテキストで入力する。終了時刻には `24:00`、`00:00-00:00` で終日を指定できる。空欄なら終日有効
   - Restriction は `Block` / `Grace` / `Wait` から選ぶ。`Grace` は上限分数、`Wait` は待機秒数を入力する

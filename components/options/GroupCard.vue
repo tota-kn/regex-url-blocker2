@@ -64,12 +64,13 @@ const isActionMenuOpen = ref(false)
 const actionMenuRoot = ref<HTMLElement | null>(null)
 
 const draftErrors = computed(() => validateGroup(draft.value))
-const draftRestrictionRules = computed({
-  get: () => draft.value.restrictionRules ?? (draft.value.restriction ? [draft.value.restriction] : []),
-  set: (restrictionRules) => {
-    draft.value.restrictionRules = restrictionRules
-    draft.value.restriction = undefined
-  },
+const draftTimeWindows = computed({
+  get: () => draft.value.timeWindows ?? [],
+  set: (timeWindows) => { draft.value.timeWindows = timeWindows },
+})
+const draftRestrictions = computed({
+  get: () => draft.value.restrictions ?? [],
+  set: (restrictions) => { draft.value.restrictions = restrictions },
 })
 const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
@@ -126,7 +127,13 @@ function patternError(index: number): string | undefined {
 
 /** 指定 restriction rule フィールドのドラフト検証エラーメッセージを返す。 */
 function restrictionError(index: number, field: string): string | undefined {
-  const prefix = `restrictionRules[${index}].${field}`
+  const prefix = `restrictions[${index}].${field}`
+  return draftErrors.value.find(e => e.field === prefix || e.field.startsWith(`${prefix}.`))?.message
+}
+
+/** 指定 time window フィールドのドラフト検証エラーを返す。 */
+function timeWindowError(index: number, field: string): string | undefined {
+  const prefix = `timeWindows[${index}].${field}`
   return draftErrors.value.find(e => e.field === prefix || e.field.startsWith(`${prefix}.`))?.message
 }
 
@@ -420,9 +427,11 @@ onBeforeUnmount(() => {
       />
 
       <RestrictionRulesEditor
-        v-model="draftRestrictionRules"
+        v-model:time-windows="draftTimeWindows"
+        v-model:restrictions="draftRestrictions"
         :is-editing="isEditing"
-        :error="restrictionError"
+        :time-window-error="timeWindowError"
+        :restriction-error="restrictionError"
       />
     </fieldset>
 

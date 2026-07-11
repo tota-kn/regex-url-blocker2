@@ -1,4 +1,4 @@
-import type { DayOfWeek, GlobalSettings, Group, MonthDay, RestrictionRule, ScheduleRuleCondition, TimeRange } from './types'
+import type { DayOfWeek, GlobalSettings, Group, MonthDay, Restriction, RestrictionRule, ScheduleRuleCondition, TimeRange, TimeWindow } from './types'
 import { isValidUrlPattern } from './urlPatterns'
 
 /**
@@ -153,6 +153,25 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
   return errors
 }
 
+/** 分離形式の時間ウィンドウをバリデーションする。 */
+function validateTimeWindow(window: TimeWindow, prefix: string): ValidationError[] {
+  if (window.type === 'always') return []
+  const errors = validateScheduleRuleCondition(window.condition, prefix)
+  window.timeRanges.forEach((range, index) => errors.push(...validateTimeRange(range, `${prefix}.timeRanges[${index}]`)))
+  return errors
+}
+
+/** 分離形式の制限をバリデーションする。 */
+function validateStandaloneRestriction(restriction: Restriction, prefix: string): ValidationError[] {
+  if (restriction.type === 'grace' && (restriction.graceMinutes === undefined || !Number.isInteger(restriction.graceMinutes) || restriction.graceMinutes < 0)) {
+    return [{ field: `${prefix}.graceMinutes`, message: 'Use 0+ integer' }]
+  }
+  if (restriction.type === 'wait' && (restriction.waitSeconds === undefined || !Number.isInteger(restriction.waitSeconds) || restriction.waitSeconds < 0)) {
+    return [{ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' }]
+  }
+  return []
+}
+
 /**
  * グループをバリデーションし、エラー配列を返す。エラーがなければ空配列。
  */
@@ -191,10 +210,16 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   })
 
-  const restrictions = group.restrictionRules?.length ? group.restrictionRules : (group.restriction ? [group.restriction] : [])
-  restrictions.forEach((restriction, index) => {
-    errors.push(...validateRestriction(restriction, `restrictionRules[${index}]`))
-  })
+  if (group.timeWindows !== undefined || group.restrictions !== undefined) {
+    ;(group.timeWindows ?? []).forEach((window, index) => errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)))
+    ;(group.restrictions ?? []).forEach((restriction, index) => errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)))
+  }
+  else {
+    const restrictions = group.restrictionRules?.length ? group.restrictionRules : (group.restriction ? [group.restriction] : [])
+    restrictions.forEach((restriction, index) => {
+      errors.push(...validateRestriction(restriction, `restrictionRules[${index}]`))
+    })
+  }
 
   return errors
 }

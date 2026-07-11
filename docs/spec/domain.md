@@ -7,8 +7,8 @@
 - **正規表現** — URL 文字列全体に対して部分一致を行うパターン。JS の `RegExp` 構文。
 - **論理日** — グローバル設定の「リセット時刻」を起点とする1日。`floor((now - resetHour) / 24h)` で算出。
 - **消費秒数** — グループ単位で計測される、1日に該当グループの URL を閲覧した累積秒数。
-- **Time window** — 制限ルールを有効にする日付条件と時間帯。時間帯が空なら終日有効。
-- **制限ルール** — Time window と制限種別（`block` / `grace` / `wait`）の組。グループは複数の制限ルールを持てる。
+- **Time window** — 制限を有効にする日付条件と時間帯。`always` は常時有効、時間帯が空なら終日有効。
+- **Restriction** — `block` / `grace` / `wait` の制限内容。Time window とは独立して複数登録できる。
 
 ## グループ
 
@@ -18,14 +18,14 @@
   - `mode`: 対象 URL の判定モード。`blacklist`（既定）または `whitelist`
   - `lockMode`: `true` の場合、このグループの変更は次回 daily reset まで有効設定へ反映しない。既定 `false`
   - `patterns`: URL pattern 文字列の配列
-  - `restrictionRules`: 制限ルールの配列。空配列は制限なし
+  - `timeWindows`: Time window の配列
+  - `restrictions`: Restriction の配列
 - `mode` の意味：
   - `blacklist`: `patterns` のいずれかにマッチした URL を制限対象とする
   - `whitelist`: `patterns` のいずれにもマッチしない URL を制限対象とする
   - 旧データなどで `mode` が欠損している場合は `blacklist` として扱う
-- 各 `restrictionRules[]` は以下の属性を持つ：
-  - `condition`: このルールを適用する日の条件（下記4種の判別共用体）
-  - `timeRanges`: 制限が有効な時間帯の配列。各要素は `startMinute` / `endMinute`（0..1440）。`endMinute < startMinute` なら日跨ぎ、`endMinute === startMinute` なら 24 時間、空配列なら終日有効
+- 各 `timeWindows[]` は `always`、または `condition` と `timeRanges` を持つ `scheduled`。`timeRanges` の各要素は `startMinute` / `endMinute`（0..1440）で、`endMinute < startMinute` なら日跨ぎ、`endMinute === startMinute` なら 24 時間、空配列なら終日有効
+- 各 `restrictions[]` は以下の属性を持つ：
   - `type`: `block`（禁止） / `grace`（1日の閲覧上限） / `wait`（アクセス前待機）
   - `graceMinutes`: `type === 'grace'` の1日あたり閲覧上限（分）。`0` で「即ブロック」
   - `waitSeconds`: `type === 'wait'` のアクセス前待機秒数。`0` は待機なし扱い
@@ -34,7 +34,7 @@
   - `weekly`: `daysOfWeek`（0=日〜6=土）に含まれる曜日に一致する
   - `monthly`: `daysOfMonth`（1〜31）に含まれる日に一致する。31 は日数の少ない月では一致しない（「月末」エイリアスは非対応）
   - `period`: 毎年繰り返す期間。`start` / `end`（`MonthDay = { month, day }`）で表し両端を含む。`start > end`（月日比較）なら年末年始のような年跨ぎ期間、`start === end` は単日。`2/29` は閏年のみ一致する
-- 制限ルールの合成（同じ時刻に複数ルールが一致した場合）：
+- 制限の合成（Time window が1件以上有効な場合）：
   - **一致した全ルールを適用する**。`block` が1件でも有効ならブロック、`grace` は残り時間が最も短い上限、`wait` は最大待機秒数を使う
   - リストの順序は結果に影響しない
 - 条件マッチの判定は **論理日切り替え時点の暦（曜日・月・日）**（リセット時刻起点）で行う。例: リセット `03:00` のとき `1/2 02:00` は論理日 `1/1` 扱いで、曜日・月日も `1/1` として判定する。
@@ -68,7 +68,7 @@
 
 - グループ単位の判定式（時刻 T、論理日情報）：
   - まず URL が対象グループに該当するかを `mode` と `patterns` で判定する。該当しないグループは許可状態
-  - 各 `restrictionRules[]` の条件と時間帯を判定し、現在有効な制限ルールを求める
+  - 各 `timeWindows[]` の条件と時間帯を判定し、1件以上有効なら `restrictions[]` を適用する
   - 有効な `block` ルールが1件でも存在 → ブロック状態
   - 有効な `grace` ルールがあり、`consumedSec >= graceMinutes * 60` ならブロック状態
   - 有効な `wait` ルールがあり、まだ待機ゲート通過済みでなければ待機ページへ遷移する

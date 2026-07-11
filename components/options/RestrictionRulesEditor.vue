@@ -2,9 +2,9 @@
 import { PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { createDefaultRestriction } from '@/utils/defaults'
-import { formatRestriction } from '@/utils/groups'
-import type { RestrictionRule } from '@/utils/types'
+import { createDefaultRestriction, createDefaultTimeWindow } from '@/utils/defaults'
+import { formatStandaloneRestriction, formatTimeWindow } from '@/utils/groups'
+import type { Restriction, TimeWindow } from '@/utils/types'
 import RestrictionEditor from './RestrictionEditor.vue'
 import ScheduleWindowEditor from './ScheduleWindowEditor.vue'
 
@@ -15,27 +15,37 @@ interface Props {
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
-  error?: (index: number, field: 'graceMinutes' | 'waitSeconds' | 'condition' | 'timeRanges') => string | undefined
+  timeWindowError?: (index: number, field: 'condition' | 'timeRanges') => string | undefined
+  restrictionError?: (index: number, field: 'graceMinutes' | 'waitSeconds') => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
-  error: () => undefined,
+  timeWindowError: () => undefined,
+  restrictionError: () => undefined,
 })
 
-const restrictionRules = defineModel<RestrictionRule[]>({ required: true })
+const timeWindows = defineModel<TimeWindow[]>('timeWindows', { required: true })
+const restrictions = defineModel<Restriction[]>('restrictions', { required: true })
 
 /** 新しい制限ルールを追加する。 */
-function addRule(): void {
-  restrictionRules.value = [
-    ...restrictionRules.value,
-    createDefaultRestriction('block'),
-  ]
+function addTimeWindow(): void {
+  timeWindows.value = [...timeWindows.value, createDefaultTimeWindow()]
 }
 
 /** 指定位置の制限ルールを削除する。 */
-function removeRule(index: number): void {
-  restrictionRules.value = restrictionRules.value.filter((_, i) => i !== index)
+function removeTimeWindow(index: number): void {
+  timeWindows.value = timeWindows.value.filter((_, i) => i !== index)
+}
+
+/** 新しい制限を追加する。 */
+function addRestriction(): void {
+  restrictions.value = [...restrictions.value, createDefaultRestriction('block')]
+}
+
+/** 指定位置の制限を削除する。 */
+function removeRestriction(index: number): void {
+  restrictions.value = restrictions.value.filter((_, i) => i !== index)
 }
 </script>
 
@@ -43,51 +53,50 @@ function removeRule(index: number): void {
   <section class="min-w-0 space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 class="text-label-md">
-        Restriction rules
+        Time windows
       </h3>
       <BaseButton
         v-if="isEditing"
         type="button"
         size="sm"
-        aria-label="Add restriction rule"
-        @click="addRule"
+        aria-label="Add time window"
+        @click="addTimeWindow"
       >
         <PlusIcon
           aria-hidden="true"
           class="size-4"
         />
-        Add rule
+        Add time window
       </BaseButton>
     </div>
 
     <EmptyState
-      v-if="restrictionRules.length === 0"
-      aria-label="No restriction rules"
+      v-if="timeWindows.length === 0"
+      aria-label="No time windows"
     >
-      No restriction rules.
+      No time windows. Restrictions will not apply.
     </EmptyState>
 
     <ol
-      v-else
       class="space-y-3"
-      aria-label="Restriction rules"
+      aria-label="Time windows"
     >
       <li
-        v-for="(rule, index) in restrictionRules"
+        v-for="(window, index) in timeWindows"
         :key="index"
         class="space-y-3 rounded-lg border border-border bg-surface p-3"
       >
         <div class="flex min-w-0 items-center justify-between gap-2">
           <h4 class="text-label-md">
-            Rule {{ index + 1 }}
+            Time window {{ index + 1 }}
           </h4>
           <BaseButton
             v-if="isEditing"
             type="button"
             variant="ghost"
             size="icon-sm"
-            :aria-label="`Remove restriction rule ${index + 1}`"
-            @click="removeRule(index)"
+            :aria-label="`Remove time window ${index + 1}`"
+            @click="removeTimeWindow(index)"
           >
             <TrashIcon
               aria-hidden="true"
@@ -97,28 +106,101 @@ function removeRule(index: number): void {
         </div>
 
         <template v-if="isEditing">
+          <label class="text-label-md">
+            <span class="sr-only">Time window type</span>
+            <select
+              aria-label="Time window type"
+              :value="window.type"
+              class="h-8 rounded-lg border border-field-border bg-field px-2 text-body-md"
+              @change="timeWindows[index] = ($event.target as HTMLSelectElement).value === 'always' ? { type: 'always' } : { type: 'scheduled', condition: { type: 'daily' }, timeRanges: [] }"
+            >
+              <option value="always">Always</option>
+              <option value="scheduled">Scheduled</option>
+            </select>
+          </label>
           <ScheduleWindowEditor
-            :condition="rule.condition"
-            :time-ranges="rule.timeRanges"
+            v-if="window.type === 'scheduled'"
+            :condition="window.condition"
+            :time-ranges="window.timeRanges"
             :is-editing="isEditing"
-            @update:condition="rule.condition = $event"
-            @update:time-ranges="rule.timeRanges = $event"
-          />
-
-          <RestrictionEditor
-            v-model="restrictionRules[index]"
-            :is-editing="isEditing"
-            :error="field => props.error(index, field)"
+            @update:condition="window.condition = $event"
+            @update:time-ranges="window.timeRanges = $event"
           />
         </template>
 
         <output
           v-else
-          :aria-label="`Restriction rule ${index + 1}`"
+          :aria-label="`Time window ${index + 1}`"
           class="block text-body-md text-input-foreground"
         >
-          {{ formatRestriction(rule) }}
+          {{ formatTimeWindow(window) }}
         </output>
+      </li>
+    </ol>
+
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-3">
+      <h3 class="text-label-md">
+        Restrictions
+      </h3>
+      <BaseButton
+        v-if="isEditing"
+        type="button"
+        size="sm"
+        aria-label="Add restriction"
+        @click="addRestriction"
+      >
+        <PlusIcon
+          aria-hidden="true"
+          class="size-4"
+        />
+        Add restriction
+      </BaseButton>
+    </div>
+    <EmptyState
+      v-if="restrictions.length === 0"
+      aria-label="No restrictions"
+    >
+      No restrictions.
+    </EmptyState>
+    <ol
+      v-else
+      class="space-y-3"
+      aria-label="Restrictions"
+    >
+      <li
+        v-for="(restriction, index) in restrictions"
+        :key="index"
+        class="space-y-3 rounded-lg border border-border bg-surface p-3"
+      >
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="text-label-md">
+            Restriction {{ index + 1 }}
+          </h4>
+          <BaseButton
+            v-if="isEditing"
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            :aria-label="`Remove restriction ${index + 1}`"
+            @click="removeRestriction(index)"
+          >
+            <TrashIcon
+              aria-hidden="true"
+              class="size-4"
+            />
+          </BaseButton>
+        </div>
+        <RestrictionEditor
+          v-if="isEditing"
+          v-model="restrictions[index]"
+          :is-editing="isEditing"
+          :error="field => props.restrictionError(index, field)"
+        />
+        <output
+          v-else
+          :aria-label="`Restriction ${index + 1}`"
+          class="block text-body-md text-input-foreground"
+        >{{ formatStandaloneRestriction(restriction) }}</output>
       </li>
     </ol>
   </section>

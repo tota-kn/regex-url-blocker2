@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultRestriction, DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate } from '../utils/defaults'
+import { createDefaultRestriction, createDefaultTimeWindow, DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate } from '../utils/defaults'
 import type { DayOfWeek } from '../utils/types'
 import { createEmptyGroup } from './helpers'
 
@@ -16,15 +16,21 @@ describe('DEFAULT_GLOBAL_SETTINGS', () => {
 })
 
 describe('createDefaultRestriction', () => {
-  it('base 省略時は毎日条件・終日ウィンドウで生成する', () => {
+  it('base 省略時は制限内容だけを生成する', () => {
     const restriction = createDefaultRestriction('block')
-    expect(restriction).toEqual({ condition: { type: 'daily' }, timeRanges: [], type: 'block' })
+    expect(restriction).toEqual({ type: 'block' })
   })
 
   it('base 指定時は condition/timeRanges を引き継ぎ type だけ切り替える', () => {
     const base = { condition: { type: 'weekly' as const, daysOfWeek: [1, 2] as DayOfWeek[] }, timeRanges: [{ startMinute: 60, endMinute: 120 }] }
     const restriction = createDefaultRestriction('grace', base)
     expect(restriction).toEqual({ condition: base.condition, timeRanges: base.timeRanges, type: 'grace' })
+  })
+})
+
+describe('createDefaultTimeWindow', () => {
+  it('Always ウィンドウを生成する', () => {
+    expect(createDefaultTimeWindow()).toEqual({ type: 'always' })
   })
 })
 
@@ -38,7 +44,8 @@ describe('createEmptyGroup', () => {
     expect(g.patterns).toEqual([])
     expect(g.blockAction).toBe('blockedPage')
     expect(g.redirectUrl).toBe('https://example.com')
-    expect(g.restrictionRules).toEqual([])
+    expect(g.timeWindows).toEqual([])
+    expect(g.restrictions).toEqual([])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {
@@ -65,7 +72,8 @@ describe('createGroupFromTemplate', () => {
     const group = createGroupFromTemplate('blank')
 
     expect(group.patterns).toEqual([])
-    expect(group.restrictionRules).toEqual([])
+    expect(group.timeWindows).toEqual([])
+    expect(group.restrictions).toEqual([])
   })
 
   it('core-sns-15min はSNSパターンと毎日15分上限の猶予制限を設定する', () => {
@@ -80,9 +88,8 @@ describe('createGroupFromTemplate', () => {
       'threads.net',
       'bsky.app',
     ])
-    expect(group.restrictionRules?.[0]).toMatchObject({
-      condition: { type: 'daily' },
-      timeRanges: [],
+    expect(group.timeWindows).toEqual([{ type: 'always' }])
+    expect(group.restrictions?.[0]).toMatchObject({
       type: 'grace',
       graceMinutes: 15,
     })
@@ -100,9 +107,8 @@ describe('createGroupFromTemplate', () => {
       'abema.tv',
       'nicovideo.jp',
     ])
-    expect(group.restrictionRules?.[0]).toMatchObject({
-      condition: { type: 'daily' },
-      timeRanges: [],
+    expect(group.timeWindows).toEqual([{ type: 'always' }])
+    expect(group.restrictions?.[0]).toMatchObject({
       type: 'grace',
       graceMinutes: 30,
     })
@@ -112,10 +118,10 @@ describe('createGroupFromTemplate', () => {
     const group = createGroupFromTemplate('work-hours-focus')
 
     expect(group.patterns).toEqual([])
-    expect(group.restrictionRules?.[0]).toMatchObject({
+    expect(group.timeWindows?.[0]).toMatchObject({
       condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
       timeRanges: [{ startMinute: 540, endMinute: 1080 }],
-      type: 'block',
     })
+    expect(group.restrictions).toEqual([{ type: 'block' }])
   })
 })

@@ -1,4 +1,4 @@
-import type { DayOfWeek, DelayGrantState, GlobalSettings, Group, GroupPauseState, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, UsageCounter, UsageCountersState } from './types'
+import type { DayOfWeek, DelayGrantState, GlobalSettings, Group, GroupPauseState, Restriction, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, TimeWindow, UsageCounter, UsageCountersState } from './types'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
@@ -84,6 +84,20 @@ export function getRestrictionRules(group: Group): RestrictionRule[] {
   const rules = group.restrictionRules ?? []
   if (rules.length === 0 && group.restriction) return [group.restriction]
   return rules
+}
+
+/** グループの分離形式の制限を返す。旧ペア形式も互換的に変換する。 */
+export function getRestrictions(group: Group): Restriction[] {
+  if (group.restrictions !== undefined) return group.restrictions
+  return getRestrictionRules(group).map(({ type, graceMinutes, waitSeconds }) => ({ type, graceMinutes, waitSeconds }))
+}
+
+/** グループの分離形式の時間ウィンドウを返す。旧ペア形式も互換的に変換する。 */
+export function getTimeWindows(group: Group): TimeWindow[] {
+  if (group.timeWindows !== undefined) return group.timeWindows
+  return getRestrictionRules(group).map(rule => rule.condition.type === 'daily' && rule.timeRanges.length === 0
+    ? { type: 'always' as const }
+    : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges })
 }
 
 /**
@@ -247,19 +261,17 @@ export function matchesScheduleRuleCondition(condition: ScheduleRuleCondition, i
 export function restrictionMatchesToday(group: Group, now: Date, global: GlobalSettings): boolean {
   if (group.disabled) return false
   const info = getLogicalDate(now, global.dailyResetHour)
-  return getRestrictionRules(group).some(restriction => matchesScheduleRuleCondition(restriction.condition, info))
+  return getTimeWindows(group).some(window => window.type === 'always' || matchesScheduleRuleCondition(window.condition, info))
 }
 
-/**
- * 制限ルールが現在時刻でアクティブ（条件が今日に一致し、かつ時刻ウィンドウ内）かを返す。
- */
-function isRestrictionRuleActiveNow(restriction: RestrictionRule, now: Date, global: GlobalSettings): boolean {
+/** 時間ウィンドウが現在有効かどうかを返す。 */
+function isTimeWindowActiveNow(window: TimeWindow, now: Date, global: GlobalSettings): boolean {
+  if (window.type === 'always') return true
   const info = getLogicalDate(now, global.dailyResetHour)
-  if (!matchesScheduleRuleCondition(restriction.condition, info)) return false
-  if (restriction.timeRanges.length === 0) return true
-
+  if (!matchesScheduleRuleCondition(window.condition, info)) return false
+  if (window.timeRanges.length === 0) return true
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  return restriction.timeRanges.some(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
+  return window.timeRanges.some(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
 }
 
 /**
@@ -268,7 +280,7 @@ function isRestrictionRuleActiveNow(restriction: RestrictionRule, now: Date, glo
  */
 export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSettings): boolean {
   if (group.disabled) return false
-  return getRestrictionRules(group).some(restriction => isRestrictionRuleActiveNow(restriction, now, global))
+  return getRestrictions(group).length > 0 && getTimeWindows(group).some(window => isTimeWindowActiveNow(window, now, global))
 }
 
 /**
@@ -278,11 +290,12 @@ export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSe
 function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
   if (group.disabled) return []
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  return getRestrictionRules(group)
-    .filter(restriction => restriction.type === 'block' && isRestrictionRuleActiveNow(restriction, now, global))
-    .flatMap((restriction) => {
-      if (restriction.timeRanges.length === 0) return [{ startMinute: 0, endMinute: 0 }]
-      return restriction.timeRanges.filter(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
+  if (!getRestrictions(group).some(restriction => restriction.type === 'block')) return []
+  return getTimeWindows(group)
+    .filter(window => isTimeWindowActiveNow(window, now, global))
+    .flatMap((window) => {
+      if (window.type === 'always' || window.timeRanges.length === 0) return [{ startMinute: 0, endMinute: 0 }]
+      return window.timeRanges.filter(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
     })
 }
 
@@ -294,9 +307,9 @@ function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): T
 export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): TimeLimitUsageSummary | undefined {
   if (group.disabled) return undefined
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  const limitMinutes = getRestrictionRules(group)
+  if (!getTimeWindows(group).some(window => window.type === 'always' || (window.type === 'scheduled' && matchesScheduleRuleCondition(window.condition, logicalDate)))) return undefined
+  const limitMinutes = getRestrictions(group)
     .filter(restriction => restriction.type === 'grace' && restriction.graceMinutes !== undefined)
-    .filter(restriction => matchesScheduleRuleCondition(restriction.condition, logicalDate))
     .map(restriction => restriction.graceMinutes)
     .filter((minutes): minutes is number => minutes !== undefined)
     .sort((a, b) => a - b)[0]
@@ -317,10 +330,10 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
  * `waitSeconds` が undefined または 0 以下なら undefined（待機なし扱い）。
  */
 export function getEffectiveWaitSeconds(group: Group, now: Date, global: GlobalSettings): number | undefined {
-  const waitSeconds = getRestrictionRules(group)
+  if (!isRestrictionActiveNow(group, now, global)) return undefined
+  const waitSeconds = getRestrictions(group)
     .filter(restriction => restriction.type === 'wait')
     .filter(restriction => restriction.waitSeconds !== undefined && restriction.waitSeconds > 0)
-    .filter(restriction => isRestrictionRuleActiveNow(restriction, now, global))
     .map(restriction => restriction.waitSeconds)
     .filter((seconds): seconds is number => seconds !== undefined)
   return waitSeconds.length > 0 ? Math.max(...waitSeconds) : undefined
@@ -332,7 +345,7 @@ export function getEffectiveWaitSeconds(group: Group, now: Date, global: GlobalS
  */
 function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): boolean {
   if (getActiveTimeRanges(group, now, global).length > 0) return true
-  if (!getRestrictionRules(group).some(restriction => restriction.type === 'grace' && isRestrictionRuleActiveNow(restriction, now, global))) return false
+  if (!isRestrictionActiveNow(group, now, global) || !getRestrictions(group).some(restriction => restriction.type === 'grace')) return false
 
   const summary = getTimeLimitUsageSummary(group, counter, now, global)
   return summary !== undefined && summary.remainingSec <= 0

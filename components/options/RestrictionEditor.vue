@@ -5,8 +5,8 @@ import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { createDefaultRestriction } from '@/utils/defaults'
-import { formatRestriction } from '@/utils/groups'
-import type { RestrictionRule, RestrictionType } from '@/utils/types'
+import { formatStandaloneRestriction } from '@/utils/groups'
+import type { Restriction, RestrictionType } from '@/utils/types'
 
 /**
  * 制限欄（禁止・猶予・待機の単一選択）の props。
@@ -15,7 +15,7 @@ interface Props {
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
-  error?: (field: 'graceMinutes' | 'waitSeconds' | 'condition' | 'timeRanges') => string | undefined
+  error?: (field: 'graceMinutes' | 'waitSeconds') => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,7 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
   error: () => undefined,
 })
 
-const restriction = defineModel<RestrictionRule>({ required: true })
+const restriction = defineModel<Restriction>({ required: true })
 
 /** セグメントコントロールに渡す選択肢。 */
 const typeOptions = [
@@ -35,10 +35,10 @@ const typeOptions = [
 /** セグメントコントロールの現在値。 */
 const selectedType = computed<string>(() => restriction.value.type)
 
-/** 制限種別を切り替える。既存の condition/timeRanges は引き継ぐ。 */
+/** 制限種別を切り替える。 */
 function setType(value: string): void {
   if (value !== 'block' && value !== 'grace' && value !== 'wait') return
-  restriction.value = createDefaultRestriction(value as RestrictionType, restriction.value)
+  restriction.value = createDefaultRestriction(value as RestrictionType)
 }
 
 /** 猶予・待機のテキスト入力の作業状態。 */
@@ -151,7 +151,7 @@ function preventNonDigitInput(event: InputEvent): void {
       aria-label="Restriction"
       class="block text-body-md text-input-foreground"
     >
-      {{ formatRestriction(restriction) }}
+      {{ formatStandaloneRestriction(restriction) }}
     </output>
   </section>
 </template>

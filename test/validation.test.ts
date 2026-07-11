@@ -130,7 +130,12 @@ describe('validateGroup', () => {
 describe('validateRestriction (validateGroup 経由)', () => {
   /** 指定 restriction を持つグループを検証する。 */
   function validateRestrictionRule(r: RestrictionRule): ReturnType<typeof validateGroup> {
-    return validateGroup({ ...createEmptyGroup(), name: 'X', restriction: r })
+    return validateGroup({
+      ...createEmptyGroup(),
+      name: 'X',
+      timeWindows: [{ type: 'scheduled', condition: r.condition, timeRanges: r.timeRanges }],
+      restrictions: [{ type: r.type, graceMinutes: r.graceMinutes, waitSeconds: r.waitSeconds }],
+    })
   }
 
   it('日跨ぎのブロック時間帯は valid', () => {
@@ -151,31 +156,31 @@ describe('validateRestriction (validateGroup 経由)', () => {
 
   it('startMinute / endMinute が範囲外だとエラー', () => {
     const startErrors = validateRestrictionRule(restriction({ type: 'block', timeRanges: [{ startMinute: -1, endMinute: 360 }], graceMinutes: undefined }))
-    expect(startErrors.some(e => e.field === 'restrictionRules[0].timeRanges[0].startMinute')).toBe(true)
+    expect(startErrors.some(e => e.field === 'timeWindows[0].timeRanges[0].startMinute')).toBe(true)
 
     const endErrors = validateRestrictionRule(restriction({ type: 'block', timeRanges: [{ startMinute: 1320, endMinute: 1441 }], graceMinutes: undefined }))
-    expect(endErrors.some(e => e.field === 'restrictionRules[0].timeRanges[0].endMinute')).toBe(true)
+    expect(endErrors.some(e => e.field === 'timeWindows[0].timeRanges[0].endMinute')).toBe(true)
   })
 
   it('weekly の曜日が空・範囲外・重複だとエラー', () => {
     expect(validateRestrictionRule(restriction({ condition: { type: 'weekly', daysOfWeek: [] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfWeek')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfWeek')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'weekly', daysOfWeek: [7 as 0] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfWeek')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfWeek')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'weekly', daysOfWeek: [1, 1] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfWeek')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfWeek')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'weekly', daysOfWeek: [0, 6] } }))).toEqual([])
   })
 
   it('monthly の日付が空・0・32・重複だとエラー', () => {
     expect(validateRestrictionRule(restriction({ condition: { type: 'monthly', daysOfMonth: [] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfMonth')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfMonth')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'monthly', daysOfMonth: [0] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfMonth')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfMonth')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'monthly', daysOfMonth: [32] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfMonth')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfMonth')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'monthly', daysOfMonth: [1, 1] } }))
-      .some(e => e.field === 'restrictionRules[0].condition.daysOfMonth')).toBe(true)
+      .some(e => e.field === 'timeWindows[0].condition.daysOfMonth')).toBe(true)
     expect(validateRestrictionRule(restriction({ condition: { type: 'monthly', daysOfMonth: [1, 15, 31] } }))).toEqual([])
   })
 
@@ -185,10 +190,10 @@ describe('validateRestriction (validateGroup 経由)', () => {
     }))).toEqual([])
     expect(validateRestrictionRule(restriction({
       condition: { type: 'period', start: { month: 2, day: 30 }, end: { month: 3, day: 1 } },
-    })).some(e => e.field === 'restrictionRules[0].condition.start')).toBe(true)
+    })).some(e => e.field === 'timeWindows[0].condition.start')).toBe(true)
     expect(validateRestrictionRule(restriction({
       condition: { type: 'period', start: { month: 12, day: 28 }, end: { month: 13, day: 1 } },
-    })).some(e => e.field === 'restrictionRules[0].condition.end')).toBe(true)
+    })).some(e => e.field === 'timeWindows[0].condition.end')).toBe(true)
   })
 
   it('年跨ぎの period は valid', () => {
@@ -200,11 +205,11 @@ describe('validateRestriction (validateGroup 経由)', () => {
   it('grace は graceMinutes が 0以上の整数でないとエラー', () => {
     expect(validateRestrictionRule(restriction({ type: 'grace', graceMinutes: 0 }))).toEqual([])
     expect(validateRestrictionRule(restriction({ type: 'grace', graceMinutes: undefined }))
-      .some(e => e.field === 'restrictionRules[0].graceMinutes')).toBe(true)
+      .some(e => e.field === 'restrictions[0].graceMinutes')).toBe(true)
     expect(validateRestrictionRule(restriction({ type: 'grace', graceMinutes: -1 }))
-      .some(e => e.field === 'restrictionRules[0].graceMinutes')).toBe(true)
+      .some(e => e.field === 'restrictions[0].graceMinutes')).toBe(true)
     expect(validateRestrictionRule(restriction({ type: 'grace', graceMinutes: 1.5 }))
-      .some(e => e.field === 'restrictionRules[0].graceMinutes')).toBe(true)
+      .some(e => e.field === 'restrictions[0].graceMinutes')).toBe(true)
   })
 
   it('block は他の値が未指定でも valid', () => {
@@ -214,11 +219,11 @@ describe('validateRestriction (validateGroup 経由)', () => {
   it('wait は waitSeconds が 0以上の整数でないとエラー', () => {
     expect(validateRestrictionRule(restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 0 }))).toEqual([])
     expect(validateRestrictionRule(restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: undefined }))
-      .some(e => e.field === 'restrictionRules[0].waitSeconds')).toBe(true)
+      .some(e => e.field === 'restrictions[0].waitSeconds')).toBe(true)
     expect(validateRestrictionRule(restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: -1 }))
-      .some(e => e.field === 'restrictionRules[0].waitSeconds')).toBe(true)
+      .some(e => e.field === 'restrictions[0].waitSeconds')).toBe(true)
     expect(validateRestrictionRule(restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 1.5 }))
-      .some(e => e.field === 'restrictionRules[0].waitSeconds')).toBe(true)
+      .some(e => e.field === 'restrictions[0].waitSeconds')).toBe(true)
   })
 })
 
