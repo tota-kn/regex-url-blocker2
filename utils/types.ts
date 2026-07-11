@@ -43,18 +43,29 @@ export type ScheduleRuleCondition =
   | { type: 'period', start: MonthDay, end: MonthDay }
 
 /**
- * 条件に一致した論理日に適用する制限ルール。
- * 同じ日に複数ルールが一致した場合はすべて適用され、ブロック時間帯は和集合、上限は最小値になる。
+ * グループに設定できる制限の種別。
+ * - `'block'`: 有効ウィンドウ中は常にアクセスを禁止する。
+ * - `'grace'`: 有効ウィンドウ中の閲覧秒数を積算し、1日の上限分数に達するとブロックする。
+ * - `'wait'`: 有効ウィンドウ中、アクセス前に待機ゲート（カウントダウン）を課す。
  */
-export interface ScheduleRule {
-  /** crypto.randomUUID() で自動採番される一意識別子。 */
-  id: string
-  /** このルールを適用する日の条件。 */
+export type RestrictionType = 'block' | 'grace' | 'wait'
+
+/**
+ * グループに設定する1件の制限ルール。
+ * `condition` と `timeRanges` は制限が有効になる「有効ウィンドウ」を表し、
+ * ウィンドウが有効な間だけ `type` に応じた制限（禁止・猶予・待機）を適用する。
+ */
+export interface RestrictionRule {
+  /** 適用する日の条件。既存の `ScheduleRuleCondition` を再利用する。 */
   condition: ScheduleRuleCondition
-  /** 条件に一致した日に即ブロックする時間帯。 */
-  blockedTimeRanges: TimeRange[]
-  /** 条件に一致した日の閲覧上限分数。undefined はこのルールでは上限を課さない、0 は即ブロック。 */
-  dailyLimitMinutes?: number
+  /** 制限が有効な時刻ウィンドウ。空配列は終日有効。 */
+  timeRanges: TimeRange[]
+  /** 制限種別。 */
+  type: RestrictionType
+  /** `type === 'grace'` のときの1日の閲覧上限分数。0以上の整数。 */
+  graceMinutes?: number
+  /** `type === 'wait'` のときのアクセス前待機秒数。0以上の整数。 */
+  waitSeconds?: number
 }
 
 /**
@@ -93,8 +104,10 @@ export interface Group {
   blockAction: BlockAction
   /** このグループで redirect を選んだ場合の遷移先 URL。 */
   redirectUrl: string
-  /** 条件付きの制限ルール。空配列は制限なし。 */
-  scheduleRules: ScheduleRule[]
+  /** このグループに設定する制限ルールの配列。空配列は制限なし。 */
+  restrictionRules?: RestrictionRule[]
+  /** @deprecated v7 移行用の旧単一制限。読み込み時に `restrictionRules` へ変換する。 */
+  restriction?: RestrictionRule
 }
 
 /**
@@ -169,6 +182,22 @@ export interface GroupPauseEntry {
 export interface GroupPauseState {
   /** group id を key とする一時停止状態辞書。 */
   groupPauseState: Record<string, GroupPauseEntry>
+}
+
+/**
+ * 1グループ分の待機ゲート通過後のアクセス許可状態。
+ */
+export interface DelayGrantEntry {
+  /** この時刻まで待機ゲートを免除しアクセスを許可する epoch milliseconds。 */
+  grantedUntil: number
+}
+
+/**
+ * chrome.storage.local に保存する待機ゲートのアクセス許可状態。
+ */
+export interface DelayGrantState {
+  /** group id を key とする待機ゲート許可状態辞書。 */
+  delayGrantState: Record<string, DelayGrantEntry>
 }
 
 /**

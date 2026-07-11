@@ -1,11 +1,16 @@
 import { dayLabel, formatMonthDay, formatTimeRange } from './datetime'
-import type { Group, ScheduleRule, ScheduleRuleCondition, Settings } from './types'
+import type { Group, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange } from './types'
 
 /**
  * グループを JSON 互換の deep clone として複製する。
  */
 export function cloneGroup(group: Group): Group {
-  return JSON.parse(JSON.stringify(group)) as Group
+  const cloned = JSON.parse(JSON.stringify(group)) as Group
+  if ((!cloned.restrictionRules || cloned.restrictionRules.length === 0) && cloned.restriction) {
+    cloned.restrictionRules = [cloned.restriction]
+    cloned.restriction = undefined
+  }
+  return cloned
 }
 
 /**
@@ -46,12 +51,20 @@ export function formatScheduleRuleCondition(condition: ScheduleRuleCondition): s
 }
 
 /**
- * 読み取り専用表示用にスケジュールルールを要約する。
+ * 制限が有効な時刻ウィンドウを読み取り表示用の文言に変換する。
  */
-export function formatScheduleRule(rule: ScheduleRule): string {
-  const ranges = rule.blockedTimeRanges.length > 0
-    ? rule.blockedTimeRanges.map(formatTimeRange).join(', ')
-    : 'No blocked hours'
-  const limit = rule.dailyLimitMinutes === undefined ? 'No daily limit' : `${rule.dailyLimitMinutes} min/day`
-  return `${formatScheduleRuleCondition(rule.condition)} — Blocked hours: ${ranges}; Daily limit: ${limit}`
+function formatRestrictionWindow(timeRanges: TimeRange[]): string {
+  return timeRanges.length > 0 ? timeRanges.map(formatTimeRange).join(', ') : 'All day'
+}
+
+/**
+ * 読み取り専用表示用にグループの単一制限を要約する。
+ */
+export function formatRestriction(restriction: RestrictionRule): string {
+  const detail = restriction.type === 'block'
+    ? 'Block'
+    : restriction.type === 'grace'
+      ? `Grace ${restriction.graceMinutes ?? 0} min/day`
+      : `Wait ${restriction.waitSeconds ?? 0} sec`
+  return `${formatScheduleRuleCondition(restriction.condition)} ${formatRestrictionWindow(restriction.timeRanges)} — ${detail}`
 }

@@ -1,4 +1,4 @@
-import type { GlobalSettings, Group, ScheduleRule } from './types'
+import type { GlobalSettings, Group, RestrictionRule, RestrictionType } from './types'
 
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
@@ -19,32 +19,32 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
 }
 
 /**
- * 空のスケジュールルールを1件生成する。UI の「ルール追加」の初期値。
+ * 指定 type の既定 `RestrictionRule` を作る。
+ * `base` を渡すと `condition`/`timeRanges` を引き継いだまま type だけ切り替える（制限種別の切替 UI で使用）。
  */
-export function createEmptyScheduleRule(): ScheduleRule {
+export function createDefaultRestriction(type: RestrictionType, base?: Pick<RestrictionRule, 'condition' | 'timeRanges'>): RestrictionRule {
   return {
-    id: crypto.randomUUID(),
-    condition: { type: 'daily' },
-    blockedTimeRanges: [],
-    dailyLimitMinutes: undefined,
+    condition: base?.condition ?? { type: 'daily' },
+    timeRanges: base?.timeRanges ?? [],
+    type,
   }
 }
 
 /**
- * 指定テンプレートに対応するスケジュールルールを生成する。
+ * 指定テンプレートに対応する制限ルール配列を生成する。`blank` は制限なし（空配列）。
  */
-function createScheduleRulesFromTemplate(templateId: GroupTemplateId): ScheduleRule[] {
+function createRestrictionRulesFromTemplate(templateId: GroupTemplateId): RestrictionRule[] {
   if (templateId === 'core-sns-15min') {
-    return [{ ...createEmptyScheduleRule(), dailyLimitMinutes: 15 }]
+    return [{ condition: { type: 'daily' }, timeRanges: [], type: 'grace', graceMinutes: 15 }]
   }
   if (templateId === 'video-30min') {
-    return [{ ...createEmptyScheduleRule(), dailyLimitMinutes: 30 }]
+    return [{ condition: { type: 'daily' }, timeRanges: [], type: 'grace', graceMinutes: 30 }]
   }
   if (templateId === 'work-hours-focus') {
     return [{
-      ...createEmptyScheduleRule(),
       condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
-      blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      type: 'block',
     }]
   }
   return []
@@ -94,6 +94,6 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     patterns: createPatternsFromTemplate(templateId),
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-    scheduleRules: createScheduleRulesFromTemplate(templateId),
+    restrictionRules: createRestrictionRulesFromTemplate(templateId),
   }
 }

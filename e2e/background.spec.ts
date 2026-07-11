@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import type { Page, Worker } from '@playwright/test'
-import type { HHMM, ScheduleRule, Settings, TimeRange, UsageCounter } from '../utils/types'
+import type { HHMM, RestrictionRule, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 
 /**
@@ -232,16 +232,16 @@ async function saveBlockedPageDetailSettings(
 }
 
 /**
- * 毎日同じ上限分数を使うテスト用 schedule rules を作る。undefined は制限なし。
+ * 毎日同じ上限分数を使うテスト用の単一 grace 制限を作る。undefined は制限なし。
  */
-function buildScheduleRules(dailyLimitMinutes: number | undefined): ScheduleRule[] {
-  if (dailyLimitMinutes === undefined) return []
-  return [{
-    id: 'daily-rule',
+function buildRestriction(dailyLimitMinutes: number | undefined): RestrictionRule | undefined {
+  if (dailyLimitMinutes === undefined) return undefined
+  return {
     condition: { type: 'daily' },
-    blockedTimeRanges: [],
-    dailyLimitMinutes,
-  }]
+    timeRanges: [],
+    type: 'grace',
+    graceMinutes: dailyLimitMinutes,
+  }
 }
 
 /**
@@ -311,7 +311,7 @@ function buildEffectiveSettingsFixture(origin: string, dailyResetHour: HHMM, dai
       patterns: [`^${origin.replaceAll('.', '\\.')}`],
       blockAction: 'redirect',
       redirectUrl: `${origin}/blocked`,
-      scheduleRules: buildScheduleRules(dailyLimitMinutes),
+      restriction: buildRestriction(dailyLimitMinutes),
     }],
   }
 }
@@ -517,9 +517,9 @@ test.describe('Background blocking', () => {
           blockedTimeRanges: [range],
         },
         {
-          id: 'mixed',
-          name: 'Mixed block',
-          blockedTimeRanges: [range],
+          id: 'limited',
+          name: 'Limited block',
+          blockedTimeRanges: [],
           dailyLimitMinutes: 5,
           counter: {
             logicalDate: buildLogicalDate(now, dailyResetHour),
@@ -533,9 +533,9 @@ test.describe('Background blocking', () => {
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
       await expect(page.getByText('Blocking groups')).not.toBeVisible()
       await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
-      await expect(page.getByRole('heading', { name: 'Mixed block' })).toBeVisible()
-      await expect(page.getByLabel('Mixed block Blocked hours active')).toContainText('Blocked hours active')
-      await expect(page.getByLabel('Mixed block Daily limit reached')).toContainText('Daily limit reached')
+      await expect(page.getByRole('heading', { name: 'Limited block' })).toBeVisible()
+      await expect(page.getByLabel('Work block Blocked hours active')).toContainText('Blocked hours active')
+      await expect(page.getByLabel('Limited block Daily limit reached')).toContainText('Daily limit reached')
     }
     finally {
       await server.close()

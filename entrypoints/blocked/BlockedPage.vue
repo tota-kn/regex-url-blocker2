@@ -7,7 +7,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { getGroupBlockStatus, getNextDailyResetAt, getTimeRangeUnblockAt, type GroupBlockStatus } from '@/utils/blocking'
 import { formatDateTime, formatTimeRange } from '@/utils/datetime'
 import { loadPageState } from '@/utils/storage'
-import type { GlobalSettings, Group } from '@/utils/types'
+import type { GlobalSettings, Group, TimeRange } from '@/utils/types'
 
 interface BlockedReason {
   /** ブロック理由の種類。 */
@@ -39,10 +39,10 @@ const isLoaded = ref(false)
  * ブロック状態から画面表示用の理由一覧を作る。
  */
 function buildReasons(group: Group, status: GroupBlockStatus, now: Date, global: GlobalSettings): BlockedReason[] {
-  const timeRangeUnblockAt = status.activeBlockedTimeRanges.length > 0
+  const timeRangeUnblockAt = status.activeTimeRanges.length > 0
     ? getTimeRangeUnblockAt(group, now, global)
     : undefined
-  const timeRangeReasons = status.activeBlockedTimeRanges.map(range => ({
+  const timeRangeReasons = status.activeTimeRanges.map((range: TimeRange) => ({
     kind: 'timeRange' as const,
     label: 'Blocked hours active',
     summary: formatTimeRange(range),

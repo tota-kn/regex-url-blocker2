@@ -8,7 +8,7 @@ import {
   markNotificationPlanHistory,
 } from '../utils/notifications'
 import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from '../utils/types'
-import { dailyScheduleRules } from './helpers'
+import { dailyRestriction } from './helpers'
 
 const NOW = new Date('2026-05-06T12:00:00+09:00')
 const LOGICAL_DATE = '2026-05-06'
@@ -26,7 +26,7 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: 'redirect',
     redirectUrl: 'https://blocked.test/',
-    scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 60 }),
+    restriction: dailyRestriction('grace', { graceMinutes: 60 }),
     ...overrides,
   }
 }
@@ -151,7 +151,7 @@ describe('page open notification plans', () => {
 
 describe('redirect block notification plans', () => {
   it('redirect ブロック通知を同じ論理日では1回にする', () => {
-    const s = settings([group({ scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 0 }) })])
+    const s = settings([group({ restriction: dailyRestriction('grace', { graceMinutes: 0 }) })])
     const evaluation = evaluateUrl(s, counters({ 'group-a': 0 }), 'https://example.com/', NOW)
     const history: Record<string, UsageNotificationEntry> = {}
 
@@ -165,7 +165,7 @@ describe('redirect block notification plans', () => {
 
   it('redirect ブロック通知が無効なら通知計画を作らない', () => {
     const s = settings([
-      group({ scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 0 }) }),
+      group({ restriction: dailyRestriction('grace', { graceMinutes: 0 }) }),
     ], { blockNotificationsEnabled: false })
     const evaluation = evaluateUrl(s, counters({ 'group-a': 0 }), 'https://example.com/', NOW)
 
@@ -176,7 +176,7 @@ describe('redirect block notification plans', () => {
     const s = settings([
       group({
         blockAction: 'blockedPage',
-        scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 0 }),
+        restriction: dailyRestriction('grace', { graceMinutes: 0 }),
       }),
     ])
     const evaluation = evaluateUrl(s, counters({ 'group-a': 0 }), 'https://example.com/', NOW)

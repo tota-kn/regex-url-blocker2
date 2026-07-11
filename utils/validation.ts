@@ -1,4 +1,4 @@
-import type { DayOfWeek, GlobalSettings, Group, MonthDay, ScheduleRule, TimeRange } from './types'
+import type { DayOfWeek, GlobalSettings, Group, MonthDay, RestrictionRule, ScheduleRuleCondition, TimeRange } from './types'
 import { isValidUrlPattern } from './urlPatterns'
 
 /**
@@ -107,14 +107,13 @@ function isValidMonthDay(value: MonthDay): boolean {
 /**
  * スケジュールルールの適用条件をバリデーションし、エラー配列を返す。
  */
-function validateScheduleRuleCondition(rule: ScheduleRule, prefix: string): ValidationError[] {
+function validateScheduleRuleCondition(condition: ScheduleRuleCondition, prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
-  const condition = rule.condition
   if (condition.type === 'weekly') {
     if (condition.daysOfWeek.length === 0) {
       errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Select 1+ days' })
     }
-    if (condition.daysOfWeek.some(day => !isValidDayOfWeek(day)) || new Set(condition.daysOfWeek).size !== condition.daysOfWeek.length) {
+    if (condition.daysOfWeek.some((day: DayOfWeek) => !isValidDayOfWeek(day)) || new Set(condition.daysOfWeek).size !== condition.daysOfWeek.length) {
       errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Use each day 0-6 once' })
     }
   }
@@ -122,7 +121,7 @@ function validateScheduleRuleCondition(rule: ScheduleRule, prefix: string): Vali
     if (condition.daysOfMonth.length === 0) {
       errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
     }
-    if (condition.daysOfMonth.some(day => !Number.isInteger(day) || day < 1 || day > 31) || new Set(condition.daysOfMonth).size !== condition.daysOfMonth.length) {
+    if (condition.daysOfMonth.some((day: number) => !Number.isInteger(day) || day < 1 || day > 31) || new Set(condition.daysOfMonth).size !== condition.daysOfMonth.length) {
       errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
     }
   }
@@ -138,18 +137,18 @@ function validateScheduleRuleCondition(rule: ScheduleRule, prefix: string): Vali
 }
 
 /**
- * 1件のスケジュールルールをバリデーションし、エラー配列を返す。
+ * グループの単一制限をバリデーションし、エラー配列を返す。
  */
-function validateScheduleRule(rule: ScheduleRule, prefix: string): ValidationError[] {
-  const errors: ValidationError[] = validateScheduleRuleCondition(rule, prefix)
-  rule.blockedTimeRanges.forEach((range, i) => {
-    errors.push(...validateTimeRange(range, `${prefix}.blockedTimeRanges[${i}]`))
+function validateRestriction(restriction: RestrictionRule, prefix: string): ValidationError[] {
+  const errors: ValidationError[] = validateScheduleRuleCondition(restriction.condition, prefix)
+  restriction.timeRanges.forEach((range: TimeRange, i: number) => {
+    errors.push(...validateTimeRange(range, `${prefix}.timeRanges[${i}]`))
   })
-  if (rule.dailyLimitMinutes !== undefined && (!Number.isInteger(rule.dailyLimitMinutes) || rule.dailyLimitMinutes < 0)) {
-    errors.push({ field: `${prefix}.dailyLimitMinutes`, message: 'Use 0+ integer or empty' })
+  if (restriction.type === 'grace' && (restriction.graceMinutes === undefined || !Number.isInteger(restriction.graceMinutes) || restriction.graceMinutes < 0)) {
+    errors.push({ field: `${prefix}.graceMinutes`, message: 'Use 0+ integer' })
   }
-  if (rule.blockedTimeRanges.length === 0 && rule.dailyLimitMinutes === undefined) {
-    errors.push({ field: prefix, message: 'Set blocked hours or a daily limit' })
+  if (restriction.type === 'wait' && (restriction.waitSeconds === undefined || !Number.isInteger(restriction.waitSeconds) || restriction.waitSeconds < 0)) {
+    errors.push({ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' })
   }
   return errors
 }
@@ -192,8 +191,9 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   })
 
-  group.scheduleRules.forEach((rule, i) => {
-    errors.push(...validateScheduleRule(rule, `scheduleRules[${i}]`))
+  const restrictions = group.restrictionRules?.length ? group.restrictionRules : (group.restriction ? [group.restriction] : [])
+  restrictions.forEach((restriction, index) => {
+    errors.push(...validateRestriction(restriction, `restrictionRules[${index}]`))
   })
 
   return errors

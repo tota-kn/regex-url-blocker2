@@ -1,7 +1,9 @@
 import {
+  applyDelayGrantState,
   applyGroupPauseState,
   evaluateUrl,
   formatRemainingMinutesBadge,
+  getEffectiveWaitSeconds,
   getMinimumRemainingTimeLimit,
   getRedirectUrls,
   incrementCounters,
@@ -11,8 +13,8 @@ import {
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import { buildPageOpenNotificationPlan, buildRedirectBlockNotificationPlan, buildRemainingTimeNotificationPlans, markNotificationPlanHistory } from '@/utils/notifications'
-import { loadBlockNotificationHistory, loadCounters, loadEffectiveSettingsState, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
-import type { BlockNotificationHistoryState, GroupPauseState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
+import { loadBlockNotificationHistory, loadCounters, loadDelayGrantState, loadEffectiveSettingsState, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, saveBlockNotificationHistory, saveCounters, saveEffectiveSettingsState, saveGroupPauseState, savePageOpenNotificationHistory, saveUsageNotificationHistory } from '@/utils/storage'
+import type { BlockNotificationHistoryState, DelayGrantState, GroupPauseState, PageOpenNotificationHistoryState, Settings, UsageCountersState, UsageNotificationHistoryState } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
 
 const HEARTBEAT_ALARM = 'heartbeat'
@@ -27,6 +29,7 @@ const BADGE_COLOR_BLOCKED = '#dc2626'
 let settings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
 let groupPauseState: GroupPauseState = { groupPauseState: {} }
+let delayGrantState: DelayGrantState = { delayGrantState: {} }
 let usageNotificationHistory: UsageNotificationHistoryState = { usageNotificationHistory: {} }
 let pageOpenNotificationHistory: PageOpenNotificationHistoryState = { pageOpenNotificationHistory: {} }
 let blockNotificationHistory: BlockNotificationHistoryState = { blockNotificationHistory: {} }
@@ -79,13 +82,15 @@ async function initializeState(): Promise<void> {
   settings = nextEffectiveState.effectiveSettings
   counters = normalizeCounters(settings, await loadCounters(), now)
   const validGroupIds = settings.groups.map(group => group.id)
-  const [pauseState, usageHistory, pageOpenHistory, blockHistory] = await Promise.all([
+  const [pauseState, grantState, usageHistory, pageOpenHistory, blockHistory] = await Promise.all([
     loadGroupPauseState(validGroupIds, now.getTime()),
+    loadDelayGrantState(validGroupIds, now.getTime()),
     loadUsageNotificationHistory(),
     loadPageOpenNotificationHistory(),
     loadBlockNotificationHistory(),
   ])
   groupPauseState = pauseState
+  delayGrantState = grantState
   usageNotificationHistory = usageHistory
   pageOpenNotificationHistory = pageOpenHistory
   blockNotificationHistory = blockHistory
@@ -154,6 +159,7 @@ async function reloadSettings(): Promise<void> {
   counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
   groupPauseState = await loadGroupPauseState(settings.groups.map(group => group.id), now.getTime())
   await saveGroupPauseState(groupPauseState)
+  delayGrantState = await loadDelayGrantState(settings.groups.map(group => group.id), now.getTime())
   dirtyCounters = true
 }
 
@@ -174,6 +180,14 @@ async function reloadCounters(): Promise<void> {
 async function reloadGroupPauseState(): Promise<void> {
   const s = await currentSettings()
   groupPauseState = await loadGroupPauseState(s.groups.map(group => group.id))
+}
+
+/**
+ * storage.local の待機ゲート許可状態を background のメモリ状態へ取り込む。
+ */
+async function reloadDelayGrantState(): Promise<void> {
+  const s = await currentSettings()
+  delayGrantState = await loadDelayGrantState(s.groups.map(group => group.id))
 }
 
 /**
@@ -276,6 +290,50 @@ async function redirectTab(tabId: number, url: string | undefined, s: Settings, 
 }
 
 /**
+ * 待機ゲートのカウントダウンページ URL を作る。
+ */
+function buildWaitPageUrl(url: string, groupId: string, seconds: number): string {
+  const target = new URL(`chrome-extension://${browser.runtime.id}/wait.html`)
+  target.searchParams.set('url', url)
+  target.searchParams.set('group', groupId)
+  target.searchParams.set('seconds', String(seconds))
+  return target.toString()
+}
+
+/**
+ * 待機ゲート対象タブを待機ページへ遷移する。
+ * 遷移直後の再リダイレクトループを避けるため、判定直前に最新の許可状態を読み込む。
+ */
+async function redirectToWaitIfNeeded(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
+  if (evaluation.delayedGroupIds.length === 0) return
+  if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
+
+  delayGrantState = await loadDelayGrantState(s.groups.map(group => group.id), now.getTime())
+  const delayed = applyDelayGrantState(evaluation, delayGrantState, now.getTime())
+  const groupId = delayed.delayedGroupIds[0]
+  if (!groupId) return
+
+  const group = s.groups.find(item => item.id === groupId)
+  if (!group) return
+  const seconds = getEffectiveWaitSeconds(group, now, s.global)
+  if (seconds === undefined) return
+
+  await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds) })
+}
+
+/**
+ * URL 評価結果に応じてタブをブロック先または待機ページへ遷移する。
+ * ハードブロックが待機ゲートより優先される。
+ */
+async function enforceEvaluation(tabId: number, url: string | undefined, s: Settings, evaluation: UrlEvaluation, now = new Date()): Promise<void> {
+  if (evaluation.blocked) {
+    await redirectTab(tabId, url, s, evaluation, now)
+    return
+  }
+  await redirectToWaitIfNeeded(tabId, url, s, evaluation, now)
+}
+
+/**
  * 残り秒数に応じた badge 背景色を返す。
  */
 function badgeColor(remainingSec: number): string {
@@ -325,8 +383,7 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
   const s = await currentSettings()
   await updateActionForTab(tab, now)
   const evaluation = applyGroupPauseState(evaluateUrl(s, counters, tab.url, now), groupPauseState, now.getTime())
-  if (!evaluation.blocked) return
-  await redirectTab(tab.id, tab.url, s, evaluation, now)
+  await enforceEvaluation(tab.id, tab.url, s, evaluation, now)
 }
 
 /**
@@ -380,8 +437,7 @@ async function handleNavigation(details: WebNavigation.OnBeforeNavigateDetailsTy
   const evaluation = applyGroupPauseState(evaluateUrl(s, counters, details.url, now), groupPauseState, now.getTime())
   await updateActionForTab({ id: details.tabId, url: details.url }, now)
   await notifyPageOpenIfNeeded(s, evaluation, now)
-  if (!evaluation.blocked) return
-  await redirectTab(details.tabId, details.url, s, evaluation, now)
+  await enforceEvaluation(details.tabId, details.url, s, evaluation, now)
 }
 
 /**
@@ -417,10 +473,11 @@ export default defineBackground(() => {
 
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return
-    if (!changes.counters && !changes.groupPauseState) return
+    if (!changes.counters && !changes.groupPauseState && !changes.delayGrantState) return
     runAsync(async () => {
       if (changes.counters) await reloadCounters()
       if (changes.groupPauseState) await reloadGroupPauseState()
+      if (changes.delayGrantState) await reloadDelayGrantState()
       await reevaluateAllTabs()
     })
   })
@@ -442,8 +499,7 @@ export default defineBackground(() => {
       await updateActionForTab({ ...tab, id: tabId, url }, now)
       const evaluation = applyGroupPauseState(evaluateUrl(s, counters, url, now), groupPauseState, now.getTime())
       await notifyPageOpenIfNeeded(s, evaluation, now)
-      if (!evaluation.blocked) return
-      await redirectTab(tabId, url, s, evaluation, now)
+      await enforceEvaluation(tabId, url, s, evaluation, now)
     })
   })
 

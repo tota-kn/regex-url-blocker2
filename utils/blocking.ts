@@ -1,4 +1,4 @@
-import type { DayOfWeek, GlobalSettings, Group, GroupPauseState, ScheduleRuleCondition, Settings, TimeRange, UsageCounter, UsageCountersState } from './types'
+import type { DayOfWeek, DelayGrantState, GlobalSettings, Group, GroupPauseState, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, UsageCounter, UsageCountersState } from './types'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
@@ -18,17 +18,6 @@ export interface LogicalDateInfo {
 }
 
 /**
- * 論理日にマッチした全スケジュールルールを合成した実効制限。
- * ブロック時間帯はマッチ全ルールの和集合、上限はマッチ全ルールの最小値。
- */
-export interface EffectiveDayRestrictions {
-  /** この論理日に即ブロックする時間帯。 */
-  blockedTimeRanges: TimeRange[]
-  /** この論理日の閲覧上限分数。undefined は上限なし、0 は即ブロック。 */
-  dailyLimitMinutes?: number
-}
-
-/**
  * URL 判定の結果。
  */
 export interface UrlEvaluation {
@@ -38,6 +27,8 @@ export interface UrlEvaluation {
   targetGroupIds: string[]
   /** ブロック状態だった group id。 */
   blockedGroupIds: string[]
+  /** ハードブロックされていないが待機ゲートを課す group id。 */
+  delayedGroupIds: string[]
 }
 
 /**
@@ -46,7 +37,7 @@ export interface UrlEvaluation {
 export interface TimeLimitUsageSummary {
   /** `dailyResetHour` を起点に算出した論理日の識別子。 */
   logicalDate: string
-  /** 今日有効な最小上限分数。 */
+  /** 今日有効な上限分数。 */
   limitMinutes: number
   /** 今日の累積閲覧秒数。 */
   consumedSec: number
@@ -68,18 +59,31 @@ export interface MinimumRemainingTimeLimit {
  * 1グループの現在時刻におけるブロック状態。
  */
 export interface GroupBlockStatus {
-  /** 今日有効な実効制限。disabled group では undefined。 */
-  restrictions?: EffectiveDayRestrictions
-  /** 現在有効な時間帯ブロック。 */
-  activeBlockedTimeRanges: TimeRange[]
-  /** 今日の上限利用状況。 */
+  /** disabled group でない場合に設定されている制限ルール配列。 */
+  restrictionRules: RestrictionRule[]
+  /** `isRestrictionActiveNow` の結果。 */
+  isActive: boolean
+  /** `type === 'block'` で現在アクティブな time range（複数指定時のうち現在該当するもの）。 */
+  activeTimeRanges: TimeRange[]
+  /** `type === 'grace'` のときの今日の利用状況。 */
   timeLimitSummary?: TimeLimitUsageSummary
-  /** 時間帯ブロックが現在有効なら true。 */
+  /** `type === 'wait'` かつアクティブなときの待機秒数。 */
+  waitSeconds?: number
+  /** block 制限が現在有効なら true。 */
   blockedByTimeRange: boolean
-  /** 今日の閲覧上限に到達しているなら true。 */
+  /** grace 制限が今日の上限に到達しているなら true。 */
   blockedByDailyLimit: boolean
   /** 一時停止を考慮しない現在のブロック状態。 */
   blocked: boolean
+}
+
+/**
+ * group が持つ現行制限ルール配列を返す。旧 `restriction` だけを持つ値も互換的に扱う。
+ */
+export function getRestrictionRules(group: Group): RestrictionRule[] {
+  const rules = group.restrictionRules ?? []
+  if (rules.length === 0 && group.restriction) return [group.restriction]
+  return rules
 }
 
 /**
@@ -215,6 +219,13 @@ export function getNextDailyResetAt(now: Date, global: GlobalSettings): Date {
 }
 
 /**
+ * 月日を比較可能な数値キーへ変換する。
+ */
+function monthDayKey(month: number, day: number): number {
+  return month * 100 + day
+}
+
+/**
  * スケジュールルールの条件が指定した論理日に一致するなら true を返す。
  */
 export function matchesScheduleRuleCondition(condition: ScheduleRuleCondition, info: LogicalDateInfo): boolean {
@@ -230,79 +241,67 @@ export function matchesScheduleRuleCondition(condition: ScheduleRuleCondition, i
 }
 
 /**
- * 月日を比較可能な数値キーへ変換する。
+ * group の制限条件が今日（現在の論理日）に一致するなら true を返す。
+ * 時刻ウィンドウは問わない。disabled group や制限未設定では false。
  */
-function monthDayKey(month: number, day: number): number {
-  return month * 100 + day
+export function restrictionMatchesToday(group: Group, now: Date, global: GlobalSettings): boolean {
+  if (group.disabled) return false
+  const info = getLogicalDate(now, global.dailyResetHour)
+  return getRestrictionRules(group).some(restriction => matchesScheduleRuleCondition(restriction.condition, info))
 }
 
 /**
- * group のスケジュールルールのうち指定した論理日に一致する全ルールを合成した実効制限を返す。
+ * 制限ルールが現在時刻でアクティブ（条件が今日に一致し、かつ時刻ウィンドウ内）かを返す。
  */
-export function resolveEffectiveRestrictions(group: Group, info: LogicalDateInfo): EffectiveDayRestrictions {
-  const matched = group.scheduleRules.filter(rule => matchesScheduleRuleCondition(rule.condition, info))
-  const limits = matched
-    .map(rule => rule.dailyLimitMinutes)
-    .filter((limit): limit is number => limit !== undefined)
-  return {
-    blockedTimeRanges: matched.flatMap(rule => rule.blockedTimeRanges),
-    dailyLimitMinutes: limits.length > 0 ? Math.min(...limits) : undefined,
-  }
-}
-
-/**
- * group に現在の論理日で有効な実効制限を返す。disabled group では undefined。
- */
-export function getRestrictionsForNow(group: Group, now: Date, global: GlobalSettings): EffectiveDayRestrictions | undefined {
-  if (group.disabled) return undefined
-
-  return resolveEffectiveRestrictions(group, getLogicalDate(now, global.dailyResetHour))
-}
-
-/**
- * group の現在時刻に該当する時間帯ブロックを返す。
- */
-export function getActiveBlockedTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
-  const restrictions = getRestrictionsForNow(group, now, global)
-  if (!restrictions) return []
+function isRestrictionRuleActiveNow(restriction: RestrictionRule, now: Date, global: GlobalSettings): boolean {
+  const info = getLogicalDate(now, global.dailyResetHour)
+  if (!matchesScheduleRuleCondition(restriction.condition, info)) return false
+  if (restriction.timeRanges.length === 0) return true
 
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  return restrictions.blockedTimeRanges.filter(range =>
-    timeInRange(nowMinute, range.startMinute, range.endMinute),
-  )
+  return restriction.timeRanges.some(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
 }
 
 /**
- * group が指定時刻・counter でブロック状態なら true を返す。
+ * group の制限が現在時刻でアクティブ（条件が今日に一致し、かつ時刻ウィンドウ内）かを返す。
+ * disabled group や制限未設定では false。
  */
-function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): boolean {
-  const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  const restrictions = resolveEffectiveRestrictions(group, logicalDate)
-  if (restrictions.blockedTimeRanges.length === 0 && restrictions.dailyLimitMinutes === undefined) return false
-
-  const nowMinute = now.getHours() * 60 + now.getMinutes()
-  const blockedBySlot = restrictions.blockedTimeRanges.some(range =>
-    timeInRange(nowMinute, range.startMinute, range.endMinute),
-  )
-  if (blockedBySlot) return true
-
-  if (restrictions.dailyLimitMinutes === undefined) return false
-
-  const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
-  return consumedSec >= restrictions.dailyLimitMinutes * 60
+export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSettings): boolean {
+  if (group.disabled) return false
+  return getRestrictionRules(group).some(restriction => isRestrictionRuleActiveNow(restriction, now, global))
 }
 
 /**
- * group に今日有効な閲覧上限があれば、上限・消費・残り時間を返す。
+ * group の restriction が `type === 'block'` かつ現在アクティブなら、
+ * 現在該当する time range 配列を返す。空配列 `timeRanges`（終日）は24時間ブロック相当の1件を返す。
+ */
+function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
+  if (group.disabled) return []
+  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  return getRestrictionRules(group)
+    .filter(restriction => restriction.type === 'block' && isRestrictionRuleActiveNow(restriction, now, global))
+    .flatMap((restriction) => {
+      if (restriction.timeRanges.length === 0) return [{ startMinute: 0, endMinute: 0 }]
+      return restriction.timeRanges.filter(range => timeInRange(nowMinute, range.startMinute, range.endMinute))
+    })
+}
+
+/**
+ * group に今日有効な `grace` 制限があれば、上限・消費・残り時間を返す。
+ * アクティブウィンドウ外でも、条件が今日に一致していれば累積消費を表示するため値を返す。
+ * `type !== 'grace'` や disabled group、制限未設定では undefined。
  */
 export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): TimeLimitUsageSummary | undefined {
   if (group.disabled) return undefined
-
   const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  const restrictions = getRestrictionsForNow(group, now, global)
-  if (!restrictions || restrictions.dailyLimitMinutes === undefined) return undefined
+  const limitMinutes = getRestrictionRules(group)
+    .filter(restriction => restriction.type === 'grace' && restriction.graceMinutes !== undefined)
+    .filter(restriction => matchesScheduleRuleCondition(restriction.condition, logicalDate))
+    .map(restriction => restriction.graceMinutes)
+    .filter((minutes): minutes is number => minutes !== undefined)
+    .sort((a, b) => a - b)[0]
+  if (limitMinutes === undefined) return undefined
 
-  const limitMinutes = restrictions.dailyLimitMinutes
   const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
   const limitSec = limitMinutes * 60
   return {
@@ -314,34 +313,64 @@ export function getTimeLimitUsageSummary(group: Group, counter: UsageCounter | u
 }
 
 /**
+ * group の restriction が `type === 'wait'` かつ現在アクティブなときの待機秒数を返す。
+ * `waitSeconds` が undefined または 0 以下なら undefined（待機なし扱い）。
+ */
+export function getEffectiveWaitSeconds(group: Group, now: Date, global: GlobalSettings): number | undefined {
+  const waitSeconds = getRestrictionRules(group)
+    .filter(restriction => restriction.type === 'wait')
+    .filter(restriction => restriction.waitSeconds !== undefined && restriction.waitSeconds > 0)
+    .filter(restriction => isRestrictionRuleActiveNow(restriction, now, global))
+    .map(restriction => restriction.waitSeconds)
+    .filter((seconds): seconds is number => seconds !== undefined)
+  return waitSeconds.length > 0 ? Math.max(...waitSeconds) : undefined
+}
+
+/**
+ * group が指定時刻・counter でハードブロック状態か。
+ * アクティブ かつ（block は常に true / grace は消費秒 >= graceMinutes*60 / wait は false）。
+ */
+function isGroupBlocked(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): boolean {
+  if (getActiveTimeRanges(group, now, global).length > 0) return true
+  if (!getRestrictionRules(group).some(restriction => restriction.type === 'grace' && isRestrictionRuleActiveNow(restriction, now, global))) return false
+
+  const summary = getTimeLimitUsageSummary(group, counter, now, global)
+  return summary !== undefined && summary.remainingSec <= 0
+}
+
+/**
  * group の popup 表示向けブロック状態を返す。
  */
 export function getGroupBlockStatus(group: Group, counter: UsageCounter | undefined, now: Date, global: GlobalSettings): GroupBlockStatus {
-  const restrictions = getRestrictionsForNow(group, now, global)
-  const activeBlockedTimeRanges = getActiveBlockedTimeRanges(group, now, global)
+  const restrictionRules = group.disabled ? [] : getRestrictionRules(group)
+  const isActive = isRestrictionActiveNow(group, now, global)
+  const activeTimeRanges = getActiveTimeRanges(group, now, global)
   const timeLimitSummary = getTimeLimitUsageSummary(group, counter, now, global)
-  const blockedByDailyLimit = timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
+  const blockedByDailyLimit = isActive && timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
+  const waitSeconds = getEffectiveWaitSeconds(group, now, global)
 
   return {
-    restrictions,
-    activeBlockedTimeRanges,
+    restrictionRules,
+    isActive,
+    activeTimeRanges,
     timeLimitSummary,
-    blockedByTimeRange: activeBlockedTimeRanges.length > 0,
+    waitSeconds,
+    blockedByTimeRange: activeTimeRanges.length > 0,
     blockedByDailyLimit,
-    blocked: activeBlockedTimeRanges.length > 0 || blockedByDailyLimit,
+    blocked: activeTimeRanges.length > 0 || blockedByDailyLimit,
   }
 }
 
 /**
  * 現在有効な時間帯ブロックが実際に解除される日時を返す。
- * 翌論理日は別ルールになりうるため、論理日境界ごとに実効制限を再評価しながら先へ進める。
+ * 翌論理日は条件が一致しなくなりうるため、論理日境界ごとにアクティブ状態を再評価しながら先へ進める。
  * 最大366ステップ探索しても解除されない場合は undefined（実質常時ブロック）を返す。
  */
 export function getTimeRangeUnblockAt(group: Group, now: Date, global: GlobalSettings): Date | undefined {
   const MAX_STEPS = 366
   let t = new Date(now)
   for (let step = 0; step < MAX_STEPS; step += 1) {
-    const activeRanges = getActiveBlockedTimeRanges(group, t, global)
+    const activeRanges = getActiveTimeRanges(group, t, global)
     if (activeRanges.length === 0) return t
 
     const nextBoundaries = [
@@ -386,10 +415,15 @@ export function evaluateUrl(settings: Settings, counters: UsageCountersState, ur
     .filter(group => isGroupBlocked(group, counters.counters[group.id], now, settings.global))
     .map(group => group.id)
 
+  const delayedGroupIds = targetGroups
+    .filter(group => getEffectiveWaitSeconds(group, now, settings.global) !== undefined)
+    .map(group => group.id)
+
   return {
     blocked: blockedGroupIds.length > 0,
     targetGroupIds,
     blockedGroupIds,
+    delayedGroupIds,
   }
 }
 
@@ -405,6 +439,20 @@ export function applyGroupPauseState(evaluation: UrlEvaluation, groupPauseState:
     ...evaluation,
     blocked: blockedGroupIds.length > 0,
     blockedGroupIds,
+  }
+}
+
+/**
+ * 待機ゲートを通過済みで許可期限内のグループを、URL 評価結果の待機対象から除外する。
+ */
+export function applyDelayGrantState(evaluation: UrlEvaluation, delayGrantState: DelayGrantState, now = Date.now()): UrlEvaluation {
+  const delayedGroupIds = evaluation.delayedGroupIds.filter((groupId) => {
+    const grantedUntil = delayGrantState.delayGrantState[groupId]?.grantedUntil
+    return !(typeof grantedUntil === 'number' && grantedUntil > now)
+  })
+  return {
+    ...evaluation,
+    delayedGroupIds,
   }
 }
 
@@ -426,12 +474,15 @@ export function normalizeCounters(settings: Settings, counters: UsageCountersSta
 }
 
 /**
- * URL に該当するすべての group counter に秒数を加算する。
+ * URL に該当し、かつ現在制限がアクティブな group counter にだけ秒数を加算する。
+ * 制限なしグループや、制限はあるが現在ウィンドウ外のグループは加算されない。
  */
 export function incrementCounters(settings: Settings, counters: UsageCountersState, url: string | undefined, now: Date, seconds: number): UsageCountersState {
   const normalized = normalizeCounters(settings, counters, now)
   const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
   for (const groupId of getTargetGroupIds(settings, url)) {
+    const group = settings.groups.find(g => g.id === groupId)
+    if (!group || !isRestrictionActiveNow(group, now, settings.global)) continue
     const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
     normalized.counters[groupId] = {
       logicalDate,

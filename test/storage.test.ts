@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { loadBlockNotificationHistory, loadCounters, loadGroupPauseState, loadPageOpenNotificationHistory, loadSettings, loadUsageNotificationHistory, parseSettingsExportJson, saveBlockNotificationHistory, saveCounters, saveGroupPauseState, savePageOpenNotificationHistory, saveSettings, saveUsageNotificationHistory, serializeSettingsExport } from '../utils/storage'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import { createEmptyGroup, dailyScheduleRules, weeklyScheduleRules } from './helpers'
+import { createEmptyGroup, dailyRestriction } from './helpers'
 
 describe('loadSettings', () => {
   it('未設定時は DEFAULT を返す', async () => {
@@ -43,31 +43,32 @@ describe('loadSettings', () => {
 })
 
 describe('saveSettings', () => {
-  it('save → load でラウンドトリップ', async () => {
+  it('save → load でラウンドトリップ（新 restriction 形式）', async () => {
     const group = {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://twitter\\.com'],
-      scheduleRules: [
-        ...dailyScheduleRules({ dailyLimitMinutes: 15 }),
-        ...weeklyScheduleRules([1, 2, 3, 4, 5], { blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }] }),
-        {
-          id: 'monthly-rule',
-          condition: { type: 'monthly' as const, daysOfMonth: [1, 15] },
-          blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }],
-          dailyLimitMinutes: undefined,
-        },
-        {
-          id: 'period-rule',
-          condition: { type: 'period' as const, start: { month: 12, day: 28 }, end: { month: 1, day: 3 } },
-          blockedTimeRanges: [],
-          dailyLimitMinutes: 0,
-        },
-      ],
+      restrictionRules: [{
+        condition: { type: 'weekly' as const, daysOfWeek: [1, 2, 3, 4, 5] as (1 | 2 | 3 | 4 | 5)[] },
+        timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+        type: 'block' as const,
+      }],
     }
     const settings = {
       global: { ...DEFAULT_GLOBAL_SETTINGS, blockAction: 'blockedPage' as const, redirectUrl: 'https://block.test', dailyResetHour: '03:00' },
       groups: [group],
+    }
+    await saveSettings(settings)
+    const loaded = await loadSettings()
+    expect(loaded).toEqual(settings)
+  })
+
+  it('save → load で grace / wait の restriction もラウンドトリップする', async () => {
+    const graceGroup = { ...createEmptyGroup('Grace'), restrictionRules: [dailyRestriction('grace', { graceMinutes: 15 })] }
+    const waitGroup = { ...createEmptyGroup('Wait'), restrictionRules: [dailyRestriction('wait', { waitSeconds: 30 })] }
+    const settings = {
+      global: DEFAULT_GLOBAL_SETTINGS,
+      groups: [graceGroup, waitGroup],
     }
     await saveSettings(settings)
     const loaded = await loadSettings()
@@ -83,7 +84,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 5,
+      version: 8,
       settings,
     })
   })
@@ -118,10 +119,16 @@ describe('settings export file', () => {
     })
   })
 
-  it('v5 export/import はグループ別 block action と disabled を保持する', () => {
+  it('v8 export/import はグループ別 block action と disabled、複数 restriction rules を保持する', () => {
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
-      groups: [{ ...createEmptyGroup('Imported'), disabled: true, blockAction: 'redirect' as const, redirectUrl: 'https://group-blocked.test' }],
+      groups: [{
+        ...createEmptyGroup('Imported'),
+        disabled: true,
+        blockAction: 'redirect' as const,
+        redirectUrl: 'https://group-blocked.test',
+        restrictionRules: [dailyRestriction('grace', { graceMinutes: 20 })],
+      }],
     }
 
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
@@ -148,7 +155,7 @@ describe('settings export file', () => {
     expect(imported.groups[0].disabled).toBe(false)
   })
 
-  it('v4 import は dailyRules を scheduleRules へ変換して受け入れる', () => {
+  it('v4 import は dailyRules を単一 restriction（grace）へ変換して受け入れる', () => {
     const imported = parseSettingsExportJson(JSON.stringify({
       version: 4,
       settings: {
@@ -171,11 +178,85 @@ describe('settings export file', () => {
       },
     }))
 
-    expect(imported.groups[0].scheduleRules).toHaveLength(1)
-    expect(imported.groups[0].scheduleRules[0]).toMatchObject({
+    expect(imported.groups[0].restrictionRules?.[0]).toMatchObject({
       condition: { type: 'daily' },
-      blockedTimeRanges: [],
-      dailyLimitMinutes: 15,
+      timeRanges: [],
+      type: 'grace',
+      graceMinutes: 15,
+    })
+  })
+
+  it('v6 import は複数 scheduleRules を block > grace > wait の複数 restriction rules へ変換する', () => {
+    const imported = parseSettingsExportJson(JSON.stringify({
+      version: 6,
+      settings: {
+        global: DEFAULT_GLOBAL_SETTINGS,
+        groups: [{
+          id: 'v6-mixed',
+          name: 'V6 Mixed',
+          mode: 'blacklist',
+          disabled: false,
+          lockMode: false,
+          patterns: ['example\\.com'],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://example.com',
+          scheduleRules: [
+            { id: 'wait-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: undefined, delaySeconds: 30 },
+            { id: 'grace-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: 20 },
+            { id: 'block-rule', condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }] },
+          ],
+        }],
+      },
+    }))
+
+    expect(imported.groups[0].restrictionRules?.[0]).toMatchObject({
+      condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      type: 'block',
+    })
+    expect(imported.groups[0].restrictionRules?.[1]).toMatchObject({
+      condition: { type: 'daily' },
+      type: 'grace',
+      graceMinutes: 20,
+    })
+    expect(imported.groups[0].restrictionRules?.[2]).toMatchObject({
+      condition: { type: 'daily' },
+      type: 'wait',
+      waitSeconds: 30,
+    })
+  })
+
+  it('v6 import は block 候補が無ければ grace、wait の順で複数 restriction rules へ変換する', () => {
+    const imported = parseSettingsExportJson(JSON.stringify({
+      version: 6,
+      settings: {
+        global: DEFAULT_GLOBAL_SETTINGS,
+        groups: [{
+          id: 'v6-grace-wait',
+          name: 'V6 Grace Wait',
+          mode: 'blacklist',
+          disabled: false,
+          lockMode: false,
+          patterns: ['example\\.com'],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://example.com',
+          scheduleRules: [
+            { id: 'wait-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: undefined, delaySeconds: 30 },
+            { id: 'grace-rule', condition: { type: 'daily' }, blockedTimeRanges: [], dailyLimitMinutes: 20 },
+          ],
+        }],
+      },
+    }))
+
+    expect(imported.groups[0].restrictionRules?.[0]).toMatchObject({
+      condition: { type: 'daily' },
+      type: 'grace',
+      graceMinutes: 20,
+    })
+    expect(imported.groups[0].restrictionRules?.[1]).toMatchObject({
+      condition: { type: 'daily' },
+      type: 'wait',
+      waitSeconds: 30,
     })
   })
 
@@ -275,7 +356,7 @@ describe('loadSettings のマイグレーション', () => {
     expect(s.groups[0].mode).toBe('whitelist')
   })
 
-  it('旧 dailyRules は同一内容の曜日をまとめて weekly / daily ルールへ変換する', async () => {
+  it('旧 dailyRules は同一内容の曜日をまとめ、block 候補があれば block 制限へ変換する', async () => {
     await browser.storage.sync.set({
       groups: [{
         id: 'legacy-rules',
@@ -291,20 +372,14 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
 
-    expect(s.groups[0].scheduleRules).toHaveLength(2)
-    expect(s.groups[0].scheduleRules[0]).toMatchObject({
-      condition: { type: 'weekly', daysOfWeek: [0, 6] },
-      blockedTimeRanges: [],
-      dailyLimitMinutes: 30,
-    })
-    expect(s.groups[0].scheduleRules[1]).toMatchObject({
+    expect(s.groups[0].restrictionRules?.[0]).toMatchObject({
       condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
-      blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
-      dailyLimitMinutes: 30,
+      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      type: 'block',
     })
   })
 
-  it('旧 dailyRules が全曜日同一の場合は daily ルール1件へ変換する', async () => {
+  it('旧 dailyRules が全曜日同一で上限のみの場合は daily grace 制限1件へ変換する', async () => {
     await browser.storage.sync.set({
       groups: [{
         id: 'legacy-daily',
@@ -320,15 +395,15 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
 
-    expect(s.groups[0].scheduleRules).toHaveLength(1)
-    expect(s.groups[0].scheduleRules[0]).toMatchObject({
+    expect(s.groups[0].restrictionRules?.[0]).toMatchObject({
       condition: { type: 'daily' },
-      blockedTimeRanges: [],
-      dailyLimitMinutes: 15,
+      timeRanges: [],
+      type: 'grace',
+      graceMinutes: 15,
     })
   })
 
-  it('scheduleRules の condition.type が未知の要素は破棄される', async () => {
+  it('scheduleRules の condition.type が未知の要素は破棄され、残りのルールから集約される', async () => {
     await browser.storage.sync.set({
       groups: [{
         id: 'mixed',
@@ -343,11 +418,14 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
 
-    expect(s.groups[0].scheduleRules).toHaveLength(1)
-    expect(s.groups[0].scheduleRules[0].id).toBe('ok')
+    expect(s.groups[0].restrictionRules?.[0]).toMatchObject({
+      condition: { type: 'daily' },
+      type: 'grace',
+      graceMinutes: 10,
+    })
   })
 
-  it('旧 schedules / blockedTimeSlots / timeLimits フィールドは破棄され空の scheduleRules で初期化される', async () => {
+  it('旧 schedules / blockedTimeSlots / timeLimits フィールドは破棄され制限なしで初期化される', async () => {
     await browser.storage.sync.set({
       groups: [{
         id: 'z',
@@ -360,11 +438,12 @@ describe('loadSettings のマイグレーション', () => {
       }],
     })
     const s = await loadSettings()
-    expect(s.groups[0].scheduleRules).toEqual([])
+    expect(s.groups[0].restrictionRules).toEqual([])
     expect((s.groups[0] as unknown as Record<string, unknown>).schedules).toBeUndefined()
     expect((s.groups[0] as unknown as Record<string, unknown>).blockedTimeSlots).toBeUndefined()
     expect((s.groups[0] as unknown as Record<string, unknown>).timeLimits).toBeUndefined()
     expect((s.groups[0] as unknown as Record<string, unknown>).dailyRules).toBeUndefined()
+    expect((s.groups[0] as unknown as Record<string, unknown>).scheduleRules).toBeUndefined()
   })
 })
 

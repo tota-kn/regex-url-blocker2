@@ -7,13 +7,13 @@ import {
 } from '../utils/effectiveSettings'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import type { Group, Settings } from '../utils/types'
-import { dailyScheduleRules, weeklyScheduleRules } from './helpers'
+import { dailyRestriction, weeklyRestriction } from './helpers'
 
 /**
  * テスト用グループを生成する。
  */
 function group(overrides: Partial<Group> = {}): Group {
-  return {
+  const result: Group = {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
@@ -22,9 +22,14 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-    scheduleRules: [],
+    restriction: undefined,
     ...overrides,
   }
+  if ((!result.restrictionRules || result.restrictionRules.length === 0) && result.restriction) {
+    result.restrictionRules = [result.restriction]
+    result.restriction = undefined
+  }
+  return result
 }
 
 /**
@@ -46,13 +51,12 @@ describe('effective settings', () => {
   it('Lock Mode OFF の group は編集が即時に有効設定へ反映される', () => {
     const active = settings([group({
       patterns: ['example\\.com'],
-      scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 30 }),
+      restriction: dailyRestriction('grace', { graceMinutes: 30 }),
     })])
     const preferred = settings([group({
       patterns: ['example\\.com', 'news\\.example'],
-      scheduleRules: dailyScheduleRules({
-        blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
-        dailyLimitMinutes: 10,
+      restriction: dailyRestriction('block', {
+        timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
       }),
     })])
 
@@ -70,14 +74,13 @@ describe('effective settings', () => {
     const active = settings([group({
       lockMode: true,
       patterns: ['example\\.com', 'news\\.example'],
-      scheduleRules: dailyScheduleRules({
-        blockedTimeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
-        dailyLimitMinutes: 10,
+      restriction: dailyRestriction('block', {
+        timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
       }),
     })], '03:00')
     const preferred = settings([group({
       patterns: ['example\\.com'],
-      scheduleRules: dailyScheduleRules({ dailyLimitMinutes: 30 }),
+      restriction: dailyRestriction('grace', { graceMinutes: 30 }),
     })], '03:00')
 
     const state = reconcileEffectiveSettings(
@@ -87,16 +90,13 @@ describe('effective settings', () => {
     )
 
     expect(state.effectiveSettings.groups[0].patterns).toEqual(['example\\.com', 'news\\.example'])
-    expect(state.effectiveSettings.groups[0].scheduleRules[0].blockedTimeRanges).toEqual([{ startMinute: 540, endMinute: 1020 }])
-    expect(state.effectiveSettings.groups[0].scheduleRules[0].dailyLimitMinutes).toBe(10)
+    expect(state.effectiveSettings.groups[0].restrictionRules?.[0]?.timeRanges).toEqual([{ startMinute: 540, endMinute: 1020 }])
+    expect(state.effectiveSettings.groups[0].restrictionRules?.[0]?.type).toBe('block')
 
     const strictPreferred = settings([group({
       lockMode: true,
       patterns: ['example\\.com', 'news\\.example', 'strict\\.example'],
-      scheduleRules: dailyScheduleRules({
-        blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }],
-        dailyLimitMinutes: 1,
-      }),
+      restriction: dailyRestriction('grace', { graceMinutes: 1 }),
     })], '03:00')
 
     expect(mergeImmediateRestrictions(active, strictPreferred).groups[0]).toEqual(active.groups[0])
@@ -164,7 +164,7 @@ describe('effective settings', () => {
     const preferred = settings([group({
       id: 'changed',
       lockMode: false,
-      scheduleRules: weeklyScheduleRules([3], { dailyLimitMinutes: 60 }),
+      restriction: weeklyRestriction([3], 'grace', { graceMinutes: 60 }),
     })], '05:00')
 
     const state = reconcileEffectiveSettings(

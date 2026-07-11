@@ -4,17 +4,17 @@ import {
   cloneSettings,
   formatBlockDestination,
   formatGroupMode,
-  formatScheduleRule,
+  formatRestriction,
   formatScheduleRuleCondition,
 } from '../utils/groups'
-import type { Group, Settings } from '../utils/types'
-import { dailyScheduleRules } from './helpers'
+import type { Group, RestrictionRule, Settings } from '../utils/types'
+import { dailyRestriction } from './helpers'
 
 /**
  * テスト用グループを生成する。
  */
 function group(overrides: Partial<Group> = {}): Group {
-  return {
+  const result: Group = {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
@@ -23,9 +23,14 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: 'blockedPage',
     redirectUrl: 'https://redirect.test/',
-    scheduleRules: [],
+    restriction: undefined,
     ...overrides,
   }
+  if ((!result.restrictionRules || result.restrictionRules.length === 0) && result.restriction) {
+    result.restrictionRules = [result.restriction]
+    result.restriction = undefined
+  }
+  return result
 }
 
 /**
@@ -68,35 +73,44 @@ describe('group utilities', () => {
     })).toBe('12/28-01/03')
   })
 
-  it('スケジュールルールを読み取り表示用に要約する', () => {
-    expect(formatScheduleRule({
-      id: 'r1',
+  it('制限を読み取り表示用に要約する', () => {
+    const blockRestriction: RestrictionRule = {
       condition: { type: 'daily' },
-      blockedTimeRanges: [{ startMinute: 540, endMinute: 750 }],
-      dailyLimitMinutes: 10,
-    })).toBe('Every day — Blocked hours: 09:00-12:30; Daily limit: 10 min/day')
-    expect(formatScheduleRule({
-      id: 'r2',
+      timeRanges: [{ startMinute: 540, endMinute: 750 }],
+      type: 'block',
+    }
+    expect(formatRestriction(blockRestriction)).toBe('Every day 09:00-12:30 — Block')
+
+    const graceRestriction: RestrictionRule = {
       condition: { type: 'weekly', daysOfWeek: [6] },
-      blockedTimeRanges: [],
-      dailyLimitMinutes: undefined,
-    })).toBe('Weekly Sat — Blocked hours: No blocked hours; Daily limit: No daily limit')
+      timeRanges: [],
+      type: 'grace',
+      graceMinutes: 10,
+    }
+    expect(formatRestriction(graceRestriction)).toBe('Weekly Sat All day — Grace 10 min/day')
+
+    const waitRestriction: RestrictionRule = {
+      condition: { type: 'daily' },
+      timeRanges: [],
+      type: 'wait',
+      waitSeconds: 30,
+    }
+    expect(formatRestriction(waitRestriction)).toBe('Every day All day — Wait 30 sec')
   })
 
   it('グループを独立した deep clone として複製する', () => {
     const original = group({
-      scheduleRules: dailyScheduleRules({
-        blockedTimeRanges: [{ startMinute: 540, endMinute: 750 }],
-        dailyLimitMinutes: 10,
+      restriction: dailyRestriction('block', {
+        timeRanges: [{ startMinute: 540, endMinute: 750 }],
       }),
     })
     const cloned = cloneGroup(original)
 
     cloned.patterns.push('news\\.example')
-    cloned.scheduleRules[0].blockedTimeRanges[0].startMinute = 600
+    cloned.restrictionRules![0].timeRanges[0].startMinute = 600
 
     expect(original.patterns).toEqual(['example\\.com'])
-    expect(original.scheduleRules[0].blockedTimeRanges[0].startMinute).toBe(540)
+    expect(original.restrictionRules![0].timeRanges[0].startMinute).toBe(540)
   })
 
   it('設定を独立した deep clone として複製する', () => {

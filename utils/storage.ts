@@ -1,21 +1,37 @@
 import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
+import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
-import type { BlockAction, BlockNotificationHistoryState, DayOfWeek, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, PageOpenNotificationHistoryState, ScheduleRule, ScheduleRuleCondition, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
+import type { BlockAction, BlockNotificationHistoryState, DayOfWeek, DelayGrantState, EffectiveSettingsState, Group, GroupMode, GroupPauseEntry, GroupPauseState, MonthDay, PageOpenNotificationHistoryState, RestrictionRule, ScheduleRuleCondition, Settings, TimeRange, UsageCountersState, UsageNotificationEntry, UsageNotificationHistoryState } from './types'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 5
+export const SETTINGS_EXPORT_VERSION = 8
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | 3 | 4 | typeof SETTINGS_EXPORT_VERSION
+  version: 2 | 3 | 4 | 5 | 6 | 7 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
+}
+
+/**
+ * 旧 `scheduleRules[]` 形式の1ルール。storage.ts 内の移行処理専用。
+ * 現行の公開型 `RestrictionRule` とは異なり、フィールドは加算的（ブロック時間帯・上限・待機秒を同時に持てる）。
+ */
+interface LegacyScheduleRule {
+  /** このルールを適用する日の条件。 */
+  condition: ScheduleRuleCondition
+  /** 条件に一致した日に即ブロックする時間帯。 */
+  blockedTimeRanges: TimeRange[]
+  /** 条件に一致した日の閲覧上限分数。 */
+  dailyLimitMinutes?: number
+  /** 条件に一致した日、対象 URL を開くときに課す待機ゲートの秒数。 */
+  delaySeconds?: number
 }
 
 /**
@@ -56,6 +72,7 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 /**
  * unknown の値からグループ設定を生成する。
+ * `restrictionRules` を優先し、旧 `restriction` や旧 `scheduleRules[]` は複数制限ルールへ移行する。
  */
 function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction, fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl): Group {
   const g = asRecord(value)
@@ -69,7 +86,9 @@ function normalizeGroup(value: unknown, fallbackBlockAction = DEFAULT_GLOBAL_SET
     patterns: Array.isArray(g.patterns) ? g.patterns.filter(p => typeof p === 'string') : [],
     blockAction,
     redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
-    scheduleRules: normalizeScheduleRules(g.scheduleRules, g.dailyRules),
+    restrictionRules: normalizeRestrictionRules(g.restrictionRules, g.restriction)
+      ?? normalizeLegacyRestriction(g.restriction)
+      ?? convertLegacyScheduleRules(normalizeLegacyScheduleRules(g.scheduleRules, g.dailyRules)),
   }
 }
 
@@ -130,39 +149,79 @@ function normalizeScheduleRuleCondition(value: unknown): ScheduleRuleCondition |
 }
 
 /**
- * unknown の値からスケジュールルールを生成する。条件が解釈できない要素は undefined を返す。
+ * unknown の値から現行フォーマットの単一制限 `RestrictionRule` を生成する。
+ * 条件が解釈できない、または type が既知の値でない場合は undefined を返す。
  */
-function normalizeScheduleRule(value: unknown): ScheduleRule | undefined {
+function normalizeRestriction(value: unknown): RestrictionRule | undefined {
+  const r = asRecord(value)
+  const condition = normalizeScheduleRuleCondition(r.condition)
+  if (!condition) return undefined
+  if (r.type !== 'block' && r.type !== 'grace' && r.type !== 'wait') return undefined
+  const restriction: RestrictionRule = {
+    condition,
+    timeRanges: Array.isArray(r.timeRanges) ? r.timeRanges.map(normalizeTimeRange) : [],
+    type: r.type,
+  }
+  if (typeof r.graceMinutes === 'number') restriction.graceMinutes = r.graceMinutes
+  if (typeof r.waitSeconds === 'number') restriction.waitSeconds = r.waitSeconds
+  return restriction
+}
+
+/**
+ * unknown の値から現行フォーマットの制限ルール配列を生成する。
+ */
+function normalizeRestrictionRules(value: unknown, legacyRestriction?: unknown): RestrictionRule[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const restrictions = value.flatMap((item) => {
+    const restriction = normalizeRestriction(item)
+    return restriction ? [restriction] : []
+  })
+  if (restrictions.length === 0 && legacyRestriction !== undefined) return undefined
+  return restrictions
+}
+
+/**
+ * 旧 `restriction` 単一値を制限ルール配列へ変換する。
+ */
+function normalizeLegacyRestriction(value: unknown): RestrictionRule[] | undefined {
+  const restriction = normalizeRestriction(value)
+  return restriction ? [restriction] : undefined
+}
+
+/**
+ * unknown の値から旧 `scheduleRules[]` 形式の1ルールを生成する。条件が解釈できない要素は undefined を返す。
+ */
+function normalizeLegacyScheduleRule(value: unknown): LegacyScheduleRule | undefined {
   const rule = asRecord(value)
   const condition = normalizeScheduleRuleCondition(rule.condition)
   if (!condition) return undefined
   return {
-    id: typeof rule.id === 'string' ? rule.id : crypto.randomUUID(),
     condition,
     blockedTimeRanges: Array.isArray(rule.blockedTimeRanges) ? rule.blockedTimeRanges.map(normalizeTimeRange) : [],
     dailyLimitMinutes: typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined,
+    delaySeconds: typeof rule.delaySeconds === 'number' ? rule.delaySeconds : undefined,
   }
 }
 
 /**
- * unknown の値からスケジュールルール配列を生成する。
+ * unknown の値から旧 `scheduleRules[]` 形式のルール配列を生成する。
  * `scheduleRules` が無く旧 `dailyRules` がある場合は weekly / daily ルールへ自動変換する。
  */
-function normalizeScheduleRules(value: unknown, legacyDailyRules: unknown): ScheduleRule[] {
+function normalizeLegacyScheduleRules(value: unknown, legacyDailyRules: unknown): LegacyScheduleRule[] {
   if (Array.isArray(value)) {
     return value.flatMap((item) => {
-      const rule = normalizeScheduleRule(item)
+      const rule = normalizeLegacyScheduleRule(item)
       return rule ? [rule] : []
     })
   }
-  return convertDailyRulesToScheduleRules(legacyDailyRules)
+  return convertDailyRulesToLegacyScheduleRules(legacyDailyRules)
 }
 
 /**
- * 旧フォーマットの曜日別ルール（`dailyRules`）をスケジュールルールへ変換する。
+ * 旧フォーマットの曜日別ルール（`dailyRules`）を旧 `scheduleRules[]` 形式へ変換する。
  * 同一内容（ブロック時間帯・上限）の曜日をまとめて weekly ルール1件にし、全曜日同一なら daily ルールにする。
  */
-function convertDailyRulesToScheduleRules(value: unknown): ScheduleRule[] {
+function convertDailyRulesToLegacyScheduleRules(value: unknown): LegacyScheduleRule[] {
   if (!Array.isArray(value)) return []
 
   const byContent = new Map<string, { daysOfWeek: Set<DayOfWeek>, blockedTimeRanges: TimeRange[], dailyLimitMinutes?: number }>()
@@ -182,13 +241,34 @@ function convertDailyRulesToScheduleRules(value: unknown): ScheduleRule[] {
   }
 
   return [...byContent.values()].map(entry => ({
-    id: crypto.randomUUID(),
     condition: entry.daysOfWeek.size === 7
       ? { type: 'daily' as const }
       : { type: 'weekly' as const, daysOfWeek: [...entry.daysOfWeek].sort((a, b) => a - b) },
     blockedTimeRanges: entry.blockedTimeRanges,
     dailyLimitMinutes: entry.dailyLimitMinutes,
   }))
+}
+
+/**
+ * 旧 `scheduleRules[]`（または旧 `dailyRules` 変換結果）を現行の複数制限ルールへ変換する。
+ * 旧1ルールにブロック時間帯・上限・待機秒が同時にあれば、それぞれ別の制限ルールとして保持する。
+ */
+function convertLegacyScheduleRules(rules: LegacyScheduleRule[]): RestrictionRule[] {
+  const blockRestrictions: RestrictionRule[] = []
+  const graceRestrictions: RestrictionRule[] = []
+  const waitRestrictions: RestrictionRule[] = []
+  for (const rule of rules) {
+    if (rule.blockedTimeRanges.length > 0) {
+      blockRestrictions.push({ condition: rule.condition, timeRanges: rule.blockedTimeRanges, type: 'block' })
+    }
+    if (rule.dailyLimitMinutes !== undefined) {
+      graceRestrictions.push({ condition: rule.condition, timeRanges: [], type: 'grace', graceMinutes: rule.dailyLimitMinutes })
+    }
+    if (rule.delaySeconds !== undefined && rule.delaySeconds > 0) {
+      waitRestrictions.push({ condition: rule.condition, timeRanges: [], type: 'wait', waitSeconds: rule.delaySeconds })
+    }
+  }
+  return [...blockRestrictions, ...graceRestrictions, ...waitRestrictions]
 }
 
 /**
@@ -220,8 +300,8 @@ function normalizeSettings(raw: { global?: unknown, groups?: unknown }): Setting
 /**
  * browser.storage.sync から `Settings` 全体を読み込む。
  * 未設定キーや欠損フィールドは `DEFAULT_GLOBAL_SETTINGS` で穴埋めする。
- * 旧 `dailyRules` は `scheduleRules` へ自動変換し、それ以前の旧フォーマット
- * （`schedules` / `blockedTimeSlots` / `timeLimits`）は破棄して空の `scheduleRules` で初期化する。
+ * 旧 `dailyRules` や旧 `scheduleRules` は `restrictionRules` へ自動変換し、それ以前の旧フォーマット
+ * （`schedules` / `blockedTimeSlots` / `timeLimits`）は破棄して空の `restrictionRules` で初期化する。
  */
 export async function loadSettings(): Promise<Settings> {
   const raw = await browser.storage.sync.get(['global', 'groups']) as {
@@ -317,7 +397,7 @@ export function parseSettingsExportJson(json: string): Settings {
   }
 
   const file = asRecord(parsed)
-  if (file.version !== 2 && file.version !== 3 && file.version !== 4 && file.version !== SETTINGS_EXPORT_VERSION) {
+  if (file.version !== 2 && file.version !== 3 && file.version !== 4 && file.version !== 5 && file.version !== 6 && file.version !== SETTINGS_EXPORT_VERSION) {
     throw new Error('Unsupported settings file version')
   }
   if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {
@@ -430,6 +510,26 @@ export async function loadGroupPauseState(validGroupIds?: Iterable<string>, now 
 export async function saveGroupPauseState(state: GroupPauseState): Promise<void> {
   await browser.storage.local.set({
     groupPauseState: state.groupPauseState,
+  })
+}
+
+/**
+ * browser.storage.local から待機ゲートのアクセス許可状態を読み込む。
+ * 不正値、期限切れ値、指定された group id に存在しない値は除外する。
+ */
+export async function loadDelayGrantState(validGroupIds?: Iterable<string>, now = Date.now()): Promise<DelayGrantState> {
+  const raw = await browser.storage.local.get(['delayGrantState']) as {
+    delayGrantState?: unknown
+  }
+  return normalizeDelayGrantState(raw.delayGrantState, validGroupIds, now)
+}
+
+/**
+ * browser.storage.local に待機ゲートのアクセス許可状態を書き込む。
+ */
+export async function saveDelayGrantState(state: DelayGrantState): Promise<void> {
+  await browser.storage.local.set({
+    delayGrantState: state.delayGrantState,
   })
 }
 

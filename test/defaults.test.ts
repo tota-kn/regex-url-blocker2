@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_GLOBAL_SETTINGS, createEmptyScheduleRule, createGroupFromTemplate } from '../utils/defaults'
+import { createDefaultRestriction, DEFAULT_GLOBAL_SETTINGS, createGroupFromTemplate } from '../utils/defaults'
+import type { DayOfWeek } from '../utils/types'
 import { createEmptyGroup } from './helpers'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
@@ -14,14 +15,16 @@ describe('DEFAULT_GLOBAL_SETTINGS', () => {
   })
 })
 
-describe('createEmptyScheduleRule', () => {
-  it('毎日条件・制限なしのルールを一意な id で生成する', () => {
-    const rule = createEmptyScheduleRule()
-    expect(rule.condition).toEqual({ type: 'daily' })
-    expect(rule.blockedTimeRanges).toEqual([])
-    expect(rule.dailyLimitMinutes).toBeUndefined()
-    expect(rule.id.length).toBeGreaterThan(0)
-    expect(createEmptyScheduleRule().id).not.toBe(rule.id)
+describe('createDefaultRestriction', () => {
+  it('base 省略時は毎日条件・終日ウィンドウで生成する', () => {
+    const restriction = createDefaultRestriction('block')
+    expect(restriction).toEqual({ condition: { type: 'daily' }, timeRanges: [], type: 'block' })
+  })
+
+  it('base 指定時は condition/timeRanges を引き継ぎ type だけ切り替える', () => {
+    const base = { condition: { type: 'weekly' as const, daysOfWeek: [1, 2] as DayOfWeek[] }, timeRanges: [{ startMinute: 60, endMinute: 120 }] }
+    const restriction = createDefaultRestriction('grace', base)
+    expect(restriction).toEqual({ condition: base.condition, timeRanges: base.timeRanges, type: 'grace' })
   })
 })
 
@@ -35,7 +38,7 @@ describe('createEmptyGroup', () => {
     expect(g.patterns).toEqual([])
     expect(g.blockAction).toBe('blockedPage')
     expect(g.redirectUrl).toBe('https://example.com')
-    expect(g.scheduleRules).toEqual([])
+    expect(g.restrictionRules).toEqual([])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {
@@ -58,14 +61,14 @@ describe('createEmptyGroup', () => {
 })
 
 describe('createGroupFromTemplate', () => {
-  it('blank は空のURLパターンとスケジュールルールを返す', () => {
+  it('blank は空のURLパターンと制限なしを返す', () => {
     const group = createGroupFromTemplate('blank')
 
     expect(group.patterns).toEqual([])
-    expect(group.scheduleRules).toEqual([])
+    expect(group.restrictionRules).toEqual([])
   })
 
-  it('core-sns-15min はSNSパターンと毎日15分上限のルールを設定する', () => {
+  it('core-sns-15min はSNSパターンと毎日15分上限の猶予制限を設定する', () => {
     const group = createGroupFromTemplate('core-sns-15min')
 
     expect(group.patterns).toEqual([
@@ -77,15 +80,15 @@ describe('createGroupFromTemplate', () => {
       'threads.net',
       'bsky.app',
     ])
-    expect(group.scheduleRules).toHaveLength(1)
-    expect(group.scheduleRules[0]).toMatchObject({
+    expect(group.restrictionRules?.[0]).toMatchObject({
       condition: { type: 'daily' },
-      blockedTimeRanges: [],
-      dailyLimitMinutes: 15,
+      timeRanges: [],
+      type: 'grace',
+      graceMinutes: 15,
     })
   })
 
-  it('video-30min は動画パターンと毎日30分上限のルールを設定する', () => {
+  it('video-30min は動画パターンと毎日30分上限の猶予制限を設定する', () => {
     const group = createGroupFromTemplate('video-30min')
 
     expect(group.patterns).toEqual([
@@ -97,23 +100,22 @@ describe('createGroupFromTemplate', () => {
       'abema.tv',
       'nicovideo.jp',
     ])
-    expect(group.scheduleRules).toHaveLength(1)
-    expect(group.scheduleRules[0]).toMatchObject({
+    expect(group.restrictionRules?.[0]).toMatchObject({
       condition: { type: 'daily' },
-      blockedTimeRanges: [],
-      dailyLimitMinutes: 30,
+      timeRanges: [],
+      type: 'grace',
+      graceMinutes: 30,
     })
   })
 
-  it('work-hours-focus は平日09:00-18:00のブロック時間帯ルールを設定する', () => {
+  it('work-hours-focus は平日09:00-18:00のブロック制限を設定する', () => {
     const group = createGroupFromTemplate('work-hours-focus')
 
     expect(group.patterns).toEqual([])
-    expect(group.scheduleRules).toHaveLength(1)
-    expect(group.scheduleRules[0]).toMatchObject({
+    expect(group.restrictionRules?.[0]).toMatchObject({
       condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
-      blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
-      dailyLimitMinutes: undefined,
+      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+      type: 'block',
     })
   })
 })

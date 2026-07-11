@@ -12,7 +12,7 @@ import type { Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
 import PatternListEditor from './PatternListEditor.vue'
-import ScheduleRulesEditor from './ScheduleRulesEditor.vue'
+import RestrictionRulesEditor from './RestrictionRulesEditor.vue'
 
 /**
  * グループカードの props。
@@ -64,6 +64,13 @@ const isActionMenuOpen = ref(false)
 const actionMenuRoot = ref<HTMLElement | null>(null)
 
 const draftErrors = computed(() => validateGroup(draft.value))
+const draftRestrictionRules = computed({
+  get: () => draft.value.restrictionRules ?? (draft.value.restriction ? [draft.value.restriction] : []),
+  set: (restrictionRules) => {
+    draft.value.restrictionRules = restrictionRules
+    draft.value.restriction = undefined
+  },
+})
 const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string, value: string }> = []
@@ -117,9 +124,10 @@ function patternError(index: number): string | undefined {
   return draftError(`patterns[${index}]`)
 }
 
-/** 指定スケジュールルール番号のドラフト検証エラーメッセージを返す。 */
-function scheduleRuleError(index: number): string | undefined {
-  return draftErrors.value.find(e => e.field.startsWith(`scheduleRules[${index}]`))?.message
+/** 指定 restriction rule フィールドのドラフト検証エラーメッセージを返す。 */
+function restrictionError(index: number, field: string): string | undefined {
+  const prefix = `restrictionRules[${index}].${field}`
+  return draftErrors.value.find(e => e.field === prefix || e.field.startsWith(`${prefix}.`))?.message
 }
 
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
@@ -410,10 +418,11 @@ onBeforeUnmount(() => {
         :is-editing="isEditing"
         :error="patternError"
       />
-      <ScheduleRulesEditor
-        v-model="draft.scheduleRules"
+
+      <RestrictionRulesEditor
+        v-model="draftRestrictionRules"
         :is-editing="isEditing"
-        :rule-error="scheduleRuleError"
+        :error="restrictionError"
       />
     </fieldset>
 
