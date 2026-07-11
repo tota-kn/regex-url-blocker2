@@ -928,7 +928,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Time window 1')).toContainText('09:00-18:00')
   })
 
-  test('Options disclosure で group ごとの動作を操作できる', async ({ page, extensionId }) => {
+  test('Redirect 設定は Restriction の直後で、Options disclosure には高度な設定だけを表示する', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
@@ -940,8 +940,17 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeVisible()
     await expect(page.getByRole('radio', { name: 'Lock changes until next rule day Off' })).not.toBeVisible()
     await expect(page.getByRole('radio', { name: 'Lock changes until next rule day On' })).not.toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).not.toBeVisible()
-    await expect(page.getByRole('radio', { name: 'Page shown when blocked Redirect' })).not.toBeVisible()
+    const blockDestination = page.locator('fieldset[aria-label="Page shown when blocked"]').last()
+    await expect(blockDestination.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
+    await expect(blockDestination.getByRole('radio', { name: 'Page shown when blocked Redirect' })).toBeVisible()
+    const restrictionSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Time windows' }) }).last()
+    const [addRestrictionBox, blockDestinationBox] = await Promise.all([
+      restrictionSection.getByRole('button', { name: 'Add restriction' }).boundingBox(),
+      blockDestination.boundingBox(),
+    ])
+    expect(addRestrictionBox).not.toBeNull()
+    expect(blockDestinationBox).not.toBeNull()
+    expect(blockDestinationBox!.y).toBeGreaterThan(addRestrictionBox!.y)
     const urlPatternsSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'URL patterns' }) }).last()
     await expect(urlPatternsSection).not.toContainText('Block matches')
     await expect(urlPatternsSection).not.toContainText('Allow only matches')
@@ -953,12 +962,10 @@ test.describe('Options 画面', () => {
     await expect(optionsPanel.getByRole('radio', { name: 'URL pattern match behavior Allow only matches' })).not.toBeChecked()
     await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day Off' })).toBeChecked()
     await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeVisible()
-    await expect(optionsPanel.getByRole('radio', { name: 'Page shown when blocked Blocked page' })).toBeChecked()
-    await expect(optionsPanel.getByRole('radio', { name: 'Page shown when blocked Redirect' })).toBeVisible()
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await optionsPanel.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
+    await blockDestination.getByRole('radio', { name: 'Page shown when blocked Redirect' }).check()
     await expect(page.getByLabel('Redirect URL')).toBeVisible()
-    await optionsPanel.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
+    await blockDestination.getByRole('radio', { name: 'Page shown when blocked Blocked page' }).check()
     await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
     await optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' }).check()
     await expect(optionsPanel.getByRole('radio', { name: 'Lock changes until next rule day On' })).toBeChecked()

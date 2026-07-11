@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ShieldExclamationIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -82,15 +81,7 @@ function preventNonDigitInput(event: InputEvent): void {
 </script>
 
 <template>
-  <section class="min-w-0 space-y-3">
-    <h3 class="flex items-center gap-1.5 text-label-md">
-      <ShieldExclamationIcon
-        aria-hidden="true"
-        class="size-4 text-muted"
-      />
-      Restriction
-    </h3>
-
+  <div class="min-w-0 space-y-3">
     <template v-if="isEditing">
       <SegmentedControl
         aria-label="Restriction type"
@@ -153,5 +144,5 @@ function preventNonDigitInput(event: InputEvent): void {
     >
       {{ formatStandaloneRestriction(restriction) }}
     </output>
-  </section>
+  </div>
 </template>

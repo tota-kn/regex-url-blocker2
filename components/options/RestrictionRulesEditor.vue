@@ -169,28 +169,26 @@ function removeRestriction(index: number): void {
       <li
         v-for="(restriction, index) in restrictions"
         :key="index"
-        class="space-y-3 rounded-lg border border-border bg-surface p-3"
+        class="relative space-y-3 rounded-lg border border-border bg-surface p-3"
       >
-        <div
+        <BaseButton
           v-if="isEditing"
-          class="flex justify-end"
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          class="absolute right-3 top-3"
+          :aria-label="`Remove restriction ${index + 1}`"
+          @click="removeRestriction(index)"
         >
-          <BaseButton
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            :aria-label="`Remove restriction ${index + 1}`"
-            @click="removeRestriction(index)"
-          >
-            <TrashIcon
-              aria-hidden="true"
-              class="size-4"
-            />
-          </BaseButton>
-        </div>
+          <TrashIcon
+            aria-hidden="true"
+            class="size-4"
+          />
+        </BaseButton>
         <RestrictionEditor
           v-if="isEditing"
           v-model="restrictions[index]"
+          class="pr-10"
           :is-editing="isEditing"
           :error="field => props.restrictionError(index, field)"
         />

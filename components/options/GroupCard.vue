@@ -433,6 +433,74 @@ onBeforeUnmount(() => {
         :time-window-error="timeWindowError"
         :restriction-error="restrictionError"
       />
+
+      <fieldset
+        v-if="isEditing"
+        aria-label="Page shown when blocked"
+        class="space-y-3 border-t border-border pt-4"
+      >
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
+            <DocumentTextIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-muted"
+            />
+            <span>Page shown when blocked</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 sm:justify-end">
+            <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+              <input
+                v-model="draft.blockAction"
+                type="radio"
+                class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                aria-label="Page shown when blocked Blocked page"
+                value="blockedPage"
+              >
+              <span>Blocked page</span>
+            </label>
+            <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
+              <input
+                v-model="draft.blockAction"
+                type="radio"
+                class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                aria-label="Page shown when blocked Redirect"
+                value="redirect"
+              >
+              <span>Redirect</span>
+            </label>
+          </div>
+        </div>
+        <AlertMessage
+          v-if="draftError('blockAction')"
+        >
+          {{ draftError('blockAction') }}
+        </AlertMessage>
+        <label
+          v-if="draft.blockAction === 'redirect'"
+          class="block min-w-0 space-y-1.5 pl-6"
+        >
+          <span class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
+            <ArrowTopRightOnSquareIcon
+              aria-hidden="true"
+              class="size-4 shrink-0 text-muted"
+            />
+            <span>Redirect URL</span>
+          </span>
+          <BaseInput
+            v-model="draft.redirectUrl"
+            type="url"
+            aria-label="Redirect URL"
+            class="w-full"
+            :invalid="Boolean(draftError('redirectUrl'))"
+          />
+          <AlertMessage
+            v-if="draftError('redirectUrl')"
+            class="mt-2"
+          >
+            {{ draftError('redirectUrl') }}
+          </AlertMessage>
+        </label>
+      </fieldset>
     </fieldset>
 
     <section
@@ -545,73 +613,6 @@ onBeforeUnmount(() => {
                 </label>
               </div>
             </div>
-          </fieldset>
-
-          <fieldset
-            aria-label="Page shown when blocked"
-            class="space-y-3 py-3"
-          >
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-                <DocumentTextIcon
-                  aria-hidden="true"
-                  class="size-4 shrink-0 text-muted"
-                />
-                <span>Page shown when blocked</span>
-              </div>
-              <div class="flex flex-wrap items-center gap-4 sm:justify-end">
-                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                  <input
-                    v-model="draft.blockAction"
-                    type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                    aria-label="Page shown when blocked Blocked page"
-                    value="blockedPage"
-                  >
-                  <span>Blocked page</span>
-                </label>
-                <label class="inline-flex items-center gap-2 text-label-md text-secondary-foreground">
-                  <input
-                    v-model="draft.blockAction"
-                    type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
-                    aria-label="Page shown when blocked Redirect"
-                    value="redirect"
-                  >
-                  <span>Redirect</span>
-                </label>
-              </div>
-            </div>
-            <AlertMessage
-              v-if="draftError('blockAction')"
-            >
-              {{ draftError('blockAction') }}
-            </AlertMessage>
-            <label
-              v-if="draft.blockAction === 'redirect'"
-              class="block min-w-0 space-y-1.5 pl-6"
-            >
-              <span class="flex min-w-0 items-center gap-2 text-label-md text-secondary-foreground">
-                <ArrowTopRightOnSquareIcon
-                  aria-hidden="true"
-                  class="size-4 shrink-0 text-muted"
-                />
-                <span>Redirect URL</span>
-              </span>
-              <BaseInput
-                v-model="draft.redirectUrl"
-                type="url"
-                aria-label="Redirect URL"
-                class="w-full"
-                :invalid="Boolean(draftError('redirectUrl'))"
-              />
-              <AlertMessage
-                v-if="draftError('redirectUrl')"
-                class="mt-2"
-              >
-                {{ draftError('redirectUrl') }}
-              </AlertMessage>
-            </label>
           </fieldset>
         </div>
       </template>
