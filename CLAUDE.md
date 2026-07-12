@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) and Codex when worki
 
 ## プロジェクト概要
 
-正規表現で指定した URL の表示をブロックする Chrome 拡張機能。WXT + Vue 3 + TypeScript + Tailwind CSS v4 で構築。要件詳細は [docs/spec/README.md](docs/spec/README.md) 参照。
+正規表現で指定した URL の表示をブロックする Chrome 拡張機能。WXT + Vue 3 + TypeScript + Tailwind CSS v4 で構築。
 
 - **デザインシステム**: [DESIGN.md](DESIGN.md) に UI の視覚的アイデンティティを定義。YAML フロントマターにデザイントークン（色・タイポグラフィ・角丸・スペーシング・コンポーネント）を、Markdown 本文に設計思想と適用ガイドラインを記載する。UI を変更・追加する際はこのファイルに従うこと。
 

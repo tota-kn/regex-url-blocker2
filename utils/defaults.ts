@@ -15,7 +15,7 @@ export const DEFAULT_PAUSE_DURATION_MINUTES = 10
 export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work-hours-focus'
 
 /**
- * 未設定時に使用するグローバル設定の既定値。docs/spec/domain.md 準拠。
+ * 未設定時に使用するグローバル設定の既定値。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   blockAction: 'blockedPage',
