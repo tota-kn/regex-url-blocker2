@@ -111,12 +111,7 @@ function deletePattern(index: number): void {
         aria-label="Add URL pattern"
         size="sm"
         variant="ghost"
-        @click="
-          () => {
-            patterns.push('')
-            emit('touch', 'patterns')
-          }
-        "
+        @click="() => patterns.push('')"
       >
         <PlusIcon aria-hidden="true" class="size-4" />
         URL pattern
