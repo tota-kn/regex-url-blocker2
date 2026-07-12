@@ -1,6 +1,6 @@
 import type { Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { gotoPossiblyRedirected, startTestServer } from './helpers'
+import { gotoPossiblyRedirected, startTestServer, waitForEffectiveSettings } from './helpers'
 
 /**
  * テスト用 HTTP サーバーを起動する。
@@ -62,7 +62,7 @@ test.describe('Wait gate', () => {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveWaitGateSettings(serviceWorker, server.origin, 1)
-      await page.waitForTimeout(300)
+      await waitForEffectiveSettings(serviceWorker)
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
@@ -76,7 +76,6 @@ test.describe('Wait gate', () => {
       await expect(page).toHaveURL(`${server.origin}/target`)
 
       // 許可枠内では再度待機ページへ飛ばされない
-      await page.waitForTimeout(500)
       await expect(page).toHaveURL(`${server.origin}/target`)
     } finally {
       await server.close()
@@ -93,7 +92,7 @@ test.describe('Wait gate', () => {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveWaitGateSettings(serviceWorker, server.origin, 30)
-      await page.waitForTimeout(300)
+      await waitForEffectiveSettings(serviceWorker)
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))

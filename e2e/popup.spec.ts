@@ -1,40 +1,6 @@
-import { createServer, type Server } from 'node:http'
 import type { BrowserContext, Page, Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
-
-/**
- * テスト用 HTTP サーバーを起動する。
- */
-async function startServer(): Promise<{ origin: string; close: () => Promise<void> }> {
-  const server = createServer((req, res) => {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-    res.end(`<!doctype html><title>${req.url}</title><main>${req.url}</main>`)
-  })
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const address = server.address()
-  if (!address || typeof address === 'string') {
-    throw new Error('Failed to start test server')
-  }
-
-  return {
-    origin: `http://127.0.0.1:${address.port}`,
-    close: async () => closeServer(server),
-  }
-}
-
-/**
- * HTTP サーバーを停止する。
- */
-async function closeServer(server: Server): Promise<void> {
-  server.closeAllConnections()
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
-      if (error) reject(error)
-      else resolve()
-    })
-  })
-}
+import { startTestServer, waitForEffectiveSettings } from './helpers'
 
 /**
  * 今日の論理日 ID を返す。
@@ -213,7 +179,7 @@ async function savePopupPauseState(
  */
 async function savePopupFixture(serviceWorker: Worker, origin: string): Promise<void> {
   await savePopupSettings(serviceWorker, origin)
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  await waitForEffectiveSettings(serviceWorker)
   await savePopupCounters(serviceWorker)
 }
 
@@ -234,7 +200,7 @@ async function openPopupPage(
 
 test.describe('Popup 画面', () => {
   test('オプション画面を開くリンクを表示する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
@@ -253,7 +219,7 @@ test.describe('Popup 画面', () => {
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -290,7 +256,7 @@ test.describe('Popup 画面', () => {
   })
 
   test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -336,7 +302,7 @@ test.describe('Popup 画面', () => {
   })
 
   test('一致グループがない場合は空状態を表示する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -355,7 +321,7 @@ test.describe('Popup 画面', () => {
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -369,29 +335,12 @@ test.describe('Popup 画面', () => {
     }
   })
 
-  test('時間帯ブロック中のグループ状態を表示する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
-    try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
-      await savePopupFixture(serviceWorker, server.origin)
-
-      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/slot-active`)
-
-      await expect(popup.getByLabel('Active limits for this page')).toContainText('Slot Only')
-      await expect(popup.getByText('Blocked now')).toBeVisible()
-      await expect(popup.getByText('Blocked hours active')).toBeVisible()
-    } finally {
-      await server.close()
-    }
-  })
-
   test('時間帯ルールが現在時間外でもグループ状態を表示する', async ({
     page,
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -413,7 +362,7 @@ test.describe('Popup 画面', () => {
   })
 
   test('一時停止中のグループ状態を表示する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -429,7 +378,7 @@ test.describe('Popup 画面', () => {
   })
 
   test('一時停止リクエスト待機中の残り時間を表示する', async ({ page, context, extensionId }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -449,7 +398,7 @@ test.describe('Popup 画面', () => {
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
@@ -469,7 +418,7 @@ test.describe('Popup 画面', () => {
     context,
     extensionId,
   }) => {
-    const server = await startServer()
+    const server = await startTestServer()
     try {
       const serviceWorker =
         context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))

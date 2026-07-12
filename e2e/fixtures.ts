@@ -1,4 +1,4 @@
-import { test as base, chromium, type BrowserContext } from '@playwright/test'
+import { test as base, chromium, type BrowserContext, type Worker } from '@playwright/test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
  */
 export const test = base.extend<{
   context: BrowserContext
+  serviceWorker: Worker
   extensionId: string
 }>({
   // oxlint-disable-next-line no-empty-pattern -- Playwright fixtures require object destructuring.
@@ -26,11 +27,14 @@ export const test = base.extend<{
     await use(context)
     await context.close()
   },
-  extensionId: async ({ context }, use) => {
+  serviceWorker: async ({ context }, use) => {
     let [serviceWorker] = context.serviceWorkers()
     if (!serviceWorker) {
       serviceWorker = await context.waitForEvent('serviceworker')
     }
+    await use(serviceWorker)
+  },
+  extensionId: async ({ serviceWorker }, use) => {
     const extensionId = serviceWorker.url().split('/')[2]
     await use(extensionId)
   },

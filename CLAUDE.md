@@ -61,7 +61,7 @@ Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は 
 
 ### E2E テスト基盤
 
-[e2e/fixtures.ts](e2e/fixtures.ts) で `chromium.launchPersistentContext` により拡張機能をロード。`extensionId` フィクスチャは Service Worker URL から拡張 ID を抽出する。テスト内では `chrome-extension://${extensionId}/options.html` 等で各画面を開く。Playwright は `workers: 1`、`fullyParallel: false`。
+[e2e/fixtures.ts](e2e/fixtures.ts) で `chromium.launchPersistentContext` により拡張機能をロード。`extensionId` フィクスチャは Service Worker URL から拡張 ID を抽出する。テスト内では `chrome-extension://${extensionId}/options.html` 等で各画面を開く。Playwright は `workers: 4`、`fullyParallel: true`。
 
 ## 自動実行されるフック
 

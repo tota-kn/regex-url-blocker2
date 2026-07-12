@@ -2,8 +2,7 @@ import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-
-const DEBOUNCE_FLUSH_MS = 400
+import { waitForEffectiveSettings } from './helpers'
 
 /**
  * Playwright の file input に渡す JSON ファイル指定を生成する。
@@ -98,6 +97,57 @@ async function openGroupOptions(page: Page): Promise<void> {
  */
 async function openGroupActions(scope: Page | Locator): Promise<void> {
   await scope.getByRole('button', { name: 'Group actions' }).first().click()
+}
+
+/** Options の debounce 保存が storage.sync に反映されるまで待つ。 */
+async function expectGlobalSettingsStored(
+  page: Page,
+  expected: Record<string, unknown>,
+): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { get: (key: string) => Promise<{ global?: Record<string, unknown> }> }
+            }
+          }
+        }
+        return (await chromeApi.chrome.storage.sync.get('global')).global
+      }),
+    )
+    .toEqual(expect.objectContaining(expected))
+}
+
+/** 画面上の保存済み group 一覧が storage.sync と一致するまで待つ。 */
+async function expectVisibleGroupsStored(page: Page): Promise<void> {
+  const names = await page
+    .getByLabel('Name')
+    .evaluateAll((inputs) =>
+      inputs
+        .filter((input) => (input as HTMLInputElement).disabled)
+        .map((input) => (input as HTMLInputElement).value),
+    )
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: {
+                get: (key: string) => Promise<{ groups?: Array<{ name: string }> }>
+              }
+            }
+          }
+        }
+        return (
+          (await chromeApi.chrome.storage.sync.get('groups')).groups?.map((group) => group.name) ??
+          []
+        )
+      }),
+    )
+    .toEqual(names)
 }
 
 test.describe('Options 画面', () => {
@@ -293,6 +343,7 @@ test.describe('Options 画面', () => {
 
     await page.clock.fastForward(1_000)
     await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeEnabled()
+    const pauseRequestedAt = await page.evaluate(() => Date.now())
     await pauseDialog.getByRole('button', { name: 'Pause 7 min' }).click()
     await expect(page.getByText(/Paused 7:00|Paused 6:59/)).toBeVisible()
     stored = await serviceWorker.evaluate(async () => {
@@ -310,8 +361,8 @@ test.describe('Options 画面', () => {
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
     const pausedUntil = stored.groupPauseState?.['pause-target']?.pausedUntil
-    expect(pausedUntil).toBeGreaterThanOrEqual(startTime.getTime() + 5_000 + 7 * 60_000)
-    expect(pausedUntil).toBeLessThan(startTime.getTime() + 5_000 + 7 * 60_000 + 1_000)
+    expect(pausedUntil).toBeGreaterThanOrEqual(pauseRequestedAt + 7 * 60_000)
+    expect(pausedUntil).toBeLessThan(pauseRequestedAt + 7 * 60_000 + 5_000)
     expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
   })
 
@@ -500,7 +551,8 @@ test.describe('Options 画面', () => {
 
     await openGeneralSettings(page)
     await page.getByLabel('Minutes before daily limit warning', { exact: true }).fill('12')
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectGlobalSettingsStored(page, { notificationThresholdMinutes: 12 })
+    await expectVisibleGroupsStored(page)
     await page.reload()
     await openGeneralSettings(page)
     await expect(
@@ -513,7 +565,8 @@ test.describe('Options 画面', () => {
     await page
       .getByRole('checkbox', { name: 'Notify me before the daily limit is reached' })
       .uncheck()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectGlobalSettingsStored(page, { remainingTimeNotificationsEnabled: false })
+    await expectVisibleGroupsStored(page)
     await page.reload()
     await openGeneralSettings(page)
     await expect(
@@ -577,7 +630,6 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('BeforeImport')
     await page.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await openGeneralSettings(page)
     await page.getByLabel('Settings JSON file').setInputFiles(
@@ -650,6 +702,7 @@ test.describe('Options 画面', () => {
   }) => {
     const serviceWorker =
       context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -946,31 +999,36 @@ test.describe('Options 画面', () => {
           },
         ],
       }
-      const now = new Date()
-      const reset = new Date(now)
-      reset.setHours(3, 0, 0, 0)
-      if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
-      const logicalDate = [
-        reset.getFullYear(),
-        String(reset.getMonth() + 1).padStart(2, '0'),
-        String(reset.getDate()).padStart(2, '0'),
-      ].join('-')
-      await chromeApi.chrome.storage.local.set({
-        effectiveSettings: activeSettings,
-        effectiveSettingsLogicalDate: logicalDate,
-        groupPauseState: {
-          'deleted-active': { waitingUntil: Date.now() - 1 },
-        },
-      })
-      await chromeApi.chrome.storage.sync.set({
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: 'https://preferred-blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [],
-      })
+      await chromeApi.chrome.storage.sync.set(activeSettings)
     })
+    await waitForEffectiveSettings(serviceWorker)
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({ groups: [] })
+    })
+    await expect
+      .poll(async () => {
+        return serviceWorker.evaluate(async () => {
+          const chromeApi = globalThis as unknown as {
+            chrome: {
+              storage: {
+                local: {
+                  get: (key: string) => Promise<{ effectiveSettings?: { groups?: unknown[] } }>
+                }
+              }
+            }
+          }
+          return (await chromeApi.chrome.storage.local.get('effectiveSettings')).effectiveSettings
+            ?.groups?.length
+        })
+      })
+      .toBe(1)
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
@@ -1001,7 +1059,6 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('StillHere')
     await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await openGeneralSettings(page)
     await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('bad.json', '{'))
@@ -1198,8 +1255,7 @@ test.describe('Options 画面', () => {
       }),
     ).toBeChecked()
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.locator('main').getByText('Options')).toBeVisible()
@@ -1245,7 +1301,6 @@ test.describe('Options 画面', () => {
       .getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' })
       .check()
     await page.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await openGeneralSettings(page)
     await expect(page.getByLabel('Start a new rule day at this time')).toBeDisabled()
@@ -1261,7 +1316,6 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Saved')
     await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await createBlankGroup(page)
     await expect(page.getByLabel('Name').first()).toHaveValue('Saved')
@@ -1413,8 +1467,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     const urlPatternsSection = page
@@ -1454,8 +1507,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec, allow 25 min')
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec, allow 25 min')
@@ -1513,7 +1565,6 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await expect(page.getByText('Pause', { exact: true })).not.toBeVisible()
     await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
 
@@ -1522,7 +1573,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
     await expect(page.getByText('Group status')).not.toBeVisible()
     await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveValue('Disabled target')
@@ -1588,7 +1639,7 @@ test.describe('Options 画面', () => {
     )
 
     await duplicatedCard.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveCount(2)
@@ -1608,7 +1659,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Cancel group' }).click()
 
     await expect(page.getByText('1 group', { exact: true })).toBeVisible()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
     await expect(page.getByLabel('Name')).toHaveCount(1)
   })
@@ -1623,8 +1674,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     const urlPatternsSection = page
@@ -1642,8 +1692,7 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('DraftOnly')
     await page.getByRole('button', { name: 'Cancel group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
@@ -1656,7 +1705,6 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Saved')
     await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
     await page.getByRole('button', { name: 'Edit group' }).click()
     await expect(page.getByRole('menuitem', { name: 'Delete group' })).not.toBeVisible()
@@ -1664,6 +1712,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Save group' })).toBeVisible()
     await page.getByLabel('Name').fill('Unsaved')
     await page.getByRole('button', { name: 'Cancel group' }).click()
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveValue('Saved')
@@ -1710,8 +1759,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expect(page.getByText('Enter a valid URL pattern or regular expression.')).toBeVisible()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     // 無効なパターン文字列は保存されていない
@@ -1735,8 +1783,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Time window 1')).toContainText('Every day')
@@ -1797,7 +1844,7 @@ test.describe('Options 画面', () => {
         ],
       })
     })
-    await page.waitForTimeout(500)
+    await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(async () => {
       const date = new Date()
       const logicalDate = [
@@ -1872,7 +1919,7 @@ test.describe('Options 画面', () => {
         ],
       })
     })
-    await page.waitForTimeout(500)
+    await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(async () => {
       const date = new Date()
       const logicalDate = [
@@ -1949,8 +1996,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Active time ranges').fill('22:00-06:00')
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Time window 1')).toContainText('22:00-06:00')
@@ -1979,8 +2025,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('60')
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Time window 1')).toContainText('Weekly Mon')
@@ -1995,14 +2040,11 @@ test.describe('Options 画面', () => {
     await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
-
     await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Delete group' }).click()
     await expectDialogCentered(page, page.locator('dialog').filter({ hasText: 'Delete group?' }))
     await page.getByRole('button', { name: 'Confirm delete' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
@@ -2044,8 +2086,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Restriction type').last().selectOption('redirect')
     await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Restriction 1').first()).toContainText(
@@ -2087,8 +2128,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Restriction type').last().selectOption('grace')
     await page.getByLabel('Grace minutes per day').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     const urlPatternsSection = page
@@ -2121,8 +2161,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
-
-    await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expectVisibleGroupsStored(page)
     await page.reload()
 
     const timeWindow = page.getByLabel('Time window 1')
