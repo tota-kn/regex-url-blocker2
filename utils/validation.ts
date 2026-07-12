@@ -19,6 +19,12 @@ export interface ValidationError {
   message: string
 }
 
+/** グループ検証の動作オプション。 */
+export interface ValidateGroupOptions {
+  /** 保存UIで必要な各設定セクションが最低1件あることを要求する。 */
+  requireConfiguredSections?: boolean
+}
+
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 /**
@@ -239,7 +245,7 @@ function validateStandaloneRestriction(
 /**
  * グループをバリデーションし、エラー配列を返す。エラーがなければ空配列。
  */
-export function validateGroup(group: Group): ValidationError[] {
+export function validateGroup(group: Group, options: ValidateGroupOptions = {}): ValidationError[] {
   const errors: ValidationError[] = []
 
   if (group.mode !== 'blacklist' && group.mode !== 'whitelist') {
@@ -287,6 +293,15 @@ export function validateGroup(group: Group): ValidationError[] {
   })
 
   if (group.timeWindows !== undefined || group.restrictions !== undefined) {
+    if (options.requireConfiguredSections && (group.patterns ?? []).length === 0) {
+      errors.push({ field: 'patterns', message: 'Add at least one URL pattern' })
+    }
+    if (options.requireConfiguredSections && (group.timeWindows ?? []).length === 0) {
+      errors.push({ field: 'timeWindows', message: 'Add at least one time window' })
+    }
+    if (options.requireConfiguredSections && (group.restrictions ?? []).length === 0) {
+      errors.push({ field: 'restrictions', message: 'Add at least one restriction' })
+    }
     ;(group.timeWindows ?? []).forEach((window, index) =>
       errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)),
     )

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ClockIcon, PlusIcon, ShieldExclamationIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { createDefaultRestriction, createDefaultTimeWindow } from '@/utils/defaults'
 import { formatStandaloneRestriction, formatTimeWindow } from '@/utils/groups'
@@ -12,6 +13,10 @@ import ScheduleWindowEditor from './ScheduleWindowEditor.vue'
  * 複数の制限ルールを編集するコンポーネントの props。
  */
 interface Props {
+  /** Time windows 一覧全体のエラーメッセージ。 */
+  timeWindowsSectionError?: string
+  /** Restrictions 一覧全体のエラーメッセージ。 */
+  restrictionsSectionError?: string
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
@@ -148,6 +153,9 @@ function removeRestriction(index: number): void {
       <PlusIcon aria-hidden="true" class="size-4" />
       Time window
     </BaseButton>
+    <AlertMessage v-if="timeWindowsSectionError">
+      {{ timeWindowsSectionError }}
+    </AlertMessage>
 
     <RuleSectionHeader title="Restrictions" class="pt-3">
       <template #icon>
@@ -197,5 +205,8 @@ function removeRestriction(index: number): void {
       <PlusIcon aria-hidden="true" class="size-4" />
       Restriction
     </BaseButton>
+    <AlertMessage v-if="restrictionsSectionError">
+      {{ restrictionsSectionError }}
+    </AlertMessage>
   </section>
 </template>

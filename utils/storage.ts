@@ -667,7 +667,7 @@ export function parseSettingsExportJson(json: string): Settings {
   const settings = normalizeSettings(rawSettings)
   const errors = [
     ...validateGlobalSettings(settings.global),
-    ...settings.groups.flatMap(validateGroup),
+    ...settings.groups.flatMap((group) => validateGroup(group)),
   ]
   if (errors.length > 0) {
     throw new Error('Settings file contains invalid settings')

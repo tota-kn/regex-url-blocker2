@@ -97,9 +97,16 @@ describe('validateGroup', () => {
     ).toBe(true)
   })
 
-  it('制限未設定でも valid（制限なし）', () => {
+  it('URL pattern・Time window・Restriction が未設定ならそれぞれエラー', () => {
     const g = { ...createEmptyGroup(), name: 'X' }
-    expect(validateGroup(g)).toEqual([])
+    const errors = validateGroup(g, { requireConfiguredSections: true })
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        { field: 'patterns', message: 'Add at least one URL pattern' },
+        { field: 'timeWindows', message: 'Add at least one time window' },
+        { field: 'restrictions', message: 'Add at least one restriction' },
+      ]),
+    )
   })
 
   it('mode が whitelist も valid', () => {

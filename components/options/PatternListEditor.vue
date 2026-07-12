@@ -10,6 +10,8 @@ import RuleSectionHeader from './RuleSectionHeader.vue'
  * URL pattern 編集コンポーネントの props。
  */
 interface Props {
+  /** URL pattern 一覧全体のエラーメッセージ。 */
+  sectionError?: string
   /** 指定パターン番号のエラーメッセージを返す関数。 */
   error: (index: number) => string | undefined
   /** 編集モードかどうか。false のとき追加・削除ボタンと未選択モードを隠す。 */
@@ -109,6 +111,9 @@ function deletePattern(index: number): void {
         <PlusIcon aria-hidden="true" class="size-4" />
         URL pattern
       </BaseButton>
+      <AlertMessage v-if="sectionError">
+        {{ sectionError }}
+      </AlertMessage>
     </div>
   </section>
 </template>

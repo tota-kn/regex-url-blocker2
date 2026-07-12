@@ -1317,6 +1317,28 @@ test.describe('Options 画面', () => {
     expect(restrictionButtonBox!.y).toBeGreaterThan(restrictionsHeadingBox!.y)
   })
 
+  test('必須の設定セクションが空のグループは保存できない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Incomplete')
+
+    await expect(page.getByText('Add at least one URL pattern')).toBeVisible()
+    await expect(page.getByText('Add at least one time window')).toBeVisible()
+    await expect(page.getByText('Add at least one restriction')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
+
+    await expect(page.getByText('Add at least one URL pattern')).toHaveCount(0)
+    await expect(page.getByText('Add at least one time window')).toHaveCount(0)
+    await expect(page.getByText('Add at least one restriction')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+  })
+
   test('編集可能な入力欄は共通の field 色で表示される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 

@@ -20,6 +20,7 @@
   - `patterns`: URL pattern 文字列の配列
   - `timeWindows`: Time window の配列
   - `restrictions`: Restriction の配列
+  - 保存可能なグループでは `patterns`、`timeWindows`、`restrictions` はそれぞれ最低1件必要。いずれかが空の未完成なグループは Options 上で保存できない
 - `mode` の意味：
   - `blacklist`: `patterns` のいずれかにマッチした URL を制限対象とする
   - `whitelist`: `patterns` のいずれにもマッチしない URL を制限対象とする

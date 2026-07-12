@@ -89,7 +89,7 @@ interface Restriction {
 - `patterns` は URL 判定に使う文字列配列。
 - `blockAction` と `redirectUrl` が現行のグループ別ブロック先。
 - `waitGrantMinutes` は Wait 通過後のアクセス許可期間（分）。`1` 以上の整数を指定する。旧データで省略または `0` の場合は `10` 分として読み込む。
-- `timeWindows` と `restrictions` は独立した配列。どちらかが空なら制限は適用しない。詳細は `docs/spec/domain.md`「グループ」節を参照。
+- `timeWindows` と `restrictions` は独立した配列。どちらかが空なら制限は適用しない。読み込み互換のため空配列は保持するが、Options では `patterns`、`timeWindows`、`restrictions` のいずれかが空のグループを保存できない。詳細は `docs/spec/domain.md`「グループ」節を参照。
 
 `groups` が配列でない場合は空配列として読み込む。
 

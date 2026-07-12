@@ -87,7 +87,7 @@ const isOptionsOpen = ref(false)
 const isActionMenuOpen = ref(false)
 const actionMenuRoot = ref<HTMLElement | null>(null)
 
-const draftErrors = computed(() => validateGroup(draft.value))
+const draftErrors = computed(() => validateGroup(draft.value, { requireConfiguredSections: true }))
 const draftTimeWindows = computed({
   get: () => draft.value.timeWindows ?? [],
   set: (timeWindows) => {
@@ -171,6 +171,11 @@ function patternError(index: number): string | undefined {
   return draftError(`patterns[${index}]`)
 }
 
+/** URL pattern 一覧全体のドラフト検証エラーを返す。 */
+function patternsSectionError(): string | undefined {
+  return draftError('patterns')
+}
+
 /** 指定 restriction rule フィールドのドラフト検証エラーメッセージを返す。 */
 function restrictionError(index: number, field: string): string | undefined {
   const prefix = `restrictions[${index}].${field}`
@@ -183,6 +188,16 @@ function timeWindowError(index: number, field: string): string | undefined {
   const prefix = `timeWindows[${index}].${field}`
   return draftErrors.value.find((e) => e.field === prefix || e.field.startsWith(`${prefix}.`))
     ?.message
+}
+
+/** Time windows 一覧全体のドラフト検証エラーを返す。 */
+function timeWindowsSectionError(): string | undefined {
+  return draftError('timeWindows')
+}
+
+/** Restrictions 一覧全体のドラフト検証エラーを返す。 */
+function restrictionsSectionError(): string | undefined {
+  return draftError('restrictions')
 }
 
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
@@ -483,12 +498,19 @@ onBeforeUnmount(() => {
 
     <fieldset :disabled="!isEditing" class="min-w-0 space-y-4 p-4 disabled:cursor-default">
       <legend class="sr-only">Group details</legend>
-      <PatternListEditor v-model="draft.patterns" :is-editing="isEditing" :error="patternError" />
+      <PatternListEditor
+        v-model="draft.patterns"
+        :is-editing="isEditing"
+        :section-error="patternsSectionError()"
+        :error="patternError"
+      />
 
       <RestrictionRulesEditor
         v-model:time-windows="draftTimeWindows"
         v-model:restrictions="draftRestrictions"
         :is-editing="isEditing"
+        :time-windows-section-error="timeWindowsSectionError()"
+        :restrictions-section-error="restrictionsSectionError()"
         :time-window-error="timeWindowError"
         :restriction-error="restrictionError"
       />
