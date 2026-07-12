@@ -76,6 +76,16 @@ async function createBlankGroup(page: Page): Promise<void> {
 }
 
 /**
+ * グループ保存に必須の URL pattern・time window・restriction を最小構成で追加する。
+ */
+async function addRequiredGroupSections(page: Page, pattern = 'example.com'): Promise<void> {
+  await page.getByRole('button', { name: 'Add URL pattern' }).click()
+  await page.getByRole('textbox', { name: 'URL pattern' }).last().fill(pattern)
+  await page.getByRole('button', { name: 'Add time window' }).last().click()
+  await page.getByRole('button', { name: 'Add restriction' }).last().click()
+}
+
+/**
  * 編集中グループの Options disclosure を開く。
  */
 async function openGroupOptions(page: Page): Promise<void> {
@@ -757,6 +767,7 @@ test.describe('Options 画面', () => {
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' }).first()).toBeEnabled()
     await expect(page.getByRole('menuitem', { name: 'Active settings only' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Group actions' }).first().click()
 
     await page.getByRole('button', { name: 'View active settings' }).click()
 
@@ -988,6 +999,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('StillHere')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
@@ -1120,6 +1132,8 @@ test.describe('Options 画面', () => {
       await expect(page.getByRole('checkbox', { name: day })).not.toBeChecked()
     }
 
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expect(page.getByLabel('Time window 1')).toContainText('Weekly Mon, Tue, Wed, Thu, Fri')
     await expect(page.getByLabel('Time window 1')).toContainText('09:00-18:00')
@@ -1150,6 +1164,9 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add restriction' }).last().click()
     await page.getByLabel('Restriction type').last().selectOption('redirect')
     await expect(page.getByLabel('Redirect URL')).toBeVisible()
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
 
     await optionsButton.click()
     await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
@@ -1222,6 +1239,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LockedReset')
+    await addRequiredGroupSections(page)
     await openGroupOptions(page)
     await page
       .getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' })
@@ -1241,6 +1259,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Saved')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
@@ -1391,6 +1410,8 @@ test.describe('Options 画面', () => {
     await page
       .getByRole('textbox', { name: 'URL pattern' })
       .fill('^https?://(www\\.)?twitter\\.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1425,6 +1446,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Wait gate')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByLabel('Restriction type').selectOption('wait')
     await page.getByLabel('Wait seconds before access').fill('30')
@@ -1452,7 +1474,9 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Minutes allowed after wait').fill('0')
 
     await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
   })
 
   test('Restriction は編集中に重複できるが重複中は保存できない', async ({ page, extensionId }) => {
@@ -1466,7 +1490,9 @@ test.describe('Options 画面', () => {
     await addRestriction.click()
     await expect(page.getByLabel('Restriction type').nth(1)).toHaveValue('block')
     await expect(page.getByText('Choose either Block or Redirect, not both.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Choose either Block or Redirect, not both.')).toBeVisible()
 
     await page.getByLabel('Restriction type').nth(1).selectOption('wait')
     await expect(page.getByText('Choose either Block or Redirect, not both.')).not.toBeVisible()
@@ -1484,6 +1510,8 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Disabled target')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await expect(page.getByText('Pause', { exact: true })).not.toBeVisible()
@@ -1544,6 +1572,8 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Focus')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGroupActions(page)
@@ -1571,6 +1601,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Focus')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
     await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Duplicate group' }).click()
@@ -1589,6 +1620,8 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('DomainBlock')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1621,6 +1654,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Saved')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
 
@@ -1644,6 +1678,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('ReadonlyName')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await expect(page.locator('label:has(input[aria-label="Name"]) svg')).toHaveCount(0)
@@ -1672,7 +1707,9 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Bad')
 
     await expect(page.getByText('Enter a valid URL pattern or regular expression.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Enter a valid URL pattern or regular expression.')).toBeVisible()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
@@ -1689,6 +1726,8 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LimitedSite')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:15-10:45, 22:00-01:30')
@@ -1716,7 +1755,9 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Grace minutes per day').fill('')
 
     await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
   })
 
   test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {
@@ -1901,9 +1942,12 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('NightBlock')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('22:00-06:00')
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1917,6 +1961,8 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('CustomDays')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add time window' }).click()
     const timeWindowType = page.getByLabel('Time window type')
     await expect(timeWindowType.locator('option')).toHaveText([
@@ -1946,6 +1992,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('ToDelete')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1969,6 +2016,7 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('LeftDelete')
+    await addRequiredGroupSections(page)
     await page.getByRole('button', { name: 'Save group' }).click()
 
     const editBox = await page.getByRole('button', { name: 'Edit group' }).boundingBox()
@@ -1989,6 +2037,9 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('RedirectGroup')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByRole('button', { name: 'Add restriction' }).last().click()
     await page.getByLabel('Restriction type').last().selectOption('redirect')
     await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
@@ -2014,7 +2065,9 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Redirect URL').fill('not-a-url')
 
     await expect(page.getByText('Enter a valid URL, including http:// or https://.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Enter a valid URL, including http:// or https://.')).toBeVisible()
   })
 
   test('保存済みグループの閲覧時はフォーム部品が操作可能に見えない', async ({
@@ -2061,9 +2114,12 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('ReadonlyRules')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByLabel('Time window type').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)

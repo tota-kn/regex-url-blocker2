@@ -79,7 +79,7 @@ const displayGroups = computed<DisplayGroup[]>(() => {
       groupPauseState.value.groupPauseState[group.id],
       now.value,
     )
-    const hasDisplayState = status.restrictionRules.length > 0 || pauseState.kind !== 'none'
+    const hasDisplayState = status.restrictions.length > 0 || pauseState.kind !== 'none'
     return hasDisplayState ? [{ group: displayGroup, status, pauseState }] : []
   })
 })

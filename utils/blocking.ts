@@ -74,8 +74,8 @@ export interface MinimumRemainingTimeLimit {
  * 1グループの現在時刻におけるブロック状態。
  */
 export interface GroupBlockStatus {
-  /** disabled group でない場合に設定されている制限ルール配列。 */
-  restrictionRules: RestrictionRule[]
+  /** disabled group でない場合に設定されている制限の配列。 */
+  restrictions: Restriction[]
   /** `isRestrictionActiveNow` の結果。 */
   isActive: boolean
   /** `type === 'block'` で現在アクティブな time range（複数指定時のうち現在該当するもの）。 */
@@ -492,7 +492,7 @@ export function getGroupBlockStatus(
   now: Date,
   global: GlobalSettings,
 ): GroupBlockStatus {
-  const restrictionRules = group.disabled ? [] : getRestrictionRules(group)
+  const restrictions = group.disabled ? [] : getRestrictions(group)
   const isActive = isRestrictionActiveNow(group, now, global)
   const activeTimeRanges = getActiveTimeRanges(group, now, global)
   const timeLimitSummary = getTimeLimitUsageSummary(group, counter, now, global)
@@ -502,7 +502,7 @@ export function getGroupBlockStatus(
   const waitGrantMinutes = getEffectiveWaitGrantMinutes(group, now, global)
 
   return {
-    restrictionRules,
+    restrictions,
     isActive,
     activeTimeRanges,
     timeLimitSummary,
@@ -698,9 +698,7 @@ export function getEffectiveGroupBlockStatus(
   const uniqueObjects = <T>(values: T[]): T[] => [
     ...new Map(values.map((value) => [JSON.stringify(value), value])).values(),
   ]
-  const restrictionRules = uniqueObjects(
-    uniqueVariants.flatMap((item) => item.status.restrictionRules),
-  )
+  const restrictions = uniqueObjects(uniqueVariants.flatMap((item) => item.status.restrictions))
   const activeTimeRanges = uniqueObjects(
     uniqueVariants.flatMap((item) => item.status.activeTimeRanges),
   )
@@ -709,7 +707,7 @@ export function getEffectiveGroupBlockStatus(
   return {
     group: preferredGroup ?? uniqueVariants[0]!.group,
     status: {
-      restrictionRules,
+      restrictions,
       isActive: uniqueVariants.some((item) => item.status.isActive),
       activeTimeRanges,
       timeLimitSummary: summaries[0],

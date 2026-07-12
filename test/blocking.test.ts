@@ -842,7 +842,7 @@ describe('blocking evaluation', () => {
     )
 
     expect(status).toEqual({
-      restrictionRules: [],
+      restrictions: [],
       isActive: false,
       activeTimeRanges: [],
       timeLimitSummary: undefined,
