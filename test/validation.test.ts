@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { isValidHHMM, validateGlobalSettings, validateGroup } from '../utils/validation'
+import {
+  isValidHHMM,
+  VALIDATION_MESSAGES,
+  validateGlobalSettings,
+  validateGroup,
+} from '../utils/validation'
 import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import type { RestrictionRule } from '../utils/types'
@@ -93,7 +98,7 @@ describe('validateGroup', () => {
     })
     expect(errors.some((e) => e.field === 'name')).toBe(true)
     expect(
-      errors.some((e) => e.field === 'patterns[0]' && e.message === 'Invalid URL pattern'),
+      errors.some((e) => e.field === 'patterns[0]' && e.message === VALIDATION_MESSAGES.urlPattern),
     ).toBe(true)
   })
 
@@ -102,9 +107,9 @@ describe('validateGroup', () => {
     const errors = validateGroup(g, { requireConfiguredSections: true })
     expect(errors).toEqual(
       expect.arrayContaining([
-        { field: 'patterns', message: 'Add at least one URL pattern' },
-        { field: 'timeWindows', message: 'Add at least one time window' },
-        { field: 'restrictions', message: 'Add at least one restriction' },
+        { field: 'patterns', message: VALIDATION_MESSAGES.patterns },
+        { field: 'timeWindows', message: VALIDATION_MESSAGES.timeWindows },
+        { field: 'restrictions', message: VALIDATION_MESSAGES.restrictions },
       ]),
     )
   })
@@ -426,11 +431,11 @@ describe('validateRestriction (validateGroup 経由)', () => {
 
     expect(duplicateGrace).toContainEqual({
       field: 'restrictions[1].type',
-      message: 'Only one grace restriction is allowed',
+      message: VALIDATION_MESSAGES.duplicateRestriction,
     })
     expect(hardConflict).toContainEqual({
       field: 'restrictions[1].type',
-      message: 'Block and Redirect cannot be combined',
+      message: 'Choose either Block or Redirect, not both.',
     })
   })
 })

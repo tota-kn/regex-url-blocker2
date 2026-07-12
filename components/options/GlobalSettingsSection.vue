@@ -37,6 +37,8 @@ const emit = defineEmits<{
   exportSettings: []
   /** 選択された設定ファイルをインポートしたいことを親へ通知する。 */
   importSettings: [file: File]
+  /** 編集された設定フィールドを親フォームへ伝える。 */
+  touch: [field: string]
 }>()
 
 /**
@@ -148,6 +150,7 @@ onUnmounted(() => {
           :disabled="dailyResetTimeLocked"
           class="w-full"
           :invalid="Boolean(error('dailyResetHour'))"
+          @input="emit('touch', 'dailyResetHour')"
         />
         <p v-if="dailyResetTimeLocked" class="mt-1.5 text-body-sm text-muted">
           Cannot change while any group has Lock Mode enabled or pending.
@@ -169,6 +172,7 @@ onUnmounted(() => {
                 type="checkbox"
                 class="-ml-7 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
                 aria-label="Notify me before the daily limit is reached"
+                @change="emit('touch', 'remainingTimeNotificationsEnabled')"
               />
               <label
                 for="remaining-time-notifications-enabled"
@@ -186,6 +190,7 @@ onUnmounted(() => {
                   class="w-24"
                   :disabled="!globalSettings.remainingTimeNotificationsEnabled"
                   :invalid="Boolean(error('notificationThresholdMinutes'))"
+                  @input="emit('touch', 'notificationThresholdMinutes')"
                 />
               </BaseField>
               <span class="text-label-md text-secondary-foreground"

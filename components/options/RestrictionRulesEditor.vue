@@ -27,6 +27,12 @@ interface Props {
   ) => string | undefined
 }
 
+const emit = defineEmits<{
+  /** 子エディタで編集したフィールドを親フォームへ通知する。 */ touch: [field: string]
+  /** テキスト形式のスケジュールが保存可能かどうかを親フォームへ通知する。 */
+  'schedule-validity-change': [field: string, valid: boolean]
+}>()
+
 const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
   timeWindowError: () => undefined,
@@ -38,16 +44,19 @@ const restrictions = defineModel<Restriction[]>('restrictions', { required: true
 
 /** 新しい制限ルールを追加する。 */
 function addTimeWindow(): void {
+  emit('touch', 'timeWindows')
   timeWindows.value = [...timeWindows.value, createDefaultTimeWindow()]
 }
 
 /** 指定位置の制限ルールを削除する。 */
 function removeTimeWindow(index: number): void {
+  emit('touch', 'timeWindows')
   timeWindows.value = timeWindows.value.filter((_, i) => i !== index)
 }
 
 /** 選択された種別に対応する時間ウィンドウへ切り替える。 */
 function setTimeWindowType(index: number, value: string): void {
+  emit('touch', `timeWindows[${index}]`)
   const existing = timeWindows.value[index]
   if (value === 'always') {
     timeWindows.value[index] = { type: 'always' }
@@ -72,11 +81,13 @@ function setTimeWindowType(index: number, value: string): void {
 
 /** 新しい制限を追加する。 */
 function addRestriction(): void {
+  emit('touch', 'restrictions')
   restrictions.value = [...restrictions.value, createDefaultRestriction('block')]
 }
 
 /** 指定位置の制限を削除する。 */
 function removeRestriction(index: number): void {
+  emit('touch', 'restrictions')
   restrictions.value = restrictions.value.filter((_, i) => i !== index)
 }
 </script>
@@ -128,6 +139,12 @@ function removeRestriction(index: number): void {
             :condition="window.condition"
             :time-ranges="window.timeRanges"
             :is-editing="isEditing"
+            :error="(field) => props.timeWindowError(index, field)"
+            @touch="(field) => emit('touch', `timeWindows[${index}].${field}`)"
+            @validity-change="
+              (field, valid) =>
+                emit('schedule-validity-change', `timeWindows[${index}].${field}`, valid)
+            "
             @update:condition="window.condition = $event"
             @update:time-ranges="window.timeRanges = $event"
           />
@@ -185,6 +202,7 @@ function removeRestriction(index: number): void {
           class="pr-10"
           :is-editing="isEditing"
           :error="(field) => props.restrictionError(index, field)"
+          @touch="(field) => emit('touch', `restrictions[${index}].${field}`)"
         />
         <output
           v-else

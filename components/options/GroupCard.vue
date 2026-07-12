@@ -24,6 +24,7 @@ import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
 import type { Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
+import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
 import PatternListEditor from './PatternListEditor.vue'
 import RestrictionRulesEditor from './RestrictionRulesEditor.vue'
@@ -81,6 +82,8 @@ const emit = defineEmits<Emits>()
  * 編集フォームに反映するグループの作業コピー。
  */
 const draft = ref<Group>(cloneGroup(props.group))
+const validationFeedback = useValidationFeedback()
+const invalidScheduleFields = ref(new Set<string>())
 
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 const isOptionsOpen = ref(false)
@@ -100,7 +103,6 @@ const draftRestrictions = computed({
     draft.value.restrictions = restrictions
   },
 })
-const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string; value: string }> = []
   if (props.group.lockMode) {
@@ -163,7 +165,8 @@ watch(showsActionMenu, (visible) => {
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {
-  return draftErrors.value.find((e) => e.field === field)?.message
+  const error = draftErrors.value.find((e) => e.field === field)
+  return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
 }
 
 /** 指定パターン番号のドラフト検証エラーメッセージを返す。 */
@@ -179,15 +182,19 @@ function patternsSectionError(): string | undefined {
 /** 指定 restriction rule フィールドのドラフト検証エラーメッセージを返す。 */
 function restrictionError(index: number, field: string): string | undefined {
   const prefix = `restrictions[${index}].${field}`
-  return draftErrors.value.find((e) => e.field === prefix || e.field.startsWith(`${prefix}.`))
-    ?.message
+  const error = draftErrors.value.find(
+    (e) => e.field === prefix || e.field.startsWith(`${prefix}.`),
+  )
+  return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
 }
 
 /** 指定 time window フィールドのドラフト検証エラーを返す。 */
 function timeWindowError(index: number, field: string): string | undefined {
   const prefix = `timeWindows[${index}].${field}`
-  return draftErrors.value.find((e) => e.field === prefix || e.field.startsWith(`${prefix}.`))
-    ?.message
+  const error = draftErrors.value.find(
+    (e) => e.field === prefix || e.field.startsWith(`${prefix}.`),
+  )
+  return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
 }
 
 /** Time windows 一覧全体のドラフト検証エラーを返す。 */
@@ -204,6 +211,8 @@ function restrictionsSectionError(): string | undefined {
 function startEditing(): void {
   if (props.readOnly) return
   draft.value = cloneGroup(props.group)
+  validationFeedback.reset()
+  invalidScheduleFields.value = new Set()
   isOptionsOpen.value = false
   closeActionMenu()
   isEditing.value = true
@@ -216,13 +225,16 @@ function cancelEditing(): void {
     return
   }
   draft.value = cloneGroup(props.group)
+  validationFeedback.reset()
+  invalidScheduleFields.value = new Set()
   isEditing.value = false
 }
 
 /** エラーがない場合だけドラフトを保存値として親へ通知する。 */
 function saveEditing(): void {
   if (props.readOnly) return
-  if (!canSave.value) return
+  validationFeedback.showAllErrors()
+  if (draftErrors.value.length > 0 || invalidScheduleFields.value.size > 0) return
   emit('save', cloneGroup(draft.value))
   isOptionsOpen.value = false
   closeActionMenu()
@@ -300,7 +312,21 @@ function pauseDisabledReasonId(): string {
 
 /** Pause 時間の数値入力を作業中グループへ反映する。 */
 function setPauseSetting(field: 'pauseWaitSeconds' | 'pauseDurationMinutes', value: string): void {
+  validationFeedback.touch(field)
   draft.value[field] = value === '' ? Number.NaN : Number(value)
+}
+
+/** 子エディタが編集したフィールドを検証表示の対象にする。 */
+function touchField(field: string): void {
+  validationFeedback.touch(field)
+}
+
+/** Schedule の未反映テキストが保存を妨げる状態を更新する。 */
+function setScheduleValidity(field: string, valid: boolean): void {
+  const next = new Set(invalidScheduleFields.value)
+  if (valid) next.delete(field)
+  else next.add(field)
+  invalidScheduleFields.value = next
 }
 
 /** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
@@ -345,6 +371,7 @@ onBeforeUnmount(() => {
               size="sm"
               class="w-full text-heading-md"
               :invalid="isEditing && Boolean(draftError('name'))"
+              @input="touchField('name')"
             />
           </label>
 
@@ -503,6 +530,7 @@ onBeforeUnmount(() => {
         :is-editing="isEditing"
         :section-error="patternsSectionError()"
         :error="patternError"
+        @touch="touchField"
       />
 
       <RestrictionRulesEditor
@@ -513,6 +541,8 @@ onBeforeUnmount(() => {
         :restrictions-section-error="restrictionsSectionError()"
         :time-window-error="timeWindowError"
         :restriction-error="restrictionError"
+        @touch="touchField"
+        @schedule-validity-change="setScheduleValidity"
       />
     </fieldset>
 
@@ -663,13 +693,7 @@ onBeforeUnmount(() => {
           <XMarkIcon aria-hidden="true" class="size-4" />
           Cancel
         </BaseButton>
-        <BaseButton
-          type="button"
-          aria-label="Save group"
-          :disabled="!canSave"
-          variant="primary"
-          @click="saveEditing"
-        >
+        <BaseButton type="button" aria-label="Save group" variant="primary" @click="saveEditing">
           <CheckIcon aria-hidden="true" class="size-4" />
           Save
         </BaseButton>

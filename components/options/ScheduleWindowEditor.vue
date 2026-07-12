@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import {
   formatMonthDay,
@@ -9,6 +10,7 @@ import {
   parseTimeRangeText,
 } from '@/utils/datetime'
 import type { DayOfWeek, ScheduleRuleCondition, TimeRange } from '@/utils/types'
+import { VALIDATION_MESSAGES } from '@/utils/validation'
 import DayOfWeekCheckboxes from './DayOfWeekCheckboxes.vue'
 
 /**
@@ -21,6 +23,8 @@ interface Props {
   timeRanges: TimeRange[]
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
+  /** 指定スケジュール入力の検証エラーを返す。 */
+  error?: (field: 'condition' | 'timeRanges') => string | undefined
 }
 
 /**
@@ -31,10 +35,15 @@ interface Emits {
   'update:condition': [condition: ScheduleRuleCondition]
   /** 時刻ウィンドウが変更されたときに発火する。 */
   'update:timeRanges': [timeRanges: TimeRange[]]
+  /** 編集されたフィールドを親フォームへ通知する。 */
+  touch: [field: 'condition' | 'timeRanges']
+  /** テキスト入力が保存可能かどうかを親フォームへ通知する。 */
+  'validity-change': [field: 'condition' | 'timeRanges', valid: boolean]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
+  error: () => undefined,
 })
 const emit = defineEmits<Emits>()
 
@@ -81,16 +90,19 @@ function weeklyDays(): DayOfWeek[] {
 
 /** weekly 条件の曜日配列を更新する。 */
 function setWeeklyDays(days: DayOfWeek[]): void {
+  emit('touch', 'condition')
   if (props.condition.type === 'weekly')
     emit('update:condition', { type: 'weekly', daysOfWeek: days })
 }
 
 /** 毎月の日付テキストを更新し、解析できたら条件へ反映する。 */
 function setDaysOfMonthText(value: string | number | undefined): void {
+  emit('touch', 'condition')
   const text = String(value ?? '')
   texts.value.daysOfMonth = text
 
   const days = parseDaysOfMonthText(text)
+  emit('validity-change', 'condition', days !== undefined)
   if (!days || props.condition.type !== 'monthly') return
   emit('update:condition', { type: 'monthly', daysOfMonth: days })
 }
@@ -102,11 +114,13 @@ function isDaysOfMonthTextInvalid(): boolean {
 
 /** 期間端の MM/DD テキストを更新し、解析できたら条件へ反映する。 */
 function setPeriodText(edge: 'start' | 'end', value: string | number | undefined): void {
+  emit('touch', 'condition')
   const text = String(value ?? '')
   if (edge === 'start') texts.value.periodStart = text
   else texts.value.periodEnd = text
 
   const monthDay = parseMonthDayText(text)
+  emit('validity-change', 'condition', monthDay !== undefined)
   if (!monthDay || props.condition.type !== 'period') return
   emit('update:condition', { ...props.condition, [edge]: monthDay })
 }
@@ -119,10 +133,12 @@ function isPeriodTextInvalid(edge: 'start' | 'end'): boolean {
 
 /** 時刻ウィンドウのテキストを更新し、解析できたら反映する。 */
 function setTimeRangeText(value: string | number | undefined): void {
+  emit('touch', 'timeRanges')
   const text = String(value ?? '')
   texts.value.timeRanges = text
 
   const ranges = parseTimeRangeText(text)
+  emit('validity-change', 'timeRanges', ranges !== undefined)
   if (!ranges) return
   emit('update:timeRanges', ranges)
 }
@@ -157,6 +173,9 @@ function isTimeRangeTextInvalid(): boolean {
             >of every month</span
           >
         </label>
+        <AlertMessage v-if="isDaysOfMonthTextInvalid()">
+          {{ VALIDATION_MESSAGES.daysOfMonth }}
+        </AlertMessage>
 
         <template v-if="condition.type === 'period'">
           <label class="min-w-0">
@@ -192,6 +211,14 @@ function isTimeRangeTextInvalid(): boolean {
             >every year</span
           >
         </template>
+        <AlertMessage
+          v-if="
+            condition.type === 'period' &&
+            (isPeriodTextInvalid('start') || isPeriodTextInvalid('end'))
+          "
+        >
+          {{ VALIDATION_MESSAGES.monthDay }}
+        </AlertMessage>
       </div>
 
       <DayOfWeekCheckboxes
@@ -200,6 +227,9 @@ function isTimeRangeTextInvalid(): boolean {
         :is-editing="isEditing"
         @update:model-value="setWeeklyDays"
       />
+      <AlertMessage v-if="condition.type === 'weekly' && props.error('condition')">
+        {{ props.error('condition') }}
+      </AlertMessage>
 
       <label class="flex min-w-0 flex-1 items-center gap-1.5">
         <span class="w-36 shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
@@ -217,6 +247,9 @@ function isTimeRangeTextInvalid(): boolean {
           @update:model-value="setTimeRangeText"
         />
       </label>
+      <AlertMessage v-if="isTimeRangeTextInvalid()">
+        {{ VALIDATION_MESSAGES.timeRange }}
+      </AlertMessage>
     </div>
   </section>
 </template>

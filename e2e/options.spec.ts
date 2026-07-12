@@ -527,7 +527,7 @@ test.describe('Options 画面', () => {
     ).toHaveValue('12')
 
     await page.getByLabel('Minutes before daily limit warning', { exact: true }).fill('0')
-    await expect(page.getByText('Use 1+ integer')).toBeVisible()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
   })
 
   test('設定を JSON ファイルとしてエクスポートできる', async ({ page, extensionId }) => {
@@ -537,6 +537,8 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Exported')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGeneralSettings(page)
@@ -1258,8 +1260,10 @@ test.describe('Options 画面', () => {
       'placeholder',
       'example.com or ^https?://(www\\.)?example\\.com/private',
     )
-    await expect(page.getByText('Invalid URL pattern')).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(
+      page.getByText('Enter a valid URL pattern or regular expression.'),
+    ).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
     await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
   })
 
@@ -1323,19 +1327,23 @@ test.describe('Options 画面', () => {
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Incomplete')
 
-    await expect(page.getByText('Add at least one URL pattern')).toBeVisible()
-    await expect(page.getByText('Add at least one time window')).toBeVisible()
-    await expect(page.getByText('Add at least one restriction')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
+    await expect(page.getByText('Add at least one URL pattern.')).toHaveCount(0)
+    await expect(page.getByText('Add at least one time window.')).toHaveCount(0)
+    await expect(page.getByText('Add at least one restriction.')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Add at least one URL pattern.')).toBeVisible()
+    await expect(page.getByText('Add at least one time window.')).toBeVisible()
+    await expect(page.getByText('Add at least one restriction.')).toBeVisible()
 
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add time window' }).click()
     await page.getByRole('button', { name: 'Add restriction' }).click()
 
-    await expect(page.getByText('Add at least one URL pattern')).toHaveCount(0)
-    await expect(page.getByText('Add at least one time window')).toHaveCount(0)
-    await expect(page.getByText('Add at least one restriction')).toHaveCount(0)
+    await expect(page.getByText('Add at least one URL pattern.')).toHaveCount(0)
+    await expect(page.getByText('Add at least one time window.')).toHaveCount(0)
+    await expect(page.getByText('Add at least one restriction.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
   })
 
@@ -1443,7 +1451,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Restriction type').selectOption('wait')
     await page.getByLabel('Minutes allowed after wait').fill('0')
 
-    await expect(page.getByText('Use 1+ integer')).toBeVisible()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
   })
 
@@ -1457,11 +1465,11 @@ test.describe('Options 画面', () => {
 
     await addRestriction.click()
     await expect(page.getByLabel('Restriction type').nth(1)).toHaveValue('block')
-    await expect(page.getByText('Block and Redirect cannot be combined')).toBeVisible()
+    await expect(page.getByText('Choose either Block or Redirect, not both.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
 
     await page.getByLabel('Restriction type').nth(1).selectOption('wait')
-    await expect(page.getByText('Block and Redirect cannot be combined')).not.toBeVisible()
+    await expect(page.getByText('Choose either Block or Redirect, not both.')).not.toBeVisible()
     await expect(addRestriction).toBeEnabled()
   })
 
@@ -1663,7 +1671,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('[invalid')
     await page.getByLabel('Name').fill('Bad')
 
-    await expect(page.getByText('Invalid URL pattern')).toBeVisible()
+    await expect(page.getByText('Enter a valid URL pattern or regular expression.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
@@ -1707,7 +1715,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Grace minutes per day').fill('30')
     await page.getByLabel('Grace minutes per day').fill('')
 
-    await expect(page.getByText('Use 0+ integer')).toBeVisible()
+    await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
   })
 
@@ -2005,7 +2013,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Restriction type').last().selectOption('redirect')
     await page.getByLabel('Redirect URL').fill('not-a-url')
 
-    await expect(page.getByText('Invalid URL')).toBeVisible()
+    await expect(page.getByText('Enter a valid URL, including http:// or https://.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
   })
 

@@ -11,6 +11,24 @@ import type {
 } from './types'
 import { isValidUrlPattern } from './urlPatterns'
 
+/** UI と検証ロジックで共有する、入力要件を説明するエラーメッセージ。 */
+export const VALIDATION_MESSAGES = {
+  required: 'Enter a name.',
+  urlPattern: 'Enter a valid URL pattern or regular expression.',
+  url: 'Enter a valid URL, including http:// or https://.',
+  wholeNumberZeroOrGreater: 'Enter a whole number of 0 or greater.',
+  wholeNumberOneOrGreater: 'Enter a whole number of 1 or greater.',
+  time: 'Enter a time in HH:MM format (00:00–23:59).',
+  timeRange: 'Enter time ranges as HH:MM-HH:MM, separated by commas.',
+  daysOfWeek: 'Select at least one day of the week.',
+  daysOfMonth: 'Enter one or more days from 1 to 31, separated by commas.',
+  monthDay: 'Enter a valid date in MM/DD format.',
+  patterns: 'Add at least one URL pattern.',
+  timeWindows: 'Add at least one time window.',
+  restrictions: 'Add at least one restriction.',
+  duplicateRestriction: 'Only one restriction of this type is allowed.',
+} as const
+
 /**
  * バリデーションエラーの単位。`field` はフィールドへのドット区切りパス。
  */
@@ -46,25 +64,28 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
 
   if (settings.blockAction === 'redirect') {
     if (settings.redirectUrl.trim().length === 0) {
-      errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+      errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
     } else {
       try {
         new URL(settings.redirectUrl)
       } catch {
-        errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+        errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
       }
     }
   }
 
   if (!isValidHHMM(settings.dailyResetHour)) {
-    errors.push({ field: 'dailyResetHour', message: 'Use HH:MM' })
+    errors.push({ field: 'dailyResetHour', message: VALIDATION_MESSAGES.time })
   }
 
   if (
     !Number.isInteger(settings.notificationThresholdMinutes) ||
     settings.notificationThresholdMinutes < 1
   ) {
-    errors.push({ field: 'notificationThresholdMinutes', message: 'Use 1+ integer' })
+    errors.push({
+      field: 'notificationThresholdMinutes',
+      message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
+    })
   }
 
   if (typeof settings.remainingTimeNotificationsEnabled !== 'boolean') {
@@ -94,10 +115,10 @@ function isValidMinute(value: unknown): value is number {
 function validateTimeRange(range: TimeRange, prefix: string): ValidationError[] {
   const errors: ValidationError[] = []
   if (!isValidMinute(range.startMinute)) {
-    errors.push({ field: `${prefix}.startMinute`, message: 'Use minute 0-1440' })
+    errors.push({ field: `${prefix}.startMinute`, message: VALIDATION_MESSAGES.timeRange })
   }
   if (!isValidMinute(range.endMinute)) {
-    errors.push({ field: `${prefix}.endMinute`, message: 'Use minute 0-1440' })
+    errors.push({ field: `${prefix}.endMinute`, message: VALIDATION_MESSAGES.timeRange })
   }
   return errors
 }
@@ -125,30 +146,42 @@ function validateScheduleRuleCondition(
   const errors: ValidationError[] = []
   if (condition.type === 'weekly') {
     if (condition.daysOfWeek.length === 0) {
-      errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Select 1+ days' })
+      errors.push({
+        field: `${prefix}.condition.daysOfWeek`,
+        message: VALIDATION_MESSAGES.daysOfWeek,
+      })
     }
     if (
       condition.daysOfWeek.some((day: DayOfWeek) => !isValidDayOfWeek(day)) ||
       new Set(condition.daysOfWeek).size !== condition.daysOfWeek.length
     ) {
-      errors.push({ field: `${prefix}.condition.daysOfWeek`, message: 'Use each day 0-6 once' })
+      errors.push({
+        field: `${prefix}.condition.daysOfWeek`,
+        message: VALIDATION_MESSAGES.daysOfWeek,
+      })
     }
   } else if (condition.type === 'monthly') {
     if (condition.daysOfMonth.length === 0) {
-      errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
+      errors.push({
+        field: `${prefix}.condition.daysOfMonth`,
+        message: VALIDATION_MESSAGES.daysOfMonth,
+      })
     }
     if (
       condition.daysOfMonth.some((day: number) => !Number.isInteger(day) || day < 1 || day > 31) ||
       new Set(condition.daysOfMonth).size !== condition.daysOfMonth.length
     ) {
-      errors.push({ field: `${prefix}.condition.daysOfMonth`, message: 'Use days 1-31' })
+      errors.push({
+        field: `${prefix}.condition.daysOfMonth`,
+        message: VALIDATION_MESSAGES.daysOfMonth,
+      })
     }
   } else if (condition.type === 'period') {
     if (!isValidMonthDay(condition.start)) {
-      errors.push({ field: `${prefix}.condition.start`, message: 'Use MM/DD' })
+      errors.push({ field: `${prefix}.condition.start`, message: VALIDATION_MESSAGES.monthDay })
     }
     if (!isValidMonthDay(condition.end)) {
-      errors.push({ field: `${prefix}.condition.end`, message: 'Use MM/DD' })
+      errors.push({ field: `${prefix}.condition.end`, message: VALIDATION_MESSAGES.monthDay })
     }
   }
   return errors
@@ -168,7 +201,10 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
       !Number.isInteger(restriction.graceMinutes) ||
       restriction.graceMinutes < 0)
   ) {
-    errors.push({ field: `${prefix}.graceMinutes`, message: 'Use 0+ integer' })
+    errors.push({
+      field: `${prefix}.graceMinutes`,
+      message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
+    })
   }
   if (
     restriction.type === 'wait' &&
@@ -176,7 +212,10 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
       !Number.isInteger(restriction.waitSeconds) ||
       restriction.waitSeconds < 0)
   ) {
-    errors.push({ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' })
+    errors.push({
+      field: `${prefix}.waitSeconds`,
+      message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
+    })
   }
   if (
     restriction.type === 'wait' &&
@@ -184,7 +223,10 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
       !Number.isInteger(restriction.waitGrantMinutes) ||
       restriction.waitGrantMinutes < 1)
   ) {
-    errors.push({ field: `${prefix}.waitGrantMinutes`, message: 'Use 1+ integer' })
+    errors.push({
+      field: `${prefix}.waitGrantMinutes`,
+      message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
+    })
   }
   return errors
 }
@@ -210,7 +252,9 @@ function validateStandaloneRestriction(
       !Number.isInteger(restriction.graceMinutes) ||
       restriction.graceMinutes < 0)
   ) {
-    return [{ field: `${prefix}.graceMinutes`, message: 'Use 0+ integer' }]
+    return [
+      { field: `${prefix}.graceMinutes`, message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater },
+    ]
   }
   if (
     restriction.type === 'wait' &&
@@ -218,7 +262,9 @@ function validateStandaloneRestriction(
       !Number.isInteger(restriction.waitSeconds) ||
       restriction.waitSeconds < 0)
   ) {
-    return [{ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' }]
+    return [
+      { field: `${prefix}.waitSeconds`, message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater },
+    ]
   }
   if (
     restriction.type === 'wait' &&
@@ -226,17 +272,19 @@ function validateStandaloneRestriction(
       !Number.isInteger(restriction.waitGrantMinutes) ||
       restriction.waitGrantMinutes < 1)
   ) {
-    return [{ field: `${prefix}.waitGrantMinutes`, message: 'Use 1+ integer' }]
+    return [
+      { field: `${prefix}.waitGrantMinutes`, message: VALIDATION_MESSAGES.wholeNumberOneOrGreater },
+    ]
   }
   if (restriction.type === 'redirect') {
     const url = restriction.redirectUrl ?? ''
     if (url.trim().length === 0) {
-      return [{ field: `${prefix}.redirectUrl`, message: 'Invalid URL' }]
+      return [{ field: `${prefix}.redirectUrl`, message: VALIDATION_MESSAGES.url }]
     }
     try {
       new URL(url)
     } catch {
-      return [{ field: `${prefix}.redirectUrl`, message: 'Invalid URL' }]
+      return [{ field: `${prefix}.redirectUrl`, message: VALIDATION_MESSAGES.url }]
     }
   }
   return []
@@ -253,7 +301,7 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
   }
 
   if (group.name.trim().length === 0) {
-    errors.push({ field: 'name', message: 'Required' })
+    errors.push({ field: 'name', message: VALIDATION_MESSAGES.required })
   }
 
   if (group.blockAction !== 'redirect' && group.blockAction !== 'blockedPage') {
@@ -262,12 +310,12 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
 
   if (group.blockAction === 'redirect') {
     if (group.redirectUrl.trim().length === 0) {
-      errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+      errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
     } else {
       try {
         new URL(group.redirectUrl)
       } catch {
-        errors.push({ field: 'redirectUrl', message: 'Invalid URL' })
+        errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
       }
     }
   }
@@ -276,31 +324,37 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
     group.pauseWaitSeconds !== undefined &&
     (!Number.isInteger(group.pauseWaitSeconds) || group.pauseWaitSeconds < 0)
   ) {
-    errors.push({ field: 'pauseWaitSeconds', message: 'Use 0+ integer' })
+    errors.push({
+      field: 'pauseWaitSeconds',
+      message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
+    })
   }
 
   if (
     group.pauseDurationMinutes !== undefined &&
     (!Number.isInteger(group.pauseDurationMinutes) || group.pauseDurationMinutes < 1)
   ) {
-    errors.push({ field: 'pauseDurationMinutes', message: 'Use 1+ integer' })
+    errors.push({
+      field: 'pauseDurationMinutes',
+      message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
+    })
   }
 
   group.patterns.forEach((p, i) => {
     if (!isValidUrlPattern(p)) {
-      errors.push({ field: `patterns[${i}]`, message: 'Invalid URL pattern' })
+      errors.push({ field: `patterns[${i}]`, message: VALIDATION_MESSAGES.urlPattern })
     }
   })
 
   if (group.timeWindows !== undefined || group.restrictions !== undefined) {
     if (options.requireConfiguredSections && (group.patterns ?? []).length === 0) {
-      errors.push({ field: 'patterns', message: 'Add at least one URL pattern' })
+      errors.push({ field: 'patterns', message: VALIDATION_MESSAGES.patterns })
     }
     if (options.requireConfiguredSections && (group.timeWindows ?? []).length === 0) {
-      errors.push({ field: 'timeWindows', message: 'Add at least one time window' })
+      errors.push({ field: 'timeWindows', message: VALIDATION_MESSAGES.timeWindows })
     }
     if (options.requireConfiguredSections && (group.restrictions ?? []).length === 0) {
-      errors.push({ field: 'restrictions', message: 'Add at least one restriction' })
+      errors.push({ field: 'restrictions', message: VALIDATION_MESSAGES.restrictions })
     }
     ;(group.timeWindows ?? []).forEach((window, index) =>
       errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)),
@@ -317,8 +371,8 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
           field: `restrictions[${index}].type`,
           message:
             key === 'hard'
-              ? 'Block and Redirect cannot be combined'
-              : `Only one ${restriction.type} restriction is allowed`,
+              ? 'Choose either Block or Redirect, not both.'
+              : VALIDATION_MESSAGES.duplicateRestriction,
         })
       }
       seenTypes.add(key)

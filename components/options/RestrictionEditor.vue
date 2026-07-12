@@ -18,6 +18,10 @@ interface Props {
   ) => string | undefined
 }
 
+const emit = defineEmits<{
+  /** 編集したフィールドを親フォームへ伝える。 */ touch: [field: string]
+}>()
+
 const props = withDefaults(defineProps<Props>(), {
   isEditing: true,
   error: () => undefined,
@@ -37,10 +41,12 @@ const typeOptions = [
 function setType(value: string): void {
   if (value !== 'block' && value !== 'redirect' && value !== 'grace' && value !== 'wait') return
   restriction.value = createDefaultRestriction(value as RestrictionType)
+  emit('touch', 'type')
 }
 
 /** redirect の遷移先 URL を更新する。 */
 function setRedirectUrl(value: string | number | undefined): void {
+  emit('touch', 'redirectUrl')
   if (restriction.value.type !== 'redirect') return
   restriction.value.redirectUrl = value === undefined ? '' : String(value)
 }
@@ -70,6 +76,7 @@ watch(restriction, syncTexts, { immediate: true, deep: true })
 
 /** 猶予の1日上限分数を更新する。 */
 function setGraceMinutesText(value: string | number | undefined): void {
+  emit('touch', 'graceMinutes')
   const text = String(value ?? '').replace(/\D/g, '')
   graceMinutesText.value = text
   if (restriction.value.type !== 'grace') return
@@ -78,6 +85,7 @@ function setGraceMinutesText(value: string | number | undefined): void {
 
 /** 待機の秒数を更新する。 */
 function setWaitSecondsText(value: string | number | undefined): void {
+  emit('touch', 'waitSeconds')
   const text = String(value ?? '').replace(/\D/g, '')
   waitSecondsText.value = text
   if (restriction.value.type !== 'wait') return
@@ -86,6 +94,7 @@ function setWaitSecondsText(value: string | number | undefined): void {
 
 /** Wait 通過後の許可期間（分）を更新する。 */
 function setWaitGrantMinutesText(value: string | number | undefined): void {
+  emit('touch', 'waitGrantMinutes')
   const text = String(value ?? '').replace(/\D/g, '')
   waitGrantMinutesText.value = text
   if (restriction.value.type !== 'wait') return

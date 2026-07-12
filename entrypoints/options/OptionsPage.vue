@@ -28,6 +28,7 @@ import {
 import { useNowTimer } from '@/utils/useNowTimer'
 import { useStorageListener } from '@/utils/useStorageListener'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
+import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
@@ -55,6 +56,7 @@ const activeSettingsDialogRef = ref<InstanceType<typeof ActiveSettingsDialog> | 
 const pauseCountdownDialogRef = ref<InstanceType<typeof PauseCountdownDialog> | null>(null)
 const pauseTargetGroupId = ref<string | undefined>(undefined)
 const activeSection = ref<'groups' | 'general'>('groups')
+const globalValidationFeedback = useValidationFeedback()
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
 const groupsErrors = computed(
@@ -77,7 +79,7 @@ const nextResetAt = computed(() =>
 const resetTimeLabel = computed(() => effectiveSettings.value.global.dailyResetHour)
 const appliesAfterLabel = computed(() => formatDateTime(nextResetAt.value))
 const groupCount = computed(() => settings.value.groups.length + newGroupDrafts.value.length)
-const hasGlobalErrors = computed(() => globalErrors.value.length > 0 || Boolean(importError.value))
+const hasGlobalErrors = computed(() => Boolean(importError.value))
 const retainedEffectiveGroups = computed(() => {
   const savedIds = new Set(settings.value.groups.map((group) => group.id))
   return effectiveSettings.value.groups.filter(
@@ -105,7 +107,13 @@ function groupPauseValidIds(): string[] {
 
 /** 指定フィールドのグローバル設定エラーメッセージを返す。 */
 function globalError(field: string): string | undefined {
-  return globalErrors.value.find((e) => e.field === field)?.message
+  const error = globalErrors.value.find((e) => e.field === field)
+  return error && globalValidationFeedback.shouldShow(field) ? error.message : undefined
+}
+
+/** General settings の入力フィールドを編集済みとして扱う。 */
+function touchGlobalField(field: string): void {
+  globalValidationFeedback.touch(field)
 }
 
 /** 指定グループの今日の有効上限と残り時間を返す。 */
@@ -424,13 +432,13 @@ onMounted(async () => {
               :error="globalError"
               :import-error="importError"
               :daily-reset-time-locked="isDailyResetTimeLocked"
+              @touch="touchGlobalField"
               @export-settings="exportSettings"
               @import-settings="importSettings"
               @save-now="saveNow"
             />
           </div>
         </div>
-        <AlertMessage v-if="totalErrors > 0"> Errors: {{ totalErrors }} </AlertMessage>
       </template>
     </div>
   </main>
