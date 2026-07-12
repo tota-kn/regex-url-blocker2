@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.4.0
+
+### Added
+
+- 制限（Restriction）に「redirect」（指定 URL への遷移）と「wait」（アクセス前の待機ゲート）種別を追加し、block・grace と合わせて時間帯ごとに柔軟に組み合わせられるようにしました。
+- 待機ゲート通過後、指定した分数だけアクセスを許可する Wait 画面を追加しました。
+- ブロックページに、現在適用されているブロック理由と解除時刻を表示するようにしました。
+- グループ設定の保存時に、URL pattern・時間ウィンドウ・制限のいずれかを1つ以上設定することを必須とするバリデーションを追加しました。
+- フォーム項目の編集状態に応じてバリデーションメッセージの表示タイミングを制御する仕組みを追加しました。
+- 以前の制限が次の rule day まで有効な場合、グループカードにその旨と反映日時を表示し、現在の有効設定を確認できるようにしました。
+
+### Changed
+
+- `restrictionRules` を `restrictions` にリネームし、制限の時間条件を独立した `TimeWindow`（常時 / スケジュール）として整理しました。
+- 制限編集 UI を刷新し、旧 `LimitRulesEditor` を `RestrictionEditor` / `RestrictionRulesEditor` / `ScheduleWindowEditor` に置き換えました。
+- グループの遷移先設定（Page shown when blocked / URL pattern match behavior）の options UI を廃止し、redirect は制限単位の設定に統合しました。既存データとの後方互換は維持しています。
+- URL pattern 追加ボタンのクリック処理を簡略化しました。
+
+### Fixed
+
+- E2E テスト基盤を強化（service worker fixture、storage 変更のポーリング待機など）し、restrictions 構造の変更に追随してテストを更新しました。
+
 ## 1.3.0
 
 ### Added
