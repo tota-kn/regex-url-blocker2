@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import {
-  Cog6ToothIcon,
-  ExclamationCircleIcon,
-  EyeIcon,
-  QueueListIcon,
-} from '@heroicons/vue/24/outline'
+import { Cog6ToothIcon, ExclamationCircleIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import {
   getNextEffectiveSettingsResetAt,
+  getPendingEffectiveGroupIds,
   hasLockModeGroup,
-  hasPendingEffectiveSettings,
 } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import {
@@ -70,8 +65,8 @@ const totalErrors = computed(() => {
   for (const errs of groupsErrors.value.values()) n += errs.length
   return n
 })
-const hasPendingSettings = computed(
-  () => isLoaded.value && hasPendingEffectiveSettings(settings.value, effectiveSettings.value),
+const pendingEffectiveGroupIds = computed(() =>
+  isLoaded.value ? getPendingEffectiveGroupIds(settings.value, effectiveSettings.value) : [],
 )
 const isDailyResetTimeLocked = computed(
   () => hasLockModeGroup(settings.value) || hasLockModeGroup(effectiveSettings.value),
@@ -83,6 +78,12 @@ const resetTimeLabel = computed(() => effectiveSettings.value.global.dailyResetH
 const appliesAfterLabel = computed(() => formatDateTime(nextResetAt.value))
 const groupCount = computed(() => settings.value.groups.length + newGroupDrafts.value.length)
 const hasGlobalErrors = computed(() => globalErrors.value.length > 0 || Boolean(importError.value))
+const retainedEffectiveGroups = computed(() => {
+  const savedIds = new Set(settings.value.groups.map((group) => group.id))
+  return effectiveSettings.value.groups.filter(
+    (group) => pendingEffectiveGroupIds.value.includes(group.id) && !savedIds.has(group.id),
+  )
+})
 const pauseTargetGroup = computed(() => {
   const id = pauseTargetGroupId.value
   if (!id) return undefined
@@ -248,8 +249,8 @@ function exportSettings(): void {
 /**
  * 現在適用中の有効設定モーダルを開く。
  */
-function openActiveSettings(): void {
-  activeSettingsDialogRef.value?.open()
+function openActiveSettings(groupId: string): void {
+  activeSettingsDialogRef.value?.open(groupId)
 }
 
 /**
@@ -340,27 +341,6 @@ onMounted(async () => {
       </p>
 
       <template v-else>
-        <div
-          v-if="hasPendingSettings"
-          class="flex flex-col gap-3 rounded-lg border border-warning bg-warning/10 p-4 text-warning-text sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div>
-            <p class="text-label-md">Earlier restrictions are still active.</p>
-            <p class="mt-1 text-body-sm">
-              Stricter saved changes apply now. Changes that relax restrictions apply after
-              {{ appliesAfterLabel }} (rule day starts at {{ resetTimeLabel }}).
-            </p>
-          </div>
-          <BaseButton
-            type="button"
-            variant="secondary"
-            aria-label="View active settings"
-            @click="openActiveSettings"
-          >
-            <EyeIcon aria-hidden="true" class="size-4" />
-            View active settings
-          </BaseButton>
-        </div>
         <div class="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
           <aside
             aria-label="Options sections"
@@ -426,6 +406,10 @@ onMounted(async () => {
               :new-groups="newGroupDrafts"
               :group-pause-state="groupPauseState"
               :now="now"
+              :pending-effective-group-ids="pendingEffectiveGroupIds"
+              :retained-effective-groups="retainedEffectiveGroups"
+              :applies-after-label="appliesAfterLabel"
+              :reset-time-label="resetTimeLabel"
               :time-limit-usage-summary="timeLimitUsageSummary"
               @add-group="addGroup"
               @save-group="saveGroup"
@@ -434,6 +418,7 @@ onMounted(async () => {
               @remove-group="removeGroup"
               @duplicate-group="duplicateGroup"
               @request-group-pause="requestGroupPause"
+              @view-active-settings="openActiveSettings"
             />
 
             <GlobalSettingsSection

@@ -749,6 +749,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Time window 1').first()).toContainText('Always')
     await expect(page.getByLabel('Restriction 1').first()).toContainText('30 min/day')
     await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
+    await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(1)
     await expect(
       page.getByText(/Stricter saved changes apply now\..*rule day starts at 03:00/s),
     ).toBeVisible()
@@ -769,7 +770,7 @@ test.describe('Options 画面', () => {
     ).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('Notify me')).not.toBeVisible()
     await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Work')
-    await expect(activeSettingsDialog.getByLabel('Name').nth(1)).toHaveValue('Allowlist')
+    await expect(activeSettingsDialog.getByLabel('Name')).toHaveCount(2)
     await expect(activeSettingsDialog.getByText('Earlier restrictions still active')).toBeVisible()
     await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(
@@ -982,6 +983,10 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
+    const retainedGroup = page.getByLabel('Earlier active groups')
+    await expect(retainedGroup.getByLabel('Name')).toHaveValue('Deleted active')
+    await expect(retainedGroup.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
+    await expect(retainedGroup.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
     await page.getByRole('button', { name: 'View active settings' }).click()
 
     const activeSettingsDialog = page

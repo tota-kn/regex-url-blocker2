@@ -48,6 +48,12 @@ interface Props {
   timeLimitUsageSummary?: TimeLimitUsageSummary
   /** 読み取り専用表示にして編集・削除・保存を無効化するかどうか。 */
   readOnly?: boolean
+  /** 次の rule day まで以前の制限が有効なら true。 */
+  hasEarlierRestrictionsActive?: boolean
+  /** 保留中の制限が反映される日時。 */
+  appliesAfterLabel?: string
+  /** rule day の開始時刻。 */
+  resetTimeLabel?: string
 }
 
 /**
@@ -64,6 +70,8 @@ interface Emits {
   duplicate: []
   /** グループ一時停止操作が要求されたときに発火する。 */
   requestPause: []
+  /** このグループの現在有効な設定の確認が要求されたときに発火する。 */
+  viewActiveSettings: []
 }
 
 const props = defineProps<Props>()
@@ -248,6 +256,11 @@ function duplicateGroup(): void {
 function removeGroup(): void {
   closeActionMenu()
   emit('remove')
+}
+
+/** このグループに残っている以前の有効設定の確認を親へ通知する。 */
+function viewActiveSettings(): void {
+  emit('viewActiveSettings')
 }
 
 /** グループアクションメニュー外のクリックでメニューを閉じる。 */
@@ -446,6 +459,24 @@ onBeforeUnmount(() => {
       <AlertMessage v-if="isEditing && draftError('name')" class="mt-3">
         {{ draftError('name') }}
       </AlertMessage>
+    </div>
+
+    <div
+      v-if="hasEarlierRestrictionsActive"
+      class="border-b border-warning bg-warning/10 p-4 text-warning-text"
+    >
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-label-md">Earlier restrictions are still active.</p>
+          <p class="mt-1 text-body-sm">
+            Stricter saved changes apply now. Changes that relax restrictions apply after
+            {{ appliesAfterLabel }} (rule day starts at {{ resetTimeLabel }}).
+          </p>
+        </div>
+        <BaseButton type="button" variant="secondary" @click="viewActiveSettings">
+          View active settings
+        </BaseButton>
+      </div>
     </div>
 
     <fieldset :disabled="!isEditing" class="min-w-0 space-y-4 p-4 disabled:cursor-default">

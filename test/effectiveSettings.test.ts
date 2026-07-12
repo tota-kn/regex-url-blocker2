@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createEffectiveSettingsState,
+  getPendingEffectiveGroupIds,
   hasPendingEffectiveSettings,
   mergeImmediateRestrictions,
   reconcileEffectiveSettings,
@@ -272,6 +273,7 @@ describe('effective settings', () => {
     ])
 
     expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
+    expect(getPendingEffectiveGroupIds(preferred, effective)).toEqual(['g1'])
   })
 
   it('Lock Mode ON の disabled 変更は次回 reset まで effective 側へ反映されず pending にする', () => {
@@ -282,11 +284,14 @@ describe('effective settings', () => {
 
     expect(merged.groups[0].disabled).toBe(false)
     expect(hasPendingEffectiveSettings(preferred, merged)).toBe(true)
+    expect(getPendingEffectiveGroupIds(preferred, merged)).toEqual(['g1'])
   })
 
   it('Lock Mode ON の group 削除は pending にする', () => {
-    expect(hasPendingEffectiveSettings(settings([]), settings([group({ lockMode: true })]))).toBe(
-      true,
-    )
+    const effective = settings([group({ lockMode: true })])
+    const preferred = settings([])
+
+    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
+    expect(getPendingEffectiveGroupIds(preferred, effective)).toEqual(['g1'])
   })
 })

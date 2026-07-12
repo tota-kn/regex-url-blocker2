@@ -32,6 +32,14 @@ interface Props {
   groupPauseState: GroupPauseState
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now: Date
+  /** 次の rule day まで以前の制限が有効な group id。 */
+  pendingEffectiveGroupIds: string[]
+  /** 保存設定から削除済みだが、以前の制限が有効なグループ。 */
+  retainedEffectiveGroups: Group[]
+  /** 保留中の制限が反映される日時。 */
+  appliesAfterLabel: string
+  /** rule day の開始時刻。 */
+  resetTimeLabel: string
   /** 指定グループの今日の上限利用状況を返す関数。 */
   timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
 }
@@ -54,6 +62,8 @@ interface Emits {
   duplicateGroup: [id: string]
   /** グループ一時停止操作が要求されたときに対象 id を通知する。 */
   requestGroupPause: [id: string]
+  /** 指定グループの現在有効な設定の確認が要求されたときに対象 id を通知する。 */
+  viewActiveSettings: [id: string]
 }
 
 const props = defineProps<Props>()
@@ -201,11 +211,15 @@ function createGroup(templateId: GroupTemplateId): void {
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
         :now="now"
+        :has-earlier-restrictions-active="pendingEffectiveGroupIds.includes(groups[i].id)"
+        :applies-after-label="appliesAfterLabel"
+        :reset-time-label="resetTimeLabel"
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"
         @duplicate="$emit('duplicateGroup', groups[i].id)"
         @request-pause="$emit('requestGroupPause', groups[i].id)"
+        @view-active-settings="$emit('viewActiveSettings', groups[i].id)"
       />
       <GroupCard
         v-for="group in newGroups"
@@ -218,6 +232,32 @@ function createGroup(templateId: GroupTemplateId): void {
         @cancel="$emit('cancelNewGroup', group.id)"
         @remove="$emit('cancelNewGroup', group.id)"
       />
+      <section
+        v-if="retainedEffectiveGroups.length > 0"
+        aria-label="Earlier active groups"
+        class="space-y-3"
+      >
+        <div>
+          <h3 class="text-label-md text-secondary-foreground">Earlier restrictions still active</h3>
+          <p class="mt-1 text-body-sm text-muted">
+            These groups were removed from saved settings, but remain active until the next rule
+            day.
+          </p>
+        </div>
+        <GroupCard
+          v-for="group in retainedEffectiveGroups"
+          :key="`retained-${group.id}`"
+          :group="group"
+          :pause-entry="groupPauseEntry(group.id)"
+          :now="now"
+          :has-earlier-restrictions-active="true"
+          :applies-after-label="appliesAfterLabel"
+          :reset-time-label="resetTimeLabel"
+          read-only
+          @request-pause="$emit('requestGroupPause', group.id)"
+          @view-active-settings="$emit('viewActiveSettings', group.id)"
+        />
+      </section>
     </div>
   </section>
 </template>

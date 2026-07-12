@@ -65,21 +65,29 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
 }
 
 /**
- * Lock Mode ON のグループ変更で、翌日まで待つ必要がある差分が残っているなら true を返す。
+ * Lock Mode の有効スナップショットと希望設定に差分があり、次の rule day まで以前の制限が
+ * 残るグループ ID を返す。
  */
-export function hasPendingEffectiveSettings(preferred: Settings, effective: Settings): boolean {
+export function getPendingEffectiveGroupIds(preferred: Settings, effective: Settings): string[] {
   const preferredById = new Map(preferred.groups.map((group) => [group.id, group]))
-  return effective.groups.some((effectiveGroup) => {
-    if (!effectiveGroup.lockMode) return false
+  return effective.groups.flatMap((effectiveGroup) => {
+    if (!effectiveGroup.lockMode) return []
     const preferredGroup = preferredById.get(effectiveGroup.id)
-    return (
+    const isPending =
       !preferredGroup ||
       !settingsEqual(
         { global: preferred.global, groups: [preferredGroup] },
         { global: preferred.global, groups: [effectiveGroup] },
       )
-    )
+    return isPending ? [effectiveGroup.id] : []
   })
+}
+
+/**
+ * Lock Mode ON のグループ変更で、翌日まで待つ必要がある差分が残っているなら true を返す。
+ */
+export function hasPendingEffectiveSettings(preferred: Settings, effective: Settings): boolean {
+  return getPendingEffectiveGroupIds(preferred, effective).length > 0
 }
 
 /**
