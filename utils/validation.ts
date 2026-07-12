@@ -4,7 +4,6 @@ import type {
   Group,
   MonthDay,
   Restriction,
-  RestrictionRule,
   ScheduleRuleCondition,
   TimeRange,
   TimeWindow,
@@ -187,50 +186,6 @@ function validateScheduleRuleCondition(
   return errors
 }
 
-/**
- * グループの単一制限をバリデーションし、エラー配列を返す。
- */
-function validateRestriction(restriction: RestrictionRule, prefix: string): ValidationError[] {
-  const errors: ValidationError[] = validateScheduleRuleCondition(restriction.condition, prefix)
-  restriction.timeRanges.forEach((range: TimeRange, i: number) => {
-    errors.push(...validateTimeRange(range, `${prefix}.timeRanges[${i}]`))
-  })
-  if (
-    restriction.type === 'grace' &&
-    (restriction.graceMinutes === undefined ||
-      !Number.isInteger(restriction.graceMinutes) ||
-      restriction.graceMinutes < 0)
-  ) {
-    errors.push({
-      field: `${prefix}.graceMinutes`,
-      message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
-    })
-  }
-  if (
-    restriction.type === 'wait' &&
-    (restriction.waitSeconds === undefined ||
-      !Number.isInteger(restriction.waitSeconds) ||
-      restriction.waitSeconds < 0)
-  ) {
-    errors.push({
-      field: `${prefix}.waitSeconds`,
-      message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
-    })
-  }
-  if (
-    restriction.type === 'wait' &&
-    (restriction.waitGrantMinutes === undefined ||
-      !Number.isInteger(restriction.waitGrantMinutes) ||
-      restriction.waitGrantMinutes < 1)
-  ) {
-    errors.push({
-      field: `${prefix}.waitGrantMinutes`,
-      message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
-    })
-  }
-  return errors
-}
-
 /** 分離形式の時間ウィンドウをバリデーションする。 */
 function validateTimeWindow(window: TimeWindow, prefix: string): ValidationError[] {
   if (window.type === 'always') return []
@@ -346,47 +301,36 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
     }
   })
 
-  if (group.timeWindows !== undefined || group.restrictions !== undefined) {
-    if (options.requireConfiguredSections && (group.patterns ?? []).length === 0) {
-      errors.push({ field: 'patterns', message: VALIDATION_MESSAGES.patterns })
-    }
-    if (options.requireConfiguredSections && (group.timeWindows ?? []).length === 0) {
-      errors.push({ field: 'timeWindows', message: VALIDATION_MESSAGES.timeWindows })
-    }
-    if (options.requireConfiguredSections && (group.restrictions ?? []).length === 0) {
-      errors.push({ field: 'restrictions', message: VALIDATION_MESSAGES.restrictions })
-    }
-    ;(group.timeWindows ?? []).forEach((window, index) =>
-      errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)),
-    )
-    ;(group.restrictions ?? []).forEach((restriction, index) =>
-      errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)),
-    )
-    const seenTypes = new Set<string>()
-    ;(group.restrictions ?? []).forEach((restriction, index) => {
-      const key =
-        restriction.type === 'block' || restriction.type === 'redirect' ? 'hard' : restriction.type
-      if (seenTypes.has(key)) {
-        errors.push({
-          field: `restrictions[${index}].type`,
-          message:
-            key === 'hard'
-              ? 'Choose either Block or Redirect, not both.'
-              : VALIDATION_MESSAGES.duplicateRestriction,
-        })
-      }
-      seenTypes.add(key)
-    })
-  } else {
-    const restrictions = group.restrictionRules?.length
-      ? group.restrictionRules
-      : group.restriction
-        ? [group.restriction]
-        : []
-    restrictions.forEach((restriction, index) => {
-      errors.push(...validateRestriction(restriction, `restrictionRules[${index}]`))
-    })
+  if (options.requireConfiguredSections && (group.patterns ?? []).length === 0) {
+    errors.push({ field: 'patterns', message: VALIDATION_MESSAGES.patterns })
   }
+  if (options.requireConfiguredSections && (group.timeWindows ?? []).length === 0) {
+    errors.push({ field: 'timeWindows', message: VALIDATION_MESSAGES.timeWindows })
+  }
+  if (options.requireConfiguredSections && (group.restrictions ?? []).length === 0) {
+    errors.push({ field: 'restrictions', message: VALIDATION_MESSAGES.restrictions })
+  }
+  ;(group.timeWindows ?? []).forEach((window, index) =>
+    errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)),
+  )
+  ;(group.restrictions ?? []).forEach((restriction, index) =>
+    errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)),
+  )
+  const seenTypes = new Set<string>()
+  ;(group.restrictions ?? []).forEach((restriction, index) => {
+    const key =
+      restriction.type === 'block' || restriction.type === 'redirect' ? 'hard' : restriction.type
+    if (seenTypes.has(key)) {
+      errors.push({
+        field: `restrictions[${index}].type`,
+        message:
+          key === 'hard'
+            ? 'Choose either Block or Redirect, not both.'
+            : VALIDATION_MESSAGES.duplicateRestriction,
+      })
+    }
+    seenTypes.add(key)
+  })
 
   return errors
 }

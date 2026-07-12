@@ -7,8 +7,26 @@ import {
 } from '../utils/validation'
 import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import type { RestrictionRule } from '../utils/types'
-import { createEmptyGroup } from './helpers'
+import type { RestrictionType, ScheduleRuleCondition, TimeRange } from '../utils/types'
+import { createEmptyGroup, weeklyRestriction } from './helpers'
+
+/**
+ * テスト用の単一制限（条件・時間帯・制限内容の組）。
+ */
+interface RestrictionRule {
+  /** 適用する日の条件。 */
+  condition: ScheduleRuleCondition
+  /** 制限が有効な時刻ウィンドウ。空配列は終日有効。 */
+  timeRanges: TimeRange[]
+  /** 制限種別。 */
+  type: RestrictionType
+  /** `type === 'grace'` のときの1日の閲覧上限分数。 */
+  graceMinutes?: number
+  /** `type === 'wait'` のときのアクセス前待機秒数。 */
+  waitSeconds?: number
+  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。 */
+  waitGrantMinutes?: number
+}
 
 /**
  * テスト用の単一制限を生成する。
@@ -75,9 +93,7 @@ describe('validateGroup', () => {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://(www\\.)?twitter\\.com'],
-      restriction: restriction({
-        condition: { type: 'weekly', daysOfWeek: [3] },
-        type: 'block',
+      ...weeklyRestriction([3], 'block', {
         timeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }],
       }),
     }
@@ -94,7 +110,6 @@ describe('validateGroup', () => {
       patterns: ['['],
       blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
       redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-      restriction: undefined,
     })
     expect(errors.some((e) => e.field === 'name')).toBe(true)
     expect(

@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { Worker } from '@playwright/test'
-import type { HHMM, RestrictionRule, Settings, TimeRange, UsageCounter } from '../utils/types'
+import type { Group, HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 import { closeServer, gotoPossiblyRedirected, waitForEffectiveSettings } from './helpers'
 
@@ -249,15 +249,15 @@ async function saveBlockedPageDetailSettings(
 }
 
 /**
- * 毎日同じ上限分数を使うテスト用の単一 grace 制限を作る。undefined は制限なし。
+ * 毎日同じ上限分数を使うテスト用の単一 grace 制限（分離形式）を作る。undefined は制限なし。
  */
-function buildRestriction(dailyLimitMinutes: number | undefined): RestrictionRule | undefined {
-  if (dailyLimitMinutes === undefined) return undefined
+function buildRestrictionParts(
+  dailyLimitMinutes: number | undefined,
+): Pick<Group, 'timeWindows' | 'restrictions'> {
+  if (dailyLimitMinutes === undefined) return {}
   return {
-    condition: { type: 'daily' },
-    timeRanges: [],
-    type: 'grace',
-    graceMinutes: dailyLimitMinutes,
+    timeWindows: [{ type: 'always' }],
+    restrictions: [{ type: 'grace', graceMinutes: dailyLimitMinutes }],
   }
 }
 
@@ -333,7 +333,7 @@ function buildEffectiveSettingsFixture(
         patterns: [`^${origin.replaceAll('.', '\\.')}`],
         blockAction: 'redirect',
         redirectUrl: `${origin}/blocked`,
-        restriction: buildRestriction(dailyLimitMinutes),
+        ...buildRestrictionParts(dailyLimitMinutes),
       },
     ],
   }
@@ -894,13 +894,8 @@ test.describe('Effective settings behavior', () => {
             const preferredGroup = (preferred.groups as Settings['groups'])[0]
             const effectiveSettings = active.effectiveSettings as Settings
             return {
-              preferredHasRestriction: Boolean(
-                preferredGroup?.restriction || preferredGroup?.restrictions?.length,
-              ),
-              effectiveHasRestriction: Boolean(
-                effectiveSettings.groups[0]?.restriction ||
-                effectiveSettings.groups[0]?.restrictions?.length,
-              ),
+              preferredHasRestriction: Boolean(preferredGroup?.restrictions?.length),
+              effectiveHasRestriction: Boolean(effectiveSettings.groups[0]?.restrictions?.length),
             }
           })
         })

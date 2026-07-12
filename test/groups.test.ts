@@ -5,18 +5,18 @@ import {
   duplicateGroup,
   formatBlockDestination,
   formatGroupMode,
-  formatRestriction,
   formatScheduleRuleCondition,
   formatStandaloneRestriction,
+  formatTimeWindow,
 } from '../utils/groups'
-import type { Group, RestrictionRule, Settings } from '../utils/types'
+import type { Group, Settings } from '../utils/types'
 import { dailyRestriction } from './helpers'
 
 /**
  * テスト用グループを生成する。
  */
 function group(overrides: Partial<Group> = {}): Group {
-  const result: Group = {
+  return {
     id: 'g1',
     name: 'Group',
     mode: 'blacklist',
@@ -25,14 +25,8 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: 'blockedPage',
     redirectUrl: 'https://redirect.test/',
-    restriction: undefined,
     ...overrides,
   }
-  if ((!result.restrictionRules || result.restrictionRules.length === 0) && result.restriction) {
-    result.restrictionRules = [result.restriction]
-    result.restriction = undefined
-  }
-  return result
 }
 
 /**
@@ -83,30 +77,22 @@ describe('group utilities', () => {
     ).toBe('12/28-01/03')
   })
 
-  it('制限を読み取り表示用に要約する', () => {
-    const blockRestriction: RestrictionRule = {
-      condition: { type: 'daily' },
-      timeRanges: [{ startMinute: 540, endMinute: 750 }],
-      type: 'block',
-    }
-    expect(formatRestriction(blockRestriction)).toBe('Every day 09:00-12:30 — Block')
-
-    const graceRestriction: RestrictionRule = {
-      condition: { type: 'weekly', daysOfWeek: [6] },
-      timeRanges: [],
-      type: 'grace',
-      graceMinutes: 10,
-    }
-    expect(formatRestriction(graceRestriction)).toBe('Weekly Sat All day — Grace 10 min/day')
-
-    const waitRestriction: RestrictionRule = {
-      condition: { type: 'daily' },
-      timeRanges: [],
-      type: 'wait',
-      waitSeconds: 30,
-      waitGrantMinutes: 10,
-    }
-    expect(formatRestriction(waitRestriction)).toBe('Every day All day — Wait 30 sec, allow 10 min')
+  it('時間ウィンドウを読み取り表示用に要約する', () => {
+    expect(formatTimeWindow({ type: 'always' })).toBe('Always')
+    expect(
+      formatTimeWindow({
+        type: 'scheduled',
+        condition: { type: 'daily' },
+        timeRanges: [{ startMinute: 540, endMinute: 750 }],
+      }),
+    ).toBe('Every day 09:00-12:30')
+    expect(
+      formatTimeWindow({
+        type: 'scheduled',
+        condition: { type: 'weekly', daysOfWeek: [6] },
+        timeRanges: [],
+      }),
+    ).toBe('Weekly Sat All day')
   })
 
   it('分離形式の制限を読み取り表示用に要約する', () => {
@@ -125,17 +111,22 @@ describe('group utilities', () => {
 
   it('グループを独立した deep clone として複製する', () => {
     const original = group({
-      restriction: dailyRestriction('block', {
+      ...dailyRestriction('block', {
         timeRanges: [{ startMinute: 540, endMinute: 750 }],
       }),
     })
     const cloned = cloneGroup(original)
 
     cloned.patterns.push('news\\.example')
-    cloned.restrictionRules![0].timeRanges[0].startMinute = 600
+    const clonedWindow = cloned.timeWindows![0]
+    if (clonedWindow.type === 'scheduled') clonedWindow.timeRanges[0].startMinute = 600
 
     expect(original.patterns).toEqual(['example\\.com'])
-    expect(original.restrictionRules![0].timeRanges[0].startMinute).toBe(540)
+    expect(original.timeWindows![0]).toEqual({
+      type: 'scheduled',
+      condition: { type: 'daily' },
+      timeRanges: [{ startMinute: 540, endMinute: 750 }],
+    })
   })
 
   it('新しい id と copy 名で編集可能な複製値を作る', () => {

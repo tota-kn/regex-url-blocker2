@@ -71,26 +71,6 @@ export interface Restriction {
 }
 
 /**
- * グループに設定する1件の制限ルール。
- * `condition` と `timeRanges` は制限が有効になる「有効ウィンドウ」を表し、
- * ウィンドウが有効な間だけ `type` に応じた制限（禁止・猶予・待機）を適用する。
- */
-export interface RestrictionRule {
-  /** 適用する日の条件。既存の `ScheduleRuleCondition` を再利用する。 */
-  condition: ScheduleRuleCondition
-  /** 制限が有効な時刻ウィンドウ。空配列は終日有効。 */
-  timeRanges: TimeRange[]
-  /** 制限種別。 */
-  type: RestrictionType
-  /** `type === 'grace'` のときの1日の閲覧上限分数。0以上の整数。 */
-  graceMinutes?: number
-  /** `type === 'wait'` のときのアクセス前待機秒数。0以上の整数。 */
-  waitSeconds?: number
-  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。1以上の整数。 */
-  waitGrantMinutes?: number
-}
-
-/**
  * グループの動作モード。
  * - `'blacklist'`: patterns にマッチした URL を制限対象とする（既定）。
  * - `'whitelist'`: patterns にマッチしない URL を制限対象とする。
@@ -134,10 +114,6 @@ export interface Group {
   timeWindows?: TimeWindow[]
   /** このグループに設定する制限の配列。 */
   restrictions?: Restriction[]
-  /** @deprecated v9 移行用の旧ペア形式。読み込み時に分離形式へ変換する。 */
-  restrictionRules?: RestrictionRule[]
-  /** @deprecated v7 移行用の旧単一制限。 */
-  restriction?: RestrictionRule
 }
 
 /**

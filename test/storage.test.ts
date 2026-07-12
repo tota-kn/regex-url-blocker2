@@ -261,25 +261,6 @@ describe('settings export file', () => {
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
-  it('v10 import は global Pause 設定を各 group へ移行する', () => {
-    const {
-      pauseWaitSeconds: _pauseWaitSeconds,
-      pauseDurationMinutes: _pauseDurationMinutes,
-      ...legacyGroup
-    } = createEmptyGroup('Legacy')
-    const imported = parseSettingsExportJson(
-      JSON.stringify({
-        version: 10,
-        settings: {
-          global: { ...DEFAULT_GLOBAL_SETTINGS, pauseWaitSeconds: 0, pauseDurationMinutes: 25 },
-          groups: [legacyGroup],
-        },
-      }),
-    )
-
-    expect(imported.groups[0]).toMatchObject({ pauseWaitSeconds: 0, pauseDurationMinutes: 25 })
-  })
-
   it('v3 import は disabled 欠損を false で補完する', () => {
     const imported = parseSettingsExportJson(
       JSON.stringify({
@@ -339,110 +320,6 @@ describe('settings export file', () => {
     })
   })
 
-  it('v6 import は複数 scheduleRules を block > grace > wait の複数 restriction rules へ変換する', () => {
-    const imported = parseSettingsExportJson(
-      JSON.stringify({
-        version: 6,
-        settings: {
-          global: DEFAULT_GLOBAL_SETTINGS,
-          groups: [
-            {
-              id: 'v6-mixed',
-              name: 'V6 Mixed',
-              mode: 'blacklist',
-              disabled: false,
-              lockMode: false,
-              patterns: ['example\\.com'],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://example.com',
-              scheduleRules: [
-                {
-                  id: 'wait-rule',
-                  condition: { type: 'daily' },
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: undefined,
-                  delaySeconds: 30,
-                },
-                {
-                  id: 'grace-rule',
-                  condition: { type: 'daily' },
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 20,
-                },
-                {
-                  id: 'block-rule',
-                  condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
-                  blockedTimeRanges: [{ startMinute: 540, endMinute: 1080 }],
-                },
-              ],
-            },
-          ],
-        },
-      }),
-    )
-
-    expect(imported.groups[0].timeWindows?.[0]).toMatchObject({
-      type: 'scheduled',
-      condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
-      timeRanges: [{ startMinute: 540, endMinute: 1080 }],
-    })
-    expect(imported.groups[0].restrictions?.[1]).toMatchObject({
-      type: 'grace',
-      graceMinutes: 20,
-    })
-    expect(imported.groups[0].restrictions?.[2]).toMatchObject({
-      type: 'wait',
-      waitSeconds: 30,
-    })
-  })
-
-  it('v6 import は block 候補が無ければ grace、wait の順で複数 restriction rules へ変換する', () => {
-    const imported = parseSettingsExportJson(
-      JSON.stringify({
-        version: 6,
-        settings: {
-          global: DEFAULT_GLOBAL_SETTINGS,
-          groups: [
-            {
-              id: 'v6-grace-wait',
-              name: 'V6 Grace Wait',
-              mode: 'blacklist',
-              disabled: false,
-              lockMode: false,
-              patterns: ['example\\.com'],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://example.com',
-              scheduleRules: [
-                {
-                  id: 'wait-rule',
-                  condition: { type: 'daily' },
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: undefined,
-                  delaySeconds: 30,
-                },
-                {
-                  id: 'grace-rule',
-                  condition: { type: 'daily' },
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 20,
-                },
-              ],
-            },
-          ],
-        },
-      }),
-    )
-
-    expect(imported.groups[0].restrictions?.[0]).toMatchObject({
-      type: 'grace',
-      graceMinutes: 20,
-    })
-    expect(imported.groups[0].restrictions?.[1]).toMatchObject({
-      type: 'wait',
-      waitSeconds: 30,
-    })
-  })
-
   it('通知設定をエクスポート/インポートでラウンドトリップする', () => {
     const settings = {
       global: {
@@ -482,6 +359,16 @@ describe('settings export file', () => {
         JSON.stringify({ version: 1, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } }),
       ),
     ).toThrow('Unsupported settings file version')
+  })
+
+  it('未リリースの中間バージョン（v5〜v10）は reject する', () => {
+    for (const version of [5, 6, 7, 8, 9, 10]) {
+      expect(() =>
+        parseSettingsExportJson(
+          JSON.stringify({ version, settings: { global: DEFAULT_GLOBAL_SETTINGS, groups: [] } }),
+        ),
+      ).toThrow('Unsupported settings file version')
+    }
   })
 
   it('settings 欠損は reject する', () => {
@@ -602,37 +489,6 @@ describe('loadSettings のマイグレーション', () => {
 
     expect(s.groups[0].timeWindows).toEqual([{ type: 'always' }])
     expect(s.groups[0].restrictions?.[0]).toMatchObject({ type: 'grace', graceMinutes: 15 })
-  })
-
-  it('scheduleRules の condition.type が未知の要素は破棄され、残りのルールから集約される', async () => {
-    await browser.storage.sync.set({
-      groups: [
-        {
-          id: 'mixed',
-          name: 'mixed',
-          mode: 'blacklist',
-          patterns: [],
-          scheduleRules: [
-            {
-              id: 'ok',
-              condition: { type: 'daily' },
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 10,
-            },
-            {
-              id: 'broken',
-              condition: { type: 'cron', expression: '* * * * *' },
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 5,
-            },
-          ],
-        },
-      ],
-    })
-    const s = await loadSettings()
-
-    expect(s.groups[0].timeWindows).toEqual([{ type: 'always' }])
-    expect(s.groups[0].restrictions?.[0]).toMatchObject({ type: 'grace', graceMinutes: 10 })
   })
 
   it('旧 schedules / blockedTimeSlots / timeLimits フィールドは破棄され制限なしで初期化される', async () => {

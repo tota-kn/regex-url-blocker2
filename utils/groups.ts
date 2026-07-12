@@ -2,7 +2,6 @@ import { dayLabel, formatMonthDay, formatTimeRange } from './datetime'
 import type {
   Group,
   Restriction,
-  RestrictionRule,
   ScheduleRuleCondition,
   Settings,
   TimeRange,
@@ -70,19 +69,6 @@ export function formatScheduleRuleCondition(condition: ScheduleRuleCondition): s
  */
 function formatRestrictionWindow(timeRanges: TimeRange[]): string {
   return timeRanges.length > 0 ? timeRanges.map(formatTimeRange).join(', ') : 'All day'
-}
-
-/**
- * 読み取り専用表示用にグループの単一制限を要約する。
- */
-export function formatRestriction(restriction: RestrictionRule): string {
-  const detail =
-    restriction.type === 'block'
-      ? 'Block'
-      : restriction.type === 'grace'
-        ? `Grace ${restriction.graceMinutes ?? 0} min/day`
-        : `Wait ${restriction.waitSeconds ?? 0} sec, allow ${restriction.waitGrantMinutes ?? 10} min`
-  return `${formatScheduleRuleCondition(restriction.condition)} ${formatRestrictionWindow(restriction.timeRanges)} — ${detail}`
 }
 
 /** 時間ウィンドウを読み取り表示用の文言に変換する。 */

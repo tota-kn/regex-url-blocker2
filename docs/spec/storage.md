@@ -112,7 +112,7 @@ interface Restriction {
 - 旧グループで `blockAction` / `redirectUrl` が欠損している場合は `global.blockAction` / `global.redirectUrl` から補完する。`global` 側にも有効な値がない場合は既定値で補完する。
 - `timeWindows` は `always`、または既知の条件を持つ `scheduled` 要素だけを採用する。`restrictions` は既知の `block` / `redirect` / `grace` / `wait` 要素だけを採用する。
 - `restrictions` の重複は読み込み時に正規化する。`block` と `redirect` が併存すれば `block`、`grace` は最小上限、`wait` は最大秒数、複数 `redirect` は先頭の URL を保持する。
-- 旧 `restrictionRules`、`restriction`、`scheduleRules`、`dailyRules` は Time window 群と Restriction 群へ分離する。旧 `daily` + 空時間帯は `always` に変換する。
+- 旧 `dailyRules` は Time window 群と Restriction 群へ分離する。旧 `daily` + 空時間帯は `always` に変換する。未リリース開発中にのみ存在した中間フォーマット（`scheduleRules` / `restriction` / `restrictionRules`）は互換対象外。
 
 読み込み互換は「Service Worker や options/popup を停止させない」ことを優先する。保存 UI や import は別途 validation を行うため、読み込み時に補完された値がそのままユーザー編集後に保存されるとは限らない。
 
@@ -211,8 +211,8 @@ background はカウンタをメモリ上に保持し、約7秒間隔、heartbea
 ```
 
 - export は常に `version: 11` を出力する。
-- v11 は group ごとの `pauseWaitSeconds`（0以上の整数、既定60）と `pauseDurationMinutes`（1以上の整数、既定10）を追加する。v10 の global Pause 設定は各 group へ移行する。
-- import は互換のため `version: 2`〜`11` を受け付ける。
+- v11 は group ごとの `pauseWaitSeconds`（0以上の整数、既定60）と `pauseDurationMinutes`（1以上の整数、既定10）を持つ。
+- import は互換のため、リリース済みの `version: 2`（1.0.0）、`3`（1.1.0/1.2.0）、`4`（1.3.0）と現行の `11` を受け付ける。未リリース開発中にのみ存在した `5`〜`10` は受け付けない。
 - 不正 JSON は `Invalid JSON` として拒否する。
 - `version` が未対応の場合は `Unsupported settings file version` として拒否する。
 - `settings` が欠損、オブジェクトでない、または配列の場合は拒否する。
@@ -220,7 +220,7 @@ background はカウンタをメモリ上に保持し、約7秒間隔、heartbea
 - `settings.groups` が配列でない場合は拒否する。
 - JSON から `Settings` へ正規化したあと、`validateGlobalSettings()` と `validateGroup()` で validation error が1件でもあれば拒否する。
 - v2 import では、グループ側に `blockAction` / `redirectUrl` がない旧データを `global.blockAction` / `global.redirectUrl` から補完する。
-- v2〜v8 import では、旧ペア形式を上記の正規化規則で `timeWindows` と `restrictions` へ自動変換する。
+- v2〜v4 import では、旧 `dailyRules` を上記の正規化規則で `timeWindows` と `restrictions` へ自動変換する。
 
 ## 新フィールド追加時の方針
 

@@ -20,7 +20,7 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: 'redirect',
     redirectUrl: 'https://blocked.test/',
-    restriction: dailyRestriction('grace', { graceMinutes: 60 }),
+    ...dailyRestriction('grace', { graceMinutes: 60 }),
     ...overrides,
   }
 }

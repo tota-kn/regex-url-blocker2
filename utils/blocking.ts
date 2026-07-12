@@ -5,7 +5,6 @@ import type {
   Group,
   GroupPauseState,
   Restriction,
-  RestrictionRule,
   ScheduleRuleCondition,
   Settings,
   TimeRange,
@@ -102,36 +101,14 @@ export interface EffectiveGroupBlockStatus {
   status: GroupBlockStatus
 }
 
-/**
- * group が持つ現行制限ルール配列を返す。旧 `restriction` だけを持つ値も互換的に扱う。
- */
-export function getRestrictionRules(group: Group): RestrictionRule[] {
-  const rules = group.restrictionRules ?? []
-  if (rules.length === 0 && group.restriction) return [group.restriction]
-  return rules
-}
-
-/** グループの分離形式の制限を返す。旧ペア形式も互換的に変換する。 */
+/** グループの分離形式の制限を返す。未設定は空配列として扱う。 */
 export function getRestrictions(group: Group): Restriction[] {
-  if (group.restrictions !== undefined) return group.restrictions
-  return getRestrictionRules(group).map(
-    ({ type, graceMinutes, waitSeconds, waitGrantMinutes }) => ({
-      type,
-      graceMinutes,
-      waitSeconds,
-      waitGrantMinutes,
-    }),
-  )
+  return group.restrictions ?? []
 }
 
-/** グループの分離形式の時間ウィンドウを返す。旧ペア形式も互換的に変換する。 */
+/** グループの分離形式の時間ウィンドウを返す。未設定は空配列として扱う。 */
 export function getTimeWindows(group: Group): TimeWindow[] {
-  if (group.timeWindows !== undefined) return group.timeWindows
-  return getRestrictionRules(group).map((rule) =>
-    rule.condition.type === 'daily' && rule.timeRanges.length === 0
-      ? { type: 'always' as const }
-      : { type: 'scheduled' as const, condition: rule.condition, timeRanges: rule.timeRanges },
-  )
+  return group.timeWindows ?? []
 }
 
 /**
