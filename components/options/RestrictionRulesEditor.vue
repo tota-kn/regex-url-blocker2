@@ -119,7 +119,7 @@ function removeRestriction(index: number): void {
               <option value="daily">Every day</option>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
-              <option value="period">Period</option>
+              <option value="period">Date range</option>
             </select>
           </label>
           <BaseButton

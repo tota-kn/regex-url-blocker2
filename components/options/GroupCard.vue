@@ -126,7 +126,9 @@ const pauseButtonState = computed(() =>
 )
 const pauseButtonLabel = computed(() => pauseButtonState.value.label)
 const effectivePauseDisabledReason = computed(
-  () => props.pauseDisabledReason ?? (props.group.disabled ? 'Enable group to pause.' : undefined),
+  () =>
+    props.pauseDisabledReason ??
+    (props.group.disabled ? 'Enable this group to use Pause.' : undefined),
 )
 const canRequestPause = computed(() => {
   if (effectivePauseDisabledReason.value) return false

@@ -73,7 +73,7 @@ defineExpose({ open, close })
         <h2 class="text-heading-md">Currently active settings</h2>
         <p class="mt-1 text-body-sm text-muted">
           Saved restrictions and retained rule-day restrictions are evaluated independently. The
-          stricter result is used for each URL and time.
+          stricter result applies for any given URL and time.
         </p>
       </div>
       <BaseButton

@@ -90,14 +90,14 @@ const groupTemplates: GroupTemplateOption[] = [
   },
   {
     id: 'core-sns-15min',
-    label: 'Core SNS 15 min/day',
-    description: 'Start with core social networks and a 15 minute daily limit.',
-    ariaLabel: 'Create group from core SNS 15 min/day template',
+    label: 'Core social 15 min/day',
+    description: 'Start with core social networks and a 15-minute daily limit.',
+    ariaLabel: 'Create group from core social 15 min/day template',
   },
   {
     id: 'video-30min',
     label: 'Video 30 min/day',
-    description: 'Start with video sites and a 30 minute daily limit.',
+    description: 'Start with video sites and a 30-minute daily limit.',
     ariaLabel: 'Create group from video 30 min/day template',
   },
   {

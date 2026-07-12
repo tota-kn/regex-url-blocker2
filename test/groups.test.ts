@@ -102,7 +102,7 @@ describe('group utilities', () => {
     ).toBe('Redirect to https://elsewhere.test/')
     expect(formatStandaloneRestriction({ type: 'redirect' })).toBe('Redirect')
     expect(formatStandaloneRestriction({ type: 'grace', graceMinutes: 15 })).toBe(
-      'Grace 15 min/day',
+      'Daily limit 15 min/day',
     )
     expect(formatStandaloneRestriction({ type: 'wait', waitSeconds: 5, waitGrantMinutes: 1 })).toBe(
       'Wait 5 sec, allow 1 min',

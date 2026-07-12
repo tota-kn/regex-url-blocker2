@@ -33,7 +33,7 @@ const restriction = defineModel<Restriction>({ required: true })
 const typeOptions = [
   { value: 'block', label: 'Block' },
   { value: 'redirect', label: 'Redirect' },
-  { value: 'grace', label: 'Grace' },
+  { value: 'grace', label: 'Daily limit' },
   { value: 'wait', label: 'Wait' },
 ] satisfies { value: RestrictionType; label: string }[]
 
@@ -152,7 +152,7 @@ function preventNonDigitInput(event: InputEvent): void {
           type="text"
           inputmode="numeric"
           pattern="[0-9]*"
-          aria-label="Grace minutes per day"
+          aria-label="Daily limit minutes per day"
           placeholder="0"
           class="w-24"
           size="sm"

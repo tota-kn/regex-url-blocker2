@@ -1096,7 +1096,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add group' }).click()
     await expect(page.getByRole('button', { name: 'Create blank group' })).toBeVisible()
     await expect(
-      page.getByRole('button', { name: 'Create group from core SNS 15 min/day template' }),
+      page.getByRole('button', { name: 'Create group from core social 15 min/day template' }),
     ).toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Create group from video 30 min/day template' }),
@@ -1113,7 +1113,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('New group')).not.toBeVisible()
   })
 
-  test('Core SNS 15 min/day テンプレートからSNSパターンと全曜日15分上限のグループを作成できる', async ({
+  test('Core social 15 min/day テンプレートからSNSパターンと全曜日15分上限のグループを作成できる', async ({
     page,
     extensionId,
   }) => {
@@ -1121,7 +1121,7 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('button', { name: 'Add group' }).click()
     await page
-      .getByRole('button', { name: 'Create group from core SNS 15 min/day template' })
+      .getByRole('button', { name: 'Create group from core social 15 min/day template' })
       .click()
 
     const expectedPatterns = [
@@ -1140,7 +1140,7 @@ test.describe('Options 画面', () => {
     }
 
     await expect(page.getByLabel('Time window type')).toHaveValue('always')
-    await expect(page.getByLabel('Grace minutes per day')).toHaveValue('15')
+    await expect(page.getByLabel('Daily limit minutes per day')).toHaveValue('15')
   })
 
   test('Video 30 min/day テンプレートから動画パターンと全曜日30分上限のグループを作成できる', async ({
@@ -1168,7 +1168,7 @@ test.describe('Options 画面', () => {
     }
 
     await expect(page.getByLabel('Time window type')).toHaveValue('always')
-    await expect(page.getByLabel('Grace minutes per day')).toHaveValue('30')
+    await expect(page.getByLabel('Daily limit minutes per day')).toHaveValue('30')
   })
 
   test('Work hours focus テンプレートから平日日中ブロックのグループを作成できる', async ({
@@ -1435,7 +1435,7 @@ test.describe('Options 画面', () => {
       page.getByLabel('Name'),
       page.getByRole('textbox', { name: 'URL pattern' }),
       page.getByLabel('Active time ranges'),
-      page.getByLabel('Grace minutes per day'),
+      page.getByLabel('Daily limit minutes per day'),
     ]
 
     for (const input of groupInputs) {
@@ -1582,7 +1582,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
-    await expect(page.getByText('Enable group to pause.')).toBeVisible()
+    await expect(page.getByText('Enable this group to use Pause.')).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeEnabled()
 
     const serviceWorker =
@@ -1601,7 +1601,7 @@ test.describe('Options 画面', () => {
 
     await page.getByRole('menuitem', { name: 'Enable' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).not.toBeVisible()
-    await expect(page.getByText('Enable group to pause.')).not.toBeVisible()
+    await expect(page.getByText('Enable this group to use Pause.')).not.toBeVisible()
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeEnabled()
     await page.getByRole('menuitem', { name: 'Pause' }).click()
@@ -1737,7 +1737,7 @@ test.describe('Options 画面', () => {
     await expect(page.locator('label:has(input[aria-label="Name"]) svg')).toHaveCount(0)
     await expect(page.getByLabel('Name')).toBeEnabled()
     await expect(
-      page.getByRole('button', { name: 'Create group from core SNS 15 min/day template' }),
+      page.getByRole('button', { name: 'Create group from core social 15 min/day template' }),
     ).not.toBeVisible()
     await expect(
       page.getByRole('button', { name: 'Create group from video 30 min/day template' }),
@@ -1781,7 +1781,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Active time ranges').fill('09:15-10:45, 22:00-01:30')
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Grace minutes per day').fill('30')
+    await page.getByLabel('Daily limit minutes per day').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
@@ -1798,8 +1798,8 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('EmptyRule')
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Grace minutes per day').fill('30')
-    await page.getByLabel('Grace minutes per day').fill('')
+    await page.getByLabel('Daily limit minutes per day').fill('30')
+    await page.getByLabel('Daily limit minutes per day').fill('')
 
     await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
@@ -2016,14 +2016,14 @@ test.describe('Options 画面', () => {
       'Every day',
       'Weekly',
       'Monthly',
-      'Period',
+      'Date range',
     ])
     await expect(page.getByRole('heading', { name: /Time window 1|Restriction 1/ })).toHaveCount(0)
     await timeWindowType.selectOption('weekly')
     await page.getByRole('checkbox', { name: 'Monday' }).check()
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Grace minutes per day').fill('60')
+    await page.getByLabel('Daily limit minutes per day').fill('60')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
@@ -2126,7 +2126,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Grace minutes per day').fill('45')
+    await page.getByLabel('Daily limit minutes per day').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
