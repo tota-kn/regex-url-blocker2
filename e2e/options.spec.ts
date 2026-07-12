@@ -177,7 +177,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Import replaces all groups and general settings.')).toBeVisible()
   })
 
-  test('グループ一時停止は集中ダイアログで60秒待機後に10分停止を保存する', async ({
+  test('グループ一時停止は設定した待機時間と継続時間を反映する', async ({
     page,
     context,
     extensionId,
@@ -212,6 +212,8 @@ test.describe('Options 画面', () => {
             patterns: ['example\\.com'],
             blockAction: 'blockedPage',
             redirectUrl: 'https://blocked.test',
+            pauseWaitSeconds: 5,
+            pauseDurationMinutes: 7,
             dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
               dayOfWeek,
               blockedTimeRanges: [],
@@ -225,12 +227,14 @@ test.describe('Options 画面', () => {
     await page.clock.install({ time: startTime })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
+    await expect(page.getByText('Pause', { exact: true })).toBeVisible()
+    await expect(page.getByText('Wait 5 sec, pause for 7 min')).toBeVisible()
     await openGroupActions(page)
-    await page.getByRole('menuitem', { name: 'Request pause' }).click()
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
-    await expect(pauseDialog.getByText('60s remaining')).toBeVisible()
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
+    await expect(pauseDialog.getByText('5s remaining')).toBeVisible()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeDisabled()
     const editButtonBox = await page.getByRole('button', { name: 'Edit group' }).boundingBox()
     expect(editButtonBox).not.toBeNull()
     const elementAtEditButton = await page.evaluate(
@@ -260,8 +264,8 @@ test.describe('Options 画面', () => {
     expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
     expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
 
-    await page.clock.fastForward(59_000)
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
+    await page.clock.fastForward(4_000)
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeDisabled()
     stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -279,9 +283,9 @@ test.describe('Options 画面', () => {
     expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
 
     await page.clock.fastForward(1_000)
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeEnabled()
-    await pauseDialog.getByRole('button', { name: 'Pause 10 min' }).click()
-    await expect(page.getByText(/Paused 10:00|Paused 9:59/)).toBeVisible()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeEnabled()
+    await pauseDialog.getByRole('button', { name: 'Pause 7 min' }).click()
+    await expect(page.getByText(/Paused 7:00|Paused 6:59/)).toBeVisible()
     stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -297,12 +301,8 @@ test.describe('Options 画面', () => {
       return chromeApi.chrome.storage.local.get(['groupPauseState'])
     })
     const pausedUntil = stored.groupPauseState?.['pause-target']?.pausedUntil
-    expect(pausedUntil).toBeGreaterThanOrEqual(
-      startTime.getTime() + PAUSE_COUNTDOWN_WAIT_MS + GROUP_PAUSE_DURATION_MS,
-    )
-    expect(pausedUntil).toBeLessThan(
-      startTime.getTime() + PAUSE_COUNTDOWN_WAIT_MS + GROUP_PAUSE_DURATION_MS + 1_000,
-    )
+    expect(pausedUntil).toBeGreaterThanOrEqual(startTime.getTime() + 5_000 + 7 * 60_000)
+    expect(pausedUntil).toBeLessThan(startTime.getTime() + 5_000 + 7 * 60_000 + 1_000)
     expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
   })
 
@@ -354,7 +354,7 @@ test.describe('Options 画面', () => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGroupActions(page)
-    await page.getByRole('menuitem', { name: 'Request pause' }).click()
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Cancel' })).toBeVisible()
     await pauseDialog.getByRole('button', { name: 'Cancel' }).click()
@@ -377,7 +377,7 @@ test.describe('Options 画面', () => {
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
     await openGroupActions(page)
-    await page.getByRole('menuitem', { name: 'Request pause' }).click()
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await page.evaluate(() => window.dispatchEvent(new Event('blur')))
     await expect(pauseDialog).not.toBeVisible()
@@ -398,7 +398,7 @@ test.describe('Options 画面', () => {
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
     await openGroupActions(page)
-    await page.getByRole('menuitem', { name: 'Request pause' }).click()
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await page.evaluate(() => {
       Object.defineProperty(document, 'visibilityState', {
@@ -550,7 +550,7 @@ test.describe('Options 画面', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(9)
+    expect(exported.version).toBe(11)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })
@@ -753,8 +753,7 @@ test.describe('Options 画面', () => {
       page.getByText(/Stricter saved changes apply now\..*rule day starts at 03:00/s),
     ).toBeVisible()
     await openGroupActions(page)
-    await expect(page.getByRole('menuitem', { name: 'Request pause' }).first()).toBeDisabled()
-    await expect(page.getByText('Use active settings to pause.')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Pause' }).first()).toBeEnabled()
     await expect(page.getByRole('menuitem', { name: 'Active settings only' })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'View active settings' }).click()
@@ -810,7 +809,7 @@ test.describe('Options 画面', () => {
     expect(firstRuleBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
     await openGroupActions(activeSettingsDialog)
-    await activeSettingsDialog.getByRole('menuitem', { name: 'Request pause' }).first().click()
+    await activeSettingsDialog.getByRole('menuitem', { name: 'Pause' }).first().click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
@@ -994,7 +993,7 @@ test.describe('Options 画面', () => {
       activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
     ).not.toBeVisible()
     await openGroupActions(activeSettingsDialog)
-    await activeSettingsDialog.getByRole('menuitem', { name: 'Request pause' }).click()
+    await activeSettingsDialog.getByRole('menuitem', { name: 'Pause' }).click()
     const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
     await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
     await page.clock.fastForward(PAUSE_COUNTDOWN_WAIT_MS)
@@ -1496,19 +1495,23 @@ test.describe('Options 画面', () => {
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
     await page.getByRole('button', { name: 'Save group' }).click()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
+    await expect(page.getByText('Pause', { exact: true })).not.toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
 
     await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Disable' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
-    await expect(page.getByText('Group status')).toBeVisible()
+    await expect(page.getByText('Group status')).not.toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveValue('Disabled target')
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
-    await expect(page.getByText('Group status')).toBeVisible()
+    await expect(page.getByText('Group status')).not.toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
     await openGroupActions(page)
-    await expect(page.getByRole('menuitem', { name: 'Request pause' })).toBeDisabled()
+    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
     await expect(page.getByText('Enable group to pause.')).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeEnabled()
 
@@ -1530,8 +1533,8 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).not.toBeVisible()
     await expect(page.getByText('Enable group to pause.')).not.toBeVisible()
     await openGroupActions(page)
-    await expect(page.getByRole('menuitem', { name: 'Request pause' })).toBeEnabled()
-    await page.getByRole('menuitem', { name: 'Request pause' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeEnabled()
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
     await expect(
       page
         .locator('dialog')

@@ -20,7 +20,6 @@ import {
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
 import { cloneSettings, duplicateGroup as createGroupDuplicate } from '@/utils/groups'
-import { GROUP_PAUSE_DURATION_MS } from '@/utils/constants'
 import {
   loadCounters,
   loadEffectiveSettingsState,
@@ -84,6 +83,14 @@ const resetTimeLabel = computed(() => effectiveSettings.value.global.dailyResetH
 const appliesAfterLabel = computed(() => formatDateTime(nextResetAt.value))
 const groupCount = computed(() => settings.value.groups.length + newGroupDrafts.value.length)
 const hasGlobalErrors = computed(() => globalErrors.value.length > 0 || Boolean(importError.value))
+const pauseTargetGroup = computed(() => {
+  const id = pauseTargetGroupId.value
+  if (!id) return undefined
+  return (
+    settings.value.groups.find((group) => group.id === id) ??
+    effectiveSettings.value.groups.find((group) => group.id === id)
+  )
+})
 
 /** 一時停止状態を保持してよい group id を返す。 */
 function groupPauseValidIds(): string[] {
@@ -187,9 +194,10 @@ function requestGroupPause(id: string): void {
   pauseCountdownDialogRef.value?.open()
 }
 
-/** 集中カウントダウン完了後に10分の一時停止を保存する。 */
+/** 集中カウントダウン完了後に設定された時間の一時停止を保存する。 */
 async function confirmGroupPause(): Promise<void> {
   const id = pauseTargetGroupId.value
+  const targetGroup = pauseTargetGroup.value
   pauseTargetGroupId.value = undefined
   if (!id) return
 
@@ -200,7 +208,9 @@ async function confirmGroupPause(): Promise<void> {
   const next: GroupPauseState = {
     groupPauseState: { ...groupPauseState.value.groupPauseState },
   }
-  next.groupPauseState[id] = { pausedUntil: nowMs + GROUP_PAUSE_DURATION_MS }
+  next.groupPauseState[id] = {
+    pausedUntil: nowMs + (targetGroup?.pauseDurationMinutes ?? 10) * 60_000,
+  }
 
   groupPauseState.value = next
   await saveGroupPauseState(next)
@@ -306,7 +316,12 @@ onMounted(async () => {
 
 <template>
   <ConfirmDialog ref="confirmDialogRef" />
-  <PauseCountdownDialog ref="pauseCountdownDialogRef" @confirm="confirmGroupPause" />
+  <PauseCountdownDialog
+    ref="pauseCountdownDialogRef"
+    :wait-seconds="pauseTargetGroup?.pauseWaitSeconds ?? 60"
+    :pause-duration-minutes="pauseTargetGroup?.pauseDurationMinutes ?? 10"
+    @confirm="confirmGroupPause"
+  />
   <ActiveSettingsDialog
     ref="activeSettingsDialogRef"
     :effective-settings="effectiveSettings"
@@ -411,7 +426,6 @@ onMounted(async () => {
               :new-groups="newGroupDrafts"
               :group-pause-state="groupPauseState"
               :now="now"
-              :pause-active-settings-only="hasPendingSettings"
               :time-limit-usage-summary="timeLimitUsageSummary"
               @add-group="addGroup"
               @save-group="saveGroup"

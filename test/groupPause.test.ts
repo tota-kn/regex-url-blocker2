@@ -10,21 +10,21 @@ describe('group pause button state', () => {
 
   it('未設定なら一時停止リクエストを開始できる', () => {
     expect(getGroupPauseButtonState(undefined, now)).toEqual({
-      label: 'Request pause',
+      label: 'Pause',
       paused: false,
     })
   })
 
   it('保存済み待機値が未来でも一時停止リクエストからやり直す', () => {
     expect(getGroupPauseButtonState({ waitingUntil: now.getTime() + 10_100 }, now)).toEqual({
-      label: 'Request pause',
+      label: 'Pause',
       paused: false,
     })
   })
 
   it('保存済み待機値が期限切れでも一時停止リクエストからやり直す', () => {
     expect(getGroupPauseButtonState({ waitingUntil: now.getTime() }, now)).toEqual({
-      label: 'Request pause',
+      label: 'Pause',
       paused: false,
     })
   })
@@ -45,14 +45,14 @@ describe('group pause button state', () => {
 
   it('popup 表示では待機中の残り時間を返す', () => {
     expect(getGroupPauseDisplayState({ waitingUntil: now.getTime() + 10_100 }, now)).toEqual({
-      label: 'Request pause 0:11 left',
+      label: 'Pause 0:11 left',
       kind: 'waiting',
     })
   })
 
   it('popup 表示では待機完了状態を返す', () => {
     expect(getGroupPauseDisplayState({ waitingUntil: now.getTime() }, now)).toEqual({
-      label: 'Request pause ready',
+      label: 'Pause ready',
       kind: 'ready',
     })
   })

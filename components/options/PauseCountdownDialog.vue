@@ -2,7 +2,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { PAUSE_COUNTDOWN_TICK_MS, PAUSE_COUNTDOWN_WAIT_MS } from '@/utils/constants'
+import { PAUSE_COUNTDOWN_TICK_MS } from '@/utils/constants'
 import { useNowTimer } from '@/utils/useNowTimer'
 
 /**
@@ -13,6 +13,15 @@ interface Emits {
   confirm: []
 }
 
+/** 一時停止前カウントダウンダイアログの props。 */
+interface Props {
+  /** 一時停止を確定できるまでの待機秒数。 */
+  waitSeconds: number
+  /** 一時停止を継続する分数。 */
+  pauseDurationMinutes: number
+}
+
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
@@ -20,9 +29,10 @@ const startedAt = ref(0)
 const { now, start: startTimer, stop: stopTimer } = useNowTimer(PAUSE_COUNTDOWN_TICK_MS)
 
 const elapsedMs = computed(() => Math.max(0, now.value.getTime() - startedAt.value))
-const remainingMs = computed(() => Math.max(0, PAUSE_COUNTDOWN_WAIT_MS - elapsedMs.value))
+const waitMilliseconds = computed(() => props.waitSeconds * 1_000)
+const remainingMs = computed(() => Math.max(0, waitMilliseconds.value - elapsedMs.value))
 const remainingSeconds = computed(() => Math.ceil(remainingMs.value / 1_000))
-const isReady = computed(() => elapsedMs.value >= PAUSE_COUNTDOWN_WAIT_MS)
+const isReady = computed(() => elapsedMs.value >= waitMilliseconds.value)
 
 watch(now, () => {
   if (!dialogRef.value?.open) return
@@ -112,7 +122,7 @@ onUnmounted(() => {
       <div>
         <h2 id="pause-countdown-title" class="text-heading-md">Take a breath</h2>
         <p class="mt-1 text-body-sm text-muted-foreground">
-          Stay here for a minute before pausing this group.
+          Stay here for {{ waitSeconds }} seconds before pausing this group.
         </p>
       </div>
 
@@ -128,12 +138,12 @@ onUnmounted(() => {
         <BaseButton
           type="button"
           variant="primary"
-          aria-label="Pause 10 min"
+          :aria-label="`Pause ${pauseDurationMinutes} min`"
           :disabled="!isReady"
           @click="confirmPause"
         >
           <CheckIcon aria-hidden="true" class="size-4" />
-          Pause 10 min
+          Pause {{ pauseDurationMinutes }} min
         </BaseButton>
       </div>
     </div>

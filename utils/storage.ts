@@ -1,4 +1,9 @@
-import { DEFAULT_GLOBAL_SETTINGS, DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
+import {
+  DEFAULT_GLOBAL_SETTINGS,
+  DEFAULT_PAUSE_DURATION_MINUTES,
+  DEFAULT_PAUSE_WAIT_SECONDS,
+  DEFAULT_WAIT_GRANT_MINUTES,
+} from './defaults'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
 import type {
@@ -26,14 +31,14 @@ import { validateGlobalSettings, validateGroup } from './validation'
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
  */
-export const SETTINGS_EXPORT_VERSION = 9
+export const SETTINGS_EXPORT_VERSION = 11
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | 3 | 4 | 5 | 6 | 7 | 8 | typeof SETTINGS_EXPORT_VERSION
+  version: 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
 }
@@ -71,6 +76,20 @@ function normalizeNotificationThresholdMinutes(value: unknown): number {
     : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
 }
 
+/** 保存済み値を一時停止前待機秒数へ正規化する。 */
+function normalizePauseWaitSeconds(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+    ? value
+    : DEFAULT_PAUSE_WAIT_SECONDS
+}
+
+/** 保存済み値を一時停止継続分数へ正規化する。 */
+function normalizePauseDurationMinutes(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1
+    ? value
+    : DEFAULT_PAUSE_DURATION_MINUTES
+}
+
 /**
  * 保存済み値を残り時間通知 ON/OFF 設定へ正規化する。
  */
@@ -99,6 +118,8 @@ function normalizeGroup(
   value: unknown,
   fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction,
   fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+  fallbackPauseWaitSeconds = DEFAULT_PAUSE_WAIT_SECONDS,
+  fallbackPauseDurationMinutes = DEFAULT_PAUSE_DURATION_MINUTES,
 ): Group {
   const g = asRecord(value)
   const blockAction = normalizeBlockAction(g.blockAction ?? fallbackBlockAction)
@@ -115,6 +136,14 @@ function normalizeGroup(
     patterns: Array.isArray(g.patterns) ? g.patterns.filter((p) => typeof p === 'string') : [],
     blockAction,
     redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
+    pauseWaitSeconds:
+      typeof g.pauseWaitSeconds === 'number'
+        ? normalizePauseWaitSeconds(g.pauseWaitSeconds)
+        : fallbackPauseWaitSeconds,
+    pauseDurationMinutes:
+      typeof g.pauseDurationMinutes === 'number'
+        ? normalizePauseDurationMinutes(g.pauseDurationMinutes)
+        : fallbackPauseDurationMinutes,
     timeWindows: normalizeTimeWindows(g.timeWindows) ?? legacyRulesToTimeWindows(legacyRules),
     restrictions:
       normalizeStandaloneRestrictions(g.restrictions) ?? legacyRulesToRestrictions(legacyRules),
@@ -453,6 +482,8 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
   const normalizedRawGlobal = { ...rawGlobal }
   delete normalizedRawGlobal.pageOpenNotificationsEnabled
   delete normalizedRawGlobal.blockNotificationsEnabled
+  delete normalizedRawGlobal.pauseWaitSeconds
+  delete normalizedRawGlobal.pauseDurationMinutes
   const fallbackBlockAction = normalizeBlockAction(rawGlobal.blockAction)
   const fallbackRedirectUrl =
     typeof rawGlobal.redirectUrl === 'string'
@@ -461,6 +492,8 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
   const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(
     rawGlobal.notificationThresholdMinutes,
   )
+  const pauseWaitSeconds = normalizePauseWaitSeconds(rawGlobal.pauseWaitSeconds)
+  const pauseDurationMinutes = normalizePauseDurationMinutes(rawGlobal.pauseDurationMinutes)
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
@@ -474,7 +507,15 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
       ),
     },
     groups: Array.isArray(raw.groups)
-      ? raw.groups.map((group) => normalizeGroup(group, fallbackBlockAction, fallbackRedirectUrl))
+      ? raw.groups.map((group) =>
+          normalizeGroup(
+            group,
+            fallbackBlockAction,
+            fallbackRedirectUrl,
+            pauseWaitSeconds,
+            pauseDurationMinutes,
+          ),
+        )
       : [],
   }
 }
@@ -599,6 +640,10 @@ export function parseSettingsExportJson(json: string): Settings {
     file.version !== 4 &&
     file.version !== 5 &&
     file.version !== 6 &&
+    file.version !== 7 &&
+    file.version !== 8 &&
+    file.version !== 9 &&
+    file.version !== 10 &&
     file.version !== SETTINGS_EXPORT_VERSION
   ) {
     throw new Error('Unsupported settings file version')

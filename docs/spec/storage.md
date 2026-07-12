@@ -48,6 +48,8 @@ interface GlobalSettings {
 
 `groups` はブロック対象グループの配列を保存する。
 
+各 group は `pauseWaitSeconds`（0以上の整数、既定60）と `pauseDurationMinutes`（1以上の整数、既定10）を持つ。一時停止の待機時間と継続時間は group ごとに設定する。
+
 ```ts
 interface Group {
   id: string
@@ -203,13 +205,14 @@ background はカウンタをメモリ上に保持し、約7秒間隔、heartbea
 
 ```ts
 {
-  version: 5,
+  version: 11,
   settings: Settings
 }
 ```
 
-- export は常に `version: 9` を出力する。
-- import は互換のため `version: 2`〜`9` を受け付ける。
+- export は常に `version: 11` を出力する。
+- v11 は group ごとの `pauseWaitSeconds`（0以上の整数、既定60）と `pauseDurationMinutes`（1以上の整数、既定10）を追加する。v10 の global Pause 設定は各 group へ移行する。
+- import は互換のため `version: 2`〜`11` を受け付ける。
 - 不正 JSON は `Invalid JSON` として拒否する。
 - `version` が未対応の場合は `Unsupported settings file version` として拒否する。
 - `settings` が欠損、オブジェクトでない、または配列の場合は拒否する。

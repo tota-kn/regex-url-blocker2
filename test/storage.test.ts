@@ -193,7 +193,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 9,
+      version: 11,
       settings,
     })
   })
@@ -241,12 +241,14 @@ describe('settings export file', () => {
     })
   })
 
-  it('v9 export/import はグループ別 block action と disabled、分離した制限を保持する', () => {
+  it('v11 export/import は Pause 設定を含むグループ別設定を保持する', () => {
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
       groups: [
         {
           ...createEmptyGroup('Imported'),
+          pauseWaitSeconds: 0,
+          pauseDurationMinutes: 25,
           disabled: true,
           blockAction: 'redirect' as const,
           redirectUrl: 'https://group-blocked.test',
@@ -257,6 +259,25 @@ describe('settings export file', () => {
     }
 
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
+  })
+
+  it('v10 import は global Pause 設定を各 group へ移行する', () => {
+    const {
+      pauseWaitSeconds: _pauseWaitSeconds,
+      pauseDurationMinutes: _pauseDurationMinutes,
+      ...legacyGroup
+    } = createEmptyGroup('Legacy')
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 10,
+        settings: {
+          global: { ...DEFAULT_GLOBAL_SETTINGS, pauseWaitSeconds: 0, pauseDurationMinutes: 25 },
+          groups: [legacyGroup],
+        },
+      }),
+    )
+
+    expect(imported.groups[0]).toMatchObject({ pauseWaitSeconds: 0, pauseDurationMinutes: 25 })
   })
 
   it('v3 import は disabled 欠損を false で補完する', () => {

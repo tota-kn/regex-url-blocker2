@@ -266,6 +266,20 @@ export function validateGroup(group: Group): ValidationError[] {
     }
   }
 
+  if (
+    group.pauseWaitSeconds !== undefined &&
+    (!Number.isInteger(group.pauseWaitSeconds) || group.pauseWaitSeconds < 0)
+  ) {
+    errors.push({ field: 'pauseWaitSeconds', message: 'Use 0+ integer' })
+  }
+
+  if (
+    group.pauseDurationMinutes !== undefined &&
+    (!Number.isInteger(group.pauseDurationMinutes) || group.pauseDurationMinutes < 1)
+  ) {
+    errors.push({ field: 'pauseDurationMinutes', message: 'Use 1+ integer' })
+  }
+
   group.patterns.forEach((p, i) => {
     if (!isValidUrlPattern(p)) {
       errors.push({ field: `patterns[${i}]`, message: 'Invalid URL pattern' })

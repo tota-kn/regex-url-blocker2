@@ -512,6 +512,25 @@ describe('validateGlobalSettings', () => {
     ).toBe(true)
   })
 
+  it('Pause の待機秒数は 0 以上、継続時間は 1 分以上の整数を許可する', () => {
+    expect(
+      validateGroup({ ...createEmptyGroup('Pause'), pauseWaitSeconds: 0, pauseDurationMinutes: 1 }),
+    ).toEqual([])
+  })
+
+  it('Pause の不正な待機秒数と継続時間を拒否する', () => {
+    expect(
+      validateGroup({ ...createEmptyGroup('Pause'), pauseWaitSeconds: -1 }).some(
+        (error) => error.field === 'pauseWaitSeconds',
+      ),
+    ).toBe(true)
+    expect(
+      validateGroup({ ...createEmptyGroup('Pause'), pauseDurationMinutes: 0 }).some(
+        (error) => error.field === 'pauseDurationMinutes',
+      ),
+    ).toBe(true)
+  })
+
   it('通知ON/OFF設定が boolean でないとエラー', () => {
     expect(
       validateGlobalSettings({

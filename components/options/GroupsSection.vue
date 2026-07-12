@@ -32,8 +32,6 @@ interface Props {
   groupPauseState: GroupPauseState
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now: Date
-  /** 未反映設定があり、通常一覧から一時停止できないなら true。 */
-  pauseActiveSettingsOnly: boolean
   /** 指定グループの今日の上限利用状況を返す関数。 */
   timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
 }
@@ -203,9 +201,6 @@ function createGroup(templateId: GroupTemplateId): void {
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
         :now="now"
-        :pause-disabled-reason="
-          pauseActiveSettingsOnly ? 'Use active settings to pause.' : undefined
-        "
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"

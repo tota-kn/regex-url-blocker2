@@ -16,8 +16,10 @@ import {
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
+import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
 import type { Group, GroupPauseEntry } from '@/utils/types'
@@ -93,11 +95,19 @@ const draftRestrictions = computed({
 const canSave = computed(() => draftErrors.value.length === 0)
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string; value: string }> = []
-  if (props.group.disabled) {
-    summaries.push({ label: 'Group status', value: 'Disabled' })
-  }
   if (props.group.lockMode) {
     summaries.push({ label: 'Delay relaxed restrictions until next rule day', value: 'On' })
+  }
+  const pauseWaitSeconds = props.group.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS
+  const pauseDurationMinutes = props.group.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES
+  if (
+    pauseWaitSeconds !== DEFAULT_PAUSE_WAIT_SECONDS ||
+    pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES
+  ) {
+    summaries.push({
+      label: 'Pause',
+      value: `Wait ${pauseWaitSeconds} sec, pause for ${pauseDurationMinutes} min`,
+    })
   }
   return summaries
 })
@@ -256,6 +266,11 @@ function actionMenuId(): string {
 /** 一時停止操作の無効理由に紐づく一意な DOM id を返す。 */
 function pauseDisabledReasonId(): string {
   return `group-pause-disabled-reason-${props.group.id}`
+}
+
+/** Pause 時間の数値入力を作業中グループへ反映する。 */
+function setPauseSetting(field: 'pauseWaitSeconds' | 'pauseDurationMinutes', value: string): void {
+  draft.value[field] = value === '' ? Number.NaN : Number(value)
 }
 
 /** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
@@ -507,6 +522,65 @@ onBeforeUnmount(() => {
                     :value="true"
                   />
                   <span>On</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset aria-label="Pause settings" class="py-3">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
+                <ClockIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
+                <div>
+                  <span class="text-label-md">Pause</span>
+                  <p class="mt-1 text-body-sm text-muted">
+                    Take a short break before temporarily disabling this group.
+                  </p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
+                <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <span>Wait</span>
+                  <BaseField :error="draftError('pauseWaitSeconds')">
+                    <BaseInput
+                      :model-value="
+                        Number.isFinite(draft.pauseWaitSeconds)
+                          ? String(draft.pauseWaitSeconds)
+                          : ''
+                      "
+                      type="number"
+                      min="0"
+                      step="1"
+                      aria-label="Wait seconds before pausing"
+                      class="w-20"
+                      :invalid="Boolean(draftError('pauseWaitSeconds'))"
+                      @update:model-value="
+                        setPauseSetting('pauseWaitSeconds', String($event ?? ''))
+                      "
+                    />
+                  </BaseField>
+                  <span>sec</span>
+                </label>
+                <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                  <span>Pause for</span>
+                  <BaseField :error="draftError('pauseDurationMinutes')">
+                    <BaseInput
+                      :model-value="
+                        Number.isFinite(draft.pauseDurationMinutes)
+                          ? String(draft.pauseDurationMinutes)
+                          : ''
+                      "
+                      type="number"
+                      min="1"
+                      step="1"
+                      aria-label="Pause duration minutes"
+                      class="w-20"
+                      :invalid="Boolean(draftError('pauseDurationMinutes'))"
+                      @update:model-value="
+                        setPauseSetting('pauseDurationMinutes', String($event ?? ''))
+                      "
+                    />
+                  </BaseField>
+                  <span>min</span>
                 </label>
               </div>
             </div>

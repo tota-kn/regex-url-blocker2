@@ -3,6 +3,12 @@ import type { GlobalSettings, Group, Restriction, RestrictionType, TimeWindow } 
 /** Wait を通過した後の既定アクセス許可期間（分）。 */
 export const DEFAULT_WAIT_GRANT_MINUTES = 10
 
+/** 一時停止を開始するまでの既定待機時間（秒）。 */
+export const DEFAULT_PAUSE_WAIT_SECONDS = 60
+
+/** 一時停止の既定継続時間（分）。 */
+export const DEFAULT_PAUSE_DURATION_MINUTES = 10
+
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
  */
@@ -97,6 +103,8 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     patterns: createPatternsFromTemplate(templateId),
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+    pauseWaitSeconds: DEFAULT_PAUSE_WAIT_SECONDS,
+    pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
     timeWindows:
       templateId === 'work-hours-focus'
         ? [

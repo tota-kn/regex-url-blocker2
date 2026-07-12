@@ -438,7 +438,7 @@ test.describe('Popup 画面', () => {
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
 
-      await expect(popup.getByText(/Request pause 1:0[0-5] left/)).toBeVisible()
+      await expect(popup.getByText(/Pause 1:0[0-5] left/)).toBeVisible()
     } finally {
       await server.close()
     }
@@ -458,7 +458,7 @@ test.describe('Popup 画面', () => {
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
 
-      await expect(popup.getByText('Request pause ready')).toBeVisible({ timeout: 4_000 })
+      await expect(popup.getByText('Pause ready')).toBeVisible({ timeout: 4_000 })
     } finally {
       await server.close()
     }

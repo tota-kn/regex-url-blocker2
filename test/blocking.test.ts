@@ -758,6 +758,41 @@ describe('blocking evaluation', () => {
     expect(result.blockedGroupIds).toEqual([])
   })
 
+  it('同じ id の有効設定と保存設定の両方のブロックを一時停止する', () => {
+    const baseline = settings([
+      group({
+        id: 'shared',
+        patterns: ['example'],
+        restriction: dailyRestriction('grace', { graceMinutes: 0 }),
+      }),
+    ])
+    const preferred = settings([
+      group({
+        id: 'shared',
+        patterns: ['example'],
+        restriction: dailyRestriction('block'),
+      }),
+    ])
+    const now = new Date('2026-05-06T12:00:00+09:00')
+    const evaluation = evaluateEffectiveUrl(
+      baseline,
+      preferred,
+      emptyCounters(),
+      'https://example.com/',
+      now,
+    )
+
+    const result = applyGroupPauseState(
+      evaluation,
+      { groupPauseState: { shared: { pausedUntil: now.getTime() + 60_000 } } },
+      now.getTime(),
+    )
+
+    expect(evaluation.blockedGroupIds).toEqual(['shared'])
+    expect(result.blocked).toBe(false)
+    expect(result.blockedGroupIds).toEqual([])
+  })
+
   it('popup 用 status は時間帯ブロック中の状態を返す', () => {
     const s = settings([
       group({

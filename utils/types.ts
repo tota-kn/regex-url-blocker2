@@ -126,6 +126,10 @@ export interface Group {
   blockAction: BlockAction
   /** このグループで redirect を選んだ場合の遷移先 URL。 */
   redirectUrl: string
+  /** 一時停止を開始するまでの待機秒数。0以上の整数。 */
+  pauseWaitSeconds?: number
+  /** 一時停止を継続する分数。1以上の整数。 */
+  pauseDurationMinutes?: number
   /** このグループに設定する時間ウィンドウの配列。 */
   timeWindows?: TimeWindow[]
   /** このグループに設定する制限の配列。 */
@@ -192,7 +196,7 @@ export interface UsageCountersState {
  * 1グループ分の一時停止状態。
  */
 export interface GroupPauseEntry {
-  /** 1回目クリック後、10分一時停止を開始できる時刻の epoch milliseconds。 */
+  /** 1回目クリック後、一時停止を開始できる時刻の epoch milliseconds。 */
   waitingUntil?: number
   /** この時刻までブロックだけを一時停止する epoch milliseconds。 */
   pausedUntil?: number

@@ -49,20 +49,20 @@ export function getGroupPauseDisplayState(
   const waitingUntil = entry?.waitingUntil
   if (waitingUntil && waitingUntil > nowMs) {
     return {
-      label: `Request pause ${formatPauseDuration(waitingUntil - nowMs)} left`,
+      label: `Pause ${formatPauseDuration(waitingUntil - nowMs)} left`,
       kind: 'waiting',
     }
   }
 
   if (waitingUntil) {
     return {
-      label: 'Request pause ready',
+      label: 'Pause ready',
       kind: 'ready',
     }
   }
 
   return {
-    label: 'Request pause',
+    label: 'Pause',
     kind: 'none',
   }
 }
@@ -84,7 +84,7 @@ export function getGroupPauseButtonState(
   }
 
   return {
-    label: 'Request pause',
+    label: 'Pause',
     paused: false,
   }
 }
