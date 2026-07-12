@@ -1,13 +1,6 @@
 import type { DelayGrantEntry, DelayGrantState } from './types'
 
 /**
- * 待機ゲート通過後にアクセスを許可し続ける時間（ミリ秒）。
- * 待機のたびに再度待たされないよう、この一定枠だけは対象グループの閲覧を許可する。
- * 調整はこの定数を変更するだけでよい。
- */
-export const DELAY_GRANT_DURATION_MS = 10 * 60 * 1000
-
-/**
  * unknown の値から待機ゲート許可エントリを生成する。期限切れまたは空の値は undefined を返す。
  */
 function normalizeDelayGrantEntry(value: unknown, now: number): DelayGrantEntry | undefined {

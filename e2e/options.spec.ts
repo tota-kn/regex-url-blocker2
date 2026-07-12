@@ -1425,7 +1425,10 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Cancel group' })).not.toBeVisible()
   })
 
-  test('スケジュールルールの待機秒を保存→リロード後も保持される', async ({ page, extensionId }) => {
+  test('Wait の待機秒数と通過後許可期間を保存→リロード後も保持される', async ({
+    page,
+    extensionId,
+  }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
@@ -1435,16 +1438,31 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add restriction' }).click()
     await page.getByLabel('Restriction type').selectOption('wait')
     await page.getByLabel('Wait seconds before access').fill('30')
+    await page.getByLabel('Minutes allowed after wait').fill('25')
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec')
+    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec, allow 25 min')
 
     await page.waitForTimeout(DEBOUNCE_FLUSH_MS)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec')
+    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec, allow 25 min')
     await page.getByRole('button', { name: 'Edit group' }).click()
     await expect(page.getByLabel('Wait seconds before access')).toHaveValue('30')
+    await expect(page.getByLabel('Minutes allowed after wait')).toHaveValue('25')
+  })
+
+  test('Wait の通過後許可期間は1分以上を必須にする', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Invalid wait grant')
+    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByLabel('Restriction type').selectOption('wait')
+    await page.getByLabel('Minutes allowed after wait').fill('0')
+
+    await expect(page.getByText('Use 1+ integer')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeDisabled()
   })
 
   test('Restriction は編集中に重複できるが重複中は保存できない', async ({ page, extensionId }) => {

@@ -1,4 +1,4 @@
-import { DEFAULT_GLOBAL_SETTINGS } from './defaults'
+import { DEFAULT_GLOBAL_SETTINGS, DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
 import type {
@@ -193,6 +193,12 @@ function normalizeRestriction(value: unknown): RestrictionRule | undefined {
   }
   if (typeof r.graceMinutes === 'number') restriction.graceMinutes = r.graceMinutes
   if (typeof r.waitSeconds === 'number') restriction.waitSeconds = r.waitSeconds
+  if (r.type === 'wait') {
+    restriction.waitGrantMinutes =
+      typeof r.waitGrantMinutes === 'number' && r.waitGrantMinutes >= 1
+        ? r.waitGrantMinutes
+        : DEFAULT_WAIT_GRANT_MINUTES
+  }
   return restriction
 }
 
@@ -210,6 +216,12 @@ function normalizeStandaloneRestriction(value: unknown): Restriction | undefined
   if (typeof valueRecord.graceMinutes === 'number')
     restriction.graceMinutes = valueRecord.graceMinutes
   if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
+  if (valueRecord.type === 'wait') {
+    restriction.waitGrantMinutes =
+      typeof valueRecord.waitGrantMinutes === 'number' && valueRecord.waitGrantMinutes >= 1
+        ? valueRecord.waitGrantMinutes
+        : DEFAULT_WAIT_GRANT_MINUTES
+  }
   if (typeof valueRecord.redirectUrl === 'string') restriction.redirectUrl = valueRecord.redirectUrl
   return restriction
 }
@@ -231,13 +243,22 @@ function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefi
     .filter((restriction) => restriction.type === 'wait')
     .map((restriction) => restriction.waitSeconds)
     .filter((seconds): seconds is number => seconds !== undefined)
+  const waitGrantMinutes = restrictions
+    .filter((restriction) => restriction.type === 'wait')
+    .map((restriction) => restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES)
+    .filter((minutes): minutes is number => Number.isInteger(minutes) && minutes >= 1)
   const normalized: Restriction[] = []
   if (block) normalized.push({ type: 'block' })
   else if (redirect) normalized.push(redirect)
   if (graceMinutes.length > 0)
     normalized.push({ type: 'grace', graceMinutes: Math.min(...graceMinutes) })
   if (waitSeconds.length > 0)
-    normalized.push({ type: 'wait', waitSeconds: Math.max(...waitSeconds) })
+    normalized.push({
+      type: 'wait',
+      waitSeconds: Math.max(...waitSeconds),
+      waitGrantMinutes:
+        waitGrantMinutes.length > 0 ? Math.max(...waitGrantMinutes) : DEFAULT_WAIT_GRANT_MINUTES,
+    })
   return normalized
 }
 
@@ -276,7 +297,12 @@ function legacyRulesToTimeWindows(rules: RestrictionRule[]): TimeWindow[] {
 
 /** 旧ペア形式を制限配列へ分離する。 */
 function legacyRulesToRestrictions(rules: RestrictionRule[]): Restriction[] {
-  return rules.map(({ type, graceMinutes, waitSeconds }) => ({ type, graceMinutes, waitSeconds }))
+  return rules.map(({ type, graceMinutes, waitSeconds, waitGrantMinutes }) => ({
+    type,
+    graceMinutes,
+    waitSeconds,
+    waitGrantMinutes,
+  }))
 }
 
 /**
@@ -412,6 +438,7 @@ function convertLegacyScheduleRules(rules: LegacyScheduleRule[]): RestrictionRul
         timeRanges: [],
         type: 'wait',
         waitSeconds: rule.delaySeconds,
+        waitGrantMinutes: DEFAULT_WAIT_GRANT_MINUTES,
       })
     }
   }

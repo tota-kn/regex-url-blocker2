@@ -8,6 +8,8 @@ import {
   getActiveRedirectUrl,
   getBlockedTimeRangeReleaseAt,
   getEffectiveWaitSeconds,
+  getEffectiveWaitGrantMinutes,
+  getEffectiveGroupBlockStatus,
   getRedirectUrls,
   getGroupBlockStatus,
   getLogicalDate,
@@ -1113,6 +1115,39 @@ describe('wait gate', () => {
     expect(
       getEffectiveWaitSeconds(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global),
     ).toBe(30)
+  })
+
+  it('Wait の通過後許可期間を返し、未設定の旧データは10分として扱う', () => {
+    const now = new Date('2026-05-06T12:00:00+09:00')
+    const g = group({ restriction: dailyRestriction('wait', { waitSeconds: 30 }) })
+    expect(getEffectiveWaitGrantMinutes(g, now, settings([]).global)).toBe(10)
+  })
+
+  it('Lock Mode の基準設定と最新版が併存するときは最長の許可期間を採用する', () => {
+    const now = new Date('2026-05-06T12:00:00+09:00')
+    const baseline = settings([
+      group({
+        lockMode: true,
+        restriction: dailyRestriction('wait', { waitSeconds: 5, waitGrantMinutes: 30 }),
+      }),
+    ])
+    const preferred = settings([
+      group({
+        lockMode: true,
+        restriction: dailyRestriction('wait', { waitSeconds: 5, waitGrantMinutes: 5 }),
+      }),
+    ])
+
+    expect(
+      getEffectiveGroupBlockStatus(
+        'g1',
+        baseline,
+        preferred,
+        undefined,
+        'https://example.com/',
+        now,
+      )?.status,
+    ).toMatchObject({ waitGrantMinutes: 30 })
   })
 
   it('0 以下の待機秒数は待機なしとして扱う', () => {

@@ -12,6 +12,7 @@ async function saveWaitGateSettings(
   serviceWorker: Worker,
   origin: string,
   delaySeconds: number,
+  grantMinutes = 10,
 ): Promise<void> {
   await serviceWorker.evaluate(
     async (settings) => {
@@ -35,12 +36,18 @@ async function saveWaitGateSettings(
             blockAction: 'blockedPage',
             redirectUrl: `${settings.origin}/redirect`,
             timeWindows: [{ type: 'always' }],
-            restrictions: [{ type: 'wait', waitSeconds: settings.delaySeconds }],
+            restrictions: [
+              {
+                type: 'wait',
+                waitSeconds: settings.delaySeconds,
+                waitGrantMinutes: settings.grantMinutes,
+              },
+            ],
           },
         ],
       })
     },
-    { origin, delaySeconds },
+    { origin, delaySeconds, grantMinutes },
   )
 }
 

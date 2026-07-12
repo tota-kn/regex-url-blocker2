@@ -13,6 +13,7 @@ import type {
   UsageCounter,
   UsageCountersState,
 } from './types'
+import { DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
@@ -83,6 +84,8 @@ export interface GroupBlockStatus {
   timeLimitSummary?: TimeLimitUsageSummary
   /** `type === 'wait'` かつアクティブなときの待機秒数。 */
   waitSeconds?: number
+  /** `type === 'wait'` かつアクティブなときの通過後許可期間（分）。 */
+  waitGrantMinutes?: number
   /** block 制限が現在有効なら true。 */
   blockedByTimeRange: boolean
   /** grace 制限が今日の上限に到達しているなら true。 */
@@ -111,11 +114,14 @@ export function getRestrictionRules(group: Group): RestrictionRule[] {
 /** グループの分離形式の制限を返す。旧ペア形式も互換的に変換する。 */
 export function getRestrictions(group: Group): Restriction[] {
   if (group.restrictions !== undefined) return group.restrictions
-  return getRestrictionRules(group).map(({ type, graceMinutes, waitSeconds }) => ({
-    type,
-    graceMinutes,
-    waitSeconds,
-  }))
+  return getRestrictionRules(group).map(
+    ({ type, graceMinutes, waitSeconds, waitGrantMinutes }) => ({
+      type,
+      graceMinutes,
+      waitSeconds,
+      waitGrantMinutes,
+    }),
+  )
 }
 
 /** グループの分離形式の時間ウィンドウを返す。旧ペア形式も互換的に変換する。 */
@@ -440,6 +446,23 @@ export function getEffectiveWaitSeconds(
 }
 
 /**
+ * group のアクティブな Wait restriction における、通過後の最長許可期間（分）を返す。
+ * 保存済みの旧 Wait で値が未指定の場合は、従来どおり10分として扱う。
+ */
+export function getEffectiveWaitGrantMinutes(
+  group: Group,
+  now: Date,
+  global: GlobalSettings,
+): number | undefined {
+  if (getEffectiveWaitSeconds(group, now, global) === undefined) return undefined
+  const grantMinutes = getRestrictions(group)
+    .filter((restriction) => restriction.type === 'wait')
+    .map((restriction) => restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES)
+    .filter((minutes) => Number.isInteger(minutes) && minutes >= 1)
+  return grantMinutes.length > 0 ? Math.max(...grantMinutes) : DEFAULT_WAIT_GRANT_MINUTES
+}
+
+/**
  * group が指定時刻・counter でハードブロック状態か。
  * アクティブ かつ（block は常に true / grace は消費秒 >= graceMinutes*60 / wait は false）。
  */
@@ -476,6 +499,7 @@ export function getGroupBlockStatus(
   const blockedByDailyLimit =
     isActive && timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
   const waitSeconds = getEffectiveWaitSeconds(group, now, global)
+  const waitGrantMinutes = getEffectiveWaitGrantMinutes(group, now, global)
 
   return {
     restrictionRules,
@@ -483,6 +507,7 @@ export function getGroupBlockStatus(
     activeTimeRanges,
     timeLimitSummary,
     waitSeconds,
+    waitGrantMinutes,
     blockedByTimeRange: activeTimeRanges.length > 0,
     blockedByDailyLimit,
     blocked: activeTimeRanges.length > 0 || blockedByDailyLimit,
@@ -665,6 +690,11 @@ export function getEffectiveGroupBlockStatus(
   const waitSeconds = uniqueVariants
     .flatMap((item) => (item.status.waitSeconds === undefined ? [] : [item.status.waitSeconds]))
     .toSorted((a, b) => b - a)[0]
+  const waitGrantMinutes = uniqueVariants
+    .flatMap((item) =>
+      item.status.waitGrantMinutes === undefined ? [] : [item.status.waitGrantMinutes],
+    )
+    .toSorted((a, b) => b - a)[0]
   const uniqueObjects = <T>(values: T[]): T[] => [
     ...new Map(values.map((value) => [JSON.stringify(value), value])).values(),
   ]
@@ -684,6 +714,7 @@ export function getEffectiveGroupBlockStatus(
       activeTimeRanges,
       timeLimitSummary: summaries[0],
       waitSeconds,
+      waitGrantMinutes,
       blockedByTimeRange,
       blockedByDailyLimit,
       blocked: blockedByTimeRange || blockedByDailyLimit,

@@ -1,5 +1,8 @@
 import type { GlobalSettings, Group, Restriction, RestrictionType, TimeWindow } from './types'
 
+/** Wait を通過した後の既定アクセス許可期間（分）。 */
+export const DEFAULT_WAIT_GRANT_MINUTES = 10
+
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
  */
@@ -21,7 +24,8 @@ export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
  */
 export function createDefaultRestriction(type: RestrictionType): Restriction {
   if (type === 'grace') return { type, graceMinutes: 30 }
-  if (type === 'wait') return { type, waitSeconds: 5 }
+  if (type === 'wait')
+    return { type, waitSeconds: 60, waitGrantMinutes: DEFAULT_WAIT_GRANT_MINUTES }
   if (type === 'redirect') return { type, redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl }
   return {
     type,

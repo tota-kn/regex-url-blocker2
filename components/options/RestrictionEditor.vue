@@ -13,7 +13,9 @@ interface Props {
   /** 編集モードかどうか。false のとき読み取り表示にする。 */
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
-  error?: (field: 'type' | 'graceMinutes' | 'waitSeconds' | 'redirectUrl') => string | undefined
+  error?: (
+    field: 'type' | 'graceMinutes' | 'waitSeconds' | 'waitGrantMinutes' | 'redirectUrl',
+  ) => string | undefined
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -46,6 +48,7 @@ function setRedirectUrl(value: string | number | undefined): void {
 /** 猶予・待機のテキスト入力の作業状態。 */
 const graceMinutesText = ref('')
 const waitSecondsText = ref('')
+const waitGrantMinutesText = ref('')
 
 /** props からテキスト入力の初期状態を作る。 */
 function syncTexts(): void {
@@ -56,6 +59,10 @@ function syncTexts(): void {
   waitSecondsText.value =
     restriction.value?.type === 'wait' && restriction.value.waitSeconds !== undefined
       ? String(restriction.value.waitSeconds)
+      : ''
+  waitGrantMinutesText.value =
+    restriction.value?.type === 'wait' && restriction.value.waitGrantMinutes !== undefined
+      ? String(restriction.value.waitGrantMinutes)
       : ''
 }
 
@@ -75,6 +82,14 @@ function setWaitSecondsText(value: string | number | undefined): void {
   waitSecondsText.value = text
   if (restriction.value.type !== 'wait') return
   restriction.value.waitSeconds = text === '' ? undefined : Number(text)
+}
+
+/** Wait 通過後の許可期間（分）を更新する。 */
+function setWaitGrantMinutesText(value: string | number | undefined): void {
+  const text = String(value ?? '').replace(/\D/g, '')
+  waitGrantMinutesText.value = text
+  if (restriction.value.type !== 'wait') return
+  restriction.value.waitGrantMinutes = text === '' ? undefined : Number(text)
 }
 
 /** 数字以外の入力を事前に止める。 */
@@ -142,27 +157,54 @@ function preventNonDigitInput(event: InputEvent): void {
         {{ props.error('graceMinutes') }}
       </AlertMessage>
 
-      <label v-if="restriction.type === 'wait'" class="flex min-w-0 items-center gap-1.5">
-        <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground">Wait</span>
-        <BaseInput
-          type="text"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          aria-label="Wait seconds before access"
-          placeholder="0"
-          class="w-24"
-          size="sm"
-          :model-value="waitSecondsText"
-          @beforeinput="preventNonDigitInput"
-          @update:model-value="setWaitSecondsText"
-        />
-        <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
-          >sec before access</span
-        >
-      </label>
-      <AlertMessage v-if="restriction.type === 'wait' && props.error('waitSeconds')">
-        {{ props.error('waitSeconds') }}
-      </AlertMessage>
+      <div v-if="restriction.type === 'wait'" class="space-y-2">
+        <label class="flex min-w-0 items-center gap-1.5">
+          <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
+            >Wait</span
+          >
+          <BaseInput
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            aria-label="Wait seconds before access"
+            placeholder="0"
+            class="w-24"
+            size="sm"
+            :model-value="waitSecondsText"
+            @beforeinput="preventNonDigitInput"
+            @update:model-value="setWaitSecondsText"
+          />
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
+            >sec before access</span
+          >
+        </label>
+        <label class="flex min-w-0 items-center gap-1.5">
+          <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
+            >Allow for</span
+          >
+          <BaseInput
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            aria-label="Minutes allowed after wait"
+            placeholder="1"
+            class="w-24"
+            size="sm"
+            :model-value="waitGrantMinutesText"
+            @beforeinput="preventNonDigitInput"
+            @update:model-value="setWaitGrantMinutesText"
+          />
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
+            >min after passing</span
+          >
+        </label>
+        <AlertMessage v-if="restriction.type === 'wait' && props.error('waitSeconds')">
+          {{ props.error('waitSeconds') }}
+        </AlertMessage>
+        <AlertMessage v-if="restriction.type === 'wait' && props.error('waitGrantMinutes')">
+          {{ props.error('waitGrantMinutes') }}
+        </AlertMessage>
+      </div>
     </template>
 
     <output v-else aria-label="Restriction" class="block text-body-md text-input-foreground">

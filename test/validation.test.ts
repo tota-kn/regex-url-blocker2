@@ -156,7 +156,14 @@ describe('validateRestriction (validateGroup 経由)', () => {
       ...createEmptyGroup(),
       name: 'X',
       timeWindows: [{ type: 'scheduled', condition: r.condition, timeRanges: r.timeRanges }],
-      restrictions: [{ type: r.type, graceMinutes: r.graceMinutes, waitSeconds: r.waitSeconds }],
+      restrictions: [
+        {
+          type: r.type,
+          graceMinutes: r.graceMinutes,
+          waitSeconds: r.waitSeconds,
+          waitGrantMinutes: r.waitGrantMinutes,
+        },
+      ],
     })
   }
 
@@ -316,16 +323,51 @@ describe('validateRestriction (validateGroup 経由)', () => {
     ).toEqual([])
   })
 
-  it('wait は waitSeconds が 0以上の整数でないとエラー', () => {
+  it('wait は待機秒数が0以上、許可期間が1以上の整数でないとエラー', () => {
     expect(
       validateRestrictionRule(
-        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 0 }),
+        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 0, waitGrantMinutes: 1 }),
       ),
     ).toEqual([])
     expect(
       validateRestrictionRule(
         restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: undefined }),
       ).some((e) => e.field === 'restrictions[0].waitSeconds'),
+    ).toBe(true)
+    expect(
+      validateRestrictionRule(
+        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 1, waitGrantMinutes: 0 }),
+      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+    ).toBe(true)
+    expect(
+      validateRestrictionRule(
+        restriction({
+          type: 'wait',
+          graceMinutes: undefined,
+          waitSeconds: 1,
+          waitGrantMinutes: undefined,
+        }),
+      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+    ).toBe(true)
+    expect(
+      validateRestrictionRule(
+        restriction({
+          type: 'wait',
+          graceMinutes: undefined,
+          waitSeconds: 1,
+          waitGrantMinutes: -1,
+        }),
+      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+    ).toBe(true)
+    expect(
+      validateRestrictionRule(
+        restriction({
+          type: 'wait',
+          graceMinutes: undefined,
+          waitSeconds: 1,
+          waitGrantMinutes: 1.5,
+        }),
+      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
     ).toBe(true)
     expect(
       validateRestrictionRule(

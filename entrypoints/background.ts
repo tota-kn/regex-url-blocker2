@@ -4,6 +4,7 @@ import {
   evaluateEffectiveUrl,
   formatRemainingMinutesBadge,
   getActiveRedirectUrl,
+  getEffectiveWaitGrantMinutes,
   getEffectiveWaitSeconds,
   getMinimumEffectiveRemainingTimeLimit,
   getRedirectUrls,
@@ -329,11 +330,17 @@ async function redirectTab(
 /**
  * 待機ゲートのカウントダウンページ URL を作る。
  */
-function buildWaitPageUrl(url: string, groupId: string, seconds: number): string {
+function buildWaitPageUrl(
+  url: string,
+  groupId: string,
+  seconds: number,
+  grantMinutes: number,
+): string {
   const target = new URL(`chrome-extension://${browser.runtime.id}/wait.html`)
   target.searchParams.set('url', url)
   target.searchParams.set('group', groupId)
   target.searchParams.set('seconds', String(seconds))
+  target.searchParams.set('grantMinutes', String(grantMinutes))
   return target.toString()
 }
 
@@ -362,15 +369,25 @@ async function redirectToWaitIfNeeded(
   const candidates = [s, preferredSettings ?? s].flatMap((item) => {
     const group = item.groups.find((candidate) => candidate.id === groupId)
     return group && isTargetGroup(group, url)
-      ? [getEffectiveWaitSeconds(group, now, item.global)]
+      ? [
+          {
+            seconds: getEffectiveWaitSeconds(group, now, item.global),
+            grantMinutes: getEffectiveWaitGrantMinutes(group, now, item.global),
+          },
+        ]
       : []
   })
   const seconds = candidates
+    .map((value) => value.seconds)
     .filter((value): value is number => value !== undefined)
     .toSorted((a, b) => b - a)[0]
-  if (seconds === undefined) return
+  const grantMinutes = candidates
+    .map((value) => value.grantMinutes)
+    .filter((value): value is number => value !== undefined)
+    .toSorted((a, b) => b - a)[0]
+  if (seconds === undefined || grantMinutes === undefined) return
 
-  await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds) })
+  await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds, grantMinutes) })
 }
 
 /**

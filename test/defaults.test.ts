@@ -25,7 +25,11 @@ describe('createDefaultRestriction', () => {
 
   it('grace/wait は初期表示でエラーにならない既定値を持つ', () => {
     expect(createDefaultRestriction('grace')).toEqual({ type: 'grace', graceMinutes: 30 })
-    expect(createDefaultRestriction('wait')).toEqual({ type: 'wait', waitSeconds: 5 })
+    expect(createDefaultRestriction('wait')).toEqual({
+      type: 'wait',
+      waitSeconds: 60,
+      waitGrantMinutes: 10,
+    })
   })
 
   it('redirect は既定の遷移先 URL を持つ', () => {

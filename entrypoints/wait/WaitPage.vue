@@ -3,7 +3,7 @@ import { ArrowRightIcon, ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
-import { DELAY_GRANT_DURATION_MS } from '@/utils/delayGrant'
+import { DEFAULT_WAIT_GRANT_MINUTES } from '@/utils/defaults'
 import { loadDelayGrantState, loadPageState, saveDelayGrantState } from '@/utils/storage'
 
 const targetUrl = ref('')
@@ -11,6 +11,7 @@ const groupId = ref('')
 const groupName = ref('')
 const totalSeconds = ref(0)
 const remainingSeconds = ref(0)
+const grantMinutes = ref(DEFAULT_WAIT_GRANT_MINUTES)
 let intervalId: ReturnType<typeof setInterval> | undefined
 
 /** カウントダウンが完了しアクセス可能なら true。 */
@@ -29,6 +30,12 @@ function parseSeconds(params: URLSearchParams): number {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0
 }
 
+/** query から通過後の許可期間（分）を取り出す。数値でなければ既定値。 */
+function parseGrantMinutes(params: URLSearchParams): number {
+  const raw = Number(params.get('grantMinutes'))
+  return Number.isInteger(raw) && raw >= 1 ? raw : DEFAULT_WAIT_GRANT_MINUTES
+}
+
 /** カウントダウンを開始する。 */
 function startCountdown(): void {
   if (remainingSeconds.value <= 0) return
@@ -45,7 +52,9 @@ function startCountdown(): void {
 async function proceed(): Promise<void> {
   if (!canContinue.value) return
   const state = await loadDelayGrantState()
-  state.delayGrantState[groupId.value] = { grantedUntil: Date.now() + DELAY_GRANT_DURATION_MS }
+  state.delayGrantState[groupId.value] = {
+    grantedUntil: Date.now() + grantMinutes.value * 60 * 1000,
+  }
   await saveDelayGrantState(state)
   location.replace(targetUrl.value)
 }
@@ -61,6 +70,7 @@ onMounted(async () => {
   groupId.value = params.get('group') ?? ''
   totalSeconds.value = parseSeconds(params)
   remainingSeconds.value = totalSeconds.value
+  grantMinutes.value = parseGrantMinutes(params)
 
   const { effectiveSettings } = await loadPageState()
   groupName.value = effectiveSettings.groups.find((group) => group.id === groupId.value)?.name ?? ''

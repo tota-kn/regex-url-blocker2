@@ -172,6 +172,14 @@ function validateRestriction(restriction: RestrictionRule, prefix: string): Vali
   ) {
     errors.push({ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' })
   }
+  if (
+    restriction.type === 'wait' &&
+    (restriction.waitGrantMinutes === undefined ||
+      !Number.isInteger(restriction.waitGrantMinutes) ||
+      restriction.waitGrantMinutes < 1)
+  ) {
+    errors.push({ field: `${prefix}.waitGrantMinutes`, message: 'Use 1+ integer' })
+  }
   return errors
 }
 
@@ -205,6 +213,14 @@ function validateStandaloneRestriction(
       restriction.waitSeconds < 0)
   ) {
     return [{ field: `${prefix}.waitSeconds`, message: 'Use 0+ integer' }]
+  }
+  if (
+    restriction.type === 'wait' &&
+    (restriction.waitGrantMinutes === undefined ||
+      !Number.isInteger(restriction.waitGrantMinutes) ||
+      restriction.waitGrantMinutes < 1)
+  ) {
+    return [{ field: `${prefix}.waitGrantMinutes`, message: 'Use 1+ integer' }]
   }
   if (restriction.type === 'redirect') {
     const url = restriction.redirectUrl ?? ''

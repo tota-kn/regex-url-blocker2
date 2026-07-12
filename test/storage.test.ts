@@ -75,7 +75,7 @@ describe('loadSettings', () => {
     expect(settings.groups[0].restrictions).toEqual([
       { type: 'block' },
       { type: 'grace', graceMinutes: 10 },
-      { type: 'wait', waitSeconds: 20 },
+      { type: 'wait', waitSeconds: 20, waitGrantMinutes: 10 },
     ])
   })
 
@@ -96,6 +96,38 @@ describe('loadSettings', () => {
 
     expect(settings.groups[0].restrictions).toEqual([
       { type: 'redirect', redirectUrl: 'https://first.test/' },
+    ])
+  })
+
+  it('既存の Wait で許可期間が未設定なら10分を補完する', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...createEmptyGroup('Legacy wait'),
+          restrictions: [{ type: 'wait', waitSeconds: 5 }],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+    expect(settings.groups[0].restrictions).toEqual([
+      { type: 'wait', waitSeconds: 5, waitGrantMinutes: 10 },
+    ])
+  })
+
+  it('旧バージョンで保存された0分の許可期間は10分へ移行する', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...createEmptyGroup('Zero grant'),
+          restrictions: [{ type: 'wait', waitSeconds: 5, waitGrantMinutes: 0 }],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+    expect(settings.groups[0].restrictions).toEqual([
+      { type: 'wait', waitSeconds: 5, waitGrantMinutes: 10 },
     ])
   })
 })
@@ -141,7 +173,7 @@ describe('saveSettings', () => {
     const waitGroup = {
       ...createEmptyGroup('Wait'),
       timeWindows: [{ type: 'always' as const }],
-      restrictions: [{ type: 'wait' as const, waitSeconds: 30 }],
+      restrictions: [{ type: 'wait' as const, waitSeconds: 30, waitGrantMinutes: 10 }],
     }
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,

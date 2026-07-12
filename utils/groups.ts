@@ -81,7 +81,7 @@ export function formatRestriction(restriction: RestrictionRule): string {
       ? 'Block'
       : restriction.type === 'grace'
         ? `Grace ${restriction.graceMinutes ?? 0} min/day`
-        : `Wait ${restriction.waitSeconds ?? 0} sec`
+        : `Wait ${restriction.waitSeconds ?? 0} sec, allow ${restriction.waitGrantMinutes ?? 10} min`
   return `${formatScheduleRuleCondition(restriction.condition)} ${formatRestrictionWindow(restriction.timeRanges)} — ${detail}`
 }
 
@@ -97,5 +97,5 @@ export function formatStandaloneRestriction(restriction: Restriction): string {
   if (restriction.type === 'redirect')
     return restriction.redirectUrl ? `Redirect to ${restriction.redirectUrl}` : 'Redirect'
   if (restriction.type === 'grace') return `Grace ${restriction.graceMinutes ?? 0} min/day`
-  return `Wait ${restriction.waitSeconds ?? 0} sec`
+  return `Wait ${restriction.waitSeconds ?? 0} sec, allow ${restriction.waitGrantMinutes ?? 10} min`
 }

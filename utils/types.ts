@@ -64,6 +64,8 @@ export interface Restriction {
   graceMinutes?: number
   /** `type === 'wait'` のときのアクセス前待機秒数。 */
   waitSeconds?: number
+  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。1以上の整数。 */
+  waitGrantMinutes?: number
   /** `type === 'redirect'` のときの遷移先 URL。 */
   redirectUrl?: string
 }
@@ -84,6 +86,8 @@ export interface RestrictionRule {
   graceMinutes?: number
   /** `type === 'wait'` のときのアクセス前待機秒数。0以上の整数。 */
   waitSeconds?: number
+  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。1以上の整数。 */
+  waitGrantMinutes?: number
 }
 
 /**

@@ -104,8 +104,9 @@ describe('group utilities', () => {
       timeRanges: [],
       type: 'wait',
       waitSeconds: 30,
+      waitGrantMinutes: 10,
     }
-    expect(formatRestriction(waitRestriction)).toBe('Every day All day — Wait 30 sec')
+    expect(formatRestriction(waitRestriction)).toBe('Every day All day — Wait 30 sec, allow 10 min')
   })
 
   it('分離形式の制限を読み取り表示用に要約する', () => {
@@ -117,7 +118,9 @@ describe('group utilities', () => {
     expect(formatStandaloneRestriction({ type: 'grace', graceMinutes: 15 })).toBe(
       'Grace 15 min/day',
     )
-    expect(formatStandaloneRestriction({ type: 'wait', waitSeconds: 5 })).toBe('Wait 5 sec')
+    expect(formatStandaloneRestriction({ type: 'wait', waitSeconds: 5, waitGrantMinutes: 1 })).toBe(
+      'Wait 5 sec, allow 1 min',
+    )
   })
 
   it('グループを独立した deep clone として複製する', () => {

@@ -75,6 +75,7 @@ interface Restriction {
   type: 'block' | 'redirect' | 'grace' | 'wait'
   graceMinutes?: number
   waitSeconds?: number
+  waitGrantMinutes?: number
   redirectUrl?: string
 }
 ```
@@ -85,6 +86,7 @@ interface Restriction {
 - `lockMode` が `true` のグループは、設定変更が次回 daily reset まで有効設定へ反映されない。
 - `patterns` は URL 判定に使う文字列配列。
 - `blockAction` と `redirectUrl` が現行のグループ別ブロック先。
+- `waitGrantMinutes` は Wait 通過後のアクセス許可期間（分）。`1` 以上の整数を指定する。旧データで省略または `0` の場合は `10` 分として読み込む。
 - `timeWindows` と `restrictions` は独立した配列。どちらかが空なら制限は適用しない。詳細は `docs/spec/domain.md`「グループ」節を参照。
 
 `groups` が配列でない場合は空配列として読み込む。

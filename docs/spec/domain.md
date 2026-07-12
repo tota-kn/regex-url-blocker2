@@ -30,6 +30,7 @@
   - `redirectUrl`: `type === 'redirect'` の遷移先 URL
   - `graceMinutes`: `type === 'grace'` の1日あたり閲覧上限（分）。`0` で「即ブロック」
   - `waitSeconds`: `type === 'wait'` のアクセス前待機秒数。`0` は待機なし扱い
+  - `waitGrantMinutes`: `type === 'wait'` の通過後アクセス許可期間（分）。`1` 以上の整数を指定する。未設定または旧データの `0` は `10` として扱う
 - `condition` の種類（`type` で判別）：
   - `daily`: 毎日一致する
   - `weekly`: `daysOfWeek`（0=日〜6=土）に含まれる曜日に一致する
