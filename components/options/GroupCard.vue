@@ -46,7 +46,7 @@ interface Props {
   pauseDisabledReason?: string
   /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
   timeLimitUsageSummary?: TimeLimitUsageSummary
-  /** 読み取り専用表示にして編集・削除・保存を無効化するかどうか。 */
+  /** 読み取り専用表示にして編集・削除・Pause を含む操作を無効化するかどうか。 */
   readOnly?: boolean
   /** 次の rule day まで以前の制限が有効なら true。 */
   hasEarlierRestrictionsActive?: boolean
@@ -131,7 +131,9 @@ const canRequestPause = computed(() => {
   return !pauseButtonState.value.paused
 })
 const disabledToggleLabel = computed(() => (props.group.disabled ? 'Enable' : 'Disable'))
-const showsPauseMenuItem = computed(() => !props.isNew && !pauseButtonState.value.paused)
+const showsPauseMenuItem = computed(
+  () => !props.isNew && !props.readOnly && !pauseButtonState.value.paused,
+)
 const showsDisabledToggleMenuItem = computed(() => !props.isNew && !props.readOnly)
 const showsDuplicateMenuItem = computed(() => !props.isNew && !props.readOnly)
 const showsDeleteMenuItem = computed(() => !props.readOnly)

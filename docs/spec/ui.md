@@ -30,7 +30,7 @@
 - グループ削除時は確認ダイアログを表示する
 - Lock Mode ON のグループで基準設定と希望設定に制限差分がある場合、Options 画面に「厳格化は即時適用され、緩和は次の rule day に適用される」ことと次回反映時刻を表示する
 - 制限差分がある場合、希望設定と併用されている rule day の基準設定を読み取り専用ダイアログで確認できる
-- 未反映差分がある場合も、通常の Group card と有効設定ダイアログの active group のどちらからでも `Pause` できる。同じ group id の一時停止状態は保存設定と有効設定の両方へ適用される
+- 未反映差分がある場合も、通常の Group card から `Pause` できる。有効設定ダイアログは読み取り専用で Pause 操作・状態表示を提供しない
 - Disabled group の Group card では一時停止ボタンを `Pause` の表示のまま無効化し、「Enable group to pause.」を表示する。Enable 後は通常どおり一時停止できる
 - General settings 内の項目間には区切り線を表示しない
 - Settings file では「Export settings」「Import settings」を表示し、Import settings ボタンの下に「Import replaces all groups and general settings.」を表示する

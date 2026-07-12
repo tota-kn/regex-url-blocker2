@@ -327,9 +327,6 @@ onMounted(async () => {
     ref="activeSettingsDialogRef"
     :effective-settings="effectiveSettings"
     :preferred-settings="settings"
-    :group-pause-state="groupPauseState"
-    :now="now"
-    @request-pause="requestGroupPause"
   />
   <main class="min-h-screen overflow-x-hidden bg-secondary/40 text-foreground">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">

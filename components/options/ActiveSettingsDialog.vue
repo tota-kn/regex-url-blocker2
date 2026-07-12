@@ -4,7 +4,7 @@ import { XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import GroupCard from '@/components/options/GroupCard.vue'
-import type { GroupPauseEntry, GroupPauseState, Settings } from '@/utils/types'
+import type { Settings } from '@/utils/types'
 
 /**
  * 現在有効な設定ダイアログの props。
@@ -14,22 +14,9 @@ interface Props {
   effectiveSettings: Settings
   /** ユーザーが最後に保存した設定。 */
   preferredSettings: Settings
-  /** group id ごとの一時停止状態。 */
-  groupPauseState: GroupPauseState
-  /** 一時停止表示の残り時間計算に使う現在時刻。 */
-  now: Date
-}
-
-/**
- * 現在有効な設定ダイアログが親へ通知するイベント。
- */
-interface Emits {
-  /** グループ一時停止操作が要求されたときに対象 id を通知する。 */
-  requestPause: [groupId: string]
 }
 
 const props = defineProps<Props>()
-defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const isOpen = ref(false)
@@ -67,11 +54,6 @@ function close(): void {
 function handleClose(): void {
   isOpen.value = false
   selectedGroupId.value = undefined
-}
-
-/** 指定グループの一時停止状態を返す。 */
-function groupPauseEntry(groupId: string): GroupPauseEntry | undefined {
-  return props.groupPauseState.groupPauseState[groupId]
 }
 
 defineExpose({ open, close })
@@ -119,10 +101,7 @@ defineExpose({ open, close })
           v-else
           :key="selectedPreferredGroup.id"
           :group="selectedPreferredGroup"
-          :pause-entry="groupPauseEntry(selectedPreferredGroup.id)"
-          :now="now"
           read-only
-          @request-pause="$emit('requestPause', selectedPreferredGroup.id)"
         />
       </section>
 
@@ -136,10 +115,7 @@ defineExpose({ open, close })
         <GroupCard
           :key="`baseline-${selectedRetainedBaselineGroup.id}`"
           :group="selectedRetainedBaselineGroup"
-          :pause-entry="groupPauseEntry(selectedRetainedBaselineGroup.id)"
-          :now="now"
           read-only
-          @request-pause="$emit('requestPause', selectedRetainedBaselineGroup.id)"
         />
       </section>
     </div>

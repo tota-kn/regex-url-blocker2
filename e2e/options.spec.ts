@@ -1,7 +1,6 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import type { Locator, Page } from '@playwright/test'
-import { GROUP_PAUSE_DURATION_MS, PAUSE_COUNTDOWN_WAIT_MS } from '../utils/constants'
 import { expect, test } from './fixtures'
 
 const DEBOUNCE_FLUSH_MS = 400
@@ -809,27 +808,9 @@ test.describe('Options 画面', () => {
     expect(firstRuleBox).not.toBeNull()
     expect(firstRuleBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
     await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
-    await openGroupActions(activeSettingsDialog)
-    await activeSettingsDialog.getByRole('menuitem', { name: 'Pause' }).first().click()
-    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
-    await expect(pauseDialog.getByRole('heading', { name: 'Take a breath' })).toBeVisible()
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
-
-    const storedPauseState = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
-    })
-    expect(storedPauseState.groupPauseState?.work).toBeUndefined()
+    await expect(activeSettingsDialog.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
+    await expect(activeSettingsDialog.getByRole('menuitem', { name: 'Pause' })).toHaveCount(0)
+    await expect(page.locator('dialog').filter({ hasText: 'Take a breath' })).not.toBeVisible()
   })
 
   test('Lock Mode ON のグループを Disable しても同じ論理日中は active settings で有効のまま表示する', async ({
@@ -913,7 +894,7 @@ test.describe('Options 画面', () => {
     ).toBeVisible()
   })
 
-  test('希望設定から削除済みの active group も active settings から一時停止できる', async ({
+  test('希望設定から削除済みの active group も active settings で読み取り専用に表示する', async ({
     page,
     context,
     extensionId,
@@ -977,8 +958,6 @@ test.describe('Options 画面', () => {
         groups: [],
       })
     })
-    const beforePauseStart = Date.now()
-    await page.clock.install({ time: beforePauseStart })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
@@ -997,32 +976,9 @@ test.describe('Options 画面', () => {
     await expect(
       activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
     ).not.toBeVisible()
-    await openGroupActions(activeSettingsDialog)
-    await activeSettingsDialog.getByRole('menuitem', { name: 'Pause' }).click()
-    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeDisabled()
-    await page.clock.fastForward(PAUSE_COUNTDOWN_WAIT_MS)
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 10 min' })).toBeEnabled()
-    await pauseDialog.getByRole('button', { name: 'Pause 10 min' }).click()
-    await expect(activeSettingsDialog.getByText(/Paused \d+:\d{2}/)).toBeVisible()
-
-    const storedPauseState = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (
-                keys: string[],
-              ) => Promise<{ groupPauseState?: Record<string, { pausedUntil?: number }> }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
-    })
-    expect(
-      storedPauseState.groupPauseState?.['deleted-active']?.pausedUntil,
-    ).toBeGreaterThanOrEqual(beforePauseStart + GROUP_PAUSE_DURATION_MS)
+    await expect(activeSettingsDialog.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
+    await expect(activeSettingsDialog.getByRole('menuitem', { name: 'Pause' })).toHaveCount(0)
+    await expect(page.locator('dialog').filter({ hasText: 'Take a breath' })).not.toBeVisible()
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {
