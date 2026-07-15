@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@fontsource/roboto-mono':
+        specifier: ^5.2.9
+        version: 5.2.9
     devDependencies:
       '@heroicons/vue':
         specifier: ^2.2.0
@@ -423,6 +427,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource/roboto-mono@5.2.9':
+    resolution: {integrity: sha512-iIeSyrRGoM15uIWqXslW1K9UFnUYfnCFNrNoWjXE0huO1L+hM0Jst0KNLuRc7P21xPpGL0bZouzYSX0Em9eyWg==}
 
   '@heroicons/vue@2.2.0':
     resolution: {integrity: sha512-G3dbSxoeEKqbi/DFalhRxJU4mTXJn7GwZ7ae8NuEQzd1bqdd0jAbdaBZlHPcvPD2xI1iGzNVB4k20Un2AguYPw==}
@@ -3005,6 +3012,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@fontsource/roboto-mono@5.2.9': {}
 
   '@heroicons/vue@2.2.0(vue@3.5.33(typescript@5.6.3))':
     dependencies:

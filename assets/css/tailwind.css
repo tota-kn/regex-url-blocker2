@@ -1,3 +1,4 @@
+@import '@fontsource/roboto-mono/400.css';
 @import 'tailwindcss';
 
 html {
@@ -5,6 +6,8 @@ html {
 }
 
 @theme {
+  --font-mono: 'Roboto Mono';
+
   /* 基本カラー */
   --color-background: #ffffff;
   --color-foreground: #1f2937;
@@ -115,7 +118,7 @@ html {
 }
 
 @utility text-mono-md {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: 'Roboto Mono';
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;

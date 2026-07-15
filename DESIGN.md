@@ -73,7 +73,7 @@ typography:
     lineHeight: 1
     letterSpacing: 0.04em
   mono-md:
-    fontFamily: ui-monospace, SFMono-Regular, Menlo, monospace
+    fontFamily: 'Roboto Mono'
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.5
@@ -181,12 +181,12 @@ The palette is a high-contrast, accessibility-conscious combination of cool gray
 
 ## Typography
 
-The extension uses the system UI font stack for all text. This ensures native rendering quality across macOS, Windows, and Linux without any font loading overhead—critical for an extension that initialises on every browser launch.
+The extension uses the system UI font stack for interface text. Machine-readable values use the bundled Roboto Mono face so they render consistently across browsers without a network request.
 
 - **Headings:** Semi-bold (600) in 16–18 px. Used for group names and section titles to create clear visual hierarchy in the settings panel.
 - **Body:** Regular (400) in 14 px. The primary reading weight for descriptions, pattern lists, and form labels.
 - **Labels / Caps:** Medium (500) in 12 px, with slight letter spacing. Used for meter labels ("Daily limit"), tag text, and uppercase annotations.
-- **Mono:** Used for regex pattern inputs and time-range values (HH:MM) to signal machine-readable content and improve scanability.
+- **Mono:** Roboto Mono is bundled with the extension and used for regex pattern inputs and time-range values (HH:MM) to signal machine-readable content, improve scanability, and keep rendering consistent across browsers.
 
 ## Layout
 

@@ -1478,6 +1478,9 @@ test.describe('Options 画面', () => {
     await expect(
       urlPatternsSection.getByText('^https?://(www\\.)?twitter\\.com', { exact: true }),
     ).toBeVisible()
+    await expect(
+      urlPatternsSection.getByText('^https?://(www\\.)?twitter\\.com', { exact: true }),
+    ).toHaveCSS('font-family', '"Roboto Mono"')
     await expect(page.getByLabel('Name')).toBeDisabled()
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
