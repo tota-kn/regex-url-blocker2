@@ -83,5 +83,7 @@ export function formatStandaloneRestriction(restriction: Restriction): string {
   if (restriction.type === 'redirect')
     return restriction.redirectUrl ? `Redirect to ${restriction.redirectUrl}` : 'Redirect'
   if (restriction.type === 'grace') return `Daily limit ${restriction.graceMinutes ?? 0} min/day`
+  if (restriction.type === 'sessionLimit')
+    return `Session ${restriction.sessionMinutes ?? 0} min, break ${restriction.breakMinutes ?? 0} min`
   return `Wait ${restriction.waitSeconds ?? 0} sec, allow ${restriction.waitGrantMinutes ?? 10} min`
 }

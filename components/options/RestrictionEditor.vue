@@ -14,7 +14,14 @@ interface Props {
   isEditing?: boolean
   /** 指定フィールドのバリデーションエラーメッセージを返す関数。 */
   error?: (
-    field: 'type' | 'graceMinutes' | 'waitSeconds' | 'waitGrantMinutes' | 'redirectUrl',
+    field:
+      | 'type'
+      | 'graceMinutes'
+      | 'waitSeconds'
+      | 'waitGrantMinutes'
+      | 'redirectUrl'
+      | 'sessionMinutes'
+      | 'breakMinutes',
   ) => string | undefined
 }
 
@@ -35,11 +42,19 @@ const typeOptions = [
   { value: 'redirect', label: 'Redirect' },
   { value: 'grace', label: 'Daily limit' },
   { value: 'wait', label: 'Wait' },
+  { value: 'sessionLimit', label: 'Session limit' },
 ] satisfies { value: RestrictionType; label: string }[]
 
 /** 制限種別を切り替える。 */
 function setType(value: string): void {
-  if (value !== 'block' && value !== 'redirect' && value !== 'grace' && value !== 'wait') return
+  if (
+    value !== 'block' &&
+    value !== 'redirect' &&
+    value !== 'grace' &&
+    value !== 'wait' &&
+    value !== 'sessionLimit'
+  )
+    return
   restriction.value = createDefaultRestriction(value as RestrictionType)
   emit('touch', 'type')
 }
@@ -55,6 +70,8 @@ function setRedirectUrl(value: string | number | undefined): void {
 const graceMinutesText = ref('')
 const waitSecondsText = ref('')
 const waitGrantMinutesText = ref('')
+const sessionMinutesText = ref('')
+const breakMinutesText = ref('')
 
 /** props からテキスト入力の初期状態を作る。 */
 function syncTexts(): void {
@@ -69,6 +86,14 @@ function syncTexts(): void {
   waitGrantMinutesText.value =
     restriction.value?.type === 'wait' && restriction.value.waitGrantMinutes !== undefined
       ? String(restriction.value.waitGrantMinutes)
+      : ''
+  sessionMinutesText.value =
+    restriction.value?.type === 'sessionLimit' && restriction.value.sessionMinutes !== undefined
+      ? String(restriction.value.sessionMinutes)
+      : ''
+  breakMinutesText.value =
+    restriction.value?.type === 'sessionLimit' && restriction.value.breakMinutes !== undefined
+      ? String(restriction.value.breakMinutes)
       : ''
 }
 
@@ -99,6 +124,24 @@ function setWaitGrantMinutesText(value: string | number | undefined): void {
   waitGrantMinutesText.value = text
   if (restriction.value.type !== 'wait') return
   restriction.value.waitGrantMinutes = text === '' ? undefined : Number(text)
+}
+
+/** Session limit の利用枠分数を更新する。 */
+function setSessionMinutesText(value: string | number | undefined): void {
+  emit('touch', 'sessionMinutes')
+  const text = String(value ?? '').replace(/\D/g, '')
+  sessionMinutesText.value = text
+  if (restriction.value.type !== 'sessionLimit') return
+  restriction.value.sessionMinutes = text === '' ? undefined : Number(text)
+}
+
+/** Session limit の休憩分数を更新する。 */
+function setBreakMinutesText(value: string | number | undefined): void {
+  emit('touch', 'breakMinutes')
+  const text = String(value ?? '').replace(/\D/g, '')
+  breakMinutesText.value = text
+  if (restriction.value.type !== 'sessionLimit') return
+  restriction.value.breakMinutes = text === '' ? undefined : Number(text)
 }
 
 /** 数字以外の入力を事前に止める。 */
@@ -213,6 +256,51 @@ function preventNonDigitInput(event: InputEvent): void {
         <AlertMessage v-if="restriction.type === 'wait' && props.error('waitGrantMinutes')">
           {{ props.error('waitGrantMinutes') }}
         </AlertMessage>
+      </div>
+
+      <div v-if="restriction.type === 'sessionLimit'" class="space-y-2">
+        <label class="flex min-w-0 items-center gap-1.5">
+          <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
+            >Allow for</span
+          >
+          <BaseInput
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            aria-label="Session limit minutes"
+            placeholder="10"
+            class="w-24"
+            size="sm"
+            :model-value="sessionMinutesText"
+            @beforeinput="preventNonDigitInput"
+            @update:model-value="setSessionMinutesText"
+          />
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">min</span>
+        </label>
+        <AlertMessage v-if="props.error('sessionMinutes')">{{
+          props.error('sessionMinutes')
+        }}</AlertMessage>
+        <label class="flex min-w-0 items-center gap-1.5">
+          <span class="shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
+            >Then break for</span
+          >
+          <BaseInput
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            aria-label="Session break minutes"
+            placeholder="30"
+            class="w-24"
+            size="sm"
+            :model-value="breakMinutesText"
+            @beforeinput="preventNonDigitInput"
+            @update:model-value="setBreakMinutesText"
+          />
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">min</span>
+        </label>
+        <AlertMessage v-if="props.error('breakMinutes')">{{
+          props.error('breakMinutes')
+        }}</AlertMessage>
       </div>
     </template>
 

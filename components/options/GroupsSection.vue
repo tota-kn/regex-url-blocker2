@@ -42,6 +42,8 @@ interface Props {
   resetTimeLabel: string
   /** 指定グループの今日の上限利用状況を返す関数。 */
   timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
+  /** 指定グループで Pause 操作を無効化する理由を返す関数。許可されていれば undefined。 */
+  pauseDisabledReason: (groupId: string) => string | undefined
 }
 
 /**
@@ -210,6 +212,7 @@ function createGroup(templateId: GroupTemplateId): void {
         :key="groups[i].id"
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
+        :pause-disabled-reason="pauseDisabledReason(groups[i].id)"
         :now="now"
         :has-earlier-restrictions-active="pendingEffectiveGroupIds.includes(groups[i].id)"
         :applies-after-label="appliesAfterLabel"
@@ -249,6 +252,7 @@ function createGroup(templateId: GroupTemplateId): void {
           :key="`retained-${group.id}`"
           :group="group"
           :pause-entry="groupPauseEntry(group.id)"
+          :pause-disabled-reason="pauseDisabledReason(group.id)"
           :now="now"
           :has-earlier-restrictions-active="true"
           :applies-after-label="appliesAfterLabel"

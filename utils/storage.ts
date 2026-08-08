@@ -17,6 +17,8 @@ import type {
   GroupPauseState,
   MonthDay,
   Restriction,
+  SessionLimitEntry,
+  SessionLimitState,
   ScheduleRuleCondition,
   Settings,
   TimeRange,
@@ -119,6 +121,7 @@ function normalizeGroup(
     redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
     pauseWaitSeconds: normalizePauseWaitSeconds(g.pauseWaitSeconds),
     pauseDurationMinutes: normalizePauseDurationMinutes(g.pauseDurationMinutes),
+    pauseAllowed: g.pauseAllowed !== false,
     timeWindows: normalizeTimeWindows(g.timeWindows) ?? legacy.timeWindows,
     restrictions: normalizeStandaloneRestrictions(g.restrictions) ?? legacy.restrictions,
   }
@@ -187,7 +190,8 @@ function normalizeStandaloneRestriction(value: unknown): Restriction | undefined
     valueRecord.type !== 'block' &&
     valueRecord.type !== 'redirect' &&
     valueRecord.type !== 'grace' &&
-    valueRecord.type !== 'wait'
+    valueRecord.type !== 'wait' &&
+    valueRecord.type !== 'sessionLimit'
   )
     return undefined
   const restriction: Restriction = { type: valueRecord.type }
@@ -201,6 +205,10 @@ function normalizeStandaloneRestriction(value: unknown): Restriction | undefined
         : DEFAULT_WAIT_GRANT_MINUTES
   }
   if (typeof valueRecord.redirectUrl === 'string') restriction.redirectUrl = valueRecord.redirectUrl
+  if (typeof valueRecord.sessionMinutes === 'number')
+    restriction.sessionMinutes = valueRecord.sessionMinutes
+  if (typeof valueRecord.breakMinutes === 'number')
+    restriction.breakMinutes = valueRecord.breakMinutes
   return restriction
 }
 
@@ -224,7 +232,24 @@ function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefi
   const waitGrantMinutes = restrictions
     .filter((restriction) => restriction.type === 'wait')
     .map((restriction) => restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES)
-    .filter((minutes): minutes is number => Number.isInteger(minutes) && minutes >= 1)
+    .filter(
+      (minutes): minutes is number =>
+        minutes !== undefined && Number.isInteger(minutes) && minutes >= 1,
+    )
+  const sessionMinutes = restrictions
+    .filter((restriction) => restriction.type === 'sessionLimit')
+    .map((restriction) => restriction.sessionMinutes)
+    .filter(
+      (minutes): minutes is number =>
+        minutes !== undefined && Number.isInteger(minutes) && minutes >= 1,
+    )
+  const breakMinutes = restrictions
+    .filter((restriction) => restriction.type === 'sessionLimit')
+    .map((restriction) => restriction.breakMinutes)
+    .filter(
+      (minutes): minutes is number =>
+        minutes !== undefined && Number.isInteger(minutes) && minutes >= 1,
+    )
   const normalized: Restriction[] = []
   if (block) normalized.push({ type: 'block' })
   else if (redirect) normalized.push(redirect)
@@ -236,6 +261,12 @@ function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefi
       waitSeconds: Math.max(...waitSeconds),
       waitGrantMinutes:
         waitGrantMinutes.length > 0 ? Math.max(...waitGrantMinutes) : DEFAULT_WAIT_GRANT_MINUTES,
+    })
+  if (sessionMinutes.length > 0 && breakMinutes.length > 0)
+    normalized.push({
+      type: 'sessionLimit',
+      sessionMinutes: Math.min(...sessionMinutes),
+      breakMinutes: Math.max(...breakMinutes),
     })
   return normalized
 }
@@ -433,6 +464,8 @@ export interface PageState {
   counters: UsageCountersState
   /** 現在適用中の有効設定。 */
   effectiveSettings: Settings
+  /** 利用枠・休憩状態。 */
+  sessionLimitState: SessionLimitState
 }
 
 /**
@@ -441,7 +474,10 @@ export interface PageState {
 export async function loadPageState(now = new Date()): Promise<PageState> {
   const [settings, counters] = await Promise.all([loadSettings(), loadCounters()])
   const { effectiveSettings } = await loadEffectiveSettingsState(settings, now)
-  return { settings, counters, effectiveSettings }
+  const sessionLimitState = await loadSessionLimitState(
+    effectiveSettings.groups.map((group) => group.id),
+  )
+  return { settings, counters, effectiveSettings, sessionLimitState }
 }
 
 /**
@@ -641,6 +677,39 @@ export async function saveDelayGrantState(state: DelayGrantState): Promise<void>
   await browser.storage.local.set({
     delayGrantState: state.delayGrantState,
   })
+}
+
+/** unknown の値から利用枠開始状態を正規化する。 */
+export function normalizeSessionLimitState(
+  value: unknown,
+  validGroupIds?: Iterable<string>,
+): SessionLimitState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { sessionLimitState: {} }
+  const validIds = validGroupIds ? new Set(validGroupIds) : undefined
+  const sessionLimitState: Record<string, SessionLimitEntry> = {}
+  for (const [groupId, entryValue] of Object.entries(value as Record<string, unknown>)) {
+    if (validIds && !validIds.has(groupId)) continue
+    if (!entryValue || typeof entryValue !== 'object' || Array.isArray(entryValue)) continue
+    const startedAt = (entryValue as Record<string, unknown>).startedAt
+    if (typeof startedAt !== 'number' || !Number.isFinite(startedAt) || startedAt <= 0) continue
+    sessionLimitState[groupId] = { startedAt: Math.floor(startedAt) }
+  }
+  return { sessionLimitState }
+}
+
+/** browser.storage.local から利用枠・休憩状態を読み込む。 */
+export async function loadSessionLimitState(
+  validGroupIds?: Iterable<string>,
+): Promise<SessionLimitState> {
+  const raw = (await browser.storage.local.get(['sessionLimitState'])) as {
+    sessionLimitState?: unknown
+  }
+  return normalizeSessionLimitState(raw.sessionLimitState, validGroupIds)
+}
+
+/** browser.storage.local に利用枠・休憩状態を書き込む。 */
+export async function saveSessionLimitState(state: SessionLimitState): Promise<void> {
+  await browser.storage.local.set({ sessionLimitState: state.sessionLimitState })
 }
 
 /**

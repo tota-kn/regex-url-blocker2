@@ -3,7 +3,12 @@ import {
   formatPauseDuration,
   getGroupPauseButtonState,
   getGroupPauseDisplayState,
+  getPauseAllowedGroupIds,
+  isGroupPauseAllowed,
 } from '../utils/groupPause'
+import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import type { Settings } from '../utils/types'
+import { createEmptyGroup } from './helpers'
 
 describe('group pause button state', () => {
   const now = new Date('2026-05-06T12:00:00+09:00')
@@ -61,5 +66,60 @@ describe('group pause button state', () => {
     expect(formatPauseDuration(1)).toBe('0:01')
     expect(formatPauseDuration(60_001)).toBe('1:01')
     expect(formatPauseDuration(125_000)).toBe('2:05')
+  })
+})
+
+describe('group pause permission', () => {
+  /** 指定 group を1件だけ持つテスト用設定を生成する。 */
+  function settingsWith(groupId: string, pauseAllowed: boolean): Settings {
+    return {
+      global: { ...DEFAULT_GLOBAL_SETTINGS },
+      groups: [{ ...createEmptyGroup('Group'), id: groupId, pauseAllowed }],
+    }
+  }
+
+  it('基準設定と希望設定の両方が許可していれば Pause できる', () => {
+    expect(isGroupPauseAllowed('g1', [settingsWith('g1', true), settingsWith('g1', true)])).toBe(
+      true,
+    )
+  })
+
+  it('希望設定で禁止したら即時に Pause できなくなる', () => {
+    expect(isGroupPauseAllowed('g1', [settingsWith('g1', true), settingsWith('g1', false)])).toBe(
+      false,
+    )
+  })
+
+  it('基準設定が禁止のままなら希望設定で許可しても Pause できない', () => {
+    expect(isGroupPauseAllowed('g1', [settingsWith('g1', false), settingsWith('g1', true)])).toBe(
+      false,
+    )
+  })
+
+  it('片方の設定に存在しない group はもう片方の設定で判定する', () => {
+    const empty: Settings = { global: { ...DEFAULT_GLOBAL_SETTINGS }, groups: [] }
+    expect(isGroupPauseAllowed('g1', [empty, settingsWith('g1', false)])).toBe(false)
+    expect(isGroupPauseAllowed('g1', [empty, settingsWith('g1', true)])).toBe(true)
+  })
+
+  it('Pause 可能な group id だけを基準設定の並びで返す', () => {
+    const baseline: Settings = {
+      global: { ...DEFAULT_GLOBAL_SETTINGS },
+      groups: [
+        { ...createEmptyGroup('Allowed'), id: 'allowed', pauseAllowed: true },
+        { ...createEmptyGroup('Blocked by baseline'), id: 'baselineOff', pauseAllowed: false },
+        { ...createEmptyGroup('Blocked by preferred'), id: 'preferredOff', pauseAllowed: true },
+      ],
+    }
+    const preferred: Settings = {
+      global: { ...DEFAULT_GLOBAL_SETTINGS },
+      groups: [
+        { ...createEmptyGroup('Allowed'), id: 'allowed', pauseAllowed: true },
+        { ...createEmptyGroup('Blocked by baseline'), id: 'baselineOff', pauseAllowed: true },
+        { ...createEmptyGroup('Blocked by preferred'), id: 'preferredOff', pauseAllowed: false },
+      ],
+    }
+
+    expect(getPauseAllowedGroupIds(baseline, preferred)).toEqual(['allowed'])
   })
 })

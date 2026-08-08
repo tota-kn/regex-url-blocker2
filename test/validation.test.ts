@@ -110,6 +110,7 @@ describe('validateGroup', () => {
       patterns: ['['],
       blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
       redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+      pauseAllowed: true,
     })
     expect(errors.some((e) => e.field === 'name')).toBe(true)
     expect(

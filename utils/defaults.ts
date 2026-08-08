@@ -3,6 +3,12 @@ import type { GlobalSettings, Group, Restriction, RestrictionType, TimeWindow } 
 /** Wait を通過した後の既定アクセス許可期間（分）。 */
 export const DEFAULT_WAIT_GRANT_MINUTES = 10
 
+/** Session limit の既定利用枠（分）。 */
+export const DEFAULT_SESSION_LIMIT_MINUTES = 10
+
+/** Session limit の既定休憩時間（分）。 */
+export const DEFAULT_SESSION_BREAK_MINUTES = 30
+
 /** 一時停止を開始するまでの既定待機時間（秒）。 */
 export const DEFAULT_PAUSE_WAIT_SECONDS = 60
 
@@ -33,6 +39,13 @@ export function createDefaultRestriction(type: RestrictionType): Restriction {
   if (type === 'wait')
     return { type, waitSeconds: 60, waitGrantMinutes: DEFAULT_WAIT_GRANT_MINUTES }
   if (type === 'redirect') return { type, redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl }
+  if (type === 'sessionLimit') {
+    return {
+      type,
+      sessionMinutes: DEFAULT_SESSION_LIMIT_MINUTES,
+      breakMinutes: DEFAULT_SESSION_BREAK_MINUTES,
+    }
+  }
   return {
     type,
   }
@@ -105,6 +118,7 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
     pauseWaitSeconds: DEFAULT_PAUSE_WAIT_SECONDS,
     pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
+    pauseAllowed: true,
     timeWindows:
       templateId === 'work-hours-focus'
         ? [

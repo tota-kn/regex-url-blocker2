@@ -14,6 +14,7 @@ import {
 } from '@/utils/defaults'
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
+import { isGroupPauseAllowed } from '@/utils/groupPause'
 import { cloneSettings, duplicateGroup as createGroupDuplicate } from '@/utils/groups'
 import {
   loadCounters,
@@ -94,6 +95,20 @@ const pauseTargetGroup = computed(() => {
     effectiveSettings.value.groups.find((group) => group.id === id)
   )
 })
+
+/**
+ * 指定グループで Pause 操作を無効化する理由を返す。許可されていれば undefined。
+ * 保存設定で禁止していれば即時に無効化し、基準設定だけが禁止のままなら次の rule day まで無効化する。
+ */
+function pauseDisabledReason(groupId: string): string | undefined {
+  if (!isGroupPauseAllowed(groupId, [settings.value])) {
+    return 'Pause is turned off for this group.'
+  }
+  if (!isGroupPauseAllowed(groupId, [effectiveSettings.value])) {
+    return `Pause stays off until ${appliesAfterLabel.value} (rule day starts at ${resetTimeLabel.value}).`
+  }
+  return undefined
+}
 
 /** 一時停止状態を保持してよい group id を返す。 */
 function groupPauseValidIds(): string[] {
@@ -196,6 +211,7 @@ async function removeGroup(id: string): Promise<void> {
 /** グループ一時停止前の集中カウントダウンを開始する。 */
 function requestGroupPause(id: string): void {
   const nowMs = Date.now()
+  if (pauseDisabledReason(id)) return
   const current = groupPauseState.value.groupPauseState[id]
   if (current?.pausedUntil && current.pausedUntil > nowMs) return
 
@@ -209,6 +225,7 @@ async function confirmGroupPause(): Promise<void> {
   const targetGroup = pauseTargetGroup.value
   pauseTargetGroupId.value = undefined
   if (!id) return
+  if (pauseDisabledReason(id)) return
 
   const nowMs = Date.now()
   const current = groupPauseState.value.groupPauseState[id]
@@ -416,6 +433,7 @@ onMounted(async () => {
               :applies-after-label="appliesAfterLabel"
               :reset-time-label="resetTimeLabel"
               :time-limit-usage-summary="timeLimitUsageSummary"
+              :pause-disabled-reason="pauseDisabledReason"
               @add-group="addGroup"
               @save-group="saveGroup"
               @save-new-group="saveNewGroup"

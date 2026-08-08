@@ -23,6 +23,7 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+    pauseAllowed: true,
     ...overrides,
   }
 }

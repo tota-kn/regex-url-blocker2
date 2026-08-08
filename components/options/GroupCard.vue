@@ -110,7 +110,9 @@ const visibleOptionSummaries = computed(() => {
   }
   const pauseWaitSeconds = props.group.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS
   const pauseDurationMinutes = props.group.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES
-  if (
+  if (props.group.pauseAllowed === false) {
+    summaries.push({ label: 'Pause', value: 'Not allowed' })
+  } else if (
     pauseWaitSeconds !== DEFAULT_PAUSE_WAIT_SECONDS ||
     pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES
   ) {
@@ -125,11 +127,11 @@ const pauseButtonState = computed(() =>
   getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()),
 )
 const pauseButtonLabel = computed(() => pauseButtonState.value.label)
-const effectivePauseDisabledReason = computed(
-  () =>
-    props.pauseDisabledReason ??
-    (props.group.disabled ? 'Enable this group to use Pause.' : undefined),
-)
+const effectivePauseDisabledReason = computed(() => {
+  if (props.pauseDisabledReason) return props.pauseDisabledReason
+  if (props.group.pauseAllowed === false) return 'Pause is turned off for this group.'
+  return props.group.disabled ? 'Enable this group to use Pause.' : undefined
+})
 const canRequestPause = computed(() => {
   if (effectivePauseDisabledReason.value) return false
   return !pauseButtonState.value.paused
@@ -624,51 +626,82 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
               </div>
-              <div class="flex flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
-                <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                  <span>Wait</span>
-                  <BaseField :error="draftError('pauseWaitSeconds')">
-                    <BaseInput
-                      :model-value="
-                        Number.isFinite(draft.pauseWaitSeconds)
-                          ? String(draft.pauseWaitSeconds)
-                          : ''
-                      "
-                      type="number"
-                      min="0"
-                      step="1"
-                      aria-label="Wait seconds before pausing"
-                      class="w-20"
-                      :invalid="Boolean(draftError('pauseWaitSeconds'))"
-                      @update:model-value="
-                        setPauseSetting('pauseWaitSeconds', String($event ?? ''))
-                      "
+              <div class="flex flex-col gap-2 sm:items-end">
+                <div class="flex flex-wrap items-center gap-4">
+                  <span class="text-label-md text-secondary-foreground">Allow Pause</span>
+                  <label
+                    class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
+                  >
+                    <input
+                      v-model="draft.pauseAllowed"
+                      type="radio"
+                      class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                      aria-label="Allow Pause On"
+                      :value="true"
                     />
-                  </BaseField>
-                  <span>sec</span>
-                </label>
-                <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                  <span>Pause for</span>
-                  <BaseField :error="draftError('pauseDurationMinutes')">
-                    <BaseInput
-                      :model-value="
-                        Number.isFinite(draft.pauseDurationMinutes)
-                          ? String(draft.pauseDurationMinutes)
-                          : ''
-                      "
-                      type="number"
-                      min="1"
-                      step="1"
-                      aria-label="Pause duration minutes"
-                      class="w-20"
-                      :invalid="Boolean(draftError('pauseDurationMinutes'))"
-                      @update:model-value="
-                        setPauseSetting('pauseDurationMinutes', String($event ?? ''))
-                      "
+                    <span>On</span>
+                  </label>
+                  <label
+                    class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
+                  >
+                    <input
+                      v-model="draft.pauseAllowed"
+                      type="radio"
+                      class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                      aria-label="Allow Pause Off"
+                      :value="false"
                     />
-                  </BaseField>
-                  <span>min</span>
-                </label>
+                    <span>Off</span>
+                  </label>
+                </div>
+                <div class="flex flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
+                  <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                    <span>Wait</span>
+                    <BaseField :error="draftError('pauseWaitSeconds')">
+                      <BaseInput
+                        :model-value="
+                          Number.isFinite(draft.pauseWaitSeconds)
+                            ? String(draft.pauseWaitSeconds)
+                            : ''
+                        "
+                        type="number"
+                        min="0"
+                        step="1"
+                        aria-label="Wait seconds before pausing"
+                        class="w-20"
+                        :disabled="!draft.pauseAllowed"
+                        :invalid="Boolean(draftError('pauseWaitSeconds'))"
+                        @update:model-value="
+                          setPauseSetting('pauseWaitSeconds', String($event ?? ''))
+                        "
+                      />
+                    </BaseField>
+                    <span>sec</span>
+                  </label>
+                  <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                    <span>Pause for</span>
+                    <BaseField :error="draftError('pauseDurationMinutes')">
+                      <BaseInput
+                        :model-value="
+                          Number.isFinite(draft.pauseDurationMinutes)
+                            ? String(draft.pauseDurationMinutes)
+                            : ''
+                        "
+                        type="number"
+                        min="1"
+                        step="1"
+                        aria-label="Pause duration minutes"
+                        class="w-20"
+                        :disabled="!draft.pauseAllowed"
+                        :invalid="Boolean(draftError('pauseDurationMinutes'))"
+                        @update:model-value="
+                          setPauseSetting('pauseDurationMinutes', String($event ?? ''))
+                        "
+                      />
+                    </BaseField>
+                    <span>min</span>
+                  </label>
+                </div>
               </div>
             </div>
           </fieldset>

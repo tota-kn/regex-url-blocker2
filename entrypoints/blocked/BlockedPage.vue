@@ -16,7 +16,7 @@ import type { GlobalSettings, Group, TimeRange } from '@/utils/types'
 
 interface BlockedReason {
   /** ブロック理由の種類。 */
-  kind: 'timeRange' | 'dailyLimit'
+  kind: 'timeRange' | 'dailyLimit' | 'sessionBreak'
   /** 画面に表示する理由 badge。 */
   label: string
   /** ルール概要の表示文字列。 */
@@ -72,7 +72,19 @@ function buildReasons(
         ]
       : []
 
-  return [...timeRangeReasons, ...dailyLimitReasons]
+  const sessionBreakReasons = status.sessionBreakUntil
+    ? [
+        {
+          kind: 'sessionBreak' as const,
+          label: 'Break in progress',
+          summary: 'Session limit reached',
+          releaseLabel: 'Break ends at',
+          releaseAt: new Date(status.sessionBreakUntil),
+        },
+      ]
+    : []
+
+  return [...timeRangeReasons, ...dailyLimitReasons, ...sessionBreakReasons]
 }
 
 /**
@@ -99,7 +111,7 @@ function goBack(): void {
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
-  const { settings, counters, effectiveSettings } = await loadPageState()
+  const { settings, counters, effectiveSettings, sessionLimitState } = await loadPageState()
   const now = new Date()
   blockedUrl.value = parseBlockedUrl(params)
   blockedGroupDisplays.value = [...groupIds].flatMap((groupId) => {
@@ -110,6 +122,7 @@ onMounted(async () => {
       counters.counters[groupId],
       blockedUrl.value,
       now,
+      sessionLimitState,
     )
     if (!effective) return []
     const { group, status } = effective

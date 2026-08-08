@@ -242,6 +242,26 @@ function validateStandaloneRestriction(
       return [{ field: `${prefix}.redirectUrl`, message: VALIDATION_MESSAGES.url }]
     }
   }
+  if (
+    restriction.type === 'sessionLimit' &&
+    (restriction.sessionMinutes === undefined ||
+      !Number.isInteger(restriction.sessionMinutes) ||
+      restriction.sessionMinutes < 1)
+  ) {
+    return [
+      { field: `${prefix}.sessionMinutes`, message: VALIDATION_MESSAGES.wholeNumberOneOrGreater },
+    ]
+  }
+  if (
+    restriction.type === 'sessionLimit' &&
+    (restriction.breakMinutes === undefined ||
+      !Number.isInteger(restriction.breakMinutes) ||
+      restriction.breakMinutes < 1)
+  ) {
+    return [
+      { field: `${prefix}.breakMinutes`, message: VALIDATION_MESSAGES.wholeNumberOneOrGreater },
+    ]
+  }
   return []
 }
 

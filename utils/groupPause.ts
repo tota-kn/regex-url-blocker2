@@ -1,4 +1,4 @@
-import type { GroupPauseEntry } from './types'
+import type { GroupPauseEntry, Settings } from './types'
 
 /**
  * グループ一時停止 UI の表示状態。
@@ -18,6 +18,27 @@ export interface GroupPauseDisplayState {
   label: string
   /** 一時停止状態の種別。 */
   kind: 'none' | 'paused' | 'waiting' | 'ready'
+}
+
+/**
+ * 指定グループが Pause 操作を許可しているかを、渡した設定のうち最も厳しい判定で返す。
+ * 基準設定（有効設定）と希望設定のいずれかが禁止していれば false を返す。
+ * これにより禁止は即時反映され、Lock Mode 中の再許可は次の rule day まで遅延する。
+ */
+export function isGroupPauseAllowed(groupId: string, settingsList: Settings[]): boolean {
+  return settingsList.every((settings) => {
+    const group = settings.groups.find((candidate) => candidate.id === groupId)
+    return !group || group.pauseAllowed !== false
+  })
+}
+
+/**
+ * 基準設定に存在する group のうち、Pause 操作が許可されている group id を返す。
+ */
+export function getPauseAllowedGroupIds(baseline: Settings, preferred: Settings): string[] {
+  return baseline.groups
+    .filter((group) => isGroupPauseAllowed(group.id, [baseline, preferred]))
+    .map((group) => group.id)
 }
 
 /**

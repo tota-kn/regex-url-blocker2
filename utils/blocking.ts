@@ -6,6 +6,8 @@ import type {
   GroupPauseState,
   Restriction,
   ScheduleRuleCondition,
+  SessionLimitEntry,
+  SessionLimitState,
   Settings,
   TimeRange,
   TimeWindow,
@@ -89,6 +91,8 @@ export interface GroupBlockStatus {
   blockedByTimeRange: boolean
   /** grace 制限が今日の上限に到達しているなら true。 */
   blockedByDailyLimit: boolean
+  /** Session limit の休憩中なら、その終了 epoch milliseconds。 */
+  sessionBreakUntil?: number
   /** 一時停止を考慮しない現在のブロック状態。 */
   blocked: boolean
 }
@@ -101,9 +105,50 @@ export interface EffectiveGroupBlockStatus {
   status: GroupBlockStatus
 }
 
+/** Session limit の有効な設定値。 */
+export interface SessionLimitConfig {
+  /** 最短の利用枠（分）。 */
+  sessionMinutes: number
+  /** 最長の休憩（分）。 */
+  breakMinutes: number
+}
+
 /** グループの分離形式の制限を返す。未設定は空配列として扱う。 */
 export function getRestrictions(group: Group): Restriction[] {
   return group.restrictions ?? []
+}
+
+/** グループの Session limit を厳格側へまとめて返す。 */
+export function getSessionLimitConfig(group: Group): SessionLimitConfig | undefined {
+  const limits = getRestrictions(group).filter(
+    (restriction) =>
+      restriction.type === 'sessionLimit' &&
+      Number.isInteger(restriction.sessionMinutes) &&
+      (restriction.sessionMinutes ?? 0) >= 1 &&
+      Number.isInteger(restriction.breakMinutes) &&
+      (restriction.breakMinutes ?? 0) >= 1,
+  )
+  if (limits.length === 0) return undefined
+  return {
+    sessionMinutes: Math.min(...limits.map((restriction) => restriction.sessionMinutes!)),
+    breakMinutes: Math.max(...limits.map((restriction) => restriction.breakMinutes!)),
+  }
+}
+
+/** 利用枠の状態から、現在休憩中ならその終了時刻を返す。 */
+export function getSessionBreakUntil(
+  group: Group,
+  entry: SessionLimitEntry | undefined,
+  now: Date,
+  global: GlobalSettings,
+): number | undefined {
+  if (!entry || !isRestrictionActiveNow(group, now, global)) return undefined
+  const config = getSessionLimitConfig(group)
+  if (!config) return undefined
+  const sessionEndsAt = entry.startedAt + config.sessionMinutes * 60_000
+  const breakEndsAt = sessionEndsAt + config.breakMinutes * 60_000
+  const nowMs = now.getTime()
+  return nowMs >= sessionEndsAt && nowMs < breakEndsAt ? breakEndsAt : undefined
 }
 
 /** グループの分離形式の時間ウィンドウを返す。未設定は空配列として扱う。 */
@@ -446,15 +491,15 @@ export function getEffectiveWaitGrantMinutes(
 function isGroupBlocked(
   group: Group,
   counter: UsageCounter | undefined,
+  sessionEntry: SessionLimitEntry | undefined,
   now: Date,
   global: GlobalSettings,
 ): boolean {
   if (getActiveTimeRanges(group, now, global).length > 0) return true
-  if (
-    !isRestrictionActiveNow(group, now, global) ||
-    !getRestrictions(group).some((restriction) => restriction.type === 'grace')
-  )
-    return false
+  if (!isRestrictionActiveNow(group, now, global)) return false
+
+  if (getSessionBreakUntil(group, sessionEntry, now, global) !== undefined) return true
+  if (!getRestrictions(group).some((restriction) => restriction.type === 'grace')) return false
 
   const summary = getTimeLimitUsageSummary(group, counter, now, global)
   return summary !== undefined && summary.remainingSec <= 0
@@ -468,6 +513,7 @@ export function getGroupBlockStatus(
   counter: UsageCounter | undefined,
   now: Date,
   global: GlobalSettings,
+  sessionEntry: SessionLimitEntry | undefined = undefined,
 ): GroupBlockStatus {
   const restrictions = group.disabled ? [] : getRestrictions(group)
   const isActive = isRestrictionActiveNow(group, now, global)
@@ -475,6 +521,7 @@ export function getGroupBlockStatus(
   const timeLimitSummary = getTimeLimitUsageSummary(group, counter, now, global)
   const blockedByDailyLimit =
     isActive && timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
+  const sessionBreakUntil = getSessionBreakUntil(group, sessionEntry, now, global)
   const waitSeconds = getEffectiveWaitSeconds(group, now, global)
   const waitGrantMinutes = getEffectiveWaitGrantMinutes(group, now, global)
 
@@ -487,7 +534,8 @@ export function getGroupBlockStatus(
     waitGrantMinutes,
     blockedByTimeRange: activeTimeRanges.length > 0,
     blockedByDailyLimit,
-    blocked: activeTimeRanges.length > 0 || blockedByDailyLimit,
+    ...(sessionBreakUntil === undefined ? {} : { sessionBreakUntil }),
+    blocked: activeTimeRanges.length > 0 || blockedByDailyLimit || sessionBreakUntil !== undefined,
   }
 }
 
@@ -585,11 +633,20 @@ export function evaluateUrl(
   counters: UsageCountersState,
   url: string | undefined,
   now: Date,
+  sessionLimitState: SessionLimitState = { sessionLimitState: {} },
 ): UrlEvaluation {
   const targetGroupIds = getTargetGroupIds(settings, url)
   const targetGroups = settings.groups.filter((group) => targetGroupIds.includes(group.id))
   const blockedGroupIds = targetGroups
-    .filter((group) => isGroupBlocked(group, counters.counters[group.id], now, settings.global))
+    .filter((group) =>
+      isGroupBlocked(
+        group,
+        counters.counters[group.id],
+        sessionLimitState.sessionLimitState[group.id],
+        now,
+        settings.global,
+      ),
+    )
     .map((group) => group.id)
 
   const delayedGroupIds = targetGroups
@@ -613,10 +670,11 @@ export function evaluateEffectiveUrl(
   counters: UsageCountersState,
   url: string | undefined,
   now: Date,
+  sessionLimitState: SessionLimitState = { sessionLimitState: {} },
 ): UrlEvaluation {
   const evaluations = [
-    evaluateUrl(baseline, counters, url, now),
-    evaluateUrl(preferred, counters, url, now),
+    evaluateUrl(baseline, counters, url, now, sessionLimitState),
+    evaluateUrl(preferred, counters, url, now, sessionLimitState),
   ]
   const unique = (values: string[]): string[] => [...new Set(values)]
   const targetGroupIds = unique(evaluations.flatMap((item) => item.targetGroupIds))
@@ -640,6 +698,7 @@ export function getEffectiveGroupBlockStatus(
   counter: UsageCounter | undefined,
   url: string | undefined,
   now: Date,
+  sessionLimitState: SessionLimitState = { sessionLimitState: {} },
 ): EffectiveGroupBlockStatus | undefined {
   if (!url) return undefined
   const variants = [baseline, preferred].flatMap((settings) => {
@@ -649,7 +708,13 @@ export function getEffectiveGroupBlockStatus(
       {
         group,
         global: settings.global,
-        status: getGroupBlockStatus(group, counter, now, settings.global),
+        status: getGroupBlockStatus(
+          group,
+          counter,
+          now,
+          settings.global,
+          sessionLimitState.sessionLimitState[group.id],
+        ),
       },
     ]
   })
@@ -681,6 +746,9 @@ export function getEffectiveGroupBlockStatus(
   )
   const blockedByTimeRange = uniqueVariants.some((item) => item.status.blockedByTimeRange)
   const blockedByDailyLimit = uniqueVariants.some((item) => item.status.blockedByDailyLimit)
+  const sessionBreakUntil = uniqueVariants
+    .flatMap((item) => (item.status.sessionBreakUntil ? [item.status.sessionBreakUntil] : []))
+    .toSorted((a, b) => b - a)[0]
   return {
     group: preferredGroup ?? uniqueVariants[0]!.group,
     status: {
@@ -692,7 +760,8 @@ export function getEffectiveGroupBlockStatus(
       waitGrantMinutes,
       blockedByTimeRange,
       blockedByDailyLimit,
-      blocked: blockedByTimeRange || blockedByDailyLimit,
+      ...(sessionBreakUntil === undefined ? {} : { sessionBreakUntil }),
+      blocked: blockedByTimeRange || blockedByDailyLimit || sessionBreakUntil !== undefined,
     },
   }
 }

@@ -28,6 +28,10 @@ interface RestrictionOverrides {
   waitSeconds?: number
   /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。 */
   waitGrantMinutes?: number
+  /** `type === 'sessionLimit'` のときの利用枠分数。 */
+  sessionMinutes?: number
+  /** `type === 'sessionLimit'` のときの休憩分数。 */
+  breakMinutes?: number
 }
 
 /**
@@ -45,6 +49,8 @@ function restrictionParts(
   if (overrides.waitSeconds !== undefined) restriction.waitSeconds = overrides.waitSeconds
   if (overrides.waitGrantMinutes !== undefined)
     restriction.waitGrantMinutes = overrides.waitGrantMinutes
+  if (overrides.sessionMinutes !== undefined) restriction.sessionMinutes = overrides.sessionMinutes
+  if (overrides.breakMinutes !== undefined) restriction.breakMinutes = overrides.breakMinutes
   return {
     timeWindows: [
       condition.type === 'daily' && timeRanges.length === 0

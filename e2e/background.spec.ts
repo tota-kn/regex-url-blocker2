@@ -333,6 +333,7 @@ function buildEffectiveSettingsFixture(
         patterns: [`^${origin.replaceAll('.', '\\.')}`],
         blockAction: 'redirect',
         redirectUrl: `${origin}/blocked`,
+        pauseAllowed: true,
         ...buildRestrictionParts(dailyLimitMinutes),
       },
     ],

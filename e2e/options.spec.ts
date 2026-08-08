@@ -485,6 +485,149 @@ test.describe('Options 画面', () => {
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
   })
 
+  test('Pause を禁止したグループは一時停止できず、保存済みの一時停止も解除される', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const serviceWorker =
+      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    /** Pause 禁止フラグを指定してテスト対象グループを保存する。 */
+    const savePauseTargetGroup = async (pauseAllowed: boolean): Promise<void> =>
+      serviceWorker.evaluate(async (allowed) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.sync.set({
+          global: {
+            blockAction: 'blockedPage',
+            redirectUrl: 'https://blocked.test',
+            dailyResetHour: '03:00',
+          },
+          groups: [
+            {
+              id: 'pause-forbidden',
+              name: 'Pause forbidden',
+              mode: 'blacklist',
+              lockMode: false,
+              patterns: ['example\\.com'],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://blocked.test',
+              pauseAllowed: allowed,
+              timeWindows: [{ type: 'always' }],
+              restrictions: [{ type: 'block' }],
+            },
+          ],
+        })
+      }, pauseAllowed)
+    /** storage.local に保存されている一時停止期限を返す。 */
+    const storedPausedUntil = async (): Promise<number | null> =>
+      serviceWorker.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              local: {
+                get: (keys: string[]) => Promise<{
+                  groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
+                }>
+              }
+            }
+          }
+        }
+        const stored = await chromeApi.chrome.storage.local.get(['groupPauseState'])
+        return stored.groupPauseState?.['pause-forbidden']?.pausedUntil ?? null
+      })
+
+    await savePauseTargetGroup(true)
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await expect(page.getByRole('button', { name: 'Edit group' })).toBeVisible()
+
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
+      }
+      await chromeApi.chrome.storage.local.set({
+        groupPauseState: { 'pause-forbidden': { pausedUntil: Date.now() + 600_000 } },
+      })
+    })
+    await expect(page.getByText(/Paused \d/)).toBeVisible()
+    await expect.poll(storedPausedUntil).toBeGreaterThan(0)
+
+    await savePauseTargetGroup(false)
+
+    await expect.poll(storedPausedUntil).toBeNull()
+    await expect(page.getByText(/Paused \d/)).toHaveCount(0)
+
+    await page.reload()
+    await expect(page.getByText('Not allowed')).toBeVisible()
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
+    await expect(page.getByText('Pause is turned off for this group.')).toBeVisible()
+  })
+
+  test('Pause 設定を Off にすると保存され、Pause メニューが無効になる', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const serviceWorker =
+      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [
+          {
+            id: 'pause-toggle',
+            name: 'Pause toggle',
+            mode: 'blacklist',
+            lockMode: false,
+            patterns: ['example\\.com'],
+            blockAction: 'blockedPage',
+            redirectUrl: 'https://blocked.test',
+            timeWindows: [{ type: 'always' }],
+            restrictions: [{ type: 'block' }],
+          },
+        ],
+      })
+    })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await page.getByRole('button', { name: 'Options' }).click()
+    await page.getByRole('radio', { name: 'Allow Pause Off' }).check()
+    await expect(page.getByRole('spinbutton', { name: 'Pause duration minutes' })).toBeDisabled()
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await expect(page.getByText('Not allowed')).toBeVisible()
+    await expect
+      .poll(async () =>
+        serviceWorker.evaluate(async () => {
+          const chromeApi = globalThis as unknown as {
+            chrome: {
+              storage: {
+                sync: {
+                  get: (keys: string[]) => Promise<{ groups?: Array<{ pauseAllowed?: boolean }> }>
+                }
+              }
+            }
+          }
+          const stored = await chromeApi.chrome.storage.sync.get(['groups'])
+          return stored.groups?.[0]?.pauseAllowed ?? null
+        }),
+      )
+      .toBe(false)
+
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
+  })
+
   test('Incognito mode の Chrome 拡張詳細ページを開ける', async ({
     page,
     context,
@@ -1532,6 +1675,33 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
+  })
+
+  test('Session limit の利用枠と休憩時間を保存→リロード後も保持される', async ({
+    page,
+    extensionId,
+  }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Session break')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add time window' }).click()
+    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByLabel('Restriction type').selectOption('sessionLimit')
+    await page.getByLabel('Session limit minutes').fill('10')
+    await page.getByLabel('Session break minutes').fill('30')
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await expect(page.getByLabel('Restriction 1')).toContainText('Session 10 min, break 30 min')
+    await expectVisibleGroupsStored(page)
+    await page.reload()
+
+    await expect(page.getByLabel('Restriction 1')).toContainText('Session 10 min, break 30 min')
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await expect(page.getByLabel('Session limit minutes')).toHaveValue('10')
+    await expect(page.getByLabel('Session break minutes')).toHaveValue('30')
   })
 
   test('Restriction は編集中に重複できるが重複中は保存できない', async ({ page, extensionId }) => {

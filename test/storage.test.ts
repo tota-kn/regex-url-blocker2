@@ -261,6 +261,28 @@ describe('settings export file', () => {
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
+  it('pauseAllowed 欠損は true で補完し、false はそのまま保持する', () => {
+    const build = (pauseAllowed?: boolean) =>
+      JSON.stringify({
+        version: 11,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [
+            {
+              ...createEmptyGroup('Imported'),
+              pauseAllowed,
+              timeWindows: [{ type: 'always' }],
+              restrictions: [{ type: 'block' }],
+            },
+          ],
+        },
+      })
+
+    expect(parseSettingsExportJson(build()).groups[0].pauseAllowed).toBe(true)
+    expect(parseSettingsExportJson(build(true)).groups[0].pauseAllowed).toBe(true)
+    expect(parseSettingsExportJson(build(false)).groups[0].pauseAllowed).toBe(false)
+  })
+
   it('v3 import は disabled 欠損を false で補完する', () => {
     const imported = parseSettingsExportJson(
       JSON.stringify({

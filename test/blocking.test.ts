@@ -49,6 +49,7 @@ function group(overrides: Partial<Group>): Group {
     patterns: ['example\\.com'],
     blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
     redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+    pauseAllowed: true,
     ...overrides,
   }
 }
@@ -860,6 +861,91 @@ describe('blocking evaluation', () => {
       blockedByDailyLimit: false,
       blocked: false,
     })
+  })
+})
+
+describe('Session limit', () => {
+  it('利用枠終了から休憩終了まで対象 URL をブロックする', () => {
+    const s = settings([
+      group({ ...dailyRestriction('sessionLimit', { sessionMinutes: 10, breakMinutes: 30 }) }),
+    ])
+    const startedAt = new Date('2026-05-06T10:00:00+09:00').getTime()
+    const state = { sessionLimitState: { g1: { startedAt } } }
+
+    expect(
+      evaluateUrl(
+        s,
+        emptyCounters(),
+        'https://example.com/',
+        new Date(startedAt + 9 * 60_000),
+        state,
+      ).blocked,
+    ).toBe(false)
+    expect(
+      evaluateUrl(
+        s,
+        emptyCounters(),
+        'https://example.com/',
+        new Date(startedAt + 10 * 60_000),
+        state,
+      ).blocked,
+    ).toBe(true)
+    expect(
+      evaluateUrl(
+        s,
+        emptyCounters(),
+        'https://example.com/',
+        new Date(startedAt + 40 * 60_000),
+        state,
+      ).blocked,
+    ).toBe(false)
+  })
+
+  it('時間枠外では進行中の休憩を適用しない', () => {
+    const s = settings([
+      group({
+        ...dailyRestriction('sessionLimit', {
+          sessionMinutes: 10,
+          breakMinutes: 30,
+          timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+        }),
+      }),
+    ])
+    const startedAt = new Date('2026-05-06T10:00:00+09:00').getTime()
+    const state = { sessionLimitState: { g1: { startedAt } } }
+
+    expect(
+      evaluateUrl(
+        s,
+        emptyCounters(),
+        'https://example.com/',
+        new Date('2026-05-06T18:00:00+09:00'),
+        state,
+      ).blocked,
+    ).toBe(false)
+  })
+
+  it('Daily limit と併用時はどちらかの到達でブロックする', () => {
+    const s = settings([
+      group({
+        restrictions: [
+          { type: 'grace', graceMinutes: 30 },
+          { type: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 },
+        ],
+        timeWindows: [{ type: 'always' }],
+      }),
+    ])
+    const startedAt = new Date('2026-05-06T10:00:00+09:00').getTime()
+
+    expect(
+      evaluateUrl(
+        s,
+        { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 30 * 60 } } },
+        'https://example.com/',
+        new Date(startedAt + 1_000),
+        { sessionLimitState: { g1: { startedAt } } },
+      ).blocked,
+    ).toBe(true)
   })
 })
 

@@ -8,13 +8,16 @@ import {
   getEffectiveWaitSeconds,
   getMinimumEffectiveRemainingTimeLimit,
   getRedirectUrls,
+  getSessionLimitConfig,
   isTargetGroup,
+  isRestrictionActiveNow,
   incrementEffectiveCounters,
   normalizeCounters,
   shouldSkipUrl,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
+import { getPauseAllowedGroupIds } from '@/utils/groupPause'
 import {
   buildEffectiveRemainingTimeNotificationPlans,
   markNotificationPlanHistory,
@@ -25,16 +28,19 @@ import {
   loadEffectiveSettingsState,
   loadGroupPauseState,
   loadSettings,
+  loadSessionLimitState,
   loadUsageNotificationHistory,
   saveCounters,
   saveEffectiveSettingsState,
   saveGroupPauseState,
+  saveSessionLimitState,
   saveUsageNotificationHistory,
 } from '@/utils/storage'
 import type {
   DelayGrantState,
   GroupPauseState,
   Settings,
+  SessionLimitState,
   UsageCountersState,
   UsageNotificationHistoryState,
 } from '@/utils/types'
@@ -54,6 +60,7 @@ let preferredSettings: Settings | undefined
 let counters: UsageCountersState = { counters: {} }
 let groupPauseState: GroupPauseState = { groupPauseState: {} }
 let delayGrantState: DelayGrantState = { delayGrantState: {} }
+let sessionLimitState: SessionLimitState = { sessionLimitState: {} }
 let usageNotificationHistory: UsageNotificationHistoryState = { usageNotificationHistory: {} }
 let dirtyCounters = false
 let initPromise: Promise<void> | undefined
@@ -113,13 +120,15 @@ async function initializeState(): Promise<void> {
   counters = normalizeCounters(settings, await loadCounters(), now)
   const validGroupIds = settings.groups.map((group) => group.id)
   const [pauseState, grantState, usageHistory] = await Promise.all([
-    loadGroupPauseState(validGroupIds, now.getTime()),
+    loadGroupPauseState(getPauseAllowedGroupIds(settings, preferredSettings), now.getTime()),
     loadDelayGrantState(validGroupIds, now.getTime()),
     loadUsageNotificationHistory(),
   ])
   groupPauseState = pauseState
   delayGrantState = grantState
   usageNotificationHistory = usageHistory
+  sessionLimitState = await loadSessionLimitState(validGroupIds)
+  await reconcileSessionLimitState(settings, now)
   dirtyCounters = true
   await saveGroupPauseState(groupPauseState)
 }
@@ -151,7 +160,44 @@ function globalThisPreferredSettings(next: Settings): void {
 
 /** 基準設定と最新設定を使って URL を評価する。 */
 function evaluateCurrentUrl(s: Settings, url: string | undefined, now: Date): UrlEvaluation {
-  return evaluateEffectiveUrl(s, preferredSettings ?? s, counters, url, now)
+  return evaluateEffectiveUrl(s, preferredSettings ?? s, counters, url, now, sessionLimitState)
+}
+
+/** 時間枠外・設定削除・完了済みの利用枠状態を掃除する。 */
+async function reconcileSessionLimitState(s: Settings, now: Date): Promise<void> {
+  const next: SessionLimitState = { sessionLimitState: {} }
+  for (const group of s.groups) {
+    const entry = sessionLimitState.sessionLimitState[group.id]
+    const config = getSessionLimitConfig(group)
+    if (!entry || !config || !isRestrictionActiveNow(group, now, s.global)) continue
+    const endsAt = entry.startedAt + (config.sessionMinutes + config.breakMinutes) * 60_000
+    if (now.getTime() < endsAt) next.sessionLimitState[group.id] = entry
+  }
+  if (JSON.stringify(next) === JSON.stringify(sessionLimitState)) return
+  sessionLimitState = next
+  await saveSessionLimitState(sessionLimitState)
+}
+
+/** 初めて許可された対象アクセスで、Group ごとの利用枠を開始する。 */
+async function beginSessionLimitIfNeeded(
+  s: Settings,
+  url: string | undefined,
+  now: Date,
+): Promise<void> {
+  if (!url) return
+  let changed = false
+  for (const group of s.groups) {
+    if (
+      !isTargetGroup(group, url) ||
+      !isRestrictionActiveNow(group, now, s.global) ||
+      !getSessionLimitConfig(group) ||
+      sessionLimitState.sessionLimitState[group.id]
+    )
+      continue
+    sessionLimitState.sessionLimitState[group.id] = { startedAt: now.getTime() }
+    changed = true
+  }
+  if (changed) await saveSessionLimitState(sessionLimitState)
 }
 
 /**
@@ -202,7 +248,7 @@ async function reloadSettings(): Promise<void> {
   globalThisPreferredSettings(preferredSettings)
   counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
   groupPauseState = await loadGroupPauseState(
-    settings.groups.map((group) => group.id),
+    getPauseAllowedGroupIds(settings, preferredSettings),
     now.getTime(),
   )
   await saveGroupPauseState(groupPauseState)
@@ -210,6 +256,8 @@ async function reloadSettings(): Promise<void> {
     settings.groups.map((group) => group.id),
     now.getTime(),
   )
+  sessionLimitState = await loadSessionLimitState(settings.groups.map((group) => group.id))
+  await reconcileSessionLimitState(settings, now)
   dirtyCounters = true
 }
 
@@ -229,7 +277,7 @@ async function reloadCounters(): Promise<void> {
  */
 async function reloadGroupPauseState(): Promise<void> {
   const s = await currentSettings()
-  groupPauseState = await loadGroupPauseState(s.groups.map((group) => group.id))
+  groupPauseState = await loadGroupPauseState(getPauseAllowedGroupIds(s, preferredSettings ?? s))
 }
 
 /**
@@ -238,6 +286,13 @@ async function reloadGroupPauseState(): Promise<void> {
 async function reloadDelayGrantState(): Promise<void> {
   const s = await currentSettings()
   delayGrantState = await loadDelayGrantState(s.groups.map((group) => group.id))
+}
+
+/** 保存済みの利用枠・休憩状態を background のメモリ状態へ取り込む。 */
+async function reloadSessionLimitState(): Promise<void> {
+  const s = await currentSettings()
+  sessionLimitState = await loadSessionLimitState(s.groups.map((group) => group.id))
+  await reconcileSessionLimitState(s, new Date())
 }
 
 /**
@@ -364,7 +419,10 @@ async function redirectToWaitIfNeeded(
   )
   const delayed = applyDelayGrantState(evaluation, delayGrantState, now.getTime())
   const groupId = delayed.delayedGroupIds[0]
-  if (!groupId) return
+  if (!groupId) {
+    await beginSessionLimitIfNeeded(s, url, now)
+    return
+  }
 
   const candidates = [s, preferredSettings ?? s].flatMap((item) => {
     const group = item.groups.find((candidate) => candidate.id === groupId)
@@ -473,6 +531,8 @@ async function reevaluateTab(tab: Tabs.Tab, now = new Date()): Promise<void> {
     now.getTime(),
   )
   await enforceEvaluation(tab.id, tab.url, s, evaluation, now)
+  if (!evaluation.blocked && evaluation.delayedGroupIds.length === 0)
+    await beginSessionLimitIfNeeded(s, tab.url, now)
 }
 
 /**
@@ -541,6 +601,8 @@ async function handleNavigation(
   )
   await updateActionForTab({ id: details.tabId, url: details.url }, now)
   await enforceEvaluation(details.tabId, details.url, s, evaluation, now)
+  if (!evaluation.blocked && evaluation.delayedGroupIds.length === 0)
+    await beginSessionLimitIfNeeded(s, details.url, now)
 }
 
 /**
@@ -575,11 +637,18 @@ export default defineBackground(() => {
 
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') return
-    if (!changes.counters && !changes.groupPauseState && !changes.delayGrantState) return
+    if (
+      !changes.counters &&
+      !changes.groupPauseState &&
+      !changes.delayGrantState &&
+      !changes.sessionLimitState
+    )
+      return
     runAsync(async () => {
       if (changes.counters) await reloadCounters()
       if (changes.groupPauseState) await reloadGroupPauseState()
       if (changes.delayGrantState) await reloadDelayGrantState()
+      if (changes.sessionLimitState) await reloadSessionLimitState()
       await reevaluateAllTabs()
     })
   })
@@ -605,6 +674,8 @@ export default defineBackground(() => {
         now.getTime(),
       )
       await enforceEvaluation(tabId, url, s, evaluation, now)
+      if (!evaluation.blocked && evaluation.delayedGroupIds.length === 0)
+        await beginSessionLimitIfNeeded(s, url, now)
     })
   })
 

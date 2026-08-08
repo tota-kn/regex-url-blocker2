@@ -23,7 +23,14 @@ interface Props {
   timeWindowError?: (index: number, field: 'condition' | 'timeRanges') => string | undefined
   restrictionError?: (
     index: number,
-    field: 'type' | 'graceMinutes' | 'waitSeconds' | 'waitGrantMinutes' | 'redirectUrl',
+    field:
+      | 'type'
+      | 'graceMinutes'
+      | 'waitSeconds'
+      | 'waitGrantMinutes'
+      | 'redirectUrl'
+      | 'sessionMinutes'
+      | 'breakMinutes',
   ) => string | undefined
 }
 

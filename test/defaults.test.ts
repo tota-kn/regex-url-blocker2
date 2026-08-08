@@ -56,6 +56,7 @@ describe('createEmptyGroup', () => {
     expect(g.patterns).toEqual([])
     expect(g.blockAction).toBe('blockedPage')
     expect(g.redirectUrl).toBe('https://example.com')
+    expect(g.pauseAllowed).toBe(true)
     expect(g.timeWindows).toEqual([])
     expect(g.restrictions).toEqual([])
   })

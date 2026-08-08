@@ -49,7 +49,7 @@ export type ScheduleRuleCondition =
  * - `'grace'`: 有効ウィンドウ中の閲覧秒数を積算し、1日の上限分数に達するとブロックする。
  * - `'wait'`: 有効ウィンドウ中、アクセス前に待機ゲート（カウントダウン）を課す。
  */
-export type RestrictionType = 'block' | 'redirect' | 'grace' | 'wait'
+export type RestrictionType = 'block' | 'redirect' | 'grace' | 'wait' | 'sessionLimit'
 
 /** 制限を適用する時間条件。`always` は明示的な常時適用ウィンドウ。 */
 export type TimeWindow =
@@ -68,6 +68,10 @@ export interface Restriction {
   waitGrantMinutes?: number
   /** `type === 'redirect'` のときの遷移先 URL。 */
   redirectUrl?: string
+  /** `type === 'sessionLimit'` のとき、最初のアクセスから許可する分数。 */
+  sessionMinutes?: number
+  /** `type === 'sessionLimit'` のとき、利用枠後にブロックする休憩分数。 */
+  breakMinutes?: number
 }
 
 /**
@@ -110,6 +114,8 @@ export interface Group {
   pauseWaitSeconds?: number
   /** 一時停止を継続する分数。1以上の整数。 */
   pauseDurationMinutes?: number
+  /** false の場合、このグループの一時停止（Pause）操作を禁止する。既定は true。 */
+  pauseAllowed: boolean
   /** このグループに設定する時間ウィンドウの配列。 */
   timeWindows?: TimeWindow[]
   /** このグループに設定する制限の配列。 */
@@ -200,6 +206,18 @@ export interface DelayGrantEntry {
 export interface DelayGrantState {
   /** group id を key とする待機ゲート許可状態辞書。 */
   delayGrantState: Record<string, DelayGrantEntry>
+}
+
+/** 1グループ分の利用枠開始状態。 */
+export interface SessionLimitEntry {
+  /** 対象サイトを最初に開いた epoch milliseconds。 */
+  startedAt: number
+}
+
+/** chrome.storage.local に保存する利用枠・休憩状態。 */
+export interface SessionLimitState {
+  /** group id を key とする利用枠開始状態。 */
+  sessionLimitState: Record<string, SessionLimitEntry>
 }
 
 /**

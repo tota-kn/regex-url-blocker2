@@ -25,6 +25,7 @@ function group(overrides: Partial<Group> = {}): Group {
     patterns: ['example\\.com'],
     blockAction: 'blockedPage',
     redirectUrl: 'https://redirect.test/',
+    pauseAllowed: true,
     ...overrides,
   }
 }
