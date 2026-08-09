@@ -8,12 +8,6 @@ matcher = "Edit|Write|apply_patch"
 
 [[hooks.PostToolUse.hooks]]
 type = "command"
-command = "pnpm lint:fix 1>&2 || exit 2"
-timeout = 120
-statusMessage = "Running lint:fix"
-
-[[hooks.PostToolUse.hooks]]
-type = "command"
-command = "pnpm typecheck 1>&2 || exit 2"
-timeout = 120
-statusMessage = "Running typecheck"
+command = ".codex/hooks/verify-file.sh"
+timeout = 180
+statusMessage = "Running lint + typecheck"

@@ -10,21 +10,14 @@
     ]
   },
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm lint:fix 1>&2 || exit 2",
-            "timeout": 120,
-            "statusMessage": "Running pnpm lint:fix"
-          },
-          {
-            "type": "command",
-            "command": "pnpm typecheck 1>&2 || exit 2",
-            "timeout": 120,
-            "statusMessage": "Running pnpm typecheck"
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/verify.sh\"",
+            "timeout": 180,
+            "statusMessage": "Running lint + typecheck"
           }
         ]
       }

@@ -26,7 +26,12 @@ Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は 
 
 ## 自動実行されるフック
 
-Claude Code は [.claude/settings.json](.claude/settings.json) で Write/Edit/MultiEdit 後に **`pnpm lint:fix`（Oxlint + Oxfmt）と `pnpm typecheck`** が PostToolUse フックとして自動実行される。Codex でも同等の PostToolUse フックを設定する。失敗時は exit 2 で編集が止まる。
+lint（Oxlint + Oxfmt）と typecheck（vue-tsc）はフックで自動実行されるため、実装中に手動で叩く必要はない。
+
+- **Claude Code** — [.claude/settings.json](.claude/settings.json) の **Stop フック**で [.claude/hooks/verify.sh](.claude/hooks/verify.sh) が実行される。編集ごとではなく**ターン終了時に 1 回だけ**、`oxlint --fix` → `oxfmt --write` → `vue-tsc --noEmit --incremental` をまとめて走らせる。失敗すると exit 2 でターン終了がブロックされ、エラーが返るので修正してから完了報告すること。連続 3 回失敗した場合のみ無限ループ回避のため打ち切られる。
+- **Codex** — Stop 相当のフックイベントが存在しないため、[.codex/config.toml](.codex/config.toml) の **PostToolUse フック**で [.codex/hooks/verify-file.sh](.codex/hooks/verify-file.sh) を実行する。編集ファイルの拡張子でゲートし（`.md` / `.css` などは何もしない）、typecheck は `.ts` / `.tsx` / `.vue` のときだけ走る。失敗時は exit 2 で編集が止まる。
+
+いずれも `pnpm` を経由せず `node_modules/.bin` を直接実行し、typecheck は `node_modules/.cache/vue-tsc.tsbuildinfo` を使った incremental ビルドで高速化している。
 
 ## コーディング規約
 
@@ -42,6 +47,6 @@ Claude Code は [.claude/settings.json](.claude/settings.json) で Write/Edit/Mu
 2. **実装** — 追加したテストが通るよう実装する
 3. **検証** — 完了報告の前に以下を自律的に実行し、失敗があれば修正してから報告する
    - `pnpm test:unit`
-   - `pnpm lint`（PostToolUse hook で自動修正済みでも最終確認）
-   - `pnpm typecheck`
    - `pnpm test:e2e`（UI／拡張機能の挙動を伴う変更時。純粋なロジック変更時は省略可）
+
+   lint と typecheck はフックが自動で担保するため、ここで手動実行する必要はない（「自動実行されるフック」を参照）。
