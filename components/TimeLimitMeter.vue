@@ -13,7 +13,6 @@ interface Props {
   remainingSec?: number
   /** 狭い表示領域向けに余白と文字サイズを抑えるかどうか。 */
   compact?: boolean
-  /** ラベルを表示するかどうか。 */
   showLabel?: boolean
   /** スクリーンリーダー向けのメーター名。 */
   ariaLabel?: string

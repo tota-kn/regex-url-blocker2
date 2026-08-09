@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import { buildRemainingTimeNotificationPlans } from '../utils/notifications'
+import { buildEffectiveRemainingTimeNotificationPlans } from '../utils/notifications'
 import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from '../utils/types'
 import { dailyRule } from './helpers'
 
@@ -57,7 +57,8 @@ describe('remaining time notification plans', () => {
   it('閾値以下の未通知グループに通知計画を作る', () => {
     const s = settings([group()])
 
-    const plans = buildRemainingTimeNotificationPlans(
+    const plans = buildEffectiveRemainingTimeNotificationPlans(
+      s,
       s,
       counters({ 'group-a': 57 * 60 }),
       {},
@@ -81,7 +82,8 @@ describe('remaining time notification plans', () => {
     }
 
     expect(
-      buildRemainingTimeNotificationPlans(
+      buildEffectiveRemainingTimeNotificationPlans(
+        s,
         s,
         counters({ 'group-a': 57 * 60 }),
         history,
@@ -95,7 +97,8 @@ describe('remaining time notification plans', () => {
     const s = settings([group()], { remainingTimeNotificationsEnabled: false })
 
     expect(
-      buildRemainingTimeNotificationPlans(
+      buildEffectiveRemainingTimeNotificationPlans(
+        s,
         s,
         counters({ 'group-a': 57 * 60 }),
         {},

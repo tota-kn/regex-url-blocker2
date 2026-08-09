@@ -5,7 +5,7 @@ import {
   evaluateUrl,
   getBlockDestination,
   getBlockReason,
-  incrementCounters,
+  incrementEffectiveCounters,
 } from '../utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import type { Group, Rule, RuleRestriction, Settings, UsageCountersState } from '../utils/types'
@@ -97,7 +97,7 @@ describe('ルールの組み合わせ表', () => {
     expect(granted.delayedGroupIds).toEqual([])
 
     // その間もカウンタは進む。
-    const next = incrementCounters(s, counters(0), URL, at('12:05'), 60)
+    const next = incrementEffectiveCounters(s, s, counters(0), URL, at('12:05'), 60)
     expect(next.counters.g1?.consumedSec).toBe(60)
   })
 
@@ -193,11 +193,13 @@ describe('Daily limit ルールがアクティブな時間帯だけカウンタ�
     })
 
     // 午前は Daily limit が有効なので加算する。
-    expect(incrementCounters(s, counters(0), URL, at('10:00'), 60).counters.g1?.consumedSec).toBe(
-      60,
-    )
+    expect(
+      incrementEffectiveCounters(s, s, counters(0), URL, at('10:00'), 60).counters.g1?.consumedSec,
+    ).toBe(60)
     // 午後は Wait しかアクティブでないので加算しない。
-    expect(incrementCounters(s, counters(0), URL, at('15:00'), 60).counters.g1?.consumedSec).toBe(0)
+    expect(
+      incrementEffectiveCounters(s, s, counters(0), URL, at('15:00'), 60).counters.g1?.consumedSec,
+    ).toBe(0)
   })
 })
 

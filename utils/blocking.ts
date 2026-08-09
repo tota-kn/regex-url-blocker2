@@ -573,30 +573,6 @@ export function getTimeRangeUnblockAt(
 }
 
 /**
- * URL に該当する今日有効な閲覧上限から、残り時間が最短のものを返す。
- */
-export function getMinimumRemainingTimeLimit(
-  settings: Settings,
-  counters: UsageCountersState,
-  url: string | undefined,
-  now: Date,
-): MinimumRemainingTimeLimit | undefined {
-  const targetGroupIds = new Set(getTargetGroupIds(settings, url))
-  return settings.groups
-    .filter((group) => targetGroupIds.has(group.id))
-    .flatMap((group) => {
-      const summary = getTimeLimitUsageSummary(
-        group,
-        counters.counters[group.id],
-        now,
-        settings.global,
-      )
-      return summary ? [{ group, summary }] : []
-    })
-    .toSorted((a, b) => a.summary.remainingSec - b.summary.remainingSec)[0]
-}
-
-/**
  * 基準設定と最新設定を独立に調べ、残り時間が最短の閲覧上限を返す。
  */
 export function getMinimumEffectiveRemainingTimeLimit(
@@ -873,30 +849,6 @@ export function normalizeCounters(
       logicalDate,
       consumedSec:
         current?.logicalDate === logicalDate ? Math.max(0, Math.floor(current.consumedSec)) : 0,
-    }
-  }
-  return normalized
-}
-
-/**
- * URL に該当し、かつ dailyLimit ルールが現在アクティブな group counter にだけ秒数を加算する。
- */
-export function incrementCounters(
-  settings: Settings,
-  counters: UsageCountersState,
-  url: string | undefined,
-  now: Date,
-  seconds: number,
-): UsageCountersState {
-  const normalized = normalizeCounters(settings, counters, now)
-  const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
-  for (const groupId of getTargetGroupIds(settings, url)) {
-    const group = settings.groups.find((g) => g.id === groupId)
-    if (!group || !hasActiveDailyLimit(group, now, settings.global)) continue
-    const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
-    normalized.counters[groupId] = {
-      logicalDate,
-      consumedSec: current.consumedSec + seconds,
     }
   }
   return normalized

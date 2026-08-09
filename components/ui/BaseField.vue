@@ -5,11 +5,8 @@ import AlertMessage from '@/components/ui/AlertMessage.vue'
  * 入力フィールド外枠の props。
  */
 interface Props {
-  /** 表示ラベル。 */
   label?: string
-  /** エラーメッセージ。 */
   error?: string
-  /** 補足説明。 */
   description?: string
 }
 

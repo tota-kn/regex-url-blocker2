@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   createDefaultRule,
-  createDefaultTimeWindow,
   DEFAULT_GLOBAL_SETTINGS,
   createGroupFromTemplate,
 } from '../utils/defaults'
@@ -51,12 +50,6 @@ describe('createDefaultRule', () => {
       createDefaultRule('block').id,
     ])
     expect(ids.size).toBe(3)
-  })
-})
-
-describe('createDefaultTimeWindow', () => {
-  it('Always ウィンドウを生成する', () => {
-    expect(createDefaultTimeWindow()).toEqual({ type: 'always' })
   })
 })
 

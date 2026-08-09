@@ -21,11 +21,9 @@ import { useStorageListener } from '@/utils/useStorageListener'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 
 interface DisplayGroup {
-  /** 状態を表示する対象グループ。 */
   group: Group
   /** 現在時刻のブロック状態。 */
   status: GroupBlockStatus
-  /** 一時停止状態の表示情報。 */
   pauseState: GroupPauseDisplayState
   /** 現在時刻での合成結果。Pause 中は一時停止状態だけを示す。 */
   current: CurrentStateSummary

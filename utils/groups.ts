@@ -31,13 +31,6 @@ export function cloneSettings(settings: Settings): Settings {
 }
 
 /**
- * URL pattern mode の保存値を読み取り表示用の文言に変換する。
- */
-export function formatGroupMode(group: Group): string {
-  return group.mode === 'whitelist' ? 'Allow only matches' : 'Block matches'
-}
-
-/**
  * スケジュールルールの適用条件を読み取り表示用の文言に変換する。
  */
 export function formatScheduleRuleCondition(condition: ScheduleRuleCondition): string {

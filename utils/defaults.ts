@@ -74,11 +74,6 @@ export function createDefaultRule(kind: RuleKind): Rule {
   return { ...base, restriction: { kind: 'block' }, destination: { type: 'blockedPage' } }
 }
 
-/** 新しい既定の時間ウィンドウを作成する。 */
-export function createDefaultTimeWindow(): TimeWindow {
-  return { type: 'always' }
-}
-
 /**
  * 指定テンプレートに対応するルール配列を生成する。`blank` はルールなし（空配列）。
  */

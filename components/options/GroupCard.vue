@@ -18,11 +18,10 @@ import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import type { TimeLimitUsageSummary } from '@/utils/blocking'
+import { sortRulesByEvaluationOrder, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
-import { sortRulesByEvaluationOrder } from '@/utils/blocking'
 import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
 import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
@@ -42,7 +41,6 @@ interface Props {
   startInEdit?: boolean
   /** 新規作成中の未保存グループかどうか。 */
   isNew?: boolean
-  /** このグループの一時停止状態。 */
   pauseEntry?: GroupPauseEntry
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now?: Date
@@ -66,17 +64,11 @@ interface Props {
  * グループカードが親へ通知するイベント。
  */
 interface Emits {
-  /** グループ保存が要求されたときに保存対象の値を通知する。 */
   save: [group: Group]
-  /** 未保存グループ作成のキャンセルが要求されたときに発火する。 */
   cancel: []
-  /** グループ削除が要求されたときに発火する。 */
   remove: []
-  /** グループ複製が要求されたときに発火する。 */
   duplicate: []
-  /** グループ一時停止操作が要求されたときに発火する。 */
   requestPause: []
-  /** このグループの現在有効な設定の確認が要求されたときに発火する。 */
   viewActiveSettings: []
 }
 

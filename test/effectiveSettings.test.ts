@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   createEffectiveSettingsState,
   getPendingEffectiveGroupIds,
-  hasPendingEffectiveSettings,
   mergeImmediateRestrictions,
   reconcileEffectiveSettings,
 } from '../utils/effectiveSettings'
@@ -259,7 +258,7 @@ describe('effective settings', () => {
     const effective = settings([group({ patterns: ['old\\.test'] })])
     const preferred = settings([group({ patterns: ['new\\.test'] })])
 
-    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(false)
+    expect(getPendingEffectiveGroupIds(preferred, effective)).toEqual([])
   })
 
   it('新規グループ追加だけの変更は翌日待ち差分にしない', () => {
@@ -269,7 +268,7 @@ describe('effective settings', () => {
       group({ id: 'g2', name: 'Second group', patterns: ['second\\.test'] }),
     ])
 
-    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(false)
+    expect(getPendingEffectiveGroupIds(preferred, effective)).toEqual([])
   })
 
   it('Lock Mode ON の group snapshot と preferred group の差分だけを pending にする', () => {
@@ -286,7 +285,6 @@ describe('effective settings', () => {
       }),
     ])
 
-    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
     expect(getPendingEffectiveGroupIds(preferred, effective)).toEqual(['g1'])
   })
 
@@ -297,7 +295,6 @@ describe('effective settings', () => {
     const merged = mergeImmediateRestrictions(active, preferred)
 
     expect(merged.groups[0].disabled).toBe(false)
-    expect(hasPendingEffectiveSettings(preferred, merged)).toBe(true)
     expect(getPendingEffectiveGroupIds(preferred, merged)).toEqual(['g1'])
   })
 
@@ -305,7 +302,6 @@ describe('effective settings', () => {
     const effective = settings([group({ lockMode: true })])
     const preferred = settings([])
 
-    expect(hasPendingEffectiveSettings(preferred, effective)).toBe(true)
     expect(getPendingEffectiveGroupIds(preferred, effective)).toEqual(['g1'])
   })
 })

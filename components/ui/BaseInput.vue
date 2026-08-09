@@ -19,17 +19,13 @@ type InputSize = 'sm' | 'md'
  * 共通入力欄の props。
  */
 interface Props {
-  /** input の type 属性。 */
   type?: string
   /** 編集中か読み取り表示か。 */
   display?: InputDisplay
-  /** 入力欄のサイズ。 */
   size?: InputSize
-  /** 等幅フォントにするかどうか。 */
   monospace?: boolean
   /** エラー状態の見た目にするかどうか。 */
   invalid?: boolean
-  /** disabled 属性。 */
   disabled?: boolean
 }
 

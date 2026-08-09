@@ -3,7 +3,6 @@
  * 空状態表示の props。
  */
 interface Props {
-  /** aria-label。 */
   ariaLabel?: string
   /** 中央寄せで大きめに表示するかどうか。 */
   spacious?: boolean

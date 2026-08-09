@@ -22,27 +22,6 @@ export function formatRemainingNotificationMinutes(remainingSec: number): string
 }
 
 /**
- * 指定グループ名を通知本文向けに結合する。
- */
-export function formatGroupNames(groups: Array<{ name: string }>): string {
-  return groups.map((group) => group.name).join(', ')
-}
-
-/**
- * 通知履歴を見て、同じ論理日の未通知グループだけを返す。
- */
-export function filterUnnotifiedGroups<T extends { id: string }>(
-  groups: T[],
-  logicalDateByGroupId: Map<string, string>,
-  history: Record<string, UsageNotificationEntry>,
-): T[] {
-  return groups.filter((group) => {
-    const logicalDate = logicalDateByGroupId.get(group.id)
-    return Boolean(logicalDate) && history[group.id]?.logicalDate !== logicalDate
-  })
-}
-
-/**
  * 通知計画に含まれる group を通知済み履歴へ記録する。
  */
 export function markNotificationPlanHistory(
@@ -52,46 +31,6 @@ export function markNotificationPlanHistory(
   for (const entry of plan.historyEntries) {
     history[entry.groupId] = { logicalDate: entry.logicalDate }
   }
-}
-
-/**
- * 閾値以下になった閲覧上限付きグループの残り時間通知計画を作る。
- */
-export function buildRemainingTimeNotificationPlans(
-  settings: Settings,
-  counters: UsageCountersState,
-  history: Record<string, UsageNotificationEntry>,
-  tabUrl: string | undefined,
-  now: Date,
-): NotificationPlan[] {
-  if (!settings.global.remainingTimeNotificationsEnabled) return []
-
-  const thresholdSec = settings.global.notificationThresholdMinutes * 60
-  const evaluation = evaluateUrl(settings, counters, tabUrl, now)
-  const targetGroupIds = new Set(evaluation.targetGroupIds)
-  const plans: NotificationPlan[] = []
-
-  for (const group of settings.groups) {
-    if (!targetGroupIds.has(group.id)) continue
-
-    const summary = getTimeLimitUsageSummary(
-      group,
-      counters.counters[group.id],
-      now,
-      settings.global,
-    )
-    if (!summary) continue
-    if (summary.remainingSec <= 0 || summary.remainingSec > thresholdSec) continue
-    if (history[group.id]?.logicalDate === summary.logicalDate) continue
-
-    plans.push({
-      notificationId: `usage-time-limit-${group.id}-${summary.logicalDate}`,
-      message: `${group.name}: ${formatRemainingNotificationMinutes(summary.remainingSec)} remaining today.`,
-      historyEntries: [{ groupId: group.id, logicalDate: summary.logicalDate }],
-    })
-  }
-
-  return plans
 }
 
 /**

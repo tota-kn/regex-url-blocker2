@@ -14,12 +14,11 @@ import {
   getRedirectUrls,
   getGroupBlockStatus,
   getLogicalDate,
-  getMinimumRemainingTimeLimit,
+  getMinimumEffectiveRemainingTimeLimit,
   getNextDailyResetAt,
   getTargetGroupIds,
   getTimeLimitUsageSummary,
   getTimeRangeUnblockAt,
-  incrementCounters,
   incrementEffectiveCounters,
   isRestrictionActiveNow,
   matchesScheduleRuleCondition,
@@ -1040,7 +1039,8 @@ describe('counters', () => {
       ),
     ).toBeUndefined()
     expect(
-      getMinimumRemainingTimeLimit(
+      getMinimumEffectiveRemainingTimeLimit(
+        s,
         s,
         emptyCounters(),
         'https://example.com/',
@@ -1082,7 +1082,8 @@ describe('counters', () => {
         other: { logicalDate: '2026-05-06', consumedSec: 0 },
       },
     }
-    const result = getMinimumRemainingTimeLimit(
+    const result = getMinimumEffectiveRemainingTimeLimit(
+      s,
       s,
       counters,
       'https://example.com/',
@@ -1099,7 +1100,8 @@ describe('counters', () => {
       }),
     ])
     expect(
-      getMinimumRemainingTimeLimit(
+      getMinimumEffectiveRemainingTimeLimit(
+        s,
         s,
         emptyCounters(),
         'https://example.com/',
@@ -1121,7 +1123,8 @@ describe('counters', () => {
         ...dailyRule({ kind: 'dailyLimit', minutes: 30 }),
       }),
     ])
-    const counters = incrementCounters(
+    const counters = incrementEffectiveCounters(
+      s,
       s,
       emptyCounters(),
       'https://example.com/',
@@ -1134,7 +1137,8 @@ describe('counters', () => {
 
   it('制限なしグループには加算しない', () => {
     const s = settings([group({ id: 'no-restriction', patterns: ['example'] })])
-    const counters = incrementCounters(
+    const counters = incrementEffectiveCounters(
+      s,
       s,
       emptyCounters(),
       'https://example.com/',
@@ -1155,7 +1159,8 @@ describe('counters', () => {
         ),
       }),
     ])
-    const counters = incrementCounters(
+    const counters = incrementEffectiveCounters(
+      s,
       s,
       emptyCounters(),
       'https://example.com/',
@@ -1189,7 +1194,8 @@ describe('counters', () => {
       },
       new Date('2026-05-06T12:00:00+09:00'),
     )
-    const incremented = incrementCounters(
+    const incremented = incrementEffectiveCounters(
+      s,
       s,
       normalized,
       'https://example.com/',
@@ -1213,7 +1219,8 @@ describe('counters', () => {
         ...dailyRule({ kind: 'dailyLimit', minutes: 30 }),
       }),
     ])
-    const counters = incrementCounters(
+    const counters = incrementEffectiveCounters(
+      s,
       s,
       emptyCounters(),
       'https://example.com/',

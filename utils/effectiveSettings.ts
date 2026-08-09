@@ -79,13 +79,6 @@ export function getPendingEffectiveGroupIds(preferred: Settings, effective: Sett
 }
 
 /**
- * Lock Mode ON のグループ変更で、翌日まで待つ必要がある差分が残っているなら true を返す。
- */
-export function hasPendingEffectiveSettings(preferred: Settings, effective: Settings): boolean {
-  return getPendingEffectiveGroupIds(preferred, effective).length > 0
-}
-
-/**
  * 現在時刻と設定のリセット時刻から、有効設定 state の初期値を作る。
  */
 export function createEffectiveSettingsState(

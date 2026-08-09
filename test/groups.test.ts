@@ -3,7 +3,6 @@ import {
   cloneGroup,
   cloneSettings,
   duplicateGroup,
-  formatGroupMode,
   formatScheduleRuleCondition,
   formatTimeWindow,
 } from '../utils/groups'
@@ -43,11 +42,6 @@ function settings(groups: Group[]): Settings {
 }
 
 describe('group utilities', () => {
-  it('グループ表示ラベルを返す', () => {
-    expect(formatGroupMode(group({ mode: 'blacklist' }))).toBe('Block matches')
-    expect(formatGroupMode(group({ mode: 'whitelist' }))).toBe('Allow only matches')
-  })
-
   it('スケジュールルールの条件を読み取り表示用の文言にする', () => {
     expect(formatScheduleRuleCondition({ type: 'daily' })).toBe('Every day')
     expect(formatScheduleRuleCondition({ type: 'weekly', daysOfWeek: [0, 6] })).toBe(

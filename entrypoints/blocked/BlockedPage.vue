@@ -27,7 +27,6 @@ interface BlockedReason {
 }
 
 interface BlockedGroupDisplay {
-  /** ブロックしたグループ。 */
   group: Group
   /** 現在時刻のブロック状態。 */
   status: GroupBlockStatus

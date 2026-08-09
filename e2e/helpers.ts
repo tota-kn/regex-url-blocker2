@@ -83,35 +83,6 @@ export async function getExtensionStorage(
   )
 }
 
-/** storage.sync の設定を保存し、background の effectiveSettings 反映まで待つ。 */
-export async function saveSettingsAndWait(
-  serviceWorker: Worker,
-  settings: { global: Record<string, unknown>; groups: Array<Record<string, unknown>> },
-): Promise<void> {
-  await serviceWorker.evaluate(async (settings) => {
-    const chromeApi = globalThis as unknown as {
-      chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-    }
-    await chromeApi.chrome.storage.sync.set(settings)
-  }, settings)
-
-  await expect
-    .poll(async () => {
-      const stored = await getExtensionStorage(serviceWorker, 'local', ['effectiveSettings'])
-      const effective = stored.effectiveSettings as
-        | { global?: Record<string, unknown>; groups?: Array<Record<string, unknown>> }
-        | undefined
-      return {
-        dailyResetHour: effective?.global?.dailyResetHour,
-        groupIds: effective?.groups?.map((group) => group.id),
-      }
-    })
-    .toEqual({
-      dailyResetHour: settings.global.dailyResetHour,
-      groupIds: settings.groups.map((group) => group.id),
-    })
-}
-
 /** 現在の storage.sync 設定を background が有効設定へ反映するまで待つ。 */
 export async function waitForEffectiveSettings(serviceWorker: Worker): Promise<void> {
   const preferred = await getExtensionStorage(serviceWorker, 'sync', ['global', 'groups'])
@@ -145,15 +116,4 @@ export async function waitForEffectiveSettings(serviceWorker: Worker): Promise<v
       preferredGroupIds: (preferredGroups ?? []).map((group) => group.id),
       unexpectedUnlockedGroupIds: [],
     })
-}
-
-/** storage の値が期待する部分値を含むまで待つ。 */
-export async function expectExtensionStorage(
-  serviceWorker: Worker,
-  area: 'local' | 'sync',
-  expected: Record<string, unknown>,
-): Promise<void> {
-  await expect
-    .poll(() => getExtensionStorage(serviceWorker, area, Object.keys(expected)))
-    .toEqual(expect.objectContaining(expected))
 }

@@ -31,9 +31,7 @@ interface Props {
  * 時間帯設定欄が親へ通知するイベント。
  */
 interface Emits {
-  /** 条件が変更されたときに発火する。 */
   'update:condition': [condition: ScheduleRuleCondition]
-  /** 時刻ウィンドウが変更されたときに発火する。 */
   'update:timeRanges': [timeRanges: TimeRange[]]
   /** 編集されたフィールドを親フォームへ通知する。 */
   touch: [field: 'condition' | 'timeRanges']

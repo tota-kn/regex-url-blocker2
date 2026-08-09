@@ -3,7 +3,6 @@
  * ルール編集セクションで共通利用する見出しの props。
  */
 interface Props {
-  /** 見出しに表示する文言。 */
   title: string
 }
 

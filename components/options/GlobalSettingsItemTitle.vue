@@ -3,7 +3,6 @@
  * General settings 内の項目見出し props。
  */
 interface Props {
-  /** 表示する項目名。 */
   label: string
 }
 

@@ -7,7 +7,6 @@ defineOptions({
  * 読み取り専用値表示の props。
  */
 interface Props {
-  /** ラベル。 */
   label?: string
   /** 値を折り返すかどうか。 */
   breakAll?: boolean

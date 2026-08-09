@@ -3,7 +3,6 @@
  * アラートメッセージの props。
  */
 interface Props {
-  /** 表示内容。 */
   message?: string | number
 }
 

@@ -28,7 +28,6 @@ interface GroupTemplateOption {
 interface Props {
   /** 保存前の新規グループドラフト配列。 */
   newGroups: Group[]
-  /** group id ごとの一時停止状態。 */
   groupPauseState: GroupPauseState
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now: Date
@@ -52,21 +51,13 @@ interface Props {
  * グループ一覧セクションが親へ通知するイベント。
  */
 interface Emits {
-  /** グループ追加が要求されたときに発火する。 */
   addGroup: [templateId: GroupTemplateId]
-  /** 既存グループ保存が要求されたときに対象値を通知する。 */
   saveGroup: [group: Group]
-  /** 新規グループ保存が要求されたときに対象値を通知する。 */
   saveNewGroup: [group: Group]
-  /** 新規グループ編集キャンセルが要求されたときに対象 id を通知する。 */
   cancelNewGroup: [id: string]
-  /** グループ削除が要求されたときに対象 id を通知する。 */
   removeGroup: [id: string]
-  /** グループ複製が要求されたときに対象 id を通知する。 */
   duplicateGroup: [id: string]
-  /** グループ一時停止操作が要求されたときに対象 id を通知する。 */
   requestGroupPause: [id: string]
-  /** 指定グループの現在有効な設定の確認が要求されたときに対象 id を通知する。 */
   viewActiveSettings: [id: string]
 }
 

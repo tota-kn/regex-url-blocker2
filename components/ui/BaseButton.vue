@@ -15,11 +15,8 @@ type ButtonSize = 'sm' | 'md' | 'icon-sm' | 'icon-md'
  * 共通ボタンの props。
  */
 interface Props {
-  /** ボタンの visual variant。 */
   variant?: ButtonVariant
-  /** ボタンのサイズ。 */
   size?: ButtonSize
-  /** ボタンを disabled にするかどうか。 */
   disabled?: boolean
   /** aria-pressed を付与する場合の値。 */
   pressed?: boolean
