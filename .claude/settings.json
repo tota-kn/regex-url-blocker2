@@ -1,5 +1,4 @@
 {
-  "advisorModel": "fable",
   "permissions": {
     "allow": [
       "Bash(pnpm test:unit *)",
