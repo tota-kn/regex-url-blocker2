@@ -3,17 +3,19 @@ import {
   applyGroupPauseState,
   evaluateEffectiveUrl,
   formatRemainingMinutesBadge,
-  getActiveRedirectUrl,
+  getBlockDestination,
+  getBlockReason,
   getEffectiveWaitGrantMinutes,
   getEffectiveWaitSeconds,
   getMinimumEffectiveRemainingTimeLimit,
   getRedirectUrls,
   getSessionLimitConfig,
   isTargetGroup,
-  isRestrictionActiveNow,
   incrementEffectiveCounters,
   normalizeCounters,
+  RULE_KIND_ORDER,
   shouldSkipUrl,
+  type BlockReason,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
@@ -168,8 +170,8 @@ async function reconcileSessionLimitState(s: Settings, now: Date): Promise<void>
   const next: SessionLimitState = { sessionLimitState: {} }
   for (const group of s.groups) {
     const entry = sessionLimitState.sessionLimitState[group.id]
-    const config = getSessionLimitConfig(group)
-    if (!entry || !config || !isRestrictionActiveNow(group, now, s.global)) continue
+    const config = getSessionLimitConfig(group, now, s.global)
+    if (!entry || !config) continue
     const endsAt = entry.startedAt + (config.sessionMinutes + config.breakMinutes) * 60_000
     if (now.getTime() < endsAt) next.sessionLimitState[group.id] = entry
   }
@@ -189,8 +191,7 @@ async function beginSessionLimitIfNeeded(
   for (const group of s.groups) {
     if (
       !isTargetGroup(group, url) ||
-      !isRestrictionActiveNow(group, now, s.global) ||
-      !getSessionLimitConfig(group) ||
+      !getSessionLimitConfig(group, now, s.global) ||
       sessionLimitState.sessionLimitState[group.id]
     )
       continue
@@ -346,9 +347,48 @@ function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
 }
 
 /**
+ * 基準設定と最新設定の両方が指定する遷移先 URL を返す。
+ * lockMode で基準側の遷移先が凍結されているとき、最新側の遷移先でループしないために union する。
+ */
+function allRedirectUrls(s: Settings): string[] {
+  return [...new Set([...getRedirectUrls(s), ...getRedirectUrls(preferredSettings ?? s)])]
+}
+
+/**
+ * ブロックされたグループのうち、評価順で最も強い理由を返す。
+ * 基準設定と最新設定のどちらで成立したものでも拾う。
+ */
+function findBlockReason(
+  s: Settings,
+  evaluation: UrlEvaluation,
+  now: Date,
+): BlockReason | undefined {
+  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
+  return [s, preferredSettings ?? s]
+    .flatMap((item) =>
+      item.groups
+        .filter((group) => blockedGroupIds.has(group.id))
+        .flatMap((group) => {
+          const reason = getBlockReason(
+            group,
+            counters.counters[group.id],
+            sessionLimitState.sessionLimitState[group.id],
+            now,
+            item.global,
+          )
+          return reason ? [reason] : []
+        }),
+    )
+    .toSorted(
+      (a, b) =>
+        RULE_KIND_ORDER.indexOf(a.rule.restriction.kind) -
+        RULE_KIND_ORDER.indexOf(b.rule.restriction.kind),
+    )[0]
+}
+
+/**
  * ブロック時にタブを書き換える遷移先 URL を作る。
- * `type === 'redirect'` の制限が現在アクティブなら、その制限が指定する URL へ遷移する。
- * それ以外は旧来のグループ単位 `blockAction` に従い、ブロックページか redirect 先を返す。
+ * ブロックを起こしたルールの `destination` に従い、ブロックページか指定 URL を返す。
  */
 function buildBlockDestinationUrl(
   url: string,
@@ -356,15 +396,10 @@ function buildBlockDestinationUrl(
   evaluation: UrlEvaluation,
   now: Date,
 ): string {
-  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  const firstBlockedGroup = s.groups.find((group) => blockedGroupIds.has(group.id))
-  if (!firstBlockedGroup) {
-    return buildBlockedPageUrl(url, evaluation)
-  }
-  const activeRedirectUrl = getActiveRedirectUrl(firstBlockedGroup, now, s.global)
-  if (activeRedirectUrl) return activeRedirectUrl
-  if (firstBlockedGroup.blockAction === 'redirect') return firstBlockedGroup.redirectUrl
-  return buildBlockedPageUrl(url, evaluation)
+  const reason = findBlockReason(s, evaluation, now)
+  if (!reason) return buildBlockedPageUrl(url, evaluation)
+  const destination = getBlockDestination(reason)
+  return destination.type === 'redirect' ? destination.url : buildBlockedPageUrl(url, evaluation)
 }
 
 /**
@@ -377,7 +412,7 @@ async function redirectTab(
   evaluation: UrlEvaluation,
   now = new Date(),
 ): Promise<void> {
-  if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
+  if (!url || shouldSkipUrl(url, allRedirectUrls(s))) return
   const destinationUrl = buildBlockDestinationUrl(url, s, evaluation, now)
   await browser.tabs.update(tabId, { url: destinationUrl })
 }
@@ -411,7 +446,7 @@ async function redirectToWaitIfNeeded(
   now = new Date(),
 ): Promise<void> {
   if (evaluation.delayedGroupIds.length === 0) return
-  if (!url || shouldSkipUrl(url, getRedirectUrls(s))) return
+  if (!url || shouldSkipUrl(url, allRedirectUrls(s))) return
 
   delayGrantState = await loadDelayGrantState(
     s.groups.map((group) => group.id),

@@ -7,36 +7,29 @@ import {
 } from '../utils/validation'
 import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import type { RestrictionType, ScheduleRuleCondition, TimeRange } from '../utils/types'
-import { createEmptyGroup, weeklyRestriction } from './helpers'
+import type { RuleRestriction, ScheduleRuleCondition, TimeRange } from '../utils/types'
+import { createEmptyGroup, weeklyRule } from './helpers'
 
 /**
- * テスト用の単一制限（条件・時間帯・制限内容の組）。
+ * テスト用の単一ルール（条件・時間帯・制限内容の組）。
  */
 interface RestrictionRule {
   /** 適用する日の条件。 */
   condition: ScheduleRuleCondition
-  /** 制限が有効な時刻ウィンドウ。空配列は終日有効。 */
+  /** ルールが有効な時刻ウィンドウ。空配列は終日有効。 */
   timeRanges: TimeRange[]
-  /** 制限種別。 */
-  type: RestrictionType
-  /** `type === 'grace'` のときの1日の閲覧上限分数。 */
-  graceMinutes?: number
-  /** `type === 'wait'` のときのアクセス前待機秒数。 */
-  waitSeconds?: number
-  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。 */
-  waitGrantMinutes?: number
+  /** 制限内容。 */
+  restriction: RuleRestriction
 }
 
 /**
- * テスト用の単一制限を生成する。
+ * テスト用の単一ルールを生成する。
  */
 function restriction(overrides: Partial<RestrictionRule> = {}): RestrictionRule {
   return {
     condition: { type: 'daily' },
     timeRanges: [],
-    type: 'grace',
-    graceMinutes: 30,
+    restriction: { kind: 'dailyLimit', minutes: 30 },
     ...overrides,
   }
 }
@@ -93,9 +86,11 @@ describe('validateGroup', () => {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://(www\\.)?twitter\\.com'],
-      ...weeklyRestriction([3], 'block', {
-        timeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }],
-      }),
+      ...weeklyRule(
+        [3],
+        { kind: 'block' },
+        { timeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }] },
+      ),
     }
     expect(validateGroup(g)).toEqual([])
   })
@@ -108,8 +103,7 @@ describe('validateGroup', () => {
       disabled: false,
       lockMode: false,
       patterns: ['['],
-      blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
-      redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+      rules: [],
       pauseAllowed: true,
     })
     expect(errors.some((e) => e.field === 'name')).toBe(true)
@@ -118,14 +112,13 @@ describe('validateGroup', () => {
     ).toBe(true)
   })
 
-  it('URL pattern・Time window・Restriction が未設定ならそれぞれエラー', () => {
+  it('URL pattern と Rule が未設定ならそれぞれエラー', () => {
     const g = { ...createEmptyGroup(), name: 'X' }
     const errors = validateGroup(g, { requireConfiguredSections: true })
     expect(errors).toEqual(
       expect.arrayContaining([
         { field: 'patterns', message: VALIDATION_MESSAGES.patterns },
-        { field: 'timeWindows', message: VALIDATION_MESSAGES.timeWindows },
-        { field: 'restrictions', message: VALIDATION_MESSAGES.restrictions },
+        { field: 'rules', message: VALIDATION_MESSAGES.rules },
       ]),
     )
   })
@@ -139,57 +132,22 @@ describe('validateGroup', () => {
     const g = { ...createEmptyGroup(), name: 'X', mode: 'invalid' as 'blacklist' }
     expect(validateGroup(g).some((e) => e.field === 'mode')).toBe(true)
   })
-
-  it('redirect のときだけ redirectUrl を検証する', () => {
-    expect(
-      validateGroup({
-        ...createEmptyGroup(),
-        name: 'X',
-        blockAction: 'blockedPage',
-        redirectUrl: '',
-      }),
-    ).toEqual([])
-
-    const missingUrlErrors = validateGroup({
-      ...createEmptyGroup(),
-      name: 'X',
-      blockAction: 'redirect',
-      redirectUrl: '',
-    })
-    expect(missingUrlErrors.some((e) => e.field === 'redirectUrl')).toBe(true)
-
-    const invalidUrlErrors = validateGroup({
-      ...createEmptyGroup(),
-      name: 'X',
-      blockAction: 'redirect',
-      redirectUrl: 'not-url',
-    })
-    expect(invalidUrlErrors.some((e) => e.field === 'redirectUrl')).toBe(true)
-
-    expect(
-      validateGroup({
-        ...createEmptyGroup(),
-        name: 'X',
-        blockAction: 'redirect',
-        redirectUrl: 'https://blocked.test',
-      }),
-    ).toEqual([])
-  })
 })
 
 describe('validateRestriction (validateGroup 経由)', () => {
-  /** 指定 restriction を持つグループを検証する。 */
+  /** 指定ルールを持つグループを検証する。 */
   function validateRestrictionRule(r: RestrictionRule): ReturnType<typeof validateGroup> {
     return validateGroup({
       ...createEmptyGroup(),
       name: 'X',
-      timeWindows: [{ type: 'scheduled', condition: r.condition, timeRanges: r.timeRanges }],
-      restrictions: [
+      rules: [
         {
-          type: r.type,
-          graceMinutes: r.graceMinutes,
-          waitSeconds: r.waitSeconds,
-          waitGrantMinutes: r.waitGrantMinutes,
+          id: 'r0',
+          window: { type: 'scheduled', condition: r.condition, timeRanges: r.timeRanges },
+          restriction: r.restriction,
+          ...(r.restriction.kind === 'wait'
+            ? {}
+            : { destination: { type: 'blockedPage' as const } }),
         },
       ],
     })
@@ -199,9 +157,8 @@ describe('validateRestriction (validateGroup 経由)', () => {
     expect(
       validateRestrictionRule(
         restriction({
-          type: 'block',
+          restriction: { kind: 'block' },
           timeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }],
-          graceMinutes: undefined,
         }),
       ),
     ).toEqual([])
@@ -211,9 +168,8 @@ describe('validateRestriction (validateGroup 経由)', () => {
     expect(
       validateRestrictionRule(
         restriction({
-          type: 'block',
+          restriction: { kind: 'block' },
           timeRanges: [{ startMinute: 0, endMinute: 1440 }],
-          graceMinutes: undefined,
         }),
       ),
     ).toEqual([])
@@ -222,40 +178,38 @@ describe('validateRestriction (validateGroup 経由)', () => {
   it('startMinute / endMinute が範囲外だとエラー', () => {
     const startErrors = validateRestrictionRule(
       restriction({
-        type: 'block',
+        restriction: { kind: 'block' },
         timeRanges: [{ startMinute: -1, endMinute: 360 }],
-        graceMinutes: undefined,
       }),
     )
-    expect(startErrors.some((e) => e.field === 'timeWindows[0].timeRanges[0].startMinute')).toBe(
+    expect(startErrors.some((e) => e.field === 'rules[0].window.timeRanges[0].startMinute')).toBe(
       true,
     )
 
     const endErrors = validateRestrictionRule(
       restriction({
-        type: 'block',
+        restriction: { kind: 'block' },
         timeRanges: [{ startMinute: 1320, endMinute: 1441 }],
-        graceMinutes: undefined,
       }),
     )
-    expect(endErrors.some((e) => e.field === 'timeWindows[0].timeRanges[0].endMinute')).toBe(true)
+    expect(endErrors.some((e) => e.field === 'rules[0].window.timeRanges[0].endMinute')).toBe(true)
   })
 
   it('weekly の曜日が空・範囲外・重複だとエラー', () => {
     expect(
       validateRestrictionRule(restriction({ condition: { type: 'weekly', daysOfWeek: [] } })).some(
-        (e) => e.field === 'timeWindows[0].condition.daysOfWeek',
+        (e) => e.field === 'rules[0].window.condition.daysOfWeek',
       ),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({ condition: { type: 'weekly', daysOfWeek: [7 as 0] } }),
-      ).some((e) => e.field === 'timeWindows[0].condition.daysOfWeek'),
+      ).some((e) => e.field === 'rules[0].window.condition.daysOfWeek'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({ condition: { type: 'weekly', daysOfWeek: [1, 1] } }),
-      ).some((e) => e.field === 'timeWindows[0].condition.daysOfWeek'),
+      ).some((e) => e.field === 'rules[0].window.condition.daysOfWeek'),
     ).toBe(true)
     expect(
       validateRestrictionRule(restriction({ condition: { type: 'weekly', daysOfWeek: [0, 6] } })),
@@ -266,22 +220,22 @@ describe('validateRestriction (validateGroup 経由)', () => {
     expect(
       validateRestrictionRule(
         restriction({ condition: { type: 'monthly', daysOfMonth: [] } }),
-      ).some((e) => e.field === 'timeWindows[0].condition.daysOfMonth'),
+      ).some((e) => e.field === 'rules[0].window.condition.daysOfMonth'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({ condition: { type: 'monthly', daysOfMonth: [0] } }),
-      ).some((e) => e.field === 'timeWindows[0].condition.daysOfMonth'),
+      ).some((e) => e.field === 'rules[0].window.condition.daysOfMonth'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({ condition: { type: 'monthly', daysOfMonth: [32] } }),
-      ).some((e) => e.field === 'timeWindows[0].condition.daysOfMonth'),
+      ).some((e) => e.field === 'rules[0].window.condition.daysOfMonth'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({ condition: { type: 'monthly', daysOfMonth: [1, 1] } }),
-      ).some((e) => e.field === 'timeWindows[0].condition.daysOfMonth'),
+      ).some((e) => e.field === 'rules[0].window.condition.daysOfMonth'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
@@ -303,14 +257,14 @@ describe('validateRestriction (validateGroup 経由)', () => {
         restriction({
           condition: { type: 'period', start: { month: 2, day: 30 }, end: { month: 3, day: 1 } },
         }),
-      ).some((e) => e.field === 'timeWindows[0].condition.start'),
+      ).some((e) => e.field === 'rules[0].window.condition.start'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({
           condition: { type: 'period', start: { month: 12, day: 28 }, end: { month: 13, day: 1 } },
         }),
-      ).some((e) => e.field === 'timeWindows[0].condition.end'),
+      ).some((e) => e.field === 'rules[0].window.condition.end'),
     ).toBe(true)
   })
 
@@ -325,134 +279,79 @@ describe('validateRestriction (validateGroup 経由)', () => {
   })
 
   it('grace は graceMinutes が 0以上の整数でないとエラー', () => {
-    expect(validateRestrictionRule(restriction({ type: 'grace', graceMinutes: 0 }))).toEqual([])
     expect(
-      validateRestrictionRule(restriction({ type: 'grace', graceMinutes: undefined })).some(
-        (e) => e.field === 'restrictions[0].graceMinutes',
-      ),
+      validateRestrictionRule(restriction({ restriction: { kind: 'dailyLimit', minutes: 0 } })),
+    ).toEqual([])
+    expect(
+      validateRestrictionRule(
+        restriction({
+          restriction: { kind: 'dailyLimit', minutes: undefined as unknown as number },
+        }),
+      ).some((e) => e.field === 'rules[0].restriction.minutes'),
     ).toBe(true)
     expect(
-      validateRestrictionRule(restriction({ type: 'grace', graceMinutes: -1 })).some(
-        (e) => e.field === 'restrictions[0].graceMinutes',
-      ),
+      validateRestrictionRule(
+        restriction({ restriction: { kind: 'dailyLimit', minutes: -1 } }),
+      ).some((e) => e.field === 'rules[0].restriction.minutes'),
     ).toBe(true)
     expect(
-      validateRestrictionRule(restriction({ type: 'grace', graceMinutes: 1.5 })).some(
-        (e) => e.field === 'restrictions[0].graceMinutes',
-      ),
+      validateRestrictionRule(
+        restriction({ restriction: { kind: 'dailyLimit', minutes: 1.5 } }),
+      ).some((e) => e.field === 'rules[0].restriction.minutes'),
     ).toBe(true)
   })
 
   it('block は他の値が未指定でも valid', () => {
     expect(
-      validateRestrictionRule(
-        restriction({ type: 'block', graceMinutes: undefined, timeRanges: [] }),
-      ),
+      validateRestrictionRule(restriction({ restriction: { kind: 'block' }, timeRanges: [] })),
     ).toEqual([])
   })
 
   it('wait は待機秒数が0以上、許可期間が1以上の整数でないとエラー', () => {
     expect(
       validateRestrictionRule(
-        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 0, waitGrantMinutes: 1 }),
+        restriction({ restriction: { kind: 'wait', seconds: 0, grantMinutes: 1 } }),
       ),
     ).toEqual([])
     expect(
       validateRestrictionRule(
-        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: undefined }),
-      ).some((e) => e.field === 'restrictions[0].waitSeconds'),
+        restriction({
+          restriction: { kind: 'wait', seconds: undefined as unknown as number, grantMinutes: 10 },
+        }),
+      ).some((e) => e.field === 'rules[0].restriction.seconds'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
-        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 1, waitGrantMinutes: 0 }),
-      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+        restriction({ restriction: { kind: 'wait', seconds: 1, grantMinutes: 0 } }),
+      ).some((e) => e.field === 'rules[0].restriction.grantMinutes'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({
-          type: 'wait',
-          graceMinutes: undefined,
-          waitSeconds: 1,
-          waitGrantMinutes: undefined,
+          restriction: { kind: 'wait', seconds: 1, grantMinutes: undefined as unknown as number },
         }),
-      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+      ).some((e) => e.field === 'rules[0].restriction.grantMinutes'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
-        restriction({
-          type: 'wait',
-          graceMinutes: undefined,
-          waitSeconds: 1,
-          waitGrantMinutes: -1,
-        }),
-      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+        restriction({ restriction: { kind: 'wait', seconds: 1, grantMinutes: -1 } }),
+      ).some((e) => e.field === 'rules[0].restriction.grantMinutes'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
-        restriction({
-          type: 'wait',
-          graceMinutes: undefined,
-          waitSeconds: 1,
-          waitGrantMinutes: 1.5,
-        }),
-      ).some((e) => e.field === 'restrictions[0].waitGrantMinutes'),
+        restriction({ restriction: { kind: 'wait', seconds: 1, grantMinutes: 1.5 } }),
+      ).some((e) => e.field === 'rules[0].restriction.grantMinutes'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
-        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: -1 }),
-      ).some((e) => e.field === 'restrictions[0].waitSeconds'),
+        restriction({ restriction: { kind: 'wait', seconds: -1, grantMinutes: 10 } }),
+      ).some((e) => e.field === 'rules[0].restriction.seconds'),
     ).toBe(true)
     expect(
       validateRestrictionRule(
-        restriction({ type: 'wait', graceMinutes: undefined, waitSeconds: 1.5 }),
-      ).some((e) => e.field === 'restrictions[0].waitSeconds'),
+        restriction({ restriction: { kind: 'wait', seconds: 1.5, grantMinutes: 10 } }),
+      ).some((e) => e.field === 'rules[0].restriction.seconds'),
     ).toBe(true)
-  })
-
-  it('redirect は redirectUrl が有効な URL でないとエラー', () => {
-    const withRedirect = (redirectUrl: string | undefined): ReturnType<typeof validateGroup> =>
-      validateGroup({
-        ...createEmptyGroup(),
-        name: 'X',
-        timeWindows: [{ type: 'always' }],
-        restrictions: [{ type: 'redirect', redirectUrl }],
-      })
-    expect(withRedirect('https://elsewhere.test/')).toEqual([])
-    expect(withRedirect(undefined).some((e) => e.field === 'restrictions[0].redirectUrl')).toBe(
-      true,
-    )
-    expect(withRedirect('').some((e) => e.field === 'restrictions[0].redirectUrl')).toBe(true)
-    expect(withRedirect('not-url').some((e) => e.field === 'restrictions[0].redirectUrl')).toBe(
-      true,
-    )
-  })
-
-  it('同種の重複と Block・Redirect の併存は type エラー', () => {
-    const duplicateGrace = validateGroup({
-      ...createEmptyGroup(),
-      name: 'Duplicate grace',
-      restrictions: [
-        { type: 'grace', graceMinutes: 30 },
-        { type: 'grace', graceMinutes: 10 },
-      ],
-    })
-    const hardConflict = validateGroup({
-      ...createEmptyGroup(),
-      name: 'Hard conflict',
-      restrictions: [
-        { type: 'redirect', redirectUrl: 'https://elsewhere.test/' },
-        { type: 'block' },
-      ],
-    })
-
-    expect(duplicateGrace).toContainEqual({
-      field: 'restrictions[1].type',
-      message: VALIDATION_MESSAGES.duplicateRestriction,
-    })
-    expect(hardConflict).toContainEqual({
-      field: 'restrictions[1].type',
-      message: 'Choose either Block or Redirect, not both.',
-    })
   })
 })
 
@@ -461,53 +360,17 @@ describe('validateGlobalSettings', () => {
     expect(
       validateGlobalSettings({
         ...DEFAULT_GLOBAL_SETTINGS,
-        blockAction: 'redirect',
-        redirectUrl: 'https://example.com',
         dailyResetHour: '00:00',
       }),
     ).toEqual([])
   })
 
-  it('無効 URL と HH:MM で2件のエラー', () => {
+  it('不正な HH:MM はエラー', () => {
     const errors = validateGlobalSettings({
       ...DEFAULT_GLOBAL_SETTINGS,
-      blockAction: 'redirect',
-      redirectUrl: 'not-a-url',
       dailyResetHour: '99:99',
     })
-    expect(errors.some((e) => e.field === 'redirectUrl')).toBe(true)
     expect(errors.some((e) => e.field === 'dailyResetHour')).toBe(true)
-  })
-
-  it('redirectUrl が空でもエラー', () => {
-    const errors = validateGlobalSettings({
-      ...DEFAULT_GLOBAL_SETTINGS,
-      blockAction: 'redirect',
-      redirectUrl: '',
-      dailyResetHour: '00:00',
-    })
-    expect(errors.some((e) => e.field === 'redirectUrl')).toBe(true)
-  })
-
-  it('blockedPage では redirectUrl が不正でも valid', () => {
-    expect(
-      validateGlobalSettings({
-        ...DEFAULT_GLOBAL_SETTINGS,
-        blockAction: 'blockedPage',
-        redirectUrl: '',
-        dailyResetHour: '00:00',
-      }),
-    ).toEqual([])
-  })
-
-  it('blockAction が不正値だとエラー', () => {
-    const errors = validateGlobalSettings({
-      ...DEFAULT_GLOBAL_SETTINGS,
-      blockAction: 'invalid' as 'redirect',
-      redirectUrl: 'https://example.com',
-      dailyResetHour: '00:00',
-    })
-    expect(errors.some((e) => e.field === 'blockAction')).toBe(true)
   })
 
   it('notificationThresholdMinutes は 1 以上の整数を許可する', () => {

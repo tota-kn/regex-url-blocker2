@@ -354,7 +354,7 @@ test.describe('Popup 画面', () => {
       )
 
       await expect(popup.getByLabel('Active limits for this page')).toContainText('Slot Inactive')
-      await expect(popup.getByText('Blocked hours scheduled')).toBeVisible()
+      await expect(popup.getByText('Not restricted right now')).toBeVisible()
       await expect(popup.getByText('No active limits apply to this page.')).toBeHidden()
     } finally {
       await server.close()

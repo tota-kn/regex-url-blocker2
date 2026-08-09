@@ -101,6 +101,7 @@ defineExpose({ open, close })
           v-else
           :key="selectedPreferredGroup.id"
           :group="selectedPreferredGroup"
+          :global-settings="preferredSettings.global"
           read-only
         />
       </section>
@@ -115,6 +116,7 @@ defineExpose({ open, close })
         <GroupCard
           :key="`baseline-${selectedRetainedBaselineGroup.id}`"
           :group="selectedRetainedBaselineGroup"
+          :global-settings="effectiveSettings.global"
           read-only
         />
       </section>

@@ -22,12 +22,15 @@ import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
-import type { Group, GroupPauseEntry } from '@/utils/types'
+import { sortRulesByEvaluationOrder } from '@/utils/blocking'
+import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
+import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
+import StatusBadge from '../ui/StatusBadge.vue'
 import PatternListEditor from './PatternListEditor.vue'
-import RestrictionRulesEditor from './RestrictionRulesEditor.vue'
+import RuleListEditor from './RuleListEditor.vue'
 
 /**
  * グループカードの props。
@@ -43,6 +46,8 @@ interface Props {
   pauseEntry?: GroupPauseEntry
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now?: Date
+  /** ルールの現在状態プレビューに使うグローバル設定。 */
+  globalSettings: GlobalSettings
   /** 一時停止操作を無効化するときに表示する理由。 */
   pauseDisabledReason?: string
   /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
@@ -83,7 +88,6 @@ const emit = defineEmits<Emits>()
  */
 const draft = ref<Group>(cloneGroup(props.group))
 const validationFeedback = useValidationFeedback()
-const invalidScheduleFields = ref(new Set<string>())
 
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 const isOptionsOpen = ref(false)
@@ -91,17 +95,38 @@ const isActionMenuOpen = ref(false)
 const actionMenuRoot = ref<HTMLElement | null>(null)
 
 const draftErrors = computed(() => validateGroup(draft.value, { requireConfiguredSections: true }))
-const draftTimeWindows = computed({
-  get: () => draft.value.timeWindows ?? [],
-  set: (timeWindows) => {
-    draft.value.timeWindows = timeWindows
+const draftRules = computed({
+  get: () => draft.value.rules,
+  set: (rules) => {
+    draft.value.rules = rules
   },
 })
-const draftRestrictions = computed({
-  get: () => draft.value.restrictions ?? [],
-  set: (restrictions) => {
-    draft.value.restrictions = restrictions
-  },
+/**
+ * 「いま」プレビュー。編集中はドラフト、それ以外は保存済みの値を反映する。
+ * Pause 中は Block も Wait も解除されるため、ルールの説明ではなく一時停止状態を出す。
+ */
+const currentState = computed<CurrentStateSummary>(() => {
+  if (pauseButtonState.value.paused) {
+    // カウントダウンはヘッダーのバッジが出すので、ここでは重複させずに影響範囲だけ書く。
+    return {
+      kind: 'free',
+      headline: 'Paused',
+      lines: ['No rule is enforced for this group while it is paused.'],
+    }
+  }
+  return describeCurrentState(
+    isEditing.value ? draftRules.value : props.group.rules,
+    props.now ?? new Date(),
+    props.globalSettings,
+    props.timeLimitUsageSummary?.consumedSec ?? 0,
+  )
+})
+/** 「いま」バッジの配色。 */
+const currentStateBadgeKind = computed(() => {
+  if (pauseButtonState.value.paused) return 'warning'
+  if (currentState.value.kind === 'blocked') return 'danger'
+  if (currentState.value.kind === 'gated' || currentState.value.kind === 'limited') return 'warning'
+  return 'muted'
 })
 const visibleOptionSummaries = computed(() => {
   const summaries: Array<{ label: string; value: string }> = []
@@ -183,32 +208,16 @@ function patternsSectionError(): string | undefined {
   return draftError('patterns')
 }
 
-/** 指定 restriction rule フィールドのドラフト検証エラーメッセージを返す。 */
-function restrictionError(index: number, field: string): string | undefined {
-  const prefix = `restrictions[${index}].${field}`
-  const error = draftErrors.value.find(
-    (e) => e.field === prefix || e.field.startsWith(`${prefix}.`),
-  )
+/** 指定ルールのドラフト検証エラーメッセージを返す。 */
+function ruleError(index: number): string | undefined {
+  const prefix = `rules[${index}]`
+  const error = draftErrors.value.find((e) => e.field.startsWith(`${prefix}.`))
   return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
 }
 
-/** 指定 time window フィールドのドラフト検証エラーを返す。 */
-function timeWindowError(index: number, field: string): string | undefined {
-  const prefix = `timeWindows[${index}].${field}`
-  const error = draftErrors.value.find(
-    (e) => e.field === prefix || e.field.startsWith(`${prefix}.`),
-  )
-  return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
-}
-
-/** Time windows 一覧全体のドラフト検証エラーを返す。 */
-function timeWindowsSectionError(): string | undefined {
-  return draftError('timeWindows')
-}
-
-/** Restrictions 一覧全体のドラフト検証エラーを返す。 */
-function restrictionsSectionError(): string | undefined {
-  return draftError('restrictions')
+/** ルール一覧全体のドラフト検証エラーを返す。 */
+function rulesSectionError(): string | undefined {
+  return draftError('rules')
 }
 
 /** 編集モードを開始し、現在の保存済み値からドラフトを作り直す。 */
@@ -216,7 +225,6 @@ function startEditing(): void {
   if (props.readOnly) return
   draft.value = cloneGroup(props.group)
   validationFeedback.reset()
-  invalidScheduleFields.value = new Set()
   isOptionsOpen.value = false
   closeActionMenu()
   isEditing.value = true
@@ -230,7 +238,6 @@ function cancelEditing(): void {
   }
   draft.value = cloneGroup(props.group)
   validationFeedback.reset()
-  invalidScheduleFields.value = new Set()
   isEditing.value = false
 }
 
@@ -238,7 +245,9 @@ function cancelEditing(): void {
 function saveEditing(): void {
   if (props.readOnly) return
   validationFeedback.showAllErrors()
-  if (draftErrors.value.length > 0 || invalidScheduleFields.value.size > 0) return
+  if (draftErrors.value.length > 0) return
+  // 保存時に評価順へ並べ替え、表示順と実際の適用順を一致させる。
+  draft.value.rules = sortRulesByEvaluationOrder(draft.value.rules)
   emit('save', cloneGroup(draft.value))
   isOptionsOpen.value = false
   closeActionMenu()
@@ -323,14 +332,6 @@ function setPauseSetting(field: 'pauseWaitSeconds' | 'pauseDurationMinutes', val
 /** 子エディタが編集したフィールドを検証表示の対象にする。 */
 function touchField(field: string): void {
   validationFeedback.touch(field)
-}
-
-/** Schedule の未反映テキストが保存を妨げる状態を更新する。 */
-function setScheduleValidity(field: string, valid: boolean): void {
-  const next = new Set(invalidScheduleFields.value)
-  if (valid) next.delete(field)
-  else next.add(field)
-  invalidScheduleFields.value = next
 }
 
 /** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
@@ -503,6 +504,26 @@ onBeforeUnmount(() => {
           aria-label="Remaining time today"
           class="w-full"
         />
+
+        <div
+          class="rounded-lg border border-border bg-surface-muted px-3 py-2.5"
+          aria-label="Current effect"
+          role="status"
+        >
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <span class="text-label-sm text-muted-foreground">RIGHT NOW</span>
+            <StatusBadge :kind="currentStateBadgeKind">{{ currentState.headline }}</StatusBadge>
+          </div>
+          <ul v-if="currentState.lines.length > 0" class="mt-1.5 space-y-0.5">
+            <li
+              v-for="line in currentState.lines"
+              :key="line"
+              class="text-body-sm text-secondary-foreground"
+            >
+              {{ line }}
+            </li>
+          </ul>
+        </div>
       </div>
       <AlertMessage v-if="isEditing && draftError('name')" class="mt-3">
         {{ draftError('name') }}
@@ -537,16 +558,14 @@ onBeforeUnmount(() => {
         @touch="touchField"
       />
 
-      <RestrictionRulesEditor
-        v-model:time-windows="draftTimeWindows"
-        v-model:restrictions="draftRestrictions"
+      <RuleListEditor
+        v-model="draftRules"
         :is-editing="isEditing"
-        :time-windows-section-error="timeWindowsSectionError()"
-        :restrictions-section-error="restrictionsSectionError()"
-        :time-window-error="timeWindowError"
-        :restriction-error="restrictionError"
+        :global="globalSettings"
+        :now="now ?? new Date()"
+        :section-error="rulesSectionError()"
+        :error="ruleError"
         @touch="touchField"
-        @schedule-validity-change="setScheduleValidity"
       />
     </fieldset>
 

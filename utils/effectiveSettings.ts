@@ -28,11 +28,8 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
     const preferredGroup = preferredById.get(group.id)
     if (group.lockMode) {
       const baseline = cloneGroup(group)
-      if (preferredGroup) {
-        baseline.name = preferredGroup.name
-        baseline.blockAction = preferredGroup.blockAction
-        baseline.redirectUrl = preferredGroup.redirectUrl
-      }
+      // 表示名だけは即時反映する。遷移先を含む制限内容は次の rule day まで凍結する。
+      if (preferredGroup) baseline.name = preferredGroup.name
       mergedGroups.push(baseline)
       handledIds.add(group.id)
       continue
@@ -52,8 +49,6 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
   const lockModeExists = hasLockModeGroup(active) || hasLockModeGroup(preferred)
   return {
     global: {
-      blockAction: preferred.global.blockAction,
-      redirectUrl: preferred.global.redirectUrl,
       dailyResetHour: lockModeExists
         ? active.global.dailyResetHour
         : preferred.global.dailyResetHour,

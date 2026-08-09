@@ -8,7 +8,7 @@ import {
 } from '../utils/effectiveSettings'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import type { Group, Settings } from '../utils/types'
-import { dailyRestriction, weeklyRestriction } from './helpers'
+import { dailyRule, weeklyRule } from './helpers'
 
 /**
  * テスト用グループを生成する。
@@ -21,8 +21,7 @@ function group(overrides: Partial<Group> = {}): Group {
     disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
-    blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
-    redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
+    rules: [],
     pauseAllowed: true,
     ...overrides,
   }
@@ -35,8 +34,6 @@ function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
-      blockAction: 'redirect',
-      redirectUrl: 'https://blocked.test/',
       dailyResetHour,
     },
     groups,
@@ -48,19 +45,43 @@ describe('effective settings', () => {
     const active = settings([
       group({
         patterns: ['example\\.com'],
-        ...dailyRestriction('grace', { graceMinutes: 30 }),
+        ...dailyRule({ kind: 'dailyLimit', minutes: 30 }),
       }),
     ])
     const preferred = settings([
       group({
         patterns: ['example\\.com', 'news\\.example'],
-        ...dailyRestriction('block', {
-          timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
-        }),
+        ...dailyRule(
+          { kind: 'block' },
+          { timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] },
+        ),
       }),
     ])
 
     expect(mergeImmediateRestrictions(active, preferred)).toEqual(preferred)
+  })
+
+  it('Lock Mode ON では遷移先も次の rule day まで凍結される', () => {
+    const blocked = (url?: string): Pick<Group, 'rules'> => ({
+      rules: [
+        {
+          id: 'r0',
+          window: { type: 'always' },
+          restriction: { kind: 'block' },
+          destination: url ? { type: 'redirect', url } : { type: 'blockedPage' },
+        },
+      ],
+    })
+    const active = settings([group({ lockMode: true, ...blocked() })])
+    const preferred = settings([
+      group({ lockMode: true, name: 'Renamed', ...blocked('https://relaxed.test/') }),
+    ])
+
+    const merged = mergeImmediateRestrictions(active, preferred)
+
+    // 表示名は即時反映、遷移先の緩和は凍結する。
+    expect(merged.groups[0]?.name).toBe('Renamed')
+    expect(merged.groups[0]?.rules[0]?.destination).toEqual({ type: 'blockedPage' })
   })
 
   it('Lock Mode OFF の group は削除が即時に有効設定へ反映される', () => {
@@ -76,9 +97,10 @@ describe('effective settings', () => {
         group({
           lockMode: true,
           patterns: ['example\\.com', 'news\\.example'],
-          ...dailyRestriction('block', {
-            timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
-          }),
+          ...dailyRule(
+            { kind: 'block' },
+            { timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] },
+          ),
         }),
       ],
       '03:00',
@@ -87,7 +109,7 @@ describe('effective settings', () => {
       [
         group({
           patterns: ['example\\.com'],
-          ...dailyRestriction('grace', { graceMinutes: 30 }),
+          ...dailyRule({ kind: 'dailyLimit', minutes: 30 }),
         }),
       ],
       '03:00',
@@ -100,21 +122,19 @@ describe('effective settings', () => {
     )
 
     expect(state.effectiveSettings.groups[0].patterns).toEqual(['example\\.com', 'news\\.example'])
-    expect(state.effectiveSettings.groups[0].timeWindows).toEqual([
-      {
-        type: 'scheduled',
-        condition: { type: 'daily' },
-        timeRanges: [{ startMinute: 540, endMinute: 1020 }],
-      },
-    ])
-    expect(state.effectiveSettings.groups[0].restrictions?.[0]?.type).toBe('block')
+    expect(state.effectiveSettings.groups[0].rules[0]?.window).toEqual({
+      type: 'scheduled',
+      condition: { type: 'daily' },
+      timeRanges: [{ startMinute: 540, endMinute: 1020 }],
+    })
+    expect(state.effectiveSettings.groups[0].rules[0]?.restriction.kind).toBe('block')
 
     const strictPreferred = settings(
       [
         group({
           lockMode: true,
           patterns: ['example\\.com', 'news\\.example', 'strict\\.example'],
-          ...dailyRestriction('grace', { graceMinutes: 1 }),
+          ...dailyRule({ kind: 'dailyLimit', minutes: 1 }),
         }),
       ],
       '03:00',
@@ -129,7 +149,6 @@ describe('effective settings', () => {
         name: 'Old name',
         lockMode: true,
         patterns: ['old\\.test'],
-        blockAction: 'blockedPage',
       }),
     ])
     const preferred = settings([
@@ -137,8 +156,6 @@ describe('effective settings', () => {
         name: 'New name',
         lockMode: true,
         patterns: ['new\\.test'],
-        blockAction: 'redirect',
-        redirectUrl: 'https://new.test/',
       }),
     ])
 
@@ -146,8 +163,6 @@ describe('effective settings', () => {
       name: 'New name',
       lockMode: true,
       patterns: ['old\\.test'],
-      blockAction: 'redirect',
-      redirectUrl: 'https://new.test/',
     })
   })
 
@@ -224,7 +239,7 @@ describe('effective settings', () => {
         group({
           id: 'changed',
           lockMode: false,
-          ...weeklyRestriction([3], 'grace', { graceMinutes: 60 }),
+          ...weeklyRule([3], { kind: 'dailyLimit', minutes: 60 }),
         }),
       ],
       '05:00',

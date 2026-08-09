@@ -5,7 +5,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
 import type { GroupTemplateId } from '@/utils/defaults'
-import type { Group, GroupPauseEntry, GroupPauseState } from '@/utils/types'
+import type { GlobalSettings, Group, GroupPauseEntry, GroupPauseState } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
 
 /**
@@ -32,6 +32,8 @@ interface Props {
   groupPauseState: GroupPauseState
   /** 一時停止表示の残り時間計算に使う現在時刻。 */
   now: Date
+  /** ルールの現在状態プレビューに使うグローバル設定。 */
+  globalSettings: GlobalSettings
   /** 次の rule day まで以前の制限が有効な group id。 */
   pendingEffectiveGroupIds: string[]
   /** 保存設定から削除済みだが、以前の制限が有効なグループ。 */
@@ -209,6 +211,7 @@ function createGroup(templateId: GroupTemplateId): void {
     <div class="min-w-0 space-y-4">
       <GroupCard
         v-for="(_, i) in groups"
+        :global-settings="globalSettings"
         :key="groups[i].id"
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
@@ -226,6 +229,7 @@ function createGroup(templateId: GroupTemplateId): void {
       />
       <GroupCard
         v-for="group in newGroups"
+        :global-settings="globalSettings"
         :key="group.id"
         :group="group"
         :start-in-edit="true"
@@ -249,6 +253,7 @@ function createGroup(templateId: GroupTemplateId): void {
         </div>
         <GroupCard
           v-for="group in retainedEffectiveGroups"
+          :global-settings="globalSettings"
           :key="`retained-${group.id}`"
           :group="group"
           :pause-entry="groupPauseEntry(group.id)"

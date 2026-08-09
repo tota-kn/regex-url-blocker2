@@ -3,14 +3,13 @@ import {
   cloneGroup,
   cloneSettings,
   duplicateGroup,
-  formatBlockDestination,
   formatGroupMode,
   formatScheduleRuleCondition,
-  formatStandaloneRestriction,
   formatTimeWindow,
 } from '../utils/groups'
+import { formatRuleRestriction, formatRuleSentence } from '../utils/rules'
 import type { Group, Settings } from '../utils/types'
-import { dailyRestriction } from './helpers'
+import { dailyRule } from './helpers'
 
 /**
  * テスト用グループを生成する。
@@ -23,9 +22,8 @@ function group(overrides: Partial<Group> = {}): Group {
     disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
-    blockAction: 'blockedPage',
-    redirectUrl: 'https://redirect.test/',
     pauseAllowed: true,
+    rules: [],
     ...overrides,
   }
 }
@@ -36,8 +34,6 @@ function group(overrides: Partial<Group> = {}): Group {
 function settings(groups: Group[]): Settings {
   return {
     global: {
-      blockAction: 'blockedPage',
-      redirectUrl: 'https://redirect.test/',
       dailyResetHour: '03:00',
       remainingTimeNotificationsEnabled: true,
       notificationThresholdMinutes: 5,
@@ -50,15 +46,6 @@ describe('group utilities', () => {
   it('グループ表示ラベルを返す', () => {
     expect(formatGroupMode(group({ mode: 'blacklist' }))).toBe('Block matches')
     expect(formatGroupMode(group({ mode: 'whitelist' }))).toBe('Allow only matches')
-    expect(formatBlockDestination(group({ blockAction: 'blockedPage' }))).toBe('Blocked page')
-    expect(
-      formatBlockDestination(
-        group({
-          blockAction: 'redirect',
-          redirectUrl: 'https://blocked.test/',
-        }),
-      ),
-    ).toBe('Redirect to https://blocked.test/')
   })
 
   it('スケジュールルールの条件を読み取り表示用の文言にする', () => {
@@ -96,61 +83,71 @@ describe('group utilities', () => {
     ).toBe('Weekly Sat All day')
   })
 
-  it('分離形式の制限を読み取り表示用に要約する', () => {
-    expect(formatStandaloneRestriction({ type: 'block' })).toBe('Block')
+  it('ルールの制限内容を読み取り表示用に要約する', () => {
+    expect(formatRuleRestriction({ kind: 'block' })).toBe('Block access')
+    expect(formatRuleRestriction({ kind: 'dailyLimit', minutes: 15 })).toBe('Allow 15 min per day')
+    expect(formatRuleRestriction({ kind: 'wait', seconds: 5, grantMinutes: 1 })).toBe(
+      'Wait 5 sec, then allow 1 min',
+    )
     expect(
-      formatStandaloneRestriction({ type: 'redirect', redirectUrl: 'https://elsewhere.test/' }),
-    ).toBe('Redirect to https://elsewhere.test/')
-    expect(formatStandaloneRestriction({ type: 'redirect' })).toBe('Redirect')
-    expect(formatStandaloneRestriction({ type: 'grace', graceMinutes: 15 })).toBe(
-      'Daily limit 15 min/day',
-    )
-    expect(formatStandaloneRestriction({ type: 'wait', waitSeconds: 5, waitGrantMinutes: 1 })).toBe(
-      'Wait 5 sec, allow 1 min',
-    )
+      formatRuleRestriction({ kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 }),
+    ).toBe('Allow 10 min, then break 30 min')
+  })
+
+  it('ルール1件を「いつ → 何を → どこへ」の自然文にする', () => {
+    expect(
+      formatRuleSentence({
+        id: 'r1',
+        window: { type: 'always' },
+        restriction: { kind: 'block' },
+        destination: { type: 'redirect', url: 'https://elsewhere.test/' },
+      }),
+    ).toBe('Always → Block access → https://elsewhere.test/')
+    expect(
+      formatRuleSentence({
+        id: 'r2',
+        window: { type: 'always' },
+        restriction: { kind: 'wait', seconds: 60, grantMinutes: 10 },
+      }),
+    ).toBe('Always → Wait 60 sec, then allow 10 min')
   })
 
   it('グループを独立した deep clone として複製する', () => {
     const original = group({
-      ...dailyRestriction('block', {
-        timeRanges: [{ startMinute: 540, endMinute: 750 }],
-      }),
+      ...dailyRule({ kind: 'block' }, { timeRanges: [{ startMinute: 540, endMinute: 750 }] }),
     })
     const cloned = cloneGroup(original)
 
     cloned.patterns.push('news\\.example')
-    const clonedWindow = cloned.timeWindows![0]
+    const clonedWindow = cloned.rules[0]!.window
     if (clonedWindow.type === 'scheduled') clonedWindow.timeRanges[0].startMinute = 600
 
     expect(original.patterns).toEqual(['example\\.com'])
-    expect(original.timeWindows![0]).toEqual({
+    expect(original.rules[0]!.window).toEqual({
       type: 'scheduled',
       condition: { type: 'daily' },
       timeRanges: [{ startMinute: 540, endMinute: 750 }],
     })
   })
 
-  it('新しい id と copy 名で編集可能な複製値を作る', () => {
+  it('新しい id と copy 名で編集可能な複製値を作る。ルール id も採番し直す', () => {
     const original = group({
       name: 'Focus',
       disabled: true,
       lockMode: true,
-      timeWindows: [{ type: 'always' }],
-      restrictions: [{ type: 'grace', graceMinutes: 15 }],
+      ...dailyRule({ kind: 'dailyLimit', minutes: 15 }),
     })
     const duplicated = duplicateGroup(original)
 
-    expect(duplicated).toEqual({
-      ...original,
-      id: expect.any(String),
-      name: 'Focus copy',
-    })
+    expect(duplicated.name).toBe('Focus copy')
     expect(duplicated.id).not.toBe(original.id)
+    expect(duplicated.rules[0]!.id).not.toBe(original.rules[0]!.id)
+    expect(duplicated.rules[0]!.restriction).toEqual(original.rules[0]!.restriction)
 
     duplicated.patterns.push('news.example')
-    duplicated.restrictions![0].graceMinutes = 30
+    duplicated.rules[0]!.restriction = { kind: 'dailyLimit', minutes: 30 }
     expect(original.patterns).toEqual(['example\\.com'])
-    expect(original.restrictions![0].graceMinutes).toBe(15)
+    expect(original.rules[0]!.restriction).toEqual({ kind: 'dailyLimit', minutes: 15 })
   })
 
   it('設定を独立した deep clone として複製する', () => {

@@ -1,12 +1,5 @@
 import { dayLabel, formatMonthDay, formatTimeRange } from './datetime'
-import type {
-  Group,
-  Restriction,
-  ScheduleRuleCondition,
-  Settings,
-  TimeRange,
-  TimeWindow,
-} from './types'
+import type { Group, ScheduleRuleCondition, Settings, TimeRange, TimeWindow } from './types'
 
 /**
  * グループを JSON 互換の deep clone として複製する。
@@ -18,12 +11,15 @@ export function cloneGroup(group: Group): Group {
 
 /**
  * 保存済みグループから、新規編集用の独立した複製値を作る。
+ * ルール id も採番し直し、複製元と共有しないようにする。
  */
 export function duplicateGroup(group: Group): Group {
+  const cloned = cloneGroup(group)
   return {
-    ...cloneGroup(group),
+    ...cloned,
     id: crypto.randomUUID(),
     name: `${group.name} copy`,
+    rules: cloned.rules.map((rule) => ({ ...rule, id: crypto.randomUUID() })),
   }
 }
 
@@ -39,13 +35,6 @@ export function cloneSettings(settings: Settings): Settings {
  */
 export function formatGroupMode(group: Group): string {
   return group.mode === 'whitelist' ? 'Allow only matches' : 'Block matches'
-}
-
-/**
- * グループ単位のブロック遷移先を読み取り表示用の文言に変換する。
- */
-export function formatBlockDestination(group: Group): string {
-  return group.blockAction === 'redirect' ? `Redirect to ${group.redirectUrl}` : 'Blocked page'
 }
 
 /**
@@ -65,7 +54,7 @@ export function formatScheduleRuleCondition(condition: ScheduleRuleCondition): s
 }
 
 /**
- * 制限が有効な時刻ウィンドウを読み取り表示用の文言に変換する。
+ * ルールが有効な時刻ウィンドウを読み取り表示用の文言に変換する。
  */
 function formatRestrictionWindow(timeRanges: TimeRange[]): string {
   return timeRanges.length > 0 ? timeRanges.map(formatTimeRange).join(', ') : 'All day'
@@ -75,15 +64,4 @@ function formatRestrictionWindow(timeRanges: TimeRange[]): string {
 export function formatTimeWindow(window: TimeWindow): string {
   if (window.type === 'always') return 'Always'
   return `${formatScheduleRuleCondition(window.condition)} ${formatRestrictionWindow(window.timeRanges)}`
-}
-
-/** 分離形式の制限を読み取り表示用の文言に変換する。 */
-export function formatStandaloneRestriction(restriction: Restriction): string {
-  if (restriction.type === 'block') return 'Block'
-  if (restriction.type === 'redirect')
-    return restriction.redirectUrl ? `Redirect to ${restriction.redirectUrl}` : 'Redirect'
-  if (restriction.type === 'grace') return `Daily limit ${restriction.graceMinutes ?? 0} min/day`
-  if (restriction.type === 'sessionLimit')
-    return `Session ${restriction.sessionMinutes ?? 0} min, break ${restriction.breakMinutes ?? 0} min`
-  return `Wait ${restriction.waitSeconds ?? 0} sec, allow ${restriction.waitGrantMinutes ?? 10} min`
 }

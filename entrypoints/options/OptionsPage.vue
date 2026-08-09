@@ -423,6 +423,7 @@ onMounted(async () => {
 
           <div class="min-w-0">
             <GroupsSection
+              :global-settings="settings.global"
               v-if="activeSection === 'groups'"
               v-model="settings.groups"
               :new-groups="newGroupDrafts"

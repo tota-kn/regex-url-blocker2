@@ -1,9 +1,10 @@
 import type {
+  BlockDestination,
   DayOfWeek,
   GlobalSettings,
   Group,
   MonthDay,
-  Restriction,
+  Rule,
   ScheduleRuleCondition,
   TimeRange,
   TimeWindow,
@@ -23,9 +24,7 @@ export const VALIDATION_MESSAGES = {
   daysOfMonth: 'Enter one or more days from 1 to 31, separated by commas.',
   monthDay: 'Enter a valid date in MM/DD format.',
   patterns: 'Add at least one URL pattern.',
-  timeWindows: 'Add at least one time window.',
-  restrictions: 'Add at least one restriction.',
-  duplicateRestriction: 'Only one restriction of this type is allowed.',
+  rules: 'Add at least one rule.',
 } as const
 
 /**
@@ -56,22 +55,6 @@ export function isValidHHMM(value: string): boolean {
  */
 export function validateGlobalSettings(settings: GlobalSettings): ValidationError[] {
   const errors: ValidationError[] = []
-
-  if (settings.blockAction !== 'redirect' && settings.blockAction !== 'blockedPage') {
-    errors.push({ field: 'blockAction', message: 'Invalid action' })
-  }
-
-  if (settings.blockAction === 'redirect') {
-    if (settings.redirectUrl.trim().length === 0) {
-      errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
-    } else {
-      try {
-        new URL(settings.redirectUrl)
-      } catch {
-        errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
-      }
-    }
-  }
 
   if (!isValidHHMM(settings.dailyResetHour)) {
     errors.push({ field: 'dailyResetHour', message: VALIDATION_MESSAGES.time })
@@ -196,73 +179,68 @@ function validateTimeWindow(window: TimeWindow, prefix: string): ValidationError
   return errors
 }
 
-/** 分離形式の制限をバリデーションする。 */
-function validateStandaloneRestriction(
-  restriction: Restriction,
+/** ブロック時の遷移先をバリデーションする。 */
+function validateBlockDestination(
+  destination: BlockDestination | undefined,
   prefix: string,
 ): ValidationError[] {
-  if (
-    restriction.type === 'grace' &&
-    (restriction.graceMinutes === undefined ||
-      !Number.isInteger(restriction.graceMinutes) ||
-      restriction.graceMinutes < 0)
-  ) {
-    return [
-      { field: `${prefix}.graceMinutes`, message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater },
-    ]
+  if (!destination || destination.type !== 'redirect') return []
+  if (destination.url.trim().length === 0) {
+    return [{ field: `${prefix}.destination`, message: VALIDATION_MESSAGES.url }]
   }
-  if (
-    restriction.type === 'wait' &&
-    (restriction.waitSeconds === undefined ||
-      !Number.isInteger(restriction.waitSeconds) ||
-      restriction.waitSeconds < 0)
-  ) {
-    return [
-      { field: `${prefix}.waitSeconds`, message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater },
-    ]
-  }
-  if (
-    restriction.type === 'wait' &&
-    (restriction.waitGrantMinutes === undefined ||
-      !Number.isInteger(restriction.waitGrantMinutes) ||
-      restriction.waitGrantMinutes < 1)
-  ) {
-    return [
-      { field: `${prefix}.waitGrantMinutes`, message: VALIDATION_MESSAGES.wholeNumberOneOrGreater },
-    ]
-  }
-  if (restriction.type === 'redirect') {
-    const url = restriction.redirectUrl ?? ''
-    if (url.trim().length === 0) {
-      return [{ field: `${prefix}.redirectUrl`, message: VALIDATION_MESSAGES.url }]
-    }
-    try {
-      new URL(url)
-    } catch {
-      return [{ field: `${prefix}.redirectUrl`, message: VALIDATION_MESSAGES.url }]
-    }
-  }
-  if (
-    restriction.type === 'sessionLimit' &&
-    (restriction.sessionMinutes === undefined ||
-      !Number.isInteger(restriction.sessionMinutes) ||
-      restriction.sessionMinutes < 1)
-  ) {
-    return [
-      { field: `${prefix}.sessionMinutes`, message: VALIDATION_MESSAGES.wholeNumberOneOrGreater },
-    ]
-  }
-  if (
-    restriction.type === 'sessionLimit' &&
-    (restriction.breakMinutes === undefined ||
-      !Number.isInteger(restriction.breakMinutes) ||
-      restriction.breakMinutes < 1)
-  ) {
-    return [
-      { field: `${prefix}.breakMinutes`, message: VALIDATION_MESSAGES.wholeNumberOneOrGreater },
-    ]
+  try {
+    new URL(destination.url)
+  } catch {
+    return [{ field: `${prefix}.destination`, message: VALIDATION_MESSAGES.url }]
   }
   return []
+}
+
+/** 1件のルールをバリデーションする。 */
+function validateRule(rule: Rule, prefix: string): ValidationError[] {
+  const errors = validateTimeWindow(rule.window, `${prefix}.window`)
+  const restriction = rule.restriction
+
+  if (restriction.kind === 'dailyLimit') {
+    if (!Number.isInteger(restriction.minutes) || restriction.minutes < 0) {
+      errors.push({
+        field: `${prefix}.restriction.minutes`,
+        message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
+      })
+    }
+  }
+  if (restriction.kind === 'wait') {
+    if (!Number.isInteger(restriction.seconds) || restriction.seconds < 0) {
+      errors.push({
+        field: `${prefix}.restriction.seconds`,
+        message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
+      })
+    }
+    if (!Number.isInteger(restriction.grantMinutes) || restriction.grantMinutes < 1) {
+      errors.push({
+        field: `${prefix}.restriction.grantMinutes`,
+        message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
+      })
+    }
+  }
+  if (restriction.kind === 'sessionLimit') {
+    if (!Number.isInteger(restriction.sessionMinutes) || restriction.sessionMinutes < 1) {
+      errors.push({
+        field: `${prefix}.restriction.sessionMinutes`,
+        message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
+      })
+    }
+    if (!Number.isInteger(restriction.breakMinutes) || restriction.breakMinutes < 1) {
+      errors.push({
+        field: `${prefix}.restriction.breakMinutes`,
+        message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
+      })
+    }
+  }
+  if (restriction.kind !== 'wait') {
+    errors.push(...validateBlockDestination(rule.destination, prefix))
+  }
+  return errors
 }
 
 /**
@@ -277,22 +255,6 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
 
   if (group.name.trim().length === 0) {
     errors.push({ field: 'name', message: VALIDATION_MESSAGES.required })
-  }
-
-  if (group.blockAction !== 'redirect' && group.blockAction !== 'blockedPage') {
-    errors.push({ field: 'blockAction', message: 'Invalid action' })
-  }
-
-  if (group.blockAction === 'redirect') {
-    if (group.redirectUrl.trim().length === 0) {
-      errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
-    } else {
-      try {
-        new URL(group.redirectUrl)
-      } catch {
-        errors.push({ field: 'redirectUrl', message: VALIDATION_MESSAGES.url })
-      }
-    }
   }
 
   if (
@@ -324,33 +286,12 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
   if (options.requireConfiguredSections && (group.patterns ?? []).length === 0) {
     errors.push({ field: 'patterns', message: VALIDATION_MESSAGES.patterns })
   }
-  if (options.requireConfiguredSections && (group.timeWindows ?? []).length === 0) {
-    errors.push({ field: 'timeWindows', message: VALIDATION_MESSAGES.timeWindows })
+  if (options.requireConfiguredSections && (group.rules ?? []).length === 0) {
+    errors.push({ field: 'rules', message: VALIDATION_MESSAGES.rules })
   }
-  if (options.requireConfiguredSections && (group.restrictions ?? []).length === 0) {
-    errors.push({ field: 'restrictions', message: VALIDATION_MESSAGES.restrictions })
-  }
-  ;(group.timeWindows ?? []).forEach((window, index) =>
-    errors.push(...validateTimeWindow(window, `timeWindows[${index}]`)),
+  ;(group.rules ?? []).forEach((rule, index) =>
+    errors.push(...validateRule(rule, `rules[${index}]`)),
   )
-  ;(group.restrictions ?? []).forEach((restriction, index) =>
-    errors.push(...validateStandaloneRestriction(restriction, `restrictions[${index}]`)),
-  )
-  const seenTypes = new Set<string>()
-  ;(group.restrictions ?? []).forEach((restriction, index) => {
-    const key =
-      restriction.type === 'block' || restriction.type === 'redirect' ? 'hard' : restriction.type
-    if (seenTypes.has(key)) {
-      errors.push({
-        field: `restrictions[${index}].type`,
-        message:
-          key === 'hard'
-            ? 'Choose either Block or Redirect, not both.'
-            : VALIDATION_MESSAGES.duplicateRestriction,
-      })
-    }
-    seenTypes.add(key)
-  })
 
   return errors
 }

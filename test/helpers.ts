@@ -1,11 +1,4 @@
-import type {
-  DayOfWeek,
-  Group,
-  Restriction,
-  RestrictionType,
-  ScheduleRuleCondition,
-  TimeRange,
-} from '../utils/types'
+import type { DayOfWeek, Group, Rule, RuleRestriction, TimeRange } from '../utils/types'
 import { createGroupFromTemplate } from '../utils/defaults'
 
 /**
@@ -16,68 +9,75 @@ export function createEmptyGroup(name = ''): Group {
   return createGroupFromTemplate('blank', name)
 }
 
-/**
- * 制限ヘルパーで指定できる制限内容の上書き値。
- */
-interface RestrictionOverrides {
-  /** 制限が有効な時刻ウィンドウ。省略時は終日。 */
+/** ルールヘルパーで指定できる時間ウィンドウの上書き値。 */
+interface RuleOverrides {
+  /** ルールが有効な時刻ウィンドウ。省略時は終日。 */
   timeRanges?: TimeRange[]
-  /** `type === 'grace'` のときの1日の閲覧上限分数。 */
-  graceMinutes?: number
-  /** `type === 'wait'` のときのアクセス前待機秒数。 */
-  waitSeconds?: number
-  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。 */
-  waitGrantMinutes?: number
-  /** `type === 'sessionLimit'` のときの利用枠分数。 */
-  sessionMinutes?: number
-  /** `type === 'sessionLimit'` のときの休憩分数。 */
-  breakMinutes?: number
+  /** ブロック時の遷移先 URL。省略時はブロックページ。 */
+  redirectUrl?: string
+  /** rule id。省略時は自動採番。 */
+  id?: string
 }
 
-/**
- * スケジュール条件と制限内容から、グループへ spread できる分離形式
- * （`timeWindows` + `restrictions`）を1組生成する。
- */
-function restrictionParts(
-  condition: ScheduleRuleCondition,
-  type: RestrictionType,
-  overrides: RestrictionOverrides,
-): Pick<Group, 'timeWindows' | 'restrictions'> {
-  const timeRanges = overrides.timeRanges ?? []
-  const restriction: Restriction = { type }
-  if (overrides.graceMinutes !== undefined) restriction.graceMinutes = overrides.graceMinutes
-  if (overrides.waitSeconds !== undefined) restriction.waitSeconds = overrides.waitSeconds
-  if (overrides.waitGrantMinutes !== undefined)
-    restriction.waitGrantMinutes = overrides.waitGrantMinutes
-  if (overrides.sessionMinutes !== undefined) restriction.sessionMinutes = overrides.sessionMinutes
-  if (overrides.breakMinutes !== undefined) restriction.breakMinutes = overrides.breakMinutes
+/** 制限内容と条件から1件のルールを組み立てる。 */
+function buildRule(
+  window: Rule['window'],
+  restriction: RuleRestriction,
+  overrides: RuleOverrides,
+): Rule {
   return {
-    timeWindows: [
-      condition.type === 'daily' && timeRanges.length === 0
-        ? { type: 'always' }
-        : { type: 'scheduled', condition, timeRanges },
-    ],
-    restrictions: [restriction],
+    id: overrides.id ?? crypto.randomUUID(),
+    window,
+    restriction,
+    ...(restriction.kind === 'wait'
+      ? {}
+      : {
+          destination: overrides.redirectUrl
+            ? ({ type: 'redirect', url: overrides.redirectUrl } as const)
+            : ({ type: 'blockedPage' } as const),
+        }),
   }
 }
 
 /**
- * テスト用に毎日条件の単一制限（分離形式）を生成する。
+ * テスト用に毎日条件のルールを1件生成し、グループへ spread できる形で返す。
  */
-export function dailyRestriction(
-  type: RestrictionType,
-  overrides: RestrictionOverrides = {},
-): Pick<Group, 'timeWindows' | 'restrictions'> {
-  return restrictionParts({ type: 'daily' }, type, overrides)
+export function dailyRule(
+  restriction: RuleRestriction,
+  overrides: RuleOverrides = {},
+): Pick<Group, 'rules'> {
+  const timeRanges = overrides.timeRanges ?? []
+  const window: Rule['window'] =
+    timeRanges.length === 0
+      ? { type: 'always' }
+      : { type: 'scheduled', condition: { type: 'daily' }, timeRanges }
+  return { rules: [buildRule(window, restriction, overrides)] }
 }
 
 /**
- * テスト用に毎週条件の単一制限（分離形式）を生成する。
+ * テスト用に毎週条件のルールを1件生成し、グループへ spread できる形で返す。
  */
-export function weeklyRestriction(
+export function weeklyRule(
   daysOfWeek: DayOfWeek[],
-  type: RestrictionType,
-  overrides: RestrictionOverrides = {},
-): Pick<Group, 'timeWindows' | 'restrictions'> {
-  return restrictionParts({ type: 'weekly', daysOfWeek }, type, overrides)
+  restriction: RuleRestriction,
+  overrides: RuleOverrides = {},
+): Pick<Group, 'rules'> {
+  return {
+    rules: [
+      buildRule(
+        {
+          type: 'scheduled',
+          condition: { type: 'weekly', daysOfWeek },
+          timeRanges: overrides.timeRanges ?? [],
+        },
+        restriction,
+        overrides,
+      ),
+    ],
+  }
+}
+
+/** 複数のルール断片を1グループへまとめる。 */
+export function rules(...parts: Pick<Group, 'rules'>[]): Pick<Group, 'rules'> {
+  return { rules: parts.flatMap((part) => part.rules) }
 }

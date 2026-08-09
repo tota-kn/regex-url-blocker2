@@ -132,6 +132,11 @@ onUnmounted(() => {
         <InfoValue label="URL" aria-label="Waiting URL" break-all>
           {{ targetUrl || 'Unknown' }}
         </InfoValue>
+
+        <p class="text-body-sm text-muted-foreground" aria-label="Wait grant explanation">
+          After the countdown you can browse for {{ grantMinutes }} min without waiting again. Any
+          daily or session limit on this group keeps counting down during that time.
+        </p>
       </div>
 
       <div class="mt-6 flex flex-wrap justify-end gap-2">

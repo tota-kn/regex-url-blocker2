@@ -249,15 +249,22 @@ async function saveBlockedPageDetailSettings(
 }
 
 /**
- * 毎日同じ上限分数を使うテスト用の単一 grace 制限（分離形式）を作る。undefined は制限なし。
+ * 毎日同じ上限分数を使うテスト用の Daily limit ルールを作る。undefined はルールなし。
  */
 function buildRestrictionParts(
   dailyLimitMinutes: number | undefined,
-): Pick<Group, 'timeWindows' | 'restrictions'> {
-  if (dailyLimitMinutes === undefined) return {}
+  redirectUrl: string,
+): Pick<Group, 'rules'> {
+  if (dailyLimitMinutes === undefined) return { rules: [] }
   return {
-    timeWindows: [{ type: 'always' }],
-    restrictions: [{ type: 'grace', graceMinutes: dailyLimitMinutes }],
+    rules: [
+      {
+        id: 'effective-rule',
+        window: { type: 'always' },
+        restriction: { kind: 'dailyLimit', minutes: dailyLimitMinutes },
+        destination: { type: 'redirect', url: redirectUrl },
+      },
+    ],
   }
 }
 
@@ -317,8 +324,6 @@ function buildEffectiveSettingsFixture(
 ): Settings {
   return {
     global: {
-      blockAction: 'redirect',
-      redirectUrl: `${origin}/blocked`,
       dailyResetHour,
       remainingTimeNotificationsEnabled: true,
       notificationThresholdMinutes: 5,
@@ -331,10 +336,8 @@ function buildEffectiveSettingsFixture(
         disabled,
         lockMode,
         patterns: [`^${origin.replaceAll('.', '\\.')}`],
-        blockAction: 'redirect',
-        redirectUrl: `${origin}/blocked`,
         pauseAllowed: true,
-        ...buildRestrictionParts(dailyLimitMinutes),
+        ...buildRestrictionParts(dailyLimitMinutes, `${origin}/blocked`),
       },
     ],
   }
@@ -477,8 +480,8 @@ test.describe('Background blocking', () => {
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
-      const reason = page.getByLabel('Focus hours Blocked hours active')
-      await expect(reason).toContainText('Blocked hours active')
+      const reason = page.getByLabel('Focus hours Block')
+      await expect(reason).toContainText('Block')
       await expect(reason).toContainText(
         `${formatMinute(range.startMinute)}-${formatMinute(range.endMinute)}`,
       )
@@ -515,9 +518,9 @@ test.describe('Background blocking', () => {
 
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
-      const reason = page.getByLabel('Daily cap Daily limit reached')
-      await expect(reason).toContainText('Daily limit reached')
-      await expect(reason).toContainText('15 min/day')
+      const reason = page.getByLabel('Daily cap Daily limit')
+      await expect(reason).toContainText('Daily limit')
+      await expect(reason).toContainText('Allow 15 min per day')
       await expect(reason).toContainText('Resets at')
     } finally {
       await server.close()
@@ -560,11 +563,10 @@ test.describe('Background blocking', () => {
       await expect(page.getByText('Blocking groups')).not.toBeVisible()
       await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Limited block' })).toBeVisible()
-      await expect(page.getByLabel('Work block Blocked hours active')).toContainText(
-        'Blocked hours active',
-      )
-      await expect(page.getByLabel('Limited block Daily limit reached')).toContainText(
-        'Daily limit reached',
+      // ブロック理由は原因になったルールの自然文で示す。
+      await expect(page.getByLabel('Work block Block')).toContainText('Block access')
+      await expect(page.getByLabel('Limited block Daily limit')).toContainText(
+        'Allow 5 min per day',
       )
     } finally {
       await server.close()
@@ -895,8 +897,8 @@ test.describe('Effective settings behavior', () => {
             const preferredGroup = (preferred.groups as Settings['groups'])[0]
             const effectiveSettings = active.effectiveSettings as Settings
             return {
-              preferredHasRestriction: Boolean(preferredGroup?.restrictions?.length),
-              effectiveHasRestriction: Boolean(effectiveSettings.groups[0]?.restrictions?.length),
+              preferredHasRestriction: Boolean(preferredGroup?.rules?.length),
+              effectiveHasRestriction: Boolean(effectiveSettings.groups[0]?.rules?.length),
             }
           })
         })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  createDefaultRestriction,
+  createDefaultRule,
   createDefaultTimeWindow,
   DEFAULT_GLOBAL_SETTINGS,
   createGroupFromTemplate,
@@ -9,34 +9,48 @@ import { createEmptyGroup } from './helpers'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
   it('仕様書の既定値と一致する', () => {
-    expect(DEFAULT_GLOBAL_SETTINGS.blockAction).toBe('blockedPage')
-    expect(DEFAULT_GLOBAL_SETTINGS.redirectUrl).toBe('https://example.com')
     expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('03:00')
     expect(DEFAULT_GLOBAL_SETTINGS.remainingTimeNotificationsEnabled).toBe(true)
     expect(DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes).toBe(5)
   })
 })
 
-describe('createDefaultRestriction', () => {
-  it('base 省略時は制限内容だけを生成する', () => {
-    const restriction = createDefaultRestriction('block')
-    expect(restriction).toEqual({ type: 'block' })
+describe('createDefaultRule', () => {
+  it('block は常時ウィンドウとブロックページ遷移を持つ', () => {
+    const rule = createDefaultRule('block')
+    expect(rule.window).toEqual({ type: 'always' })
+    expect(rule.restriction).toEqual({ kind: 'block' })
+    expect(rule.destination).toEqual({ type: 'blockedPage' })
   })
 
-  it('grace/wait は初期表示でエラーにならない既定値を持つ', () => {
-    expect(createDefaultRestriction('grace')).toEqual({ type: 'grace', graceMinutes: 30 })
-    expect(createDefaultRestriction('wait')).toEqual({
-      type: 'wait',
-      waitSeconds: 60,
-      waitGrantMinutes: 10,
+  it('dailyLimit / wait / sessionLimit は初期表示でエラーにならない既定値を持つ', () => {
+    expect(createDefaultRule('dailyLimit').restriction).toEqual({
+      kind: 'dailyLimit',
+      minutes: 30,
+    })
+    expect(createDefaultRule('wait').restriction).toEqual({
+      kind: 'wait',
+      seconds: 60,
+      grantMinutes: 10,
+    })
+    expect(createDefaultRule('sessionLimit').restriction).toEqual({
+      kind: 'sessionLimit',
+      sessionMinutes: 10,
+      breakMinutes: 30,
     })
   })
 
-  it('redirect は既定の遷移先 URL を持つ', () => {
-    expect(createDefaultRestriction('redirect')).toEqual({
-      type: 'redirect',
-      redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-    })
+  it('wait はブロックしないので遷移先を持たない', () => {
+    expect(createDefaultRule('wait').destination).toBeUndefined()
+  })
+
+  it('連続呼び出しで rule id が異なる', () => {
+    const ids = new Set([
+      createDefaultRule('block').id,
+      createDefaultRule('block').id,
+      createDefaultRule('block').id,
+    ])
+    expect(ids.size).toBe(3)
   })
 })
 
@@ -54,11 +68,8 @@ describe('createEmptyGroup', () => {
     expect(g.disabled).toBe(false)
     expect(g.lockMode).toBe(false)
     expect(g.patterns).toEqual([])
-    expect(g.blockAction).toBe('blockedPage')
-    expect(g.redirectUrl).toBe('https://example.com')
     expect(g.pauseAllowed).toBe(true)
-    expect(g.timeWindows).toEqual([])
-    expect(g.restrictions).toEqual([])
+    expect(g.rules).toEqual([])
   })
 
   it('name 引数を渡すとその値を name に使用する', () => {
@@ -77,15 +88,14 @@ describe('createEmptyGroup', () => {
 })
 
 describe('createGroupFromTemplate', () => {
-  it('blank は空のURLパターンと制限なしを返す', () => {
+  it('blank は空のURLパターンとルールなしを返す', () => {
     const group = createGroupFromTemplate('blank')
 
     expect(group.patterns).toEqual([])
-    expect(group.timeWindows).toEqual([])
-    expect(group.restrictions).toEqual([])
+    expect(group.rules).toEqual([])
   })
 
-  it('core-sns-15min はSNSパターンと毎日15分上限の猶予制限を設定する', () => {
+  it('core-sns-15min はSNSパターンと毎日15分の Daily limit を設定する', () => {
     const group = createGroupFromTemplate('core-sns-15min')
 
     expect(group.patterns).toEqual([
@@ -97,14 +107,11 @@ describe('createGroupFromTemplate', () => {
       'threads.net',
       'bsky.app',
     ])
-    expect(group.timeWindows).toEqual([{ type: 'always' }])
-    expect(group.restrictions?.[0]).toMatchObject({
-      type: 'grace',
-      graceMinutes: 15,
-    })
+    expect(group.rules[0]?.window).toEqual({ type: 'always' })
+    expect(group.rules[0]?.restriction).toEqual({ kind: 'dailyLimit', minutes: 15 })
   })
 
-  it('video-30min は動画パターンと毎日30分上限の猶予制限を設定する', () => {
+  it('video-30min は動画パターンと毎日30分の Daily limit を設定する', () => {
     const group = createGroupFromTemplate('video-30min')
 
     expect(group.patterns).toEqual([
@@ -116,21 +123,18 @@ describe('createGroupFromTemplate', () => {
       'abema.tv',
       'nicovideo.jp',
     ])
-    expect(group.timeWindows).toEqual([{ type: 'always' }])
-    expect(group.restrictions?.[0]).toMatchObject({
-      type: 'grace',
-      graceMinutes: 30,
-    })
+    expect(group.rules[0]?.window).toEqual({ type: 'always' })
+    expect(group.rules[0]?.restriction).toEqual({ kind: 'dailyLimit', minutes: 30 })
   })
 
-  it('work-hours-focus は平日09:00-18:00のブロック制限を設定する', () => {
+  it('work-hours-focus は平日09:00-18:00の Block ルールを設定する', () => {
     const group = createGroupFromTemplate('work-hours-focus')
 
     expect(group.patterns).toEqual([])
-    expect(group.timeWindows?.[0]).toMatchObject({
+    expect(group.rules[0]?.window).toMatchObject({
       condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
       timeRanges: [{ startMinute: 540, endMinute: 1080 }],
     })
-    expect(group.restrictions).toEqual([{ type: 'block' }])
+    expect(group.rules[0]?.restriction).toEqual({ kind: 'block' })
   })
 })

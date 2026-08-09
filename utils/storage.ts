@@ -1,13 +1,17 @@
+import { sortRulesByEvaluationOrder } from './blocking'
 import {
   DEFAULT_GLOBAL_SETTINGS,
   DEFAULT_PAUSE_DURATION_MINUTES,
   DEFAULT_PAUSE_WAIT_SECONDS,
+  DEFAULT_SESSION_BREAK_MINUTES,
+  DEFAULT_SESSION_LIMIT_MINUTES,
   DEFAULT_WAIT_GRANT_MINUTES,
 } from './defaults'
+import { migrateLegacyRules, type LegacyRestriction } from './migrateLegacy'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
 import type {
-  BlockAction,
+  BlockDestination,
   DayOfWeek,
   DelayGrantState,
   EffectiveSettingsState,
@@ -16,7 +20,8 @@ import type {
   GroupPauseEntry,
   GroupPauseState,
   MonthDay,
-  Restriction,
+  Rule,
+  RuleRestriction,
   SessionLimitEntry,
   SessionLimitState,
   ScheduleRuleCondition,
@@ -31,28 +36,19 @@ import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
- * リリース済みの旧バージョンは v2（1.0.0）・v3（1.1.0/1.2.0）・v4（1.3.0）のみ。
+ * リリース済みの旧バージョンは v2（1.0.0）・v3（1.1.0/1.2.0）・v4（1.3.0）・v11（1.4.0）のみ。
  * v5〜v10 は未リリース開発中にのみ存在した形式のためサポートしない。
  */
-export const SETTINGS_EXPORT_VERSION = 11
+export const SETTINGS_EXPORT_VERSION = 12
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | 3 | 4 | typeof SETTINGS_EXPORT_VERSION
+  version: 2 | 3 | 4 | 11 | typeof SETTINGS_EXPORT_VERSION
   /** storage.sync に保存する設定本体。 */
   settings: Settings
-}
-
-/**
- * 保存済み値を有効なブロック時動作へ正規化する。
- */
-function normalizeBlockAction(value: unknown): BlockAction {
-  return value === 'redirect' || value === 'blockedPage'
-    ? value
-    : DEFAULT_GLOBAL_SETTINGS.blockAction
 }
 
 /**
@@ -100,31 +96,113 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 /**
  * unknown の値からグループ設定を生成する。
- * 旧フォーマット（v2〜v4）の `dailyRules` は `timeWindows` / `restrictions` へ移行する。
+ * `rules` が無い旧フォーマット（`timeWindows` / `restrictions` / `dailyRules`）は
+ * `migrateLegacyRules` で `Rule[]` へ移行する。
+ * 返す `rules` は常に評価順へ並べ替え済みにする。
  */
-function normalizeGroup(
-  value: unknown,
-  fallbackBlockAction = DEFAULT_GLOBAL_SETTINGS.blockAction,
-  fallbackRedirectUrl = DEFAULT_GLOBAL_SETTINGS.redirectUrl,
-): Group {
+function normalizeGroup(value: unknown, globalRedirectUrl?: string): Group {
   const g = asRecord(value)
-  const blockAction = normalizeBlockAction(g.blockAction ?? fallbackBlockAction)
+  const id = typeof g.id === 'string' ? g.id : crypto.randomUUID()
   const legacy = convertLegacyDailyRules(g.dailyRules)
+  // グループが遷移先を明示していればそれが勝ち、未指定のときだけグローバル設定へフォールバックする。
+  const fallbackRedirectUrl =
+    g.blockAction === 'redirect' && typeof g.redirectUrl === 'string'
+      ? g.redirectUrl
+      : g.blockAction === 'blockedPage'
+        ? undefined
+        : globalRedirectUrl
+  const storedRules = normalizeRules(g.rules, id)
+  const rules =
+    storedRules ??
+    migrateLegacyRules({
+      groupId: id,
+      timeWindows: normalizeTimeWindows(g.timeWindows) ?? legacy.timeWindows,
+      restrictions: normalizeLegacyRestrictions(g.restrictions) ?? legacy.restrictions,
+      ...(fallbackRedirectUrl === undefined ? {} : { fallbackRedirectUrl }),
+    })
+
   return {
-    id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
+    id,
     name: typeof g.name === 'string' ? g.name : '',
     mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
     disabled: g.disabled === true,
     lockMode: g.lockMode === true,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter((p) => typeof p === 'string') : [],
-    blockAction,
-    redirectUrl: typeof g.redirectUrl === 'string' ? g.redirectUrl : fallbackRedirectUrl,
     pauseWaitSeconds: normalizePauseWaitSeconds(g.pauseWaitSeconds),
     pauseDurationMinutes: normalizePauseDurationMinutes(g.pauseDurationMinutes),
     pauseAllowed: g.pauseAllowed !== false,
-    timeWindows: normalizeTimeWindows(g.timeWindows) ?? legacy.timeWindows,
-    restrictions: normalizeStandaloneRestrictions(g.restrictions) ?? legacy.restrictions,
+    rules: sortRulesByEvaluationOrder(rules),
   }
+}
+
+/** unknown の値からブロック時の遷移先を生成する。 */
+function normalizeBlockDestination(value: unknown): BlockDestination {
+  const destination = asRecord(value)
+  if (destination.type === 'redirect' && typeof destination.url === 'string') {
+    return { type: 'redirect', url: destination.url }
+  }
+  return { type: 'blockedPage' }
+}
+
+/** unknown の値からルールの制限内容を生成する。既知の kind 以外は undefined を返す。 */
+function normalizeRuleRestriction(value: unknown): RuleRestriction | undefined {
+  const restriction = asRecord(value)
+  if (restriction.kind === 'block') return { kind: 'block' }
+  if (restriction.kind === 'dailyLimit') {
+    return {
+      kind: 'dailyLimit',
+      minutes: typeof restriction.minutes === 'number' ? restriction.minutes : -1,
+    }
+  }
+  if (restriction.kind === 'sessionLimit') {
+    return {
+      kind: 'sessionLimit',
+      sessionMinutes:
+        typeof restriction.sessionMinutes === 'number'
+          ? restriction.sessionMinutes
+          : DEFAULT_SESSION_LIMIT_MINUTES,
+      breakMinutes:
+        typeof restriction.breakMinutes === 'number'
+          ? restriction.breakMinutes
+          : DEFAULT_SESSION_BREAK_MINUTES,
+    }
+  }
+  if (restriction.kind === 'wait') {
+    return {
+      kind: 'wait',
+      seconds: typeof restriction.seconds === 'number' ? restriction.seconds : -1,
+      grantMinutes:
+        typeof restriction.grantMinutes === 'number' && restriction.grantMinutes >= 1
+          ? restriction.grantMinutes
+          : DEFAULT_WAIT_GRANT_MINUTES,
+    }
+  }
+  return undefined
+}
+
+/**
+ * unknown の値からルール配列を生成する。`rules` キー自体が無ければ undefined を返し、
+ * 呼び出し側が旧フォーマットからの移行にフォールバックできるようにする。
+ * id が欠けている場合は group id と位置から決定的に採番する。
+ */
+function normalizeRules(value: unknown, groupId: string): Rule[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  return value.flatMap((item, index) => {
+    const rule = asRecord(item)
+    const restriction = normalizeRuleRestriction(rule.restriction)
+    const window = normalizeTimeWindows([rule.window])?.[0]
+    if (!restriction || !window) return []
+    return [
+      {
+        id: typeof rule.id === 'string' && rule.id.length > 0 ? rule.id : `${groupId}:r${index}`,
+        window,
+        restriction,
+        ...(restriction.kind === 'wait'
+          ? {}
+          : { destination: normalizeBlockDestination(rule.destination) }),
+      } satisfies Rule,
+    ]
+  })
 }
 
 /**
@@ -183,8 +261,8 @@ function normalizeScheduleRuleCondition(value: unknown): ScheduleRuleCondition |
   return undefined
 }
 
-/** unknown の値から分離形式の制限を生成する。 */
-function normalizeStandaloneRestriction(value: unknown): Restriction | undefined {
+/** unknown の値から旧フォーマットの制限を生成する。移行にのみ使う。 */
+function normalizeLegacyRestriction(value: unknown): LegacyRestriction | undefined {
   const valueRecord = asRecord(value)
   if (
     valueRecord.type !== 'block' &&
@@ -194,7 +272,7 @@ function normalizeStandaloneRestriction(value: unknown): Restriction | undefined
     valueRecord.type !== 'sessionLimit'
   )
     return undefined
-  const restriction: Restriction = { type: valueRecord.type }
+  const restriction: LegacyRestriction = { type: valueRecord.type }
   if (typeof valueRecord.graceMinutes === 'number')
     restriction.graceMinutes = valueRecord.graceMinutes
   if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
@@ -212,11 +290,14 @@ function normalizeStandaloneRestriction(value: unknown): Restriction | undefined
   return restriction
 }
 
-/** unknown の値から分離形式の制限配列を生成する。 */
-function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefined {
+/**
+ * unknown の値から旧フォーマットの制限配列を生成する。
+ * 同種は厳格側（grace は最小・wait は最大・sessionLimit は最短枠/最長休憩）へ畳む。
+ */
+function normalizeLegacyRestrictions(value: unknown): LegacyRestriction[] | undefined {
   if (!Array.isArray(value)) return undefined
   const restrictions = value.flatMap((item) => {
-    const restriction = normalizeStandaloneRestriction(item)
+    const restriction = normalizeLegacyRestriction(item)
     return restriction ? [restriction] : []
   })
   const block = restrictions.find((restriction) => restriction.type === 'block')
@@ -250,7 +331,7 @@ function normalizeStandaloneRestrictions(value: unknown): Restriction[] | undefi
       (minutes): minutes is number =>
         minutes !== undefined && Number.isInteger(minutes) && minutes >= 1,
     )
-  const normalized: Restriction[] = []
+  const normalized: LegacyRestriction[] = []
   if (block) normalized.push({ type: 'block' })
   else if (redirect) normalized.push(redirect)
   if (graceMinutes.length > 0)
@@ -309,10 +390,10 @@ function toTimeWindow(condition: ScheduleRuleCondition, timeRanges: TimeRange[])
  */
 function convertLegacyDailyRules(value: unknown): {
   timeWindows: TimeWindow[]
-  restrictions: Restriction[]
+  restrictions: LegacyRestriction[]
 } {
   const timeWindows: TimeWindow[] = []
-  const restrictions: Restriction[] = []
+  const restrictions: LegacyRestriction[] = []
   if (!Array.isArray(value)) return { timeWindows, restrictions }
 
   const byContent = new Map<
@@ -371,11 +452,12 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
   const normalizedRawGlobal = { ...rawGlobal }
   delete normalizedRawGlobal.pageOpenNotificationsEnabled
   delete normalizedRawGlobal.blockNotificationsEnabled
-  const fallbackBlockAction = normalizeBlockAction(rawGlobal.blockAction)
-  const fallbackRedirectUrl =
-    typeof rawGlobal.redirectUrl === 'string'
+  delete normalizedRawGlobal.blockAction
+  delete normalizedRawGlobal.redirectUrl
+  const globalRedirectUrl =
+    rawGlobal.blockAction === 'redirect' && typeof rawGlobal.redirectUrl === 'string'
       ? rawGlobal.redirectUrl
-      : DEFAULT_GLOBAL_SETTINGS.redirectUrl
+      : undefined
   const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(
     rawGlobal.notificationThresholdMinutes,
   )
@@ -383,8 +465,6 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
       ...normalizedRawGlobal,
-      blockAction: fallbackBlockAction,
-      redirectUrl: fallbackRedirectUrl,
       notificationThresholdMinutes,
       remainingTimeNotificationsEnabled: normalizeRemainingTimeNotificationsEnabled(
         rawGlobal.remainingTimeNotificationsEnabled,
@@ -392,7 +472,7 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
       ),
     },
     groups: Array.isArray(raw.groups)
-      ? raw.groups.map((group) => normalizeGroup(group, fallbackBlockAction, fallbackRedirectUrl))
+      ? raw.groups.map((group) => normalizeGroup(group, globalRedirectUrl))
       : [],
   }
 }
@@ -520,6 +600,7 @@ export function parseSettingsExportJson(json: string): Settings {
     file.version !== 2 &&
     file.version !== 3 &&
     file.version !== 4 &&
+    file.version !== 11 &&
     file.version !== SETTINGS_EXPORT_VERSION
   ) {
     throw new Error('Unsupported settings file version')

@@ -10,16 +10,15 @@ import {
   getTimeRangeUnblockAt,
   type GroupBlockStatus,
 } from '@/utils/blocking'
-import { formatDateTime, formatTimeRange } from '@/utils/datetime'
+import { formatDateTime } from '@/utils/datetime'
+import { formatRuleSentence, RULE_KIND_LABELS } from '@/utils/rules'
 import { loadPageState } from '@/utils/storage'
-import type { GlobalSettings, Group, TimeRange } from '@/utils/types'
+import type { GlobalSettings, Group } from '@/utils/types'
 
 interface BlockedReason {
-  /** ブロック理由の種類。 */
-  kind: 'timeRange' | 'dailyLimit' | 'sessionBreak'
-  /** 画面に表示する理由 badge。 */
+  /** 画面に表示する理由 badge。ブロックを起こしたルールの種別名。 */
   label: string
-  /** ルール概要の表示文字列。 */
+  /** 原因になったルールを自然文にしたもの。 */
   summary: string
   /** 解除時刻の説明ラベル。 */
   releaseLabel: string
@@ -32,8 +31,8 @@ interface BlockedGroupDisplay {
   group: Group
   /** 現在時刻のブロック状態。 */
   status: GroupBlockStatus
-  /** 画面に表示するブロック理由。 */
-  reasons: BlockedReason[]
+  /** 画面に表示するブロック理由。原因が特定できない場合は undefined。 */
+  reason?: BlockedReason
 }
 
 const blockedUrl = ref('')
@@ -41,50 +40,42 @@ const blockedGroupDisplays = ref<BlockedGroupDisplay[]>([])
 const isLoaded = ref(false)
 
 /**
- * ブロック状態から画面表示用の理由一覧を作る。
+ * ブロック状態から、どのルールがなぜ止めたのかを1件にまとめて返す。
+ * 評価順で最初に成立した理由だけを表示するため、実際の挙動と1対1で対応する。
  */
-function buildReasons(
+function buildReason(
   group: Group,
   status: GroupBlockStatus,
   now: Date,
   global: GlobalSettings,
-): BlockedReason[] {
-  const timeRangeUnblockAt =
-    status.activeTimeRanges.length > 0 ? getTimeRangeUnblockAt(group, now, global) : undefined
-  const timeRangeReasons = status.activeTimeRanges.map((range: TimeRange) => ({
-    kind: 'timeRange' as const,
-    label: 'Blocked hours active',
-    summary: formatTimeRange(range),
-    releaseLabel: 'Unblocks at',
-    releaseAt: timeRangeUnblockAt,
-  }))
+): BlockedReason | undefined {
+  const reason = status.blockReason
+  if (!reason) return undefined
+  const summary = formatRuleSentence(reason.rule)
 
-  const dailyLimitReasons =
-    status.blockedByDailyLimit && status.timeLimitSummary
-      ? [
-          {
-            kind: 'dailyLimit' as const,
-            label: 'Daily limit reached',
-            summary: `${status.timeLimitSummary.limitMinutes} min/day`,
-            releaseLabel: 'Resets at',
-            releaseAt: getNextDailyResetAt(now, global),
-          },
-        ]
-      : []
-
-  const sessionBreakReasons = status.sessionBreakUntil
-    ? [
-        {
-          kind: 'sessionBreak' as const,
-          label: 'Break in progress',
-          summary: 'Session limit reached',
-          releaseLabel: 'Break ends at',
-          releaseAt: new Date(status.sessionBreakUntil),
-        },
-      ]
-    : []
-
-  return [...timeRangeReasons, ...dailyLimitReasons, ...sessionBreakReasons]
+  if (reason.kind === 'block') {
+    const releaseAt = getTimeRangeUnblockAt(group, now, global)
+    return {
+      label: RULE_KIND_LABELS.block,
+      summary,
+      releaseLabel: 'Unblocks at',
+      ...(releaseAt ? { releaseAt } : {}),
+    }
+  }
+  if (reason.kind === 'sessionLimit') {
+    return {
+      label: RULE_KIND_LABELS.sessionLimit,
+      summary,
+      releaseLabel: 'Break ends at',
+      releaseAt: new Date(reason.breakUntil),
+    }
+  }
+  return {
+    label: RULE_KIND_LABELS.dailyLimit,
+    summary,
+    releaseLabel: 'Resets at',
+    releaseAt: getNextDailyResetAt(now, global),
+  }
 }
 
 /**
@@ -126,11 +117,8 @@ onMounted(async () => {
     )
     if (!effective) return []
     const { group, status } = effective
-    return {
-      group,
-      status,
-      reasons: buildReasons(group, status, now, effectiveSettings.global),
-    }
+    const reason = buildReason(group, status, now, effectiveSettings.global)
+    return [{ group, status, ...(reason ? { reason } : {}) }]
   })
   isLoaded.value = true
 })
@@ -170,30 +158,31 @@ onMounted(async () => {
               {{ display.group.name }}
             </h3>
 
-            <div v-if="display.reasons.length > 0" class="mt-3 space-y-2">
-              <div
-                v-for="reason in display.reasons"
-                :key="`${display.group.id}-${reason.kind}-${reason.summary}`"
-                class="rounded-lg border border-border bg-background px-3 py-2"
-                :aria-label="`${display.group.name} ${reason.label}`"
-              >
-                <div class="flex flex-wrap items-center gap-2">
-                  <StatusBadge kind="danger" class="inline-flex">
-                    {{ reason.label }}
-                  </StatusBadge>
-                  <span class="font-mono text-body-sm text-secondary-foreground">
-                    {{ reason.summary }}
-                  </span>
-                </div>
-                <dl class="mt-2 grid gap-1 text-body-sm sm:grid-cols-[max-content_1fr] sm:gap-x-3">
-                  <dt class="text-muted-foreground">
-                    {{ reason.releaseLabel }}
-                  </dt>
-                  <dd class="font-medium text-foreground">
-                    {{ reason.releaseAt ? formatDateTime(reason.releaseAt) : 'Not scheduled' }}
-                  </dd>
-                </dl>
+            <div
+              v-if="display.reason"
+              class="mt-3 rounded-lg border border-border bg-background px-3 py-2"
+              :aria-label="`${display.group.name} ${display.reason.label}`"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <StatusBadge kind="danger" class="inline-flex">
+                  {{ display.reason.label }}
+                </StatusBadge>
+                <span class="font-mono text-body-sm text-secondary-foreground">
+                  {{ display.reason.summary }}
+                </span>
               </div>
+              <dl class="mt-2 grid gap-1 text-body-sm sm:grid-cols-[max-content_1fr] sm:gap-x-3">
+                <dt class="text-muted-foreground">
+                  {{ display.reason.releaseLabel }}
+                </dt>
+                <dd class="font-medium text-foreground">
+                  {{
+                    display.reason.releaseAt
+                      ? formatDateTime(display.reason.releaseAt)
+                      : 'Not scheduled'
+                  }}
+                </dd>
+              </dl>
             </div>
 
             <p v-else class="mt-2 text-body-sm text-muted-foreground">No active reason found.</p>

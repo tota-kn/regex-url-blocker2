@@ -1,10 +1,12 @@
 import type {
+  BlockDestination,
   DayOfWeek,
   DelayGrantState,
   GlobalSettings,
   Group,
   GroupPauseState,
-  Restriction,
+  Rule,
+  RuleKind,
   ScheduleRuleCondition,
   SessionLimitEntry,
   SessionLimitState,
@@ -14,10 +16,15 @@ import type {
   UsageCounter,
   UsageCountersState,
 } from './types'
-import { DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
+
+/**
+ * 制限が評価される順序。先に並ぶものほど強く、成立した時点でそれ以降は評価されない。
+ * 保存時とロード時にこの順へ並べ替えるため、画面のルール順と評価順は常に一致する。
+ */
+export const RULE_KIND_ORDER: RuleKind[] = ['block', 'sessionLimit', 'dailyLimit', 'wait']
 
 /**
  * 論理日と、その論理日開始時点の暦情報。
@@ -72,27 +79,38 @@ export interface MinimumRemainingTimeLimit {
 }
 
 /**
+ * アクセスがブロックされた理由と、それを起こしたルール。
+ * 遷移先はこのルールの `destination` から決まる。
+ */
+export type BlockReason =
+  | { kind: 'block'; rule: Rule }
+  | { kind: 'sessionLimit'; rule: Rule; breakUntil: number }
+  | { kind: 'dailyLimit'; rule: Rule; summary: TimeLimitUsageSummary }
+
+/**
  * 1グループの現在時刻におけるブロック状態。
  */
 export interface GroupBlockStatus {
-  /** disabled group でない場合に設定されている制限の配列。 */
-  restrictions: Restriction[]
-  /** `isRestrictionActiveNow` の結果。 */
+  /** disabled group でない場合に設定されているルールの配列。 */
+  rules: Rule[]
+  /** 現在アクティブなルールが1件以上あるなら true。 */
   isActive: boolean
-  /** `type === 'block'` で現在アクティブな time range（複数指定時のうち現在該当するもの）。 */
+  /** 現在アクティブな block ルールの time range（終日は 0-0 の1件）。 */
   activeTimeRanges: TimeRange[]
-  /** `type === 'grace'` のときの今日の利用状況。 */
+  /** dailyLimit ルールが今日設定されているときの利用状況。 */
   timeLimitSummary?: TimeLimitUsageSummary
-  /** `type === 'wait'` かつアクティブなときの待機秒数。 */
+  /** wait ルールがアクティブなときの待機秒数。 */
   waitSeconds?: number
-  /** `type === 'wait'` かつアクティブなときの通過後許可期間（分）。 */
+  /** wait ルールがアクティブなときの通過後許可期間（分）。 */
   waitGrantMinutes?: number
-  /** block 制限が現在有効なら true。 */
+  /** block ルールが現在有効なら true。 */
   blockedByTimeRange: boolean
-  /** grace 制限が今日の上限に到達しているなら true。 */
+  /** dailyLimit ルールが今日の上限に到達しているなら true。 */
   blockedByDailyLimit: boolean
-  /** Session limit の休憩中なら、その終了 epoch milliseconds。 */
+  /** sessionLimit の休憩中なら、その終了 epoch milliseconds。 */
   sessionBreakUntil?: number
+  /** ブロックされている場合の理由と原因ルール。 */
+  blockReason?: BlockReason
   /** 一時停止を考慮しない現在のブロック状態。 */
   blocked: boolean
 }
@@ -111,49 +129,24 @@ export interface SessionLimitConfig {
   sessionMinutes: number
   /** 最長の休憩（分）。 */
   breakMinutes: number
+  /** この設定を決めたルール。遷移先の決定に使う。 */
+  rule: Rule
 }
 
-/** グループの分離形式の制限を返す。未設定は空配列として扱う。 */
-export function getRestrictions(group: Group): Restriction[] {
-  return group.restrictions ?? []
+/** グループの制限ルールを返す。 */
+export function getRules(group: Group): Rule[] {
+  return group.rules ?? []
 }
 
-/** グループの Session limit を厳格側へまとめて返す。 */
-export function getSessionLimitConfig(group: Group): SessionLimitConfig | undefined {
-  const limits = getRestrictions(group).filter(
-    (restriction) =>
-      restriction.type === 'sessionLimit' &&
-      Number.isInteger(restriction.sessionMinutes) &&
-      (restriction.sessionMinutes ?? 0) >= 1 &&
-      Number.isInteger(restriction.breakMinutes) &&
-      (restriction.breakMinutes ?? 0) >= 1,
+/**
+ * ルールを評価順（Block → Session limit → Daily limit → Wait）へ安定ソートする。
+ * 同種のルールは元の並び順を保つ。冪等。
+ */
+export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
+  return rules.toSorted(
+    (a, b) =>
+      RULE_KIND_ORDER.indexOf(a.restriction.kind) - RULE_KIND_ORDER.indexOf(b.restriction.kind),
   )
-  if (limits.length === 0) return undefined
-  return {
-    sessionMinutes: Math.min(...limits.map((restriction) => restriction.sessionMinutes!)),
-    breakMinutes: Math.max(...limits.map((restriction) => restriction.breakMinutes!)),
-  }
-}
-
-/** 利用枠の状態から、現在休憩中ならその終了時刻を返す。 */
-export function getSessionBreakUntil(
-  group: Group,
-  entry: SessionLimitEntry | undefined,
-  now: Date,
-  global: GlobalSettings,
-): number | undefined {
-  if (!entry || !isRestrictionActiveNow(group, now, global)) return undefined
-  const config = getSessionLimitConfig(group)
-  if (!config) return undefined
-  const sessionEndsAt = entry.startedAt + config.sessionMinutes * 60_000
-  const breakEndsAt = sessionEndsAt + config.breakMinutes * 60_000
-  const nowMs = now.getTime()
-  return nowMs >= sessionEndsAt && nowMs < breakEndsAt ? breakEndsAt : undefined
-}
-
-/** グループの分離形式の時間ウィンドウを返す。未設定は空配列として扱う。 */
-export function getTimeWindows(group: Group): TimeWindow[] {
-  return group.timeWindows ?? []
 }
 
 /**
@@ -216,27 +209,19 @@ export function shouldSkipUrl(url: string | undefined, redirectUrls: string | st
 }
 
 /**
- * settings 内の全グループが持つ redirect URL を返す。
- * グループ単位の `blockAction === 'redirect'` と、`type === 'redirect'` の制限が指定する URL の両方を集める。
+ * settings 内の全グループのルールが指定する遷移先 URL を返す。
  * redirect 先自体を再びブロックしないための除外判定に使うため、時刻ウィンドウは問わず列挙する。
  */
 export function getRedirectUrls(settings: Settings): string[] {
   return settings.groups
     .filter((group) => !group.disabled)
-    .flatMap((group) => {
-      const urls = group.blockAction === 'redirect' ? [group.redirectUrl] : []
-      return [
-        ...urls,
-        ...getRestrictions(group)
-          .filter(
-            (restriction) =>
-              restriction.type === 'redirect' &&
-              typeof restriction.redirectUrl === 'string' &&
-              restriction.redirectUrl.trim().length > 0,
-          )
-          .map((restriction) => restriction.redirectUrl as string),
-      ]
-    })
+    .flatMap((group) =>
+      getRules(group).flatMap((rule) =>
+        rule.destination?.type === 'redirect' && rule.destination.url.trim().length > 0
+          ? [rule.destination.url]
+          : [],
+      ),
+    )
 }
 
 /**
@@ -275,7 +260,7 @@ function timeInRange(nowMinute: number, startMinute: number, endMinute: number):
 }
 
 /**
- * 現在有効なブロック時間帯が次に解除される日時を返す。
+ * 現在有効な時間帯が次に解除される日時を返す。
  */
 export function getBlockedTimeRangeReleaseAt(range: TimeRange, now: Date): Date {
   const nowMinute = now.getHours() * 60 + now.getMinutes()
@@ -328,71 +313,85 @@ export function matchesScheduleRuleCondition(
   return true
 }
 
-/**
- * group の制限条件が今日（現在の論理日）に一致するなら true を返す。
- * 時刻ウィンドウは問わない。disabled group や制限未設定では false。
- */
-export function restrictionMatchesToday(group: Group, now: Date, global: GlobalSettings): boolean {
-  if (group.disabled) return false
-  const info = getLogicalDate(now, global.dailyResetHour)
-  return getTimeWindows(group).some(
-    (window) => window.type === 'always' || matchesScheduleRuleCondition(window.condition, info),
-  )
+/** 時間ウィンドウの適用日条件が指定した論理日に一致するなら true を返す。時刻は問わない。 */
+export function windowMatchesLogicalDate(window: TimeWindow, info: LogicalDateInfo): boolean {
+  return window.type === 'always' || matchesScheduleRuleCondition(window.condition, info)
 }
 
-/** 時間ウィンドウが現在有効かどうかを返す。 */
-function isTimeWindowActiveNow(window: TimeWindow, now: Date, global: GlobalSettings): boolean {
+/** 時間ウィンドウが指定時刻に有効かを返す。 */
+export function isWindowActiveAt(window: TimeWindow, at: Date, global: GlobalSettings): boolean {
   if (window.type === 'always') return true
-  const info = getLogicalDate(now, global.dailyResetHour)
+  const info = getLogicalDate(at, global.dailyResetHour)
   if (!matchesScheduleRuleCondition(window.condition, info)) return false
   if (window.timeRanges.length === 0) return true
-  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  const atMinute = at.getHours() * 60 + at.getMinutes()
   return window.timeRanges.some((range) =>
-    timeInRange(nowMinute, range.startMinute, range.endMinute),
+    timeInRange(atMinute, range.startMinute, range.endMinute),
   )
 }
 
+/** ルール配列のうち、指定時刻に有効なものだけを返す。 */
+export function filterActiveRules(rules: Rule[], at: Date, global: GlobalSettings): Rule[] {
+  return rules.filter((rule) => isWindowActiveAt(rule.window, at, global))
+}
+
+/** group のルールのうち、指定時刻に有効なものだけを返す。disabled group では空配列。 */
+export function getActiveRules(group: Group, now: Date, global: GlobalSettings): Rule[] {
+  if (group.disabled) return []
+  return filterActiveRules(getRules(group), now, global)
+}
+
 /**
- * group の制限が現在時刻でアクティブ（条件が今日に一致し、かつ時刻ウィンドウ内）かを返す。
- * disabled group や制限未設定では false。
+ * group のルールが現在時刻で1件以上アクティブかを返す。
+ * disabled group やルール未設定では false。
  */
 export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSettings): boolean {
-  if (group.disabled) return false
-  return (
-    getRestrictions(group).length > 0 &&
-    getTimeWindows(group).some((window) => isTimeWindowActiveNow(window, now, global))
-  )
+  return getActiveRules(group, now, global).length > 0
 }
 
 /**
- * group の restriction が `type === 'block'` または `type === 'redirect'` かつ現在アクティブなら、
- * 現在該当する time range 配列を返す。空配列 `timeRanges`（終日）は24時間ブロック相当の1件を返す。
- * block と redirect はどちらも有効ウィンドウ中は常にアクセスを禁止するハードブロックである。
+ * 現在アクティブな block ルールが該当する time range 配列を返す。
+ * 空 `timeRanges`（終日）や `always` は24時間ブロック相当の1件を返す。
  */
 function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
-  if (group.disabled) return []
   const nowMinute = now.getHours() * 60 + now.getMinutes()
-  if (
-    !getRestrictions(group).some(
-      (restriction) => restriction.type === 'block' || restriction.type === 'redirect',
-    )
-  )
-    return []
-  return getTimeWindows(group)
-    .filter((window) => isTimeWindowActiveNow(window, now, global))
-    .flatMap((window) => {
-      if (window.type === 'always' || window.timeRanges.length === 0)
+  return getActiveRules(group, now, global)
+    .filter((rule) => rule.restriction.kind === 'block')
+    .flatMap((rule) => {
+      if (rule.window.type === 'always' || rule.window.timeRanges.length === 0)
         return [{ startMinute: 0, endMinute: 0 }]
-      return window.timeRanges.filter((range) =>
+      return rule.window.timeRanges.filter((range) =>
         timeInRange(nowMinute, range.startMinute, range.endMinute),
       )
     })
 }
 
+/** 上限分数と counter から利用状況を組み立てる。 */
+function buildUsageSummary(
+  limitMinutes: number,
+  counter: UsageCounter | undefined,
+  logicalDate: string,
+): TimeLimitUsageSummary {
+  const consumedSec = counter?.logicalDate === logicalDate ? counter.consumedSec : 0
+  return {
+    logicalDate,
+    limitMinutes,
+    consumedSec,
+    remainingSec: Math.max(0, limitMinutes * 60 - consumedSec),
+  }
+}
+
+/** ルール配列から dailyLimit の最小上限分数を返す。1件も無ければ undefined。 */
+function minDailyLimitMinutes(rules: Rule[]): number | undefined {
+  const minutes = rules.flatMap((rule) =>
+    rule.restriction.kind === 'dailyLimit' ? [rule.restriction.minutes] : [],
+  )
+  return minutes.length > 0 ? Math.min(...minutes) : undefined
+}
+
 /**
- * group に今日有効な `grace` 制限があれば、上限・消費・残り時間を返す。
- * アクティブウィンドウ外でも、条件が今日に一致していれば累積消費を表示するため値を返す。
- * `type !== 'grace'` や disabled group、制限未設定では undefined。
+ * group に今日有効な dailyLimit ルールがあれば、上限・消費・残り時間を返す。
+ * アクティブウィンドウ外でも、適用日条件が今日に一致していれば累積消費を表示するため値を返す。
  */
 export function getTimeLimitUsageSummary(
   group: Group,
@@ -401,108 +400,123 @@ export function getTimeLimitUsageSummary(
   global: GlobalSettings,
 ): TimeLimitUsageSummary | undefined {
   if (group.disabled) return undefined
-  const logicalDate = getLogicalDate(now, global.dailyResetHour)
-  if (
-    !getTimeWindows(group).some(
-      (window) =>
-        window.type === 'always' ||
-        (window.type === 'scheduled' &&
-          matchesScheduleRuleCondition(window.condition, logicalDate)),
-    )
-  )
-    return undefined
-  const limitMinutes = getRestrictions(group)
-    .filter((restriction) => restriction.type === 'grace' && restriction.graceMinutes !== undefined)
-    .map((restriction) => restriction.graceMinutes)
-    .filter((minutes): minutes is number => minutes !== undefined)
-    .toSorted((a, b) => a - b)[0]
+  const info = getLogicalDate(now, global.dailyResetHour)
+  const todaysRules = getRules(group).filter((rule) => windowMatchesLogicalDate(rule.window, info))
+  const limitMinutes = minDailyLimitMinutes(todaysRules)
   if (limitMinutes === undefined) return undefined
-
-  const consumedSec = counter?.logicalDate === logicalDate.logicalDate ? counter.consumedSec : 0
-  const limitSec = limitMinutes * 60
-  return {
-    logicalDate: logicalDate.logicalDate,
-    limitMinutes,
-    consumedSec,
-    remainingSec: Math.max(0, limitSec - consumedSec),
-  }
+  return buildUsageSummary(limitMinutes, counter, info.logicalDate)
 }
 
-/**
- * group の restriction が `type === 'redirect'` かつ現在アクティブなときの遷移先 URL を返す。
- * 有効な URL を持つ redirect 制限がなければ undefined。複数ある場合は最初の1件を使う。
- */
-export function getActiveRedirectUrl(
-  group: Group,
-  now: Date,
-  global: GlobalSettings,
-): string | undefined {
-  if (!isRestrictionActiveNow(group, now, global)) return undefined
-  const restrictions = getRestrictions(group)
-  if (restrictions.some((restriction) => restriction.type === 'block')) return undefined
-  const redirect = restrictions.find(
-    (restriction) =>
-      restriction.type === 'redirect' &&
-      typeof restriction.redirectUrl === 'string' &&
-      restriction.redirectUrl.trim().length > 0,
-  )
-  return redirect?.redirectUrl
-}
-
-/**
- * group の restriction が `type === 'wait'` かつ現在アクティブなときの待機秒数を返す。
- * `waitSeconds` が undefined または 0 以下なら undefined（待機なし扱い）。
- */
+/** group のアクティブな wait ルールにおける最長の待機秒数を返す。0以下は待機なし扱い。 */
 export function getEffectiveWaitSeconds(
   group: Group,
   now: Date,
   global: GlobalSettings,
 ): number | undefined {
-  if (!isRestrictionActiveNow(group, now, global)) return undefined
-  const waitSeconds = getRestrictions(group)
-    .filter((restriction) => restriction.type === 'wait')
-    .filter((restriction) => restriction.waitSeconds !== undefined && restriction.waitSeconds > 0)
-    .map((restriction) => restriction.waitSeconds)
-    .filter((seconds): seconds is number => seconds !== undefined)
-  return waitSeconds.length > 0 ? Math.max(...waitSeconds) : undefined
+  const seconds = getActiveRules(group, now, global).flatMap((rule) =>
+    rule.restriction.kind === 'wait' && rule.restriction.seconds > 0
+      ? [rule.restriction.seconds]
+      : [],
+  )
+  return seconds.length > 0 ? Math.max(...seconds) : undefined
 }
 
-/**
- * group のアクティブな Wait restriction における、通過後の最長許可期間（分）を返す。
- * 保存済みの旧 Wait で値が未指定の場合は、従来どおり10分として扱う。
- */
+/** group のアクティブな wait ルールにおける、通過後の最長許可期間（分）を返す。 */
 export function getEffectiveWaitGrantMinutes(
   group: Group,
   now: Date,
   global: GlobalSettings,
 ): number | undefined {
   if (getEffectiveWaitSeconds(group, now, global) === undefined) return undefined
-  const grantMinutes = getRestrictions(group)
-    .filter((restriction) => restriction.type === 'wait')
-    .map((restriction) => restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES)
-    .filter((minutes) => Number.isInteger(minutes) && minutes >= 1)
-  return grantMinutes.length > 0 ? Math.max(...grantMinutes) : DEFAULT_WAIT_GRANT_MINUTES
+  const minutes = getActiveRules(group, now, global).flatMap((rule) =>
+    rule.restriction.kind === 'wait' && Number.isInteger(rule.restriction.grantMinutes)
+      ? [rule.restriction.grantMinutes]
+      : [],
+  )
+  return minutes.length > 0 ? Math.max(...minutes) : undefined
+}
+
+/** group のアクティブな sessionLimit ルールを厳格側（最短枠・最長休憩）へまとめて返す。 */
+export function getSessionLimitConfig(
+  group: Group,
+  now: Date,
+  global: GlobalSettings,
+): SessionLimitConfig | undefined {
+  const limits = getActiveRules(group, now, global).flatMap((rule) =>
+    rule.restriction.kind === 'sessionLimit' &&
+    Number.isInteger(rule.restriction.sessionMinutes) &&
+    rule.restriction.sessionMinutes >= 1 &&
+    Number.isInteger(rule.restriction.breakMinutes) &&
+    rule.restriction.breakMinutes >= 1
+      ? [{ rule, restriction: rule.restriction }]
+      : [],
+  )
+  if (limits.length === 0) return undefined
+  const strictest = limits.toSorted(
+    (a, b) => a.restriction.sessionMinutes - b.restriction.sessionMinutes,
+  )[0]!
+  return {
+    sessionMinutes: strictest.restriction.sessionMinutes,
+    breakMinutes: Math.max(...limits.map((item) => item.restriction.breakMinutes)),
+    rule: strictest.rule,
+  }
+}
+
+/** 利用枠の状態から、現在休憩中ならその終了時刻を返す。 */
+export function getSessionBreakUntil(
+  group: Group,
+  entry: SessionLimitEntry | undefined,
+  now: Date,
+  global: GlobalSettings,
+): number | undefined {
+  if (!entry) return undefined
+  const config = getSessionLimitConfig(group, now, global)
+  if (!config) return undefined
+  const sessionEndsAt = entry.startedAt + config.sessionMinutes * 60_000
+  const breakEndsAt = sessionEndsAt + config.breakMinutes * 60_000
+  const nowMs = now.getTime()
+  return nowMs >= sessionEndsAt && nowMs < breakEndsAt ? breakEndsAt : undefined
 }
 
 /**
- * group が指定時刻・counter でハードブロック状態か。
- * アクティブ かつ（block は常に true / grace は消費秒 >= graceMinutes*60 / wait は false）。
+ * group がブロックされている理由と、それを起こしたルールを返す。
+ * 評価順（block → sessionLimit → dailyLimit）で最初に成立したものを返し、wait は含まない。
  */
-function isGroupBlocked(
+export function getBlockReason(
   group: Group,
   counter: UsageCounter | undefined,
   sessionEntry: SessionLimitEntry | undefined,
   now: Date,
   global: GlobalSettings,
-): boolean {
-  if (getActiveTimeRanges(group, now, global).length > 0) return true
-  if (!isRestrictionActiveNow(group, now, global)) return false
+): BlockReason | undefined {
+  const active = getActiveRules(group, now, global)
 
-  if (getSessionBreakUntil(group, sessionEntry, now, global) !== undefined) return true
-  if (!getRestrictions(group).some((restriction) => restriction.type === 'grace')) return false
+  const blockRule = active.find((rule) => rule.restriction.kind === 'block')
+  if (blockRule) return { kind: 'block', rule: blockRule }
 
-  const summary = getTimeLimitUsageSummary(group, counter, now, global)
-  return summary !== undefined && summary.remainingSec <= 0
+  const sessionConfig = getSessionLimitConfig(group, now, global)
+  const breakUntil = getSessionBreakUntil(group, sessionEntry, now, global)
+  if (sessionConfig && breakUntil !== undefined) {
+    return { kind: 'sessionLimit', rule: sessionConfig.rule, breakUntil }
+  }
+
+  const limitMinutes = minDailyLimitMinutes(active)
+  if (limitMinutes === undefined) return undefined
+  const dailyRule = active.find(
+    (rule) => rule.restriction.kind === 'dailyLimit' && rule.restriction.minutes === limitMinutes,
+  )
+  if (!dailyRule) return undefined
+  const summary = buildUsageSummary(
+    limitMinutes,
+    counter,
+    getLogicalDate(now, global.dailyResetHour).logicalDate,
+  )
+  return summary.remainingSec <= 0 ? { kind: 'dailyLimit', rule: dailyRule, summary } : undefined
+}
+
+/** ブロック理由から遷移先を返す。ルールが遷移先を持たない場合はブロックページ。 */
+export function getBlockDestination(reason: BlockReason): BlockDestination {
+  return reason.rule.destination ?? { type: 'blockedPage' }
 }
 
 /**
@@ -515,27 +529,21 @@ export function getGroupBlockStatus(
   global: GlobalSettings,
   sessionEntry: SessionLimitEntry | undefined = undefined,
 ): GroupBlockStatus {
-  const restrictions = group.disabled ? [] : getRestrictions(group)
-  const isActive = isRestrictionActiveNow(group, now, global)
-  const activeTimeRanges = getActiveTimeRanges(group, now, global)
-  const timeLimitSummary = getTimeLimitUsageSummary(group, counter, now, global)
-  const blockedByDailyLimit =
-    isActive && timeLimitSummary ? timeLimitSummary.remainingSec <= 0 : false
-  const sessionBreakUntil = getSessionBreakUntil(group, sessionEntry, now, global)
-  const waitSeconds = getEffectiveWaitSeconds(group, now, global)
-  const waitGrantMinutes = getEffectiveWaitGrantMinutes(group, now, global)
+  const rules = group.disabled ? [] : getRules(group)
+  const blockReason = getBlockReason(group, counter, sessionEntry, now, global)
 
   return {
-    restrictions,
-    isActive,
-    activeTimeRanges,
-    timeLimitSummary,
-    waitSeconds,
-    waitGrantMinutes,
-    blockedByTimeRange: activeTimeRanges.length > 0,
-    blockedByDailyLimit,
-    ...(sessionBreakUntil === undefined ? {} : { sessionBreakUntil }),
-    blocked: activeTimeRanges.length > 0 || blockedByDailyLimit || sessionBreakUntil !== undefined,
+    rules,
+    isActive: isRestrictionActiveNow(group, now, global),
+    activeTimeRanges: getActiveTimeRanges(group, now, global),
+    timeLimitSummary: getTimeLimitUsageSummary(group, counter, now, global),
+    waitSeconds: getEffectiveWaitSeconds(group, now, global),
+    waitGrantMinutes: getEffectiveWaitGrantMinutes(group, now, global),
+    blockedByTimeRange: blockReason?.kind === 'block',
+    blockedByDailyLimit: blockReason?.kind === 'dailyLimit',
+    ...(blockReason?.kind === 'sessionLimit' ? { sessionBreakUntil: blockReason.breakUntil } : {}),
+    ...(blockReason ? { blockReason } : {}),
+    blocked: blockReason !== undefined,
   }
 }
 
@@ -574,7 +582,7 @@ export function getMinimumRemainingTimeLimit(
   now: Date,
 ): MinimumRemainingTimeLimit | undefined {
   const targetGroupIds = new Set(getTargetGroupIds(settings, url))
-  const summaries = settings.groups
+  return settings.groups
     .filter((group) => targetGroupIds.has(group.id))
     .flatMap((group) => {
       const summary = getTimeLimitUsageSummary(
@@ -585,9 +593,7 @@ export function getMinimumRemainingTimeLimit(
       )
       return summary ? [{ group, summary }] : []
     })
-    .toSorted((a, b) => a.summary.remainingSec - b.summary.remainingSec)
-
-  return summaries[0]
+    .toSorted((a, b) => a.summary.remainingSec - b.summary.remainingSec)[0]
 }
 
 /**
@@ -638,14 +644,15 @@ export function evaluateUrl(
   const targetGroupIds = getTargetGroupIds(settings, url)
   const targetGroups = settings.groups.filter((group) => targetGroupIds.includes(group.id))
   const blockedGroupIds = targetGroups
-    .filter((group) =>
-      isGroupBlocked(
-        group,
-        counters.counters[group.id],
-        sessionLimitState.sessionLimitState[group.id],
-        now,
-        settings.global,
-      ),
+    .filter(
+      (group) =>
+        getBlockReason(
+          group,
+          counters.counters[group.id],
+          sessionLimitState.sessionLimitState[group.id],
+          now,
+          settings.global,
+        ) !== undefined,
     )
     .map((group) => group.id)
 
@@ -677,14 +684,12 @@ export function evaluateEffectiveUrl(
     evaluateUrl(preferred, counters, url, now, sessionLimitState),
   ]
   const unique = (values: string[]): string[] => [...new Set(values)]
-  const targetGroupIds = unique(evaluations.flatMap((item) => item.targetGroupIds))
   const blockedGroupIds = unique(evaluations.flatMap((item) => item.blockedGroupIds))
-  const delayedGroupIds = unique(evaluations.flatMap((item) => item.delayedGroupIds))
   return {
     blocked: blockedGroupIds.length > 0,
-    targetGroupIds,
+    targetGroupIds: unique(evaluations.flatMap((item) => item.targetGroupIds)),
     blockedGroupIds,
-    delayedGroupIds,
+    delayedGroupIds: unique(evaluations.flatMap((item) => item.delayedGroupIds)),
   }
 }
 
@@ -707,7 +712,6 @@ export function getEffectiveGroupBlockStatus(
     return [
       {
         group,
-        global: settings.global,
         status: getGroupBlockStatus(
           group,
           counter,
@@ -725,49 +729,51 @@ export function getEffectiveGroupBlockStatus(
       ) === index,
   )
   if (uniqueVariants.length === 0) return undefined
+
   const preferredGroup = preferred.groups.find((group) => group.id === groupId)
-  const summaries = uniqueVariants
-    .flatMap((item) => (item.status.timeLimitSummary ? [item.status.timeLimitSummary] : []))
-    .toSorted((a, b) => a.remainingSec - b.remainingSec)
-  const waitSeconds = uniqueVariants
-    .flatMap((item) => (item.status.waitSeconds === undefined ? [] : [item.status.waitSeconds]))
-    .toSorted((a, b) => b - a)[0]
-  const waitGrantMinutes = uniqueVariants
-    .flatMap((item) =>
-      item.status.waitGrantMinutes === undefined ? [] : [item.status.waitGrantMinutes],
-    )
-    .toSorted((a, b) => b - a)[0]
   const uniqueObjects = <T>(values: T[]): T[] => [
     ...new Map(values.map((value) => [JSON.stringify(value), value])).values(),
   ]
-  const restrictions = uniqueObjects(uniqueVariants.flatMap((item) => item.status.restrictions))
-  const activeTimeRanges = uniqueObjects(
-    uniqueVariants.flatMap((item) => item.status.activeTimeRanges),
-  )
+  const maxOf = (values: (number | undefined)[]): number | undefined =>
+    values.filter((value): value is number => value !== undefined).toSorted((a, b) => b - a)[0]
+
+  const summaries = uniqueVariants
+    .flatMap((item) => (item.status.timeLimitSummary ? [item.status.timeLimitSummary] : []))
+    .toSorted((a, b) => a.remainingSec - b.remainingSec)
   const blockedByTimeRange = uniqueVariants.some((item) => item.status.blockedByTimeRange)
   const blockedByDailyLimit = uniqueVariants.some((item) => item.status.blockedByDailyLimit)
-  const sessionBreakUntil = uniqueVariants
-    .flatMap((item) => (item.status.sessionBreakUntil ? [item.status.sessionBreakUntil] : []))
-    .toSorted((a, b) => b - a)[0]
+  const sessionBreakUntil = maxOf(uniqueVariants.map((item) => item.status.sessionBreakUntil))
+  // 評価順で最も強い理由を採用する。
+  const blockReason = uniqueVariants
+    .flatMap((item) => (item.status.blockReason ? [item.status.blockReason] : []))
+    .toSorted(
+      (a, b) =>
+        RULE_KIND_ORDER.indexOf(a.rule.restriction.kind) -
+        RULE_KIND_ORDER.indexOf(b.rule.restriction.kind),
+    )[0]
+
   return {
     group: preferredGroup ?? uniqueVariants[0]!.group,
     status: {
-      restrictions,
+      rules: uniqueObjects(uniqueVariants.flatMap((item) => item.status.rules)),
       isActive: uniqueVariants.some((item) => item.status.isActive),
-      activeTimeRanges,
+      activeTimeRanges: uniqueObjects(
+        uniqueVariants.flatMap((item) => item.status.activeTimeRanges),
+      ),
       timeLimitSummary: summaries[0],
-      waitSeconds,
-      waitGrantMinutes,
+      waitSeconds: maxOf(uniqueVariants.map((item) => item.status.waitSeconds)),
+      waitGrantMinutes: maxOf(uniqueVariants.map((item) => item.status.waitGrantMinutes)),
       blockedByTimeRange,
       blockedByDailyLimit,
       ...(sessionBreakUntil === undefined ? {} : { sessionBreakUntil }),
+      ...(blockReason ? { blockReason } : {}),
       blocked: blockedByTimeRange || blockedByDailyLimit || sessionBreakUntil !== undefined,
     },
   }
 }
 
 /**
- * 基準設定または最新設定で対象かつアクティブなグループへ、共有 counter を一度だけ加算する。
+ * 基準設定または最新設定で対象かつ dailyLimit がアクティブなグループへ、共有 counter を一度だけ加算する。
  */
 export function incrementEffectiveCounters(
   baseline: Settings,
@@ -790,7 +796,7 @@ export function incrementEffectiveCounters(
   for (const item of settings) {
     const targetIds = new Set(getTargetGroupIds(item, url))
     for (const group of item.groups) {
-      if (targetIds.has(group.id) && isRestrictionActiveNow(group, now, item.global)) {
+      if (targetIds.has(group.id) && hasActiveDailyLimit(group, now, item.global)) {
         activeIds.add(group.id)
       }
     }
@@ -803,21 +809,32 @@ export function incrementEffectiveCounters(
 }
 
 /**
- * 一時停止中のグループを、URL 評価結果のブロック対象から除外する。
+ * dailyLimit ルールが現在アクティブなら true を返す。
+ * 閲覧秒数は上限を持つルールが有効な時間帯だけ加算する。
+ */
+export function hasActiveDailyLimit(group: Group, now: Date, global: GlobalSettings): boolean {
+  return getActiveRules(group, now, global).some((rule) => rule.restriction.kind === 'dailyLimit')
+}
+
+/**
+ * 一時停止中のグループを、URL 評価結果のブロック対象と待機対象の両方から除外する。
+ * Pause は「そのグループを一時的に無効にする」操作なので、待機ゲートも解除する。
  */
 export function applyGroupPauseState(
   evaluation: UrlEvaluation,
   groupPauseState: GroupPauseState,
   now = Date.now(),
 ): UrlEvaluation {
-  const blockedGroupIds = evaluation.blockedGroupIds.filter((groupId) => {
+  const isPaused = (groupId: string): boolean => {
     const pausedUntil = groupPauseState.groupPauseState[groupId]?.pausedUntil
-    return !(typeof pausedUntil === 'number' && pausedUntil > now)
-  })
+    return typeof pausedUntil === 'number' && pausedUntil > now
+  }
+  const blockedGroupIds = evaluation.blockedGroupIds.filter((groupId) => !isPaused(groupId))
   return {
     ...evaluation,
     blocked: blockedGroupIds.length > 0,
     blockedGroupIds,
+    delayedGroupIds: evaluation.delayedGroupIds.filter((groupId) => !isPaused(groupId)),
   }
 }
 
@@ -862,8 +879,7 @@ export function normalizeCounters(
 }
 
 /**
- * URL に該当し、かつ現在制限がアクティブな group counter にだけ秒数を加算する。
- * 制限なしグループや、制限はあるが現在ウィンドウ外のグループは加算されない。
+ * URL に該当し、かつ dailyLimit ルールが現在アクティブな group counter にだけ秒数を加算する。
  */
 export function incrementCounters(
   settings: Settings,
@@ -876,7 +892,7 @@ export function incrementCounters(
   const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
   for (const groupId of getTargetGroupIds(settings, url)) {
     const group = settings.groups.find((g) => g.id === groupId)
-    if (!group || !isRestrictionActiveNow(group, now, settings.global)) continue
+    if (!group || !hasActiveDailyLimit(group, now, settings.global)) continue
     const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
     normalized.counters[groupId] = {
       logicalDate,

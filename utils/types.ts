@@ -42,36 +42,48 @@ export type ScheduleRuleCondition =
   | { type: 'monthly'; daysOfMonth: number[] }
   | { type: 'period'; start: MonthDay; end: MonthDay }
 
-/**
- * グループに設定できる制限の種別。
- * - `'block'`: 有効ウィンドウ中は常にアクセスを禁止し、拡張機能のブロックページを表示する。
- * - `'redirect'`: 有効ウィンドウ中は常にアクセスを禁止し、指定 URL へ遷移させる。
- * - `'grace'`: 有効ウィンドウ中の閲覧秒数を積算し、1日の上限分数に達するとブロックする。
- * - `'wait'`: 有効ウィンドウ中、アクセス前に待機ゲート（カウントダウン）を課す。
- */
-export type RestrictionType = 'block' | 'redirect' | 'grace' | 'wait' | 'sessionLimit'
-
 /** 制限を適用する時間条件。`always` は明示的な常時適用ウィンドウ。 */
 export type TimeWindow =
   | { type: 'always' }
   | { type: 'scheduled'; condition: ScheduleRuleCondition; timeRanges: TimeRange[] }
 
-/** 時間条件から独立して設定する制限内容。 */
-export interface Restriction {
-  /** 制限種別。 */
-  type: RestrictionType
-  /** `type === 'grace'` のときの1日の閲覧上限分数。 */
-  graceMinutes?: number
-  /** `type === 'wait'` のときのアクセス前待機秒数。 */
-  waitSeconds?: number
-  /** `type === 'wait'` のとき、通過後にアクセスを許可する分数。1以上の整数。 */
-  waitGrantMinutes?: number
-  /** `type === 'redirect'` のときの遷移先 URL。 */
-  redirectUrl?: string
-  /** `type === 'sessionLimit'` のとき、最初のアクセスから許可する分数。 */
-  sessionMinutes?: number
-  /** `type === 'sessionLimit'` のとき、利用枠後にブロックする休憩分数。 */
-  breakMinutes?: number
+/**
+ * 制限が発動してアクセスを禁止するときの遷移先。
+ * `'blockedPage'` は拡張機能のブロックページ、`'redirect'` は指定 URL。
+ */
+export type BlockDestination = { type: 'blockedPage' } | { type: 'redirect'; url: string }
+
+/**
+ * Rule が課す制限の種別。遷移先は含まない。
+ * 評価はこの順（`RULE_KIND_ORDER`）で行い、最初に成立したものが勝つ。
+ * - `'block'`: 有効ウィンドウ中は常にアクセスを禁止する。
+ * - `'sessionLimit'`: 最初のアクセスから一定時間だけ許可し、その後は休憩としてブロックする。
+ * - `'dailyLimit'`: 有効ウィンドウ中の閲覧秒数を積算し、1日の上限分数に達するとブロックする。
+ * - `'wait'`: アクセス前に待機ゲート（カウントダウン）を課す。ブロックはしない。
+ */
+export type RuleKind = 'block' | 'sessionLimit' | 'dailyLimit' | 'wait'
+
+/**
+ * Rule が課す制限内容。遷移先は含まず、種別ごとに必要な値だけを持つ。
+ */
+export type RuleRestriction =
+  | { kind: 'block' }
+  | { kind: 'sessionLimit'; sessionMinutes: number; breakMinutes: number }
+  | { kind: 'dailyLimit'; minutes: number }
+  | { kind: 'wait'; seconds: number; grantMinutes: number }
+
+/**
+ * 「いつ」と「何を」を1対1で束ねた制限ルール。
+ */
+export interface Rule {
+  /** ルールの一意識別子。 */
+  id: string
+  /** このルールを適用する時間条件。 */
+  window: TimeWindow
+  /** このルールが課す制限内容。 */
+  restriction: RuleRestriction
+  /** アクセス禁止が発動したときの遷移先。`kind === 'wait'` では使わない。 */
+  destination?: BlockDestination
 }
 
 /**
@@ -80,13 +92,6 @@ export interface Restriction {
  * - `'whitelist'`: patterns にマッチしない URL を制限対象とする。
  */
 export type GroupMode = 'blacklist' | 'whitelist'
-
-/**
- * ブロック発生時の遷移先。
- * - `'redirect'`: ユーザー指定 URL へ遷移する（既定）。
- * - `'blockedPage'`: 拡張機能が用意するブロックページを表示する。
- */
-export type BlockAction = 'redirect' | 'blockedPage'
 
 /**
  * ブロック対象グループ。
@@ -106,30 +111,23 @@ export interface Group {
   lockMode: boolean
   /** URL pattern の配列。裸ドメインまたは `new RegExp()` で構文チェックを通る正規表現を指定できる。 */
   patterns: string[]
-  /** ブロック発生時のこのグループの遷移先種別。 */
-  blockAction: BlockAction
-  /** このグループで redirect を選んだ場合の遷移先 URL。 */
-  redirectUrl: string
   /** 一時停止を開始するまでの待機秒数。0以上の整数。 */
   pauseWaitSeconds?: number
   /** 一時停止を継続する分数。1以上の整数。 */
   pauseDurationMinutes?: number
   /** false の場合、このグループの一時停止（Pause）操作を禁止する。既定は true。 */
   pauseAllowed: boolean
-  /** このグループに設定する時間ウィンドウの配列。 */
-  timeWindows?: TimeWindow[]
-  /** このグループに設定する制限の配列。 */
-  restrictions?: Restriction[]
+  /**
+   * このグループに設定する制限ルールの配列。
+   * `loadSettings` が常に `RULE_KIND_ORDER` の評価順へ並べ替えて返す。
+   */
+  rules: Rule[]
 }
 
 /**
  * 拡張機能全体のグローバル設定。
  */
 export interface GlobalSettings {
-  /** ブロック発生時の遷移先種別。 */
-  blockAction: BlockAction
-  /** 制限超過時のリダイレクト先 URL。 */
-  redirectUrl: string
   /** 論理日の境界となる時刻（"HH:MM"）。 */
   dailyResetHour: HHMM
   /** 残り閲覧時間通知を有効にするか。 */

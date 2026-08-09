@@ -20,11 +20,7 @@ async function saveWaitGateSettings(
         chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
       }
       await chromeApi.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: `${settings.origin}/redirect`,
-          dailyResetHour: '00:00',
-        },
+        global: { dailyResetHour: '00:00' },
         groups: [
           {
             id: 'wait-local',
@@ -33,14 +29,16 @@ async function saveWaitGateSettings(
             disabled: false,
             lockMode: false,
             patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
-            blockAction: 'blockedPage',
-            redirectUrl: `${settings.origin}/redirect`,
-            timeWindows: [{ type: 'always' }],
-            restrictions: [
+            pauseAllowed: true,
+            rules: [
               {
-                type: 'wait',
-                waitSeconds: settings.delaySeconds,
-                waitGrantMinutes: settings.grantMinutes,
+                id: 'wait-rule',
+                window: { type: 'always' },
+                restriction: {
+                  kind: 'wait',
+                  seconds: settings.delaySeconds,
+                  grantMinutes: settings.grantMinutes,
+                },
               },
             ],
           },
@@ -103,6 +101,72 @@ test.describe('Wait gate', () => {
       // 直接遷移し直しても待機ページへ戻される
       await gotoPossiblyRedirected(page, `${server.origin}/target`)
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+    } finally {
+      await server.close()
+    }
+  })
+
+  test('通過後の許可期間が切れると再び待機ページになる', async ({ page, context, extensionId }) => {
+    const server = await startTestServer()
+    try {
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+      // 許可期間を 1 分にして、期限切れを storage 側で早送りする。
+      await saveWaitGateSettings(serviceWorker, server.origin, 1, 1)
+      await waitForEffectiveSettings(serviceWorker)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+
+      const continueButton = page.getByRole('button', { name: 'Continue' })
+      await expect(continueButton).toBeEnabled({ timeout: 5000 })
+      await continueButton.click()
+      await expect(page).toHaveURL(`${server.origin}/gated`)
+
+      // 許可期間中は待機ページへ戻らない。
+      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
+      await expect(page).toHaveURL(`${server.origin}/gated`)
+
+      // 許可期間を過去にすると、次のアクセスで再び待機ページになる。
+      await serviceWorker.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.local.set({
+          delayGrantState: { 'wait-local': { grantedUntil: Date.now() - 1_000 } },
+        })
+      })
+
+      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+    } finally {
+      await server.close()
+    }
+  })
+
+  test('Pause 中は待機ページを出さず素通しする', async ({ page, context, extensionId }) => {
+    const server = await startTestServer()
+    try {
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+      await saveWaitGateSettings(serviceWorker, server.origin, 30)
+      await waitForEffectiveSettings(serviceWorker)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+
+      await serviceWorker.evaluate(async () => {
+        const chromeApi = globalThis as unknown as {
+          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
+        }
+        await chromeApi.chrome.storage.local.set({
+          groupPauseState: { 'wait-local': { pausedUntil: Date.now() + 5 * 60_000 } },
+        })
+      })
+
+      // Pause は Block だけでなく待機ゲートも解除する。
+      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
+      await expect(page).toHaveURL(`${server.origin}/gated`)
     } finally {
       await server.close()
     }

@@ -9,11 +9,11 @@ import {
   getEffectiveGroupBlockStatus,
   getRedirectUrls,
   getTargetGroupIds,
-  restrictionMatchesToday,
   shouldSkipUrl,
   type GroupBlockStatus,
   type TimeLimitUsageSummary,
 } from '@/utils/blocking'
+import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
 import { loadGroupPauseState, loadPageState } from '@/utils/storage'
 import { useNowTimer } from '@/utils/useNowTimer'
@@ -27,6 +27,8 @@ interface DisplayGroup {
   status: GroupBlockStatus
   /** 一時停止状態の表示情報。 */
   pauseState: GroupPauseDisplayState
+  /** 現在時刻での合成結果。Pause 中は一時停止状態だけを示す。 */
+  current: CurrentStateSummary
 }
 
 const settings = ref<Settings | undefined>()
@@ -79,10 +81,32 @@ const displayGroups = computed<DisplayGroup[]>(() => {
       groupPauseState.value.groupPauseState[group.id],
       now.value,
     )
-    const hasDisplayState = status.restrictions.length > 0 || pauseState.kind !== 'none'
-    return hasDisplayState ? [{ group: displayGroup, status, pauseState }] : []
+    const hasDisplayState = status.rules.length > 0 || pauseState.kind !== 'none'
+    if (!hasDisplayState) return []
+    // Pause は Block も Wait も解除するので、ルールの説明ではなく一時停止状態を出す。
+    const current: CurrentStateSummary =
+      pauseState.kind === 'paused'
+        ? { kind: 'free', headline: pauseState.label, lines: ['Paused — no rule is enforced.'] }
+        : describeCurrentState(
+            status.rules,
+            now.value,
+            settings.value!.global,
+            status.timeLimitSummary?.consumedSec ?? 0,
+          )
+    return [{ group: displayGroup, status, pauseState, current }]
   })
 })
+
+/** 現在状態のバッジ配色を返す。 */
+function currentBadgeKind(
+  current: CurrentStateSummary,
+  pauseState: GroupPauseDisplayState,
+): 'danger' | 'warning' | 'muted' {
+  if (pauseState.kind === 'paused') return 'warning'
+  if (current.kind === 'blocked') return 'danger'
+  if (current.kind === 'gated' || current.kind === 'limited') return 'warning'
+  return 'muted'
+}
 
 /**
  * group が現在ブロック表示を出すべきなら true を返す。
@@ -198,7 +222,7 @@ onMounted(async () => {
 
       <ul v-else aria-label="Active limits for this page" class="space-y-2">
         <li
-          v-for="{ group, status, pauseState } in displayGroups"
+          v-for="{ group, status, pauseState, current } in displayGroups"
           :key="group.id"
           class="space-y-2 rounded-lg border border-border bg-surface p-3"
         >
@@ -212,34 +236,29 @@ onMounted(async () => {
           </div>
 
           <div class="flex flex-wrap gap-1.5">
-            <StatusBadge v-if="status.blockedByTimeRange" kind="danger">
-              Blocked hours active
+            <StatusBadge :kind="currentBadgeKind(current, pauseState)">
+              {{ current.headline }}
             </StatusBadge>
             <StatusBadge
-              v-else-if="
-                getRestrictions(group).some((restriction) => restriction.type === 'block') &&
-                restrictionMatchesToday(group, now, settings!.global)
-              "
+              v-if="pauseState.kind === 'waiting' || pauseState.kind === 'ready'"
               kind="muted"
-            >
-              Blocked hours scheduled
-            </StatusBadge>
-            <StatusBadge v-if="status.blockedByDailyLimit" kind="danger">
-              Daily limit reached
-            </StatusBadge>
-            <StatusBadge
-              v-if="pauseState.kind !== 'none'"
-              :kind="pauseState.kind === 'paused' ? 'warning' : 'muted'"
             >
               {{ pauseState.label }}
             </StatusBadge>
-            <StatusBadge v-if="status.waitSeconds !== undefined" kind="muted">
-              Wait {{ status.waitSeconds }}s before access
-            </StatusBadge>
           </div>
 
+          <ul v-if="current.lines.length > 0" class="space-y-0.5">
+            <li
+              v-for="line in current.lines"
+              :key="line"
+              class="text-body-sm text-secondary-foreground"
+            >
+              {{ line }}
+            </li>
+          </ul>
+
           <TimeLimitMeter
-            v-if="status.timeLimitSummary"
+            v-if="status.timeLimitSummary && pauseState.kind !== 'paused'"
             :summary="status.timeLimitSummary"
             :remaining-sec="realtimeRemainingSeconds(status.timeLimitSummary)"
             :aria-label="`Remaining time for ${group.name}`"

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { buildRemainingTimeNotificationPlans } from '../utils/notifications'
 import type { Group, Settings, UsageCountersState, UsageNotificationEntry } from '../utils/types'
-import { dailyRestriction } from './helpers'
+import { dailyRule } from './helpers'
 
 const NOW = new Date('2026-05-06T12:00:00+09:00')
 const LOGICAL_DATE = '2026-05-06'
@@ -18,10 +18,8 @@ function group(overrides: Partial<Group> = {}): Group {
     disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
-    blockAction: 'redirect',
-    redirectUrl: 'https://blocked.test/',
     pauseAllowed: true,
-    ...dailyRestriction('grace', { graceMinutes: 60 }),
+    ...dailyRule({ kind: 'dailyLimit', minutes: 60 }),
     ...overrides,
   }
 }
@@ -33,8 +31,6 @@ function settings(groups: Group[], overrides: Partial<Settings['global']> = {}):
   return {
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
-      blockAction: 'redirect',
-      redirectUrl: 'https://blocked.test/',
       dailyResetHour: '00:00',
       notificationThresholdMinutes: 5,
       ...overrides,

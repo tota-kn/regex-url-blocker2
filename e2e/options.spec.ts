@@ -80,8 +80,7 @@ async function createBlankGroup(page: Page): Promise<void> {
 async function addRequiredGroupSections(page: Page, pattern = 'example.com'): Promise<void> {
   await page.getByRole('button', { name: 'Add URL pattern' }).click()
   await page.getByRole('textbox', { name: 'URL pattern' }).last().fill(pattern)
-  await page.getByRole('button', { name: 'Add time window' }).last().click()
-  await page.getByRole('button', { name: 'Add restriction' }).last().click()
+  await page.getByRole('button', { name: 'Add rule' }).last().click()
 }
 
 /**
@@ -172,7 +171,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('heading', { name: 'Groups' })).toBeVisible()
     await expect(page.getByText('0 groups')).toBeVisible()
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await expect(page.getByLabel('Rule 1 destination URL')).not.toBeVisible()
     await expect(page.getByLabel('Start a new rule day at this time')).not.toBeVisible()
   })
 
@@ -189,7 +188,7 @@ test.describe('Options 画面', () => {
       'page',
     )
     await expect(page.getByRole('heading', { name: 'General settings' })).toBeVisible()
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
+    await expect(page.getByLabel('Rule 1 destination URL')).not.toBeVisible()
     await expect(page.getByLabel('Start a new rule day at this time')).toHaveValue('03:00')
     for (const title of [
       'Start a new rule day at this time',
@@ -743,8 +742,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Exported')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGeneralSettings(page)
@@ -757,7 +755,7 @@ test.describe('Options 画面', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(11)
+    expect(exported.version).toBe(12)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })
@@ -814,7 +812,7 @@ test.describe('Options 画面', () => {
       .last()
     await expect(urlPatternsSection.getByText('imported\\.example', { exact: true })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
-    await expect(page.getByLabel('Restriction 1')).toContainText('15 min/day')
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 15 min per day')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
 
     const serviceWorker =
@@ -953,8 +951,8 @@ test.describe('Options 画面', () => {
       page.getByText('Cannot change while any group has Lock Mode enabled or pending.'),
     ).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Time window 1').first()).toContainText('Always')
-    await expect(page.getByLabel('Restriction 1').first()).toContainText('30 min/day')
+    await expect(page.getByLabel('Rule 1').first()).toContainText('Always')
+    await expect(page.getByLabel('Rule 1').first()).toContainText('Allow 30 min per day')
     await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(1)
     await expect(
@@ -988,7 +986,7 @@ test.describe('Options 画面', () => {
       activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
     ).not.toBeVisible()
     await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Restrictions').first()).toBeVisible()
+    await expect(activeSettingsDialog.getByText('Rules').first()).toBeVisible()
     await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
     await expect(
       activeSettingsDialog.getByText('Delay relaxed restrictions until next rule day').first(),
@@ -997,22 +995,20 @@ test.describe('Options 画面', () => {
       activeSettingsDialog.getByText('active\\.example', { exact: true }).first(),
     ).toBeVisible()
     await expect(activeSettingsDialog.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
-    await expect(activeSettingsDialog.getByLabel('Time window 1').first()).toContainText('Always')
-    await expect(activeSettingsDialog.getByLabel('Restriction 1').first()).toContainText(
-      '30 min/day',
+    await expect(activeSettingsDialog.getByLabel('Rule 1').first()).toContainText('Always')
+    await expect(activeSettingsDialog.getByLabel('Rule 1').first()).toContainText(
+      'Allow 30 min per day',
     )
     const retainedSettings = activeSettingsDialog
       .locator('section')
       .filter({ hasText: 'Earlier restrictions still active' })
-    await expect(retainedSettings.getByLabel('Time window 1')).toContainText('09:00-17:00')
-    await expect(retainedSettings.getByLabel('Restriction 2')).toContainText('10 min/day')
+    await expect(retainedSettings.getByLabel('Rule 1')).toContainText('09:00-17:00')
+    // 旧形式は timeWindows × restrictions の直積で移行されるため、行数ではなく内容で確認する。
+    await expect(retainedSettings).toContainText('Allow 10 min per day')
     const headerBox = await activeSettingsDialog
       .locator('[aria-label="Active settings header"]')
       .boundingBox()
-    const firstRuleBox = await activeSettingsDialog
-      .getByLabel('Time window 1')
-      .first()
-      .boundingBox()
+    const firstRuleBox = await activeSettingsDialog.getByLabel('Rule 1').first().boundingBox()
     expect(headerBox).not.toBeNull()
     expect(firstRuleBox).not.toBeNull()
     expect(firstRuleBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
@@ -1282,8 +1278,8 @@ test.describe('Options 画面', () => {
       await expect(patternInputs.nth(index)).toHaveValue(pattern)
     }
 
-    await expect(page.getByLabel('Time window type')).toHaveValue('always')
-    await expect(page.getByLabel('Daily limit minutes per day')).toHaveValue('15')
+    await expect(page.getByLabel('Rule 1 when')).toHaveValue('always')
+    await expect(page.getByLabel('Rule 1 daily limit minutes')).toHaveValue('15')
   })
 
   test('Video 30 min/day テンプレートから動画パターンと全曜日30分上限のグループを作成できる', async ({
@@ -1310,8 +1306,8 @@ test.describe('Options 画面', () => {
       await expect(patternInputs.nth(index)).toHaveValue(pattern)
     }
 
-    await expect(page.getByLabel('Time window type')).toHaveValue('always')
-    await expect(page.getByLabel('Daily limit minutes per day')).toHaveValue('30')
+    await expect(page.getByLabel('Rule 1 when')).toHaveValue('always')
+    await expect(page.getByLabel('Rule 1 daily limit minutes')).toHaveValue('30')
   })
 
   test('Work hours focus テンプレートから平日日中ブロックのグループを作成できる', async ({
@@ -1323,7 +1319,7 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add group' }).click()
     await page.getByRole('button', { name: 'Create group from work hours focus template' }).click()
 
-    await expect(page.getByLabel('Time window type')).toHaveValue('weekly')
+    await expect(page.getByLabel('Rule 1 when')).toHaveValue('weekly')
     await expect(page.getByLabel('Active time ranges')).toHaveValue('09:00-18:00')
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
       await expect(page.getByRole('checkbox', { name: day })).toBeChecked()
@@ -1335,11 +1331,11 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Save group' }).click()
-    await expect(page.getByLabel('Time window 1')).toContainText('Weekly Mon, Tue, Wed, Thu, Fri')
-    await expect(page.getByLabel('Time window 1')).toContainText('09:00-18:00')
+    await expect(page.getByLabel('Rule 1')).toContainText('Weekly Mon, Tue, Wed, Thu, Fri')
+    await expect(page.getByLabel('Rule 1')).toContainText('09:00-18:00')
   })
 
-  test('Options disclosure には高度な設定だけを表示し、Redirect は Restriction 種別で選ぶ', async ({
+  test('Options disclosure には高度な設定だけを表示し、遷移先はルール行で選ぶ', async ({
     page,
     extensionId,
   }) => {
@@ -1359,14 +1355,14 @@ test.describe('Options 画面', () => {
       page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day Off' }),
     ).not.toBeVisible()
 
-    // Redirect は Restriction の種別として選び、その場で URL を入力する
-    await expect(page.getByLabel('Redirect URL')).not.toBeVisible()
-    await page.getByRole('button', { name: 'Add restriction' }).last().click()
-    await page.getByLabel('Restriction type').last().selectOption('redirect')
-    await expect(page.getByLabel('Redirect URL')).toBeVisible()
+    // 遷移先はルール行の中で選び、URL はその場で入力する
+    await expect(page.getByLabel('Rule 1 destination URL')).not.toBeVisible()
+    await page.getByRole('button', { name: 'Add rule' }).last().click()
+    await expect(page.getByLabel('Rule 1 destination')).toHaveValue('blockedPage')
+    await page.getByLabel('Rule 1 destination').selectOption('redirect')
+    await expect(page.getByLabel('Rule 1 destination URL')).toBeVisible()
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
 
     await optionsButton.click()
     await expect(optionsButton).toHaveAttribute('aria-expanded', 'true')
@@ -1483,7 +1479,7 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('button', { name: 'Delete pattern' })).toBeVisible()
   })
 
-  test('空の各ルールセクションでは空状態を表示せず、統一された追加ボタンを表示する', async ({
+  test('空の各セクションでは空状態を表示せず、統一された追加ボタンを表示する', async ({
     page,
     extensionId,
   }) => {
@@ -1494,19 +1490,16 @@ test.describe('Options 画面', () => {
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: 'URL patterns' }) })
       .last()
-    const restrictionSection = page
+    const rulesSection = page
       .locator('section')
-      .filter({ has: page.getByRole('heading', { name: 'Time windows' }) })
+      .filter({ has: page.getByRole('heading', { name: 'Rules' }) })
       .last()
     const addButtons = [
       urlPatternsSection.getByRole('button', { name: 'Add URL pattern' }),
-      restrictionSection.getByRole('button', { name: 'Add time window' }),
-      restrictionSection.getByRole('button', { name: 'Add restriction' }),
+      rulesSection.getByRole('button', { name: 'Add rule' }),
     ]
 
     await expect(page.getByLabel('No URL patterns')).toHaveCount(0)
-    await expect(page.getByLabel('No time windows')).toHaveCount(0)
-    await expect(page.getByLabel('No restrictions')).toHaveCount(0)
 
     for (const addButton of addButtons) {
       await expect(addButton).toBeVisible()
@@ -1514,27 +1507,17 @@ test.describe('Options 画面', () => {
     }
 
     await expect(addButtons[0]).toHaveText('URL pattern')
-    await expect(addButtons[1]).toHaveText('Time window')
-    await expect(addButtons[2]).toHaveText('Restriction')
+    await expect(addButtons[1]).toHaveText('Rule')
 
-    const [
-      patternsHeadingBox,
-      patternButtonBox,
-      timeWindowsHeadingBox,
-      timeWindowButtonBox,
-      restrictionsHeadingBox,
-      restrictionButtonBox,
-    ] = await Promise.all([
-      urlPatternsSection.getByRole('heading', { name: 'URL patterns' }).boundingBox(),
-      addButtons[0].boundingBox(),
-      restrictionSection.getByRole('heading', { name: 'Time windows' }).boundingBox(),
-      addButtons[1].boundingBox(),
-      restrictionSection.getByRole('heading', { name: 'Restrictions' }).boundingBox(),
-      addButtons[2].boundingBox(),
-    ])
+    const [patternsHeadingBox, patternButtonBox, rulesHeadingBox, ruleButtonBox] =
+      await Promise.all([
+        urlPatternsSection.getByRole('heading', { name: 'URL patterns' }).boundingBox(),
+        addButtons[0].boundingBox(),
+        rulesSection.getByRole('heading', { name: 'Rules' }).boundingBox(),
+        addButtons[1].boundingBox(),
+      ])
     expect(patternButtonBox!.y).toBeGreaterThan(patternsHeadingBox!.y)
-    expect(timeWindowButtonBox!.y).toBeGreaterThan(timeWindowsHeadingBox!.y)
-    expect(restrictionButtonBox!.y).toBeGreaterThan(restrictionsHeadingBox!.y)
+    expect(ruleButtonBox!.y).toBeGreaterThan(rulesHeadingBox!.y)
   })
 
   test('必須の設定セクションが空のグループは保存できない', async ({ page, extensionId }) => {
@@ -1544,22 +1527,18 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Incomplete')
 
     await expect(page.getByText('Add at least one URL pattern.')).toHaveCount(0)
-    await expect(page.getByText('Add at least one time window.')).toHaveCount(0)
-    await expect(page.getByText('Add at least one restriction.')).toHaveCount(0)
+    await expect(page.getByText('Add at least one rule.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expect(page.getByText('Add at least one URL pattern.')).toBeVisible()
-    await expect(page.getByText('Add at least one time window.')).toBeVisible()
-    await expect(page.getByText('Add at least one restriction.')).toBeVisible()
+    await expect(page.getByText('Add at least one rule.')).toBeVisible()
 
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
 
     await expect(page.getByText('Add at least one URL pattern.')).toHaveCount(0)
-    await expect(page.getByText('Add at least one time window.')).toHaveCount(0)
-    await expect(page.getByText('Add at least one restriction.')).toHaveCount(0)
+    await expect(page.getByText('Add at least one rule.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
   })
 
@@ -1570,15 +1549,14 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('textbox', { name: 'URL pattern' }).blur()
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByLabel('Time window type').selectOption('daily')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').last().selectOption('grace')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 when').selectOption('daily')
+    await page.getByLabel('Rule 1 restriction').last().selectOption('dailyLimit')
     const groupInputs = [
       page.getByLabel('Name'),
       page.getByRole('textbox', { name: 'URL pattern' }),
       page.getByLabel('Active time ranges'),
-      page.getByLabel('Daily limit minutes per day'),
+      page.getByLabel('Rule 1 daily limit minutes'),
     ]
 
     for (const input of groupInputs) {
@@ -1607,8 +1585,7 @@ test.describe('Options 画面', () => {
     await page
       .getByRole('textbox', { name: 'URL pattern' })
       .fill('^https?://(www\\.)?twitter\\.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
@@ -1645,21 +1622,20 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Wait gate')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').selectOption('wait')
-    await page.getByLabel('Wait seconds before access').fill('30')
-    await page.getByLabel('Minutes allowed after wait').fill('25')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 restriction').selectOption('wait')
+    await page.getByLabel('Rule 1 wait seconds').fill('30')
+    await page.getByLabel('Rule 1 grant minutes').fill('25')
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec, allow 25 min')
+    await expect(page.getByLabel('Rule 1')).toContainText('Wait 30 sec, then allow 25 min')
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction 1')).toContainText('Wait 30 sec, allow 25 min')
+    await expect(page.getByLabel('Rule 1')).toContainText('Wait 30 sec, then allow 25 min')
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByLabel('Wait seconds before access')).toHaveValue('30')
-    await expect(page.getByLabel('Minutes allowed after wait')).toHaveValue('25')
+    await expect(page.getByLabel('Rule 1 wait seconds')).toHaveValue('30')
+    await expect(page.getByLabel('Rule 1 grant minutes')).toHaveValue('25')
   })
 
   test('Wait の通過後許可期間は1分以上を必須にする', async ({ page, extensionId }) => {
@@ -1667,9 +1643,9 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('Invalid wait grant')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').selectOption('wait')
-    await page.getByLabel('Minutes allowed after wait').fill('0')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 restriction').selectOption('wait')
+    await page.getByLabel('Rule 1 grant minutes').fill('0')
 
     await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
@@ -1687,41 +1663,98 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Session break')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').selectOption('sessionLimit')
-    await page.getByLabel('Session limit minutes').fill('10')
-    await page.getByLabel('Session break minutes').fill('30')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 restriction').selectOption('sessionLimit')
+    await page.getByLabel('Rule 1 session minutes').fill('10')
+    await page.getByLabel('Rule 1 break minutes').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    await expect(page.getByLabel('Restriction 1')).toContainText('Session 10 min, break 30 min')
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 10 min, then break 30 min')
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction 1')).toContainText('Session 10 min, break 30 min')
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 10 min, then break 30 min')
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByLabel('Session limit minutes')).toHaveValue('10')
-    await expect(page.getByLabel('Session break minutes')).toHaveValue('30')
+    await expect(page.getByLabel('Rule 1 session minutes')).toHaveValue('10')
+    await expect(page.getByLabel('Rule 1 break minutes')).toHaveValue('30')
   })
 
-  test('Restriction は編集中に重複できるが重複中は保存できない', async ({ page, extensionId }) => {
+  test('重なるルールは保存を止めず、影響を警告として表示する', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Overlapping')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+
+    const addRule = page.getByRole('button', { name: 'Add rule' })
+    await addRule.click()
+    await expect(page.getByLabel('Rule 1 restriction')).toHaveValue('block')
+
+    await addRule.click()
+    await page.getByLabel('Rule 2 restriction').selectOption('dailyLimit')
+
+    // Block が同じ時間帯を覆うので Daily limit は効かない、と警告する。
+    await expect(
+      page.getByText(
+        'Block overlaps with Daily limit. While Block is active, Daily limit has no effect.',
+      ),
+    ).toBeVisible()
+
+    // 警告は保存を妨げない。
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expectVisibleGroupsStored(page)
+    await expect(page.getByLabel('Name')).toHaveValue('Overlapping')
+  })
+
+  test('適用順の説明はツールチップに格納され、常時は表示しない', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
     await createBlankGroup(page)
 
-    const addRestriction = page.getByRole('button', { name: 'Add restriction' })
-    await addRestriction.click()
-    await page.getByLabel('Restriction type').first().selectOption('redirect')
+    const orderText = page.getByText('The first rule that applies wins. Wait only gates access', {
+      exact: false,
+    })
+    await expect(orderText).toHaveCount(0)
 
-    await addRestriction.click()
-    await expect(page.getByLabel('Restriction type').nth(1)).toHaveValue('block')
-    await expect(page.getByText('Choose either Block or Redirect, not both.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
+    const trigger = page.getByRole('button', { name: 'How overlapping rules are applied' })
+    await trigger.hover()
+    await expect(orderText).toBeVisible()
+    await expect(page.getByRole('tooltip')).toContainText('1. Block')
+    await expect(page.getByRole('tooltip')).toContainText('4. Wait')
+
+    await page.getByRole('heading', { name: 'Rules' }).hover()
+    await expect(orderText).toHaveCount(0)
+
+    // キーボード操作でも開き、Escape で閉じる。
+    await trigger.focus()
+    await expect(orderText).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(orderText).toHaveCount(0)
+  })
+
+  test('保存時にルールを評価順へ並べ替える', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Sorted')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+
+    const addRule = page.getByRole('button', { name: 'Add rule' })
+    // Wait → Daily limit → Block の順に足す。
+    await addRule.click()
+    await page.getByLabel('Rule 1 restriction').selectOption('wait')
+    await addRule.click()
+    await page.getByLabel('Rule 2 restriction').selectOption('dailyLimit')
+    await addRule.click()
+    await expect(page.getByLabel('Rule 3 restriction')).toHaveValue('block')
+
     await page.getByRole('button', { name: 'Save group' }).click()
-    await expect(page.getByText('Choose either Block or Redirect, not both.')).toBeVisible()
+    await expectVisibleGroupsStored(page)
+    await page.reload()
 
-    await page.getByLabel('Restriction type').nth(1).selectOption('wait')
-    await expect(page.getByText('Choose either Block or Redirect, not both.')).not.toBeVisible()
-    await expect(addRestriction).toBeEnabled()
+    // 保存後は Block → Daily limit → Wait の評価順に並ぶ。
+    await expect(page.getByLabel('Rule 1')).toContainText('Block access')
+    await expect(page.getByLabel('Rule 2')).toContainText('Allow 30 min per day')
+    await expect(page.getByLabel('Rule 3')).toContainText('Wait 60 sec')
   })
 
   test('ケバブメニューからグループを無効化し、リロード後も Disabled 表示を保持する', async ({
@@ -1735,8 +1768,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Disabled target')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expect(page.getByText('Pause', { exact: true })).not.toBeVisible()
     await expect(page.getByRole('heading', { name: 'Options' })).not.toBeVisible()
@@ -1796,8 +1828,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('Focus')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGroupActions(page)
@@ -1844,8 +1875,7 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('DomainBlock')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
@@ -1949,19 +1979,18 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('LimitedSite')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByLabel('Time window type').selectOption('daily')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 when').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:15-10:45, 22:00-01:30')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Daily limit minutes per day').fill('30')
+    await page.getByLabel('Rule 1 restriction').selectOption('dailyLimit')
+    await page.getByLabel('Rule 1 daily limit minutes').fill('30')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    await expect(page.getByLabel('Time window 1')).toContainText('Every day')
-    await expect(page.getByLabel('Time window 1')).toContainText('09:15-10:45, 22:00-01:30')
-    await expect(page.getByLabel('Restriction 1')).toContainText('30 min/day')
+    await expect(page.getByLabel('Rule 1')).toContainText('Every day')
+    await expect(page.getByLabel('Rule 1')).toContainText('09:15-10:45, 22:00-01:30')
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 30 min per day')
   })
 
   test('スケジュールルールが時間帯も上限もないと保存できない', async ({ page, extensionId }) => {
@@ -1969,10 +1998,10 @@ test.describe('Options 画面', () => {
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('EmptyRule')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Daily limit minutes per day').fill('30')
-    await page.getByLabel('Daily limit minutes per day').fill('')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 restriction').last().selectOption('dailyLimit')
+    await page.getByLabel('Rule 1 daily limit minutes').fill('30')
+    await page.getByLabel('Rule 1 daily limit minutes').fill('')
 
     await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
@@ -2164,15 +2193,15 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('NightBlock')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByLabel('Time window type').selectOption('daily')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 when').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('22:00-06:00')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    await expect(page.getByLabel('Time window 1')).toContainText('22:00-06:00')
+    await expect(page.getByLabel('Rule 1')).toContainText('22:00-06:00')
   })
 
   test('曜日指定の上限ルールを個別に永続化できる', async ({ page, extensionId }) => {
@@ -2182,8 +2211,8 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('CustomDays')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    const timeWindowType = page.getByLabel('Time window type')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    const timeWindowType = page.getByLabel('Rule 1 when')
     await expect(timeWindowType.locator('option')).toHaveText([
       'Always',
       'Every day',
@@ -2191,18 +2220,16 @@ test.describe('Options 画面', () => {
       'Monthly',
       'Date range',
     ])
-    await expect(page.getByRole('heading', { name: /Time window 1|Restriction 1/ })).toHaveCount(0)
     await timeWindowType.selectOption('weekly')
     await page.getByRole('checkbox', { name: 'Monday' }).check()
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Daily limit minutes per day').fill('60')
+    await page.getByLabel('Rule 1 restriction').selectOption('dailyLimit')
+    await page.getByLabel('Rule 1 daily limit minutes').fill('60')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    await expect(page.getByLabel('Time window 1')).toContainText('Weekly Mon')
-    await expect(page.getByLabel('Restriction 1')).toContainText('60 min/day')
+    await expect(page.getByLabel('Rule 1')).toContainText('Weekly Mon')
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 60 min per day')
   })
 
   test('グループを削除して永続化される', async ({ page, extensionId }) => {
@@ -2247,36 +2274,37 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('menuitem', { name: 'Delete group' })).toBeVisible()
   })
 
-  test('Redirect 制限の遷移先 URL を編集して永続化される', async ({ page, extensionId }) => {
+  test('ブロック時の遷移先 URL を編集して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('RedirectGroup')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByRole('button', { name: 'Add restriction' }).last().click()
-    await page.getByLabel('Restriction type').last().selectOption('redirect')
-    await page.getByLabel('Redirect URL').fill('https://blocked.example.test')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 destination').selectOption('redirect')
+    await page.getByLabel('Rule 1 destination URL').fill('https://blocked.example.test')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    await expect(page.getByLabel('Restriction 1').first()).toContainText(
-      'Redirect to https://blocked.example.test',
+    await expect(page.getByLabel('Rule 1').first()).toContainText(
+      'Block access → https://blocked.example.test',
     )
     await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByLabel('Redirect URL')).toHaveValue('https://blocked.example.test')
+    await expect(page.getByLabel('Rule 1 destination URL')).toHaveValue(
+      'https://blocked.example.test',
+    )
   })
 
-  test('Redirect 制限の URL が不正なら保存できない', async ({ page, extensionId }) => {
+  test('遷移先 URL が不正なら保存できない', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
     await page.getByLabel('Name').fill('InvalidRedirectGroup')
-    await page.getByRole('button', { name: 'Add restriction' }).last().click()
-    await page.getByLabel('Restriction type').last().selectOption('redirect')
-    await page.getByLabel('Redirect URL').fill('not-a-url')
+    await page.getByRole('button', { name: 'Add rule' }).last().click()
+    await page.getByLabel('Rule 1 destination').selectOption('redirect')
+    await page.getByLabel('Rule 1 destination URL').fill('not-a-url')
 
     await expect(page.getByText('Enter a valid URL, including http:// or https://.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
@@ -2294,12 +2322,11 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('ReadonlyVisuals')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByLabel('Time window type').selectOption('daily')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 when').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
-    await page.getByLabel('Restriction type').last().selectOption('grace')
-    await page.getByLabel('Daily limit minutes per day').fill('45')
+    await page.getByLabel('Rule 1 restriction').selectOption('dailyLimit')
+    await page.getByLabel('Rule 1 daily limit minutes').fill('45')
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
@@ -2311,11 +2338,11 @@ test.describe('Options 画面', () => {
 
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(urlPatternsSection.getByText('example\\.com', { exact: true })).toBeVisible()
-    await expect(page.getByLabel('Time window 1')).toContainText('09:00-17:00')
-    await expect(page.getByLabel('Restriction 1')).toContainText('45 min/day')
+    await expect(page.getByLabel('Rule 1')).toContainText('09:00-17:00')
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 45 min per day')
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Add restriction' })).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add time window' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add rule' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add rule' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Add URL pattern' })).not.toBeVisible()
   })
 
@@ -2329,15 +2356,15 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Name').fill('ReadonlyRules')
     await page.getByRole('button', { name: 'Add URL pattern' }).click()
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
-    await page.getByRole('button', { name: 'Add time window' }).click()
-    await page.getByLabel('Time window type').selectOption('daily')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 when').selectOption('daily')
     await page.getByLabel('Active time ranges').fill('09:00-17:00')
-    await page.getByRole('button', { name: 'Add restriction' }).click()
+    await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
     await expectVisibleGroupsStored(page)
     await page.reload()
 
-    const timeWindow = page.getByLabel('Time window 1')
+    const timeWindow = page.getByLabel('Rule 1')
     await expect(timeWindow).toContainText('09:00-17:00')
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
     const [cardBox, valueBox] = await Promise.all([

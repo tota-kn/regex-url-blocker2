@@ -1,7 +1,13 @@
-import type { GlobalSettings, Group, Restriction, RestrictionType, TimeWindow } from './types'
+import type { GlobalSettings, Group, Rule, RuleKind, TimeWindow } from './types'
 
 /** Wait を通過した後の既定アクセス許可期間（分）。 */
 export const DEFAULT_WAIT_GRANT_MINUTES = 10
+
+/** Wait の既定待機秒数。 */
+export const DEFAULT_WAIT_SECONDS = 60
+
+/** Daily limit の既定上限分数。 */
+export const DEFAULT_DAILY_LIMIT_MINUTES = 30
 
 /** Session limit の既定利用枠（分）。 */
 export const DEFAULT_SESSION_LIMIT_MINUTES = 10
@@ -15,6 +21,9 @@ export const DEFAULT_PAUSE_WAIT_SECONDS = 60
 /** 一時停止の既定継続時間（分）。 */
 export const DEFAULT_PAUSE_DURATION_MINUTES = 10
 
+/** 遷移先に URL を選んだときの入力補助として使う既定 URL。 */
+export const DEFAULT_REDIRECT_URL = 'https://example.com'
+
 /**
  * 新規グループ作成時に選べるテンプレート識別子。
  */
@@ -24,31 +33,45 @@ export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work
  * 未設定時に使用するグローバル設定の既定値。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
-  blockAction: 'blockedPage',
-  redirectUrl: 'https://example.com',
   dailyResetHour: '03:00',
   remainingTimeNotificationsEnabled: true,
   notificationThresholdMinutes: 5,
 }
 
 /**
- * 指定 type の既定制限を作る。
+ * 指定 kind の既定ルールを作る。時間ウィンドウは常時、遷移先はブロックページ。
  */
-export function createDefaultRestriction(type: RestrictionType): Restriction {
-  if (type === 'grace') return { type, graceMinutes: 30 }
-  if (type === 'wait')
-    return { type, waitSeconds: 60, waitGrantMinutes: DEFAULT_WAIT_GRANT_MINUTES }
-  if (type === 'redirect') return { type, redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl }
-  if (type === 'sessionLimit') {
+export function createDefaultRule(kind: RuleKind): Rule {
+  const base = { id: crypto.randomUUID(), window: { type: 'always' } as TimeWindow }
+  if (kind === 'dailyLimit') {
     return {
-      type,
-      sessionMinutes: DEFAULT_SESSION_LIMIT_MINUTES,
-      breakMinutes: DEFAULT_SESSION_BREAK_MINUTES,
+      ...base,
+      restriction: { kind, minutes: DEFAULT_DAILY_LIMIT_MINUTES },
+      destination: { type: 'blockedPage' },
     }
   }
-  return {
-    type,
+  if (kind === 'sessionLimit') {
+    return {
+      ...base,
+      restriction: {
+        kind,
+        sessionMinutes: DEFAULT_SESSION_LIMIT_MINUTES,
+        breakMinutes: DEFAULT_SESSION_BREAK_MINUTES,
+      },
+      destination: { type: 'blockedPage' },
+    }
   }
+  if (kind === 'wait') {
+    return {
+      ...base,
+      restriction: {
+        kind,
+        seconds: DEFAULT_WAIT_SECONDS,
+        grantMinutes: DEFAULT_WAIT_GRANT_MINUTES,
+      },
+    }
+  }
+  return { ...base, restriction: { kind: 'block' }, destination: { type: 'blockedPage' } }
 }
 
 /** 新しい既定の時間ウィンドウを作成する。 */
@@ -57,17 +80,30 @@ export function createDefaultTimeWindow(): TimeWindow {
 }
 
 /**
- * 指定テンプレートに対応する制限ルール配列を生成する。`blank` は制限なし（空配列）。
+ * 指定テンプレートに対応するルール配列を生成する。`blank` はルールなし（空配列）。
  */
-function createRestrictionsFromTemplate(templateId: GroupTemplateId): Restriction[] {
+function createRulesFromTemplate(templateId: GroupTemplateId): Rule[] {
   if (templateId === 'core-sns-15min') {
-    return [{ type: 'grace', graceMinutes: 15 }]
+    return [
+      { ...createDefaultRule('dailyLimit'), restriction: { kind: 'dailyLimit', minutes: 15 } },
+    ]
   }
   if (templateId === 'video-30min') {
-    return [{ type: 'grace', graceMinutes: 30 }]
+    return [
+      { ...createDefaultRule('dailyLimit'), restriction: { kind: 'dailyLimit', minutes: 30 } },
+    ]
   }
   if (templateId === 'work-hours-focus') {
-    return [{ type: 'block' }]
+    return [
+      {
+        ...createDefaultRule('block'),
+        window: {
+          type: 'scheduled',
+          condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
+          timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+        },
+      },
+    ]
   }
   return []
 }
@@ -114,23 +150,9 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     disabled: false,
     lockMode: false,
     patterns: createPatternsFromTemplate(templateId),
-    blockAction: DEFAULT_GLOBAL_SETTINGS.blockAction,
-    redirectUrl: DEFAULT_GLOBAL_SETTINGS.redirectUrl,
     pauseWaitSeconds: DEFAULT_PAUSE_WAIT_SECONDS,
     pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
     pauseAllowed: true,
-    timeWindows:
-      templateId === 'work-hours-focus'
-        ? [
-            {
-              type: 'scheduled',
-              condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
-              timeRanges: [{ startMinute: 540, endMinute: 1080 }],
-            },
-          ]
-        : templateId === 'blank'
-          ? []
-          : [{ type: 'always' }],
-    restrictions: createRestrictionsFromTemplate(templateId),
+    rules: createRulesFromTemplate(templateId),
   }
 }

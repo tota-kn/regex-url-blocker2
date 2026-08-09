@@ -14,5 +14,6 @@ defineProps<Props>()
   <div class="flex min-h-5 items-center gap-1.5">
     <slot name="icon" />
     <h3 class="text-label-md">{{ title }}</h3>
+    <slot />
   </div>
 </template>

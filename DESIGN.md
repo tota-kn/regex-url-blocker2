@@ -144,11 +144,36 @@ components:
     backgroundColor: '{colors.tag-default-bg}'
     textColor: '{colors.tag-default-text}'
     rounded: '{rounded.sm}'
+  rule-row:
+    backgroundColor: '{colors.surface}'
+    borderColor: '{colors.border}'
+    rounded: '{rounded.lg}'
+    padding: 12px
+    typography: '{typography.body-md}'
+  right-now-panel:
+    backgroundColor: '{colors.surface-muted}'
+    borderColor: '{colors.border}'
+    rounded: '{rounded.lg}'
+    padding: 10px
+    typography: '{typography.body-sm}'
+  rule-conflict:
+    backgroundColor: '{colors.warning}'
+    textColor: '{colors.warning-text}'
+    rounded: '{rounded.lg}'
+    padding: 8px
+    typography: '{typography.body-sm}'
+  tooltip:
+    backgroundColor: '{colors.surface}'
+    borderColor: '{colors.border}'
+    textColor: '{colors.secondary-foreground}'
+    rounded: '{rounded.md}'
+    padding: 12px
+    typography: '{typography.body-sm}'
 ---
 
 ## Overview
 
-**Regex URL Guard** is a Chrome extension that lets users define groups of URL patterns (including regex) and block access to matching sites during specified time windows or after daily usage limits are reached. The UI targets technically-proficient users—developers, students, or productivity-focused individuals—who need fine-grained control over their browsing habits.
+**Regex URL Guard** is a Chrome extension that lets users define groups of URL patterns (including regex) and restrict access to matching sites. Each group holds a list of **rules**, and each rule pairs one time window with one restriction and one destination, so a single line answers _when_, _what_, and _where_. The UI targets technically-proficient users—developers, students, or productivity-focused individuals—who need fine-grained control over their browsing habits.
 
 The design philosophy is **functional minimalism**: every element earns its place. Information is dense but not cluttered. Neutral grays dominate, with blue reserved for primary actions and red strictly for destructive or blocked states. The aesthetic evokes a developer tool or system preferences panel rather than a consumer app.
 
@@ -195,8 +220,8 @@ The Options page uses a **sidebar navigation layout** within a max-width-constra
 The internal structure is:
 
 - **Section navigation:** A thin, bordered nav region, not a card. `Groups` shows the current group count; `General settings` only shows an error indicator when global settings or import errors need attention.
-- **Groups section:** The default section. Group cards are stacked in the main content area, one per rule group, with a consistent internal grid—left-aligned labels, right-aligned controls.
-- **General settings section:** Global options (block action, redirect URL, daily reset hour, notifications) plus import / export controls. Import errors stay inside this section.
+- **Groups section:** The default section. Group cards are stacked in the main content area, one per rule group, with a consistent internal grid—left-aligned labels, right-aligned controls. Each card reads top-down as _what it is_ (name) → _what it is doing now_ (right-now panel) → _what it matches_ (URL patterns) → _what it enforces_ (rules).
+- **General settings section:** Global options (daily reset hour, notifications) plus import / export controls. Import errors stay inside this section. Block destinations are not global — each rule carries its own.
 
 On mobile widths, the sidebar collapses into a horizontal segmented navigation above the selected section. Spacing uses a **4 px base grid**. Component padding is 8–12 px internally; cards have 16 px padding. Section gaps are 16–24 px. This maintains density without making the UI feel cramped.
 
@@ -267,6 +292,28 @@ Bar and remaining-time text color shift through three states:
 - **Normal (>20% left):** Primary blue bar, foreground text.
 - **Warning (≤20% left):** Amber bar, amber text.
 - **Exceeded (0 s left):** Danger red bar, danger text.
+
+### Rule Row
+
+The core of the group editor. One row is one rule, and reads left to right as **when → what → where**:
+
+- **Read mode:** a single line — the time window in monospace (`Weekly Mon, Tue 09:00-18:00`), a muted arrow, the restriction in body text (`Allow 30 min per day`), and the destination in muted small text (`→ blocked page`). No row wraps to a second concept; if it does not fit, it wraps within the same sentence.
+- **Edit mode:** two selects (`when`, `what`) on one line followed by that restriction's own inputs, then a second line for the destination. `Wait` rows have no destination line because they never block.
+- Rows sit in a bordered `surface` card at `rounded-lg` with 12 px padding, stacked with 8 px gaps.
+
+Rules are stored and displayed in evaluation order (Block → Session limit → Daily limit → Wait). The list is re-sorted on save, so **row order always equals the order the engine applies them**.
+
+### Right-now Panel
+
+A `surface-muted` panel directly under the group name that states what the group is doing at this moment, before any rule detail. It carries an uppercase `RIGHT NOW` label, a status badge (danger when blocked, warning when limited or gated, muted otherwise), and up to four numbered lines describing the chain of effects in evaluation order. It is the answer to "what happens if I open this site now?" and is the reason the rule list itself needs no running commentary.
+
+### Rule Conflict Warning
+
+An amber-bordered note under the rule list, shown when two rules overlap in time in a way whose outcome is not obvious (`Block overlaps with Daily limit. While Block is active, Daily limit has no effect.`). It warns, it never blocks saving — the user may be building toward a valid state. Distinct from validation errors, which use `danger` and do block saving.
+
+### Tooltip
+
+A small `?` trigger next to a section heading. Opens on hover and on focus, toggles on click for touch, closes on Escape or an outside pointer press. The panel is an overlay: `surface` background, `border` outline, `shadow-lg`, `rounded-md` (4 px), 288 px wide, `body-sm` text. Use it for rules-of-the-system explanations that are needed once and then remembered — the rule evaluation order lives here rather than on the page, so the list stays scannable.
 
 ### Tags (Pattern Chips / Day Labels)
 

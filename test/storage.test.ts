@@ -14,6 +14,12 @@ import {
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { createEmptyGroup } from './helpers'
 
+/** `rules` を持たない旧フォーマットのグループ fixture を作る。 */
+function legacyGroup(name: string): Record<string, unknown> {
+  const { rules: _rules, ...rest } = createEmptyGroup(name)
+  return rest
+}
+
 describe('loadSettings', () => {
   it('未設定時は DEFAULT を返す', async () => {
     const s = await loadSettings()
@@ -28,11 +34,9 @@ describe('loadSettings', () => {
   })
 
   it('global の一部欠損は DEFAULT で穴埋めされる', async () => {
-    await browser.storage.sync.set({ global: { redirectUrl: 'https://block.test' } })
+    await browser.storage.sync.set({ global: { dailyResetHour: '05:00' } })
     const s = await loadSettings()
-    expect(s.global.redirectUrl).toBe('https://block.test')
-    expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
-    expect(s.global.dailyResetHour).toBe(DEFAULT_GLOBAL_SETTINGS.dailyResetHour)
+    expect(s.global.dailyResetHour).toBe('05:00')
     expect(s.global.remainingTimeNotificationsEnabled).toBe(true)
     expect(s.global.notificationThresholdMinutes).toBe(5)
   })
@@ -46,17 +50,21 @@ describe('loadSettings', () => {
     )
   })
 
-  it('global の blockAction が不正な場合は DEFAULT で補完される', async () => {
-    await browser.storage.sync.set({ global: { blockAction: 'invalid' } })
+  it('廃止された global の blockAction / redirectUrl は保存値から取り除かれる', async () => {
+    await browser.storage.sync.set({
+      global: { blockAction: 'redirect', redirectUrl: 'https://legacy.test' },
+    })
     const s = await loadSettings()
-    expect(s.global.blockAction).toBe(DEFAULT_GLOBAL_SETTINGS.blockAction)
+    expect((s.global as unknown as Record<string, unknown>).blockAction).toBeUndefined()
+    expect((s.global as unknown as Record<string, unknown>).redirectUrl).toBeUndefined()
   })
 
-  it('重複した Restrictions は厳しい値へ統合し Block を Redirect より優先する', async () => {
+  it('重複した旧 Restrictions は厳しい値へ統合し Block を Redirect より優先して移行する', async () => {
     await browser.storage.sync.set({
       groups: [
         {
-          ...createEmptyGroup('Duplicates'),
+          ...legacyGroup('Duplicates'),
+          timeWindows: [{ type: 'always' }],
           restrictions: [
             { type: 'redirect', redirectUrl: 'https://first.test/' },
             { type: 'grace', graceMinutes: 30 },
@@ -72,18 +80,19 @@ describe('loadSettings', () => {
 
     const settings = await loadSettings()
 
-    expect(settings.groups[0].restrictions).toEqual([
-      { type: 'block' },
-      { type: 'grace', graceMinutes: 10 },
-      { type: 'wait', waitSeconds: 20, waitGrantMinutes: 10 },
+    expect(settings.groups[0].rules.map((rule) => rule.restriction)).toEqual([
+      { kind: 'block' },
+      { kind: 'dailyLimit', minutes: 10 },
+      { kind: 'wait', seconds: 20, grantMinutes: 10 },
     ])
   })
 
-  it('Redirect 重複だけなら先頭 URL を保持する', async () => {
+  it('旧 Redirect 重複は先頭 URL を遷移先に持つ Block ルールへ移行する', async () => {
     await browser.storage.sync.set({
       groups: [
         {
-          ...createEmptyGroup('Redirect duplicates'),
+          ...legacyGroup('Redirect duplicates'),
+          timeWindows: [{ type: 'always' }],
           restrictions: [
             { type: 'redirect', redirectUrl: 'https://first.test/' },
             { type: 'redirect', redirectUrl: 'https://second.test/' },
@@ -94,67 +103,78 @@ describe('loadSettings', () => {
 
     const settings = await loadSettings()
 
-    expect(settings.groups[0].restrictions).toEqual([
-      { type: 'redirect', redirectUrl: 'https://first.test/' },
-    ])
+    expect(settings.groups[0].rules).toHaveLength(1)
+    expect(settings.groups[0].rules[0]?.restriction).toEqual({ kind: 'block' })
+    expect(settings.groups[0].rules[0]?.destination).toEqual({
+      type: 'redirect',
+      url: 'https://first.test/',
+    })
   })
 
   it('既存の Wait で許可期間が未設定なら10分を補完する', async () => {
     await browser.storage.sync.set({
       groups: [
         {
-          ...createEmptyGroup('Legacy wait'),
+          ...legacyGroup('Legacy wait'),
+          timeWindows: [{ type: 'always' }],
           restrictions: [{ type: 'wait', waitSeconds: 5 }],
         },
       ],
     })
 
     const settings = await loadSettings()
-    expect(settings.groups[0].restrictions).toEqual([
-      { type: 'wait', waitSeconds: 5, waitGrantMinutes: 10 },
-    ])
+    expect(settings.groups[0].rules[0]?.restriction).toEqual({
+      kind: 'wait',
+      seconds: 5,
+      grantMinutes: 10,
+    })
   })
 
   it('旧バージョンで保存された0分の許可期間は10分へ移行する', async () => {
     await browser.storage.sync.set({
       groups: [
         {
-          ...createEmptyGroup('Zero grant'),
+          ...legacyGroup('Zero grant'),
+          timeWindows: [{ type: 'always' }],
           restrictions: [{ type: 'wait', waitSeconds: 5, waitGrantMinutes: 0 }],
         },
       ],
     })
 
     const settings = await loadSettings()
-    expect(settings.groups[0].restrictions).toEqual([
-      { type: 'wait', waitSeconds: 5, waitGrantMinutes: 10 },
-    ])
+    expect(settings.groups[0].rules[0]?.restriction).toEqual({
+      kind: 'wait',
+      seconds: 5,
+      grantMinutes: 10,
+    })
   })
 })
 
 describe('saveSettings', () => {
-  it('save → load でラウンドトリップ（分離形式）', async () => {
+  it('save → load でラウンドトリップ（Rule 形式）', async () => {
     const group = {
       ...createEmptyGroup(),
       name: 'Twitter',
       patterns: ['^https?://twitter\\.com'],
-      timeWindows: [
+      rules: [
         {
-          type: 'scheduled' as const,
-          condition: {
-            type: 'weekly' as const,
-            daysOfWeek: [1, 2, 3, 4, 5] as (1 | 2 | 3 | 4 | 5)[],
+          id: 'r0',
+          window: {
+            type: 'scheduled' as const,
+            condition: {
+              type: 'weekly' as const,
+              daysOfWeek: [1, 2, 3, 4, 5] as (1 | 2 | 3 | 4 | 5)[],
+            },
+            timeRanges: [{ startMinute: 540, endMinute: 1080 }],
           },
-          timeRanges: [{ startMinute: 540, endMinute: 1080 }],
+          restriction: { kind: 'block' as const },
+          destination: { type: 'blockedPage' as const },
         },
       ],
-      restrictions: [{ type: 'block' as const }],
     }
     const settings = {
       global: {
         ...DEFAULT_GLOBAL_SETTINGS,
-        blockAction: 'blockedPage' as const,
-        redirectUrl: 'https://block.test',
         dailyResetHour: '03:00',
       },
       groups: [group],
@@ -164,16 +184,27 @@ describe('saveSettings', () => {
     expect(loaded).toEqual(settings)
   })
 
-  it('save → load で grace / wait の restriction もラウンドトリップする', async () => {
+  it('save → load で Daily limit / Wait のルールもラウンドトリップする', async () => {
     const graceGroup = {
       ...createEmptyGroup('Grace'),
-      timeWindows: [{ type: 'always' as const }],
-      restrictions: [{ type: 'grace' as const, graceMinutes: 15 }],
+      rules: [
+        {
+          id: 'r0',
+          window: { type: 'always' as const },
+          restriction: { kind: 'dailyLimit' as const, minutes: 15 },
+          destination: { type: 'blockedPage' as const },
+        },
+      ],
     }
     const waitGroup = {
       ...createEmptyGroup('Wait'),
-      timeWindows: [{ type: 'always' as const }],
-      restrictions: [{ type: 'wait' as const, waitSeconds: 30, waitGrantMinutes: 10 }],
+      rules: [
+        {
+          id: 'r0',
+          window: { type: 'always' as const },
+          restriction: { kind: 'wait' as const, seconds: 30, grantMinutes: 10 },
+        },
+      ],
     }
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
@@ -193,7 +224,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 11,
+      version: 12,
       settings,
     })
   })
@@ -202,8 +233,6 @@ describe('settings export file', () => {
     const settings = {
       global: {
         ...DEFAULT_GLOBAL_SETTINGS,
-        blockAction: 'blockedPage' as const,
-        redirectUrl: 'https://block.test',
         dailyResetHour: '03:00',
       },
       groups: [{ ...createEmptyGroup('Imported'), patterns: ['example\\.com'] }],
@@ -219,8 +248,6 @@ describe('settings export file', () => {
         settings: {
           global: {
             ...DEFAULT_GLOBAL_SETTINGS,
-            blockAction: 'redirect',
-            redirectUrl: 'https://legacy-blocked.test',
           },
           groups: [
             {
@@ -235,13 +262,10 @@ describe('settings export file', () => {
       }),
     )
 
-    expect(imported.groups[0]).toMatchObject({
-      blockAction: 'redirect',
-      redirectUrl: 'https://legacy-blocked.test',
-    })
+    expect(imported.groups[0]).toMatchObject({})
   })
 
-  it('v11 export/import は Pause 設定を含むグループ別設定を保持する', () => {
+  it('v12 export/import は Pause 設定を含むグループ別設定を保持する', () => {
     const settings = {
       global: DEFAULT_GLOBAL_SETTINGS,
       groups: [
@@ -250,10 +274,14 @@ describe('settings export file', () => {
           pauseWaitSeconds: 0,
           pauseDurationMinutes: 25,
           disabled: true,
-          blockAction: 'redirect' as const,
-          redirectUrl: 'https://group-blocked.test',
-          timeWindows: [{ type: 'always' as const }],
-          restrictions: [{ type: 'grace' as const, graceMinutes: 20 }],
+          rules: [
+            {
+              id: 'r0',
+              window: { type: 'always' as const },
+              restriction: { kind: 'dailyLimit' as const, minutes: 20 },
+              destination: { type: 'blockedPage' as const },
+            },
+          ],
         },
       ],
     }
@@ -296,8 +324,6 @@ describe('settings export file', () => {
               mode: 'blacklist',
               lockMode: false,
               patterns: ['example\\.com'],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://example.com',
               dailyRules: [],
             },
           ],
@@ -322,8 +348,6 @@ describe('settings export file', () => {
               disabled: false,
               lockMode: false,
               patterns: ['example\\.com'],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://example.com',
               dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
                 dayOfWeek,
                 blockedTimeRanges: [],
@@ -335,11 +359,8 @@ describe('settings export file', () => {
       }),
     )
 
-    expect(imported.groups[0].timeWindows).toEqual([{ type: 'always' }])
-    expect(imported.groups[0].restrictions?.[0]).toMatchObject({
-      type: 'grace',
-      graceMinutes: 15,
-    })
+    expect(imported.groups[0].rules[0]?.window).toEqual({ type: 'always' })
+    expect(imported.groups[0].rules[0]?.restriction).toEqual({ kind: 'dailyLimit', minutes: 15 })
   })
 
   it('通知設定をエクスポート/インポートでラウンドトリップする', () => {
@@ -433,23 +454,81 @@ describe('loadSettings のマイグレーション', () => {
     expect(s.groups[0].lockMode).toBe(false)
   })
 
-  it('旧 storage データのグループ別ブロック先はグローバル設定から補完される', async () => {
+  it('旧 storage データの遷移先はグローバル設定からルールへ畳み込まれる', async () => {
     await browser.storage.sync.set({
       global: { blockAction: 'redirect', redirectUrl: 'https://legacy-blocked.test' },
-      groups: [{ id: 'x', name: 'old', patterns: [], dailyRules: [] }],
+      groups: [
+        {
+          id: 'x',
+          name: 'old',
+          patterns: [],
+          timeWindows: [{ type: 'always' }],
+          restrictions: [{ type: 'block' }],
+        },
+      ],
     })
     const s = await loadSettings()
-    expect(s.groups[0].blockAction).toBe('redirect')
-    expect(s.groups[0].redirectUrl).toBe('https://legacy-blocked.test')
+    expect(s.groups[0].rules[0]?.destination).toEqual({
+      type: 'redirect',
+      url: 'https://legacy-blocked.test',
+    })
+  })
+
+  it('グループ別 blockAction はグローバル設定より優先される', async () => {
+    await browser.storage.sync.set({
+      global: { blockAction: 'redirect', redirectUrl: 'https://global.test' },
+      groups: [
+        {
+          id: 'x',
+          name: 'old',
+          patterns: [],
+          blockAction: 'redirect',
+          redirectUrl: 'https://group.test',
+          timeWindows: [{ type: 'always' }],
+          restrictions: [{ type: 'block' }],
+        },
+      ],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].rules[0]?.destination).toEqual({
+      type: 'redirect',
+      url: 'https://group.test',
+    })
+  })
+
+  it('グループが blockedPage を明示していればグローバルの redirect に上書きされない', async () => {
+    await browser.storage.sync.set({
+      global: { blockAction: 'redirect', redirectUrl: 'https://global.test' },
+      groups: [
+        {
+          id: 'x',
+          name: 'old',
+          patterns: [],
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://unused.test',
+          timeWindows: [{ type: 'always' }],
+          restrictions: [{ type: 'block' }],
+        },
+      ],
+    })
+    const s = await loadSettings()
+    expect(s.groups[0].rules[0]?.destination).toEqual({ type: 'blockedPage' })
   })
 
   it('グローバル設定もない旧 storage データは blocked page を補完する', async () => {
     await browser.storage.sync.set({
-      groups: [{ id: 'x', name: 'old', patterns: [], dailyRules: [] }],
+      groups: [
+        {
+          id: 'x',
+          name: 'old',
+          patterns: [],
+          timeWindows: [{ type: 'always' }],
+          restrictions: [{ type: 'block' }],
+        },
+      ],
     })
     const s = await loadSettings()
-    expect(s.groups[0].blockAction).toBe('blockedPage')
-    expect(s.groups[0].redirectUrl).toBe('https://example.com')
+    expect(s.groups[0].rules[0]?.destination).toEqual({ type: 'blockedPage' })
   })
 
   it('whitelist は保持される', async () => {
@@ -479,19 +558,15 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
 
-    expect(s.groups[0].timeWindows?.[0]).toMatchObject({
+    expect(s.groups[0].rules[0]?.window).toMatchObject({
       type: 'scheduled',
       condition: { type: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] },
       timeRanges: [{ startMinute: 540, endMinute: 1080 }],
     })
-    expect(s.groups[0].restrictions?.[0]).toEqual({
-      type: 'block',
-      graceMinutes: undefined,
-      waitSeconds: undefined,
-    })
+    expect(s.groups[0].rules[0]?.restriction).toEqual({ kind: 'block' })
   })
 
-  it('旧 dailyRules が全曜日同一で上限のみの場合は daily grace 制限1件へ変換する', async () => {
+  it('旧 dailyRules が全曜日同一で上限のみの場合は Daily limit ルール1件へ変換する', async () => {
     await browser.storage.sync.set({
       groups: [
         {
@@ -509,8 +584,8 @@ describe('loadSettings のマイグレーション', () => {
     })
     const s = await loadSettings()
 
-    expect(s.groups[0].timeWindows).toEqual([{ type: 'always' }])
-    expect(s.groups[0].restrictions?.[0]).toMatchObject({ type: 'grace', graceMinutes: 15 })
+    expect(s.groups[0].rules[0]?.window).toEqual({ type: 'always' })
+    expect(s.groups[0].rules[0]?.restriction).toEqual({ kind: 'dailyLimit', minutes: 15 })
   })
 
   it('旧 schedules / blockedTimeSlots / timeLimits フィールドは破棄され制限なしで初期化される', async () => {
@@ -528,8 +603,7 @@ describe('loadSettings のマイグレーション', () => {
       ],
     })
     const s = await loadSettings()
-    expect(s.groups[0].timeWindows).toEqual([])
-    expect(s.groups[0].restrictions).toEqual([])
+    expect(s.groups[0].rules).toEqual([])
     expect((s.groups[0] as unknown as Record<string, unknown>).schedules).toBeUndefined()
     expect((s.groups[0] as unknown as Record<string, unknown>).blockedTimeSlots).toBeUndefined()
     expect((s.groups[0] as unknown as Record<string, unknown>).timeLimits).toBeUndefined()
