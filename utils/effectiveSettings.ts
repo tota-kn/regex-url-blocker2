@@ -1,6 +1,150 @@
 import { getLogicalDate } from './blocking'
+import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from './defaults'
 import { cloneGroup, cloneSettings } from './groups'
 import type { EffectiveSettingsState, Group, Settings } from './types'
+
+/**
+ * Lock Mode 中に、基準グループと希望グループから実効値を決める方針。
+ * - `identity`: グループの同一性を担う値。解決の対象にしない。
+ * - `immediate`: 制限の強さに関わらないため希望値を即時採用する。
+ * - `baseline`: 基準値を次の rule day まで凍結する。強化方向の反映は `blocking.ts` が
+ *   基準設定と希望設定を二重評価して厳しい結果を採ることで実現する。
+ * - `strictest`: 評価時に二重評価できないため、読み取り時に厳しい方を採用する。
+ */
+type FieldApplier = (target: Group, baseline: Group, preferred: Group) => void
+
+/**
+ * 一時停止設定の数値を読み取る。未指定や入力途中の非数値は既定値へ丸める。
+ */
+function pauseNumber(value: number | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+type FieldPolicy =
+  | { kind: 'identity' }
+  | { kind: 'baseline' }
+  | { kind: 'immediate'; apply: FieldApplier }
+  | { kind: 'strictest'; apply: FieldApplier }
+
+/**
+ * `Group` の全フィールドの解決方針。
+ * フィールドを追加するとこのオブジェクトが型エラーになり、方針の指定が強制される。
+ */
+const GROUP_FIELD_POLICIES: Record<keyof Group, FieldPolicy> = {
+  id: { kind: 'identity' },
+  name: {
+    kind: 'immediate',
+    apply: (target, _baseline, preferred) => {
+      target.name = preferred.name
+    },
+  },
+  mode: { kind: 'baseline' },
+  disabled: { kind: 'baseline' },
+  lockMode: { kind: 'baseline' },
+  patterns: { kind: 'baseline' },
+  rules: { kind: 'baseline' },
+  pauseAllowed: {
+    kind: 'strictest',
+    // どちらかが禁止していれば禁止。禁止は即時、再許可は次の rule day まで遅延する。
+    apply: (target, baseline, preferred) => {
+      target.pauseAllowed = baseline.pauseAllowed !== false && preferred.pauseAllowed !== false
+    },
+  },
+  pauseWaitSeconds: {
+    kind: 'strictest',
+    // 待機が長いほど厳しい。
+    apply: (target, baseline, preferred) => {
+      target.pauseWaitSeconds = Math.max(
+        pauseNumber(baseline.pauseWaitSeconds, DEFAULT_PAUSE_WAIT_SECONDS),
+        pauseNumber(preferred.pauseWaitSeconds, DEFAULT_PAUSE_WAIT_SECONDS),
+      )
+    },
+  },
+  pauseDurationMinutes: {
+    kind: 'strictest',
+    // 一時停止が短いほど厳しい。
+    apply: (target, baseline, preferred) => {
+      target.pauseDurationMinutes = Math.min(
+        pauseNumber(baseline.pauseDurationMinutes, DEFAULT_PAUSE_DURATION_MINUTES),
+        pauseNumber(preferred.pauseDurationMinutes, DEFAULT_PAUSE_DURATION_MINUTES),
+      )
+    },
+  },
+}
+
+/** `Group` の全フィールドキーを返す。 */
+export function groupFieldKeys(): Array<keyof Group> {
+  return Object.keys(GROUP_FIELD_POLICIES) as Array<keyof Group>
+}
+
+/**
+ * 全フィールドの解決結果を target へ書き込む。
+ * `immediate` のみを適用するか `strictest` も適用するかを `includeStrictest` で切り替える。
+ */
+function applyFieldPolicies(
+  target: Group,
+  baseline: Group,
+  preferred: Group,
+  includeStrictest: boolean,
+): void {
+  for (const key of groupFieldKeys()) {
+    const policy = GROUP_FIELD_POLICIES[key]
+    if (policy.kind === 'immediate' || (policy.kind === 'strictest' && includeStrictest)) {
+      policy.apply(target, baseline, preferred)
+    }
+  }
+}
+
+/**
+ * 省略可能な一時停止設定を既定値で埋めたグループを返す。
+ */
+function withPauseDefaults(group: Group): Group {
+  return {
+    ...group,
+    pauseWaitSeconds: pauseNumber(group.pauseWaitSeconds, DEFAULT_PAUSE_WAIT_SECONDS),
+    pauseDurationMinutes: pauseNumber(group.pauseDurationMinutes, DEFAULT_PAUSE_DURATION_MINUTES),
+  }
+}
+
+/**
+ * Lock Mode ON のグループを次の rule day まで凍結した基準スナップショットを作る。
+ * `immediate` なフィールドだけを希望値で上書きし、`strictest` は保存側では解決しない。
+ * ここで解決すると強化した値が基準へ蓄積し、同じ rule day 内で元の値へ戻せなくなるため。
+ */
+function freezeBaselineGroup(baseline: Group, preferred: Group | undefined): Group {
+  const frozen = cloneGroup(baseline)
+  if (!preferred) return frozen
+  applyFieldPolicies(frozen, baseline, preferred, false)
+  return frozen
+}
+
+/**
+ * Lock Mode 中の基準グループと希望グループから、いま実際に適用される値のグループを返す。
+ * 基準側が Lock Mode でなければ希望グループを、希望グループが無ければ基準グループを返す。
+ */
+export function resolveEffectiveGroup(baseline: Group, preferred: Group | undefined): Group {
+  if (!preferred) return cloneGroup(baseline)
+  if (!baseline.lockMode) return cloneGroup(preferred)
+
+  const resolved = cloneGroup(baseline)
+  applyFieldPolicies(resolved, baseline, preferred, true)
+  return resolved
+}
+
+/**
+ * Lock Mode により希望値がまだ適用されていないフィールドのキーを返す。
+ * `identity` と `immediate` のフィールドは常に即時反映されるため対象外。
+ */
+export function getPendingGroupFieldKeys(baseline: Group, preferred: Group): Array<keyof Group> {
+  if (!baseline.lockMode) return []
+  const resolved = resolveEffectiveGroup(baseline, preferred)
+  const normalizedPreferred = withPauseDefaults(preferred)
+  return groupFieldKeys().filter((key) => {
+    const policy = GROUP_FIELD_POLICIES[key]
+    if (policy.kind === 'identity' || policy.kind === 'immediate') return false
+    return JSON.stringify(resolved[key]) !== JSON.stringify(normalizedPreferred[key])
+  })
+}
 
 /**
  * JSON 化できる設定値同士が同一なら true を返す。
@@ -27,10 +171,7 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
   for (const group of active.groups) {
     const preferredGroup = preferredById.get(group.id)
     if (group.lockMode) {
-      const baseline = cloneGroup(group)
-      // 表示名だけは即時反映する。遷移先を含む制限内容は次の rule day まで凍結する。
-      if (preferredGroup) baseline.name = preferredGroup.name
-      mergedGroups.push(baseline)
+      mergedGroups.push(freezeBaselineGroup(group, preferredGroup))
       handledIds.add(group.id)
       continue
     }

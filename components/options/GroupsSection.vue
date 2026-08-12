@@ -33,18 +33,16 @@ interface Props {
   now: Date
   /** ルールの現在状態プレビューに使うグローバル設定。 */
   globalSettings: GlobalSettings
-  /** 次の rule day まで以前の制限が有効な group id。 */
-  pendingEffectiveGroupIds: string[]
   /** 保存設定から削除済みだが、以前の制限が有効なグループ。 */
   retainedEffectiveGroups: Group[]
   /** 保留中の制限が反映される日時。 */
   appliesAfterLabel: string
-  /** rule day の開始時刻。 */
-  resetTimeLabel: string
   /** 指定グループの今日の上限利用状況を返す関数。 */
   timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
   /** 指定グループで Pause 操作を無効化する理由を返す関数。許可されていれば undefined。 */
   pauseDisabledReason: (groupId: string) => string | undefined
+  /** 指定グループの基準スナップショットを返す関数。基準設定に無ければ undefined。 */
+  effectiveGroup: (groupId: string) => Group | undefined
 }
 
 /**
@@ -58,7 +56,6 @@ interface Emits {
   removeGroup: [id: string]
   duplicateGroup: [id: string]
   requestGroupPause: [id: string]
-  viewActiveSettings: [id: string]
 }
 
 const props = defineProps<Props>()
@@ -207,16 +204,14 @@ function createGroup(templateId: GroupTemplateId): void {
         :group="groups[i]"
         :pause-entry="groupPauseEntry(groups[i].id)"
         :pause-disabled-reason="pauseDisabledReason(groups[i].id)"
+        :effective-group="effectiveGroup(groups[i].id)"
         :now="now"
-        :has-earlier-restrictions-active="pendingEffectiveGroupIds.includes(groups[i].id)"
         :applies-after-label="appliesAfterLabel"
-        :reset-time-label="resetTimeLabel"
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="$emit('saveGroup', $event)"
         @remove="$emit('removeGroup', groups[i].id)"
         @duplicate="$emit('duplicateGroup', groups[i].id)"
         @request-pause="$emit('requestGroupPause', groups[i].id)"
-        @view-active-settings="$emit('viewActiveSettings', groups[i].id)"
       />
       <GroupCard
         v-for="group in newGroups"
@@ -250,12 +245,9 @@ function createGroup(templateId: GroupTemplateId): void {
           :pause-entry="groupPauseEntry(group.id)"
           :pause-disabled-reason="pauseDisabledReason(group.id)"
           :now="now"
-          :has-earlier-restrictions-active="true"
           :applies-after-label="appliesAfterLabel"
-          :reset-time-label="resetTimeLabel"
           read-only
           @request-pause="$emit('requestGroupPause', group.id)"
-          @view-active-settings="$emit('viewActiveSettings', group.id)"
         />
       </section>
     </div>

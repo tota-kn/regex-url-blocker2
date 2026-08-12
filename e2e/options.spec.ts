@@ -31,6 +31,63 @@ function dailyRules(override: Record<string, unknown> = {}): Array<Record<string
 }
 
 /**
+ * Lock Mode ON かつ Pause の待機 5 秒・停止 7 分のグループを、
+ * 希望設定と当日の基準スナップショットの両方へ書き込む。Service Worker 内で実行する。
+ */
+async function seedLockedPauseGroup(): Promise<void> {
+  const chromeApi = globalThis as unknown as {
+    chrome: {
+      storage: {
+        sync: { set: (items: Record<string, unknown>) => Promise<void> }
+        local: { set: (items: Record<string, unknown>) => Promise<void> }
+      }
+    }
+  }
+  const settings = {
+    global: {
+      dailyResetHour: '03:00',
+      remainingTimeNotificationsEnabled: true,
+      notificationThresholdMinutes: 5,
+    },
+    groups: [
+      {
+        id: 'locked-pause',
+        name: 'Locked pause',
+        mode: 'blacklist',
+        disabled: false,
+        lockMode: true,
+        patterns: ['example\\.com'],
+        pauseAllowed: true,
+        pauseWaitSeconds: 5,
+        pauseDurationMinutes: 7,
+        rules: [
+          {
+            id: 'locked-pause-rule',
+            window: { type: 'always' },
+            restriction: { kind: 'block' },
+            destination: { type: 'blockedPage' },
+          },
+        ],
+      },
+    ],
+  }
+  const now = new Date()
+  const reset = new Date(now)
+  reset.setHours(3, 0, 0, 0)
+  if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
+  const logicalDate = [
+    reset.getFullYear(),
+    String(reset.getMonth() + 1).padStart(2, '0'),
+    String(reset.getDate()).padStart(2, '0'),
+  ].join('-')
+  await chromeApi.chrome.storage.local.set({
+    effectiveSettings: settings,
+    effectiveSettingsLogicalDate: logicalDate,
+  })
+  await chromeApi.chrome.storage.sync.set(settings)
+}
+
+/**
  * Options 画面の General settings セクションを開く。
  */
 async function openGeneralSettings(page: Page): Promise<void> {
@@ -627,6 +684,129 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
   })
 
+  test('Pause 設定のバリデーションエラーを出してもカードのレイアウトが崩れない', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const serviceWorker =
+      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    await serviceWorker.evaluate(async () => {
+      const chromeApi = globalThis as unknown as {
+        chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: {
+          blockAction: 'blockedPage',
+          redirectUrl: 'https://blocked.test',
+          dailyResetHour: '03:00',
+        },
+        groups: [
+          {
+            id: 'pause-invalid',
+            name: 'Pause invalid',
+            mode: 'blacklist',
+            lockMode: false,
+            patterns: ['example\\.com'],
+            blockAction: 'blockedPage',
+            redirectUrl: 'https://blocked.test',
+            timeWindows: [{ type: 'always' }],
+            restrictions: [{ type: 'block' }],
+          },
+        ],
+      })
+    })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await page.getByRole('button', { name: 'Options' }).click()
+
+    const waitInput = page.getByRole('spinbutton', { name: 'Wait seconds before pausing' })
+    const durationInput = page.getByRole('spinbutton', { name: 'Pause duration minutes' })
+    const groupCard = page.locator('article').first()
+    const secLabelBox = await page.getByText('sec', { exact: true }).boundingBox()
+    const waitInputBox = await waitInput.boundingBox()
+    expect(secLabelBox).not.toBeNull()
+    expect(waitInputBox).not.toBeNull()
+
+    await waitInput.fill('')
+    await durationInput.fill('0')
+
+    await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
+
+    // エラーは入力行の外に出るので、単位ラベルは入力欄と縦位置を保ったままになる。
+    const secLabelBoxWithError = await page.getByText('sec', { exact: true }).boundingBox()
+    const waitInputBoxWithError = await waitInput.boundingBox()
+    expect(secLabelBoxWithError).not.toBeNull()
+    expect(waitInputBoxWithError).not.toBeNull()
+    const labelOffsetBefore = secLabelBox!.y - waitInputBox!.y
+    const labelOffsetAfter = secLabelBoxWithError!.y - waitInputBoxWithError!.y
+    expect(Math.abs(labelOffsetAfter - labelOffsetBefore)).toBeLessThanOrEqual(1)
+
+    // カードが横方向にはみ出さない（overflow-hidden でエラー文が切れない）。
+    await expectNoHorizontalOverflow(groupCard)
+  })
+
+  test('Lock Mode ON では Pause 設定の緩和が次の rule day まで保留される', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const serviceWorker =
+      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    await serviceWorker.evaluate(seedLockedPauseGroup)
+    await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await page.getByRole('button', { name: 'Options' }).click()
+    await page.getByRole('spinbutton', { name: 'Wait seconds before pausing' }).fill('0')
+    await page.getByRole('spinbutton', { name: 'Pause duration minutes' }).fill('1440')
+
+    // フィールド単位で、いま効いている値と適用時期を示す。
+    await expect(page.getByText(/Still 5 sec until /)).toBeVisible()
+    await expect(page.getByText(/Still 7 min until /)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
+    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
+    // 待機は 0 秒に短縮されず、一時停止も 1440 分に延長されない。
+    await expect(pauseDialog.getByText('5s remaining')).toBeVisible()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeDisabled()
+  })
+
+  test('Lock Mode ON でも Pause 設定の強化は即時に反映される', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const serviceWorker =
+      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    await serviceWorker.evaluate(seedLockedPauseGroup)
+    await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page.getByRole('button', { name: 'Edit group' }).click()
+    await page.getByRole('button', { name: 'Options' }).click()
+    await page.getByRole('spinbutton', { name: 'Wait seconds before pausing' }).fill('20')
+    await page.getByRole('spinbutton', { name: 'Pause duration minutes' }).fill('3')
+
+    // 強化方向なので保留にはならない。
+    await expect(page.getByText(/Still \d+ sec until /)).toHaveCount(0)
+    await expect(page.getByText(/Still \d+ min until /)).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await openGroupActions(page)
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
+    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
+    await expect(pauseDialog.getByText('20s remaining')).toBeVisible()
+    await expect(pauseDialog.getByRole('button', { name: 'Pause 3 min' })).toBeDisabled()
+  })
+
   test('Incognito mode の Chrome 拡張詳細ページを開ける', async ({
     page,
     context,
@@ -836,7 +1016,7 @@ test.describe('Options 画面', () => {
     expect(stored.groups?.[0].name).toBe('Imported')
   })
 
-  test('保留中は希望設定を表示し、現在適用中の有効設定を確認できる', async ({
+  test('保留中は希望設定を表示し、保留フィールドを注記で示す', async ({
     page,
     context,
     extensionId,
@@ -953,72 +1133,20 @@ test.describe('Options 画面', () => {
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Rule 1').first()).toContainText('Always')
     await expect(page.getByLabel('Rule 1').first()).toContainText('Allow 30 min per day')
-    await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
-    await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(1)
-    await expect(
-      page.getByText(/Stricter saved changes apply now\..*rule day starts at 03:00/s),
-    ).toBeVisible()
+    // 保留状況はグループ全体のバナーではなく、フィールド単位の注記だけで示す。
+    await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)
+    await expect(page.getByText(/Earlier rules stay active until /)).toBeVisible()
+    // patterns は希望設定と基準設定で同じなので保留にはならない。
+    await expect(page.getByText(/Earlier URL patterns stay active until /)).toHaveCount(0)
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' }).first()).toBeEnabled()
     await expect(page.getByRole('menuitem', { name: 'Active settings only' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Group actions' }).first().click()
-
-    await page.getByRole('button', { name: 'View active settings' }).click()
-
-    const activeSettingsDialog = page
-      .locator('dialog')
-      .filter({ hasText: 'Currently active settings' })
-    await expect(page.getByRole('heading', { name: 'Currently active settings' })).toBeVisible()
-    await expectDialogCentered(page, activeSettingsDialog)
-    await expect(activeSettingsDialog.getByText('General settings')).not.toBeVisible()
-    await expect(
-      activeSettingsDialog.getByText('Start a new rule day at this time'),
-    ).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('Notify me')).not.toBeVisible()
-    await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Work')
-    await expect(activeSettingsDialog.getByLabel('Name')).toHaveCount(2)
-    await expect(activeSettingsDialog.getByText('Earlier restrictions still active')).toBeVisible()
-    await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
-    await expect(
-      activeSettingsDialog.getByRole('menuitem', { name: 'Duplicate group' }),
-    ).not.toBeVisible()
-    await expect(
-      activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
-    ).not.toBeVisible()
-    await expect(activeSettingsDialog.getByText('URL patterns').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Rules').first()).toBeVisible()
-    await expect(activeSettingsDialog.getByText('Options').first()).toBeVisible()
-    await expect(
-      activeSettingsDialog.getByText('Delay relaxed restrictions until next rule day').first(),
-    ).toBeVisible()
-    await expect(
-      activeSettingsDialog.getByText('active\\.example', { exact: true }).first(),
-    ).toBeVisible()
-    await expect(activeSettingsDialog.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
-    await expect(activeSettingsDialog.getByLabel('Rule 1').first()).toContainText('Always')
-    await expect(activeSettingsDialog.getByLabel('Rule 1').first()).toContainText(
-      'Allow 30 min per day',
-    )
-    const retainedSettings = activeSettingsDialog
-      .locator('section')
-      .filter({ hasText: 'Earlier restrictions still active' })
-    await expect(retainedSettings.getByLabel('Rule 1')).toContainText('09:00-17:00')
-    // 旧形式は timeWindows × restrictions の直積で移行されるため、行数ではなく内容で確認する。
-    await expect(retainedSettings).toContainText('Allow 10 min per day')
-    const headerBox = await activeSettingsDialog
-      .locator('[aria-label="Active settings header"]')
-      .boundingBox()
-    const firstRuleBox = await activeSettingsDialog.getByLabel('Rule 1').first().boundingBox()
-    expect(headerBox).not.toBeNull()
-    expect(firstRuleBox).not.toBeNull()
-    expect(firstRuleBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height)
-    await expectNoHorizontalOverflow(activeSettingsDialog.getByLabel('Active settings content'))
-    await expect(activeSettingsDialog.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
-    await expect(activeSettingsDialog.getByRole('menuitem', { name: 'Pause' })).toHaveCount(0)
     await expect(page.locator('dialog').filter({ hasText: 'Take a breath' })).not.toBeVisible()
   })
 
-  test('Lock Mode ON のグループを Disable しても同じ論理日中は active settings で有効のまま表示する', async ({
+  test('Lock Mode ON のグループを Disable しても同じ論理日中は有効のままだと注記で示す', async ({
     page,
     context,
     extensionId,
@@ -1078,28 +1206,14 @@ test.describe('Options 画面', () => {
     await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Disable' }).click()
 
+    // 希望設定は Disabled になるが、Lock Mode により同じ論理日中は制限が効き続ける。
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
-    await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
-    await page.getByRole('button', { name: 'View active settings' }).click()
-    const activeSettingsDialog = page
-      .locator('dialog')
-      .filter({ hasText: 'Currently active settings' })
-    await expect(activeSettingsDialog.getByLabel('Name').first()).toHaveValue('Locked disable')
-    await expect(
-      activeSettingsDialog.getByRole('status').filter({ hasText: 'Disabled' }).first(),
-    ).toBeVisible()
-    const retainedSettings = activeSettingsDialog
-      .locator('section')
-      .filter({ hasText: 'Earlier restrictions still active' })
-    await expect(
-      retainedSettings.getByRole('status').filter({ hasText: 'Disabled' }),
-    ).not.toBeVisible()
-    await expect(
-      activeSettingsDialog.getByText('Delay relaxed restrictions until next rule day').first(),
-    ).toBeVisible()
+    await expect(page.getByText(/This group stays enforced until /)).toBeVisible()
+    await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)
   })
 
-  test('希望設定から削除済みの active group も active settings で読み取り専用に表示する', async ({
+  test('希望設定から削除済みの active group は専用セクションに読み取り専用で残る', async ({
     page,
     context,
     extensionId,
@@ -1170,24 +1284,16 @@ test.describe('Options 画面', () => {
       .toBe(1)
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
-    await expect(page.getByText('Earlier restrictions are still active.')).toBeVisible()
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
-    const retainedGroup = page.getByLabel('Earlier active groups')
-    await expect(retainedGroup.getByLabel('Name')).toHaveValue('Deleted active')
-    await expect(retainedGroup.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
-    await expect(retainedGroup.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
-    await page.getByRole('button', { name: 'View active settings' }).click()
-
-    const activeSettingsDialog = page
-      .locator('dialog')
-      .filter({ hasText: 'Currently active settings' })
-    await expect(activeSettingsDialog.getByLabel('Name')).toHaveValue('Deleted active')
-    await expect(activeSettingsDialog.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
-    await expect(
-      activeSettingsDialog.getByRole('button', { name: 'Delete group' }),
-    ).not.toBeVisible()
-    await expect(activeSettingsDialog.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
-    await expect(activeSettingsDialog.getByRole('menuitem', { name: 'Pause' })).toHaveCount(0)
+    // 削除済みグループは専用の見出しセクション配下に読み取り専用で残る。
+    const retainedSection = page.getByLabel('Earlier active groups')
+    await expect(retainedSection).toContainText('Earlier restrictions still active')
+    await expect(retainedSection.getByLabel('Name')).toHaveValue('Deleted active')
+    await expect(retainedSection.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
+    await expect(retainedSection.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
+    await expect(retainedSection.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
+    await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)
     await expect(page.locator('dialog').filter({ hasText: 'Take a breath' })).not.toBeVisible()
   })
 

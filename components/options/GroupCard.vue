@@ -16,19 +16,18 @@ import {
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import { sortRulesByEvaluationOrder, type TimeLimitUsageSummary } from '@/utils/blocking'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
+import { getPendingGroupFieldKeys, resolveEffectiveGroup } from '@/utils/effectiveSettings'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
-import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
 import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
-import StatusBadge from '../ui/StatusBadge.vue'
 import PatternListEditor from './PatternListEditor.vue'
+import PendingFieldNote from './PendingFieldNote.vue'
 import RuleListEditor from './RuleListEditor.vue'
 
 /**
@@ -52,12 +51,10 @@ interface Props {
   timeLimitUsageSummary?: TimeLimitUsageSummary
   /** 読み取り専用表示にして編集・削除・Pause を含む操作を無効化するかどうか。 */
   readOnly?: boolean
-  /** 次の rule day まで以前の制限が有効なら true。 */
-  hasEarlierRestrictionsActive?: boolean
+  /** このグループの基準スナップショット。Lock Mode の保留状況の算出に使う。 */
+  effectiveGroup?: Group
   /** 保留中の制限が反映される日時。 */
   appliesAfterLabel?: string
-  /** rule day の開始時刻。 */
-  resetTimeLabel?: string
 }
 
 /**
@@ -69,7 +66,6 @@ interface Emits {
   remove: []
   duplicate: []
   requestPause: []
-  viewActiveSettings: []
 }
 
 const props = defineProps<Props>()
@@ -93,49 +89,68 @@ const draftRules = computed({
     draft.value.rules = rules
   },
 })
-/**
- * 「いま」プレビュー。編集中はドラフト、それ以外は保存済みの値を反映する。
- * Pause 中は Block も Wait も解除されるため、ルールの説明ではなく一時停止状態を出す。
- */
-const currentState = computed<CurrentStateSummary>(() => {
-  if (pauseButtonState.value.paused) {
-    // カウントダウンはヘッダーのバッジが出すので、ここでは重複させずに影響範囲だけ書く。
-    return {
-      kind: 'free',
-      headline: 'Paused',
-      lines: ['No rule is enforced for this group while it is paused.'],
-    }
+/** 保留状況の比較対象。編集中は入力中のドラフト、それ以外は保存済みの値を使う。 */
+const comparedGroup = computed(() => (isEditing.value ? draft.value : props.group))
+/** Lock Mode により希望値がまだ適用されていないフィールドのキー。 */
+const pendingFieldKeys = computed<Array<keyof Group>>(() =>
+  props.effectiveGroup ? getPendingGroupFieldKeys(props.effectiveGroup, comparedGroup.value) : [],
+)
+/** いま実際に適用されている値へ解決したグループ。 */
+const resolvedGroup = computed(() =>
+  props.effectiveGroup
+    ? resolveEffectiveGroup(props.effectiveGroup, comparedGroup.value)
+    : comparedGroup.value,
+)
+/** いま実際に適用されている一時停止の待機秒数。 */
+const effectivePauseWaitSeconds = computed(
+  () => resolvedGroup.value.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS,
+)
+/** いま実際に適用されている一時停止の継続分数。 */
+const effectivePauseDurationMinutes = computed(
+  () => resolvedGroup.value.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
+)
+/** 保留中フィールドに添える適用時期の文言。 */
+const pendingUntilLabel = computed(() =>
+  props.appliesAfterLabel ? `until ${props.appliesAfterLabel}` : 'until the next rule day',
+)
+/** 一時停止設定のうち保留中の項目を、いま効いている値の文言として並べる。 */
+const pendingPauseNote = computed(() => {
+  const parts: string[] = []
+  if (isFieldPending('pauseAllowed')) parts.push('not allowed')
+  if (isFieldPending('pauseWaitSeconds')) {
+    parts.push(`wait ${effectivePauseWaitSeconds.value} sec`)
   }
-  return describeCurrentState(
-    isEditing.value ? draftRules.value : props.group.rules,
-    props.now ?? new Date(),
-    props.globalSettings,
-    props.timeLimitUsageSummary?.consumedSec ?? 0,
-  )
-})
-/** 「いま」バッジの配色。 */
-const currentStateBadgeKind = computed(() => {
-  if (pauseButtonState.value.paused) return 'warning'
-  if (currentState.value.kind === 'blocked') return 'danger'
-  if (currentState.value.kind === 'gated' || currentState.value.kind === 'limited') return 'warning'
-  return 'muted'
+  if (isFieldPending('pauseDurationMinutes')) {
+    parts.push(`pause for ${effectivePauseDurationMinutes.value} min`)
+  }
+  if (parts.length === 0) return undefined
+  return `Still ${parts.join(', ')} ${pendingUntilLabel.value}.`
 })
 const visibleOptionSummaries = computed(() => {
-  const summaries: Array<{ label: string; value: string }> = []
+  const summaries: Array<{ label: string; value: string; pending?: string }> = []
+  const lockModeLabel = 'Delay relaxed restrictions until next rule day'
   if (props.group.lockMode) {
-    summaries.push({ label: 'Delay relaxed restrictions until next rule day', value: 'On' })
+    summaries.push({ label: lockModeLabel, value: 'On' })
+  } else if (isFieldPending('lockMode')) {
+    summaries.push({
+      label: lockModeLabel,
+      value: 'Off',
+      pending: `Still on ${pendingUntilLabel.value}.`,
+    })
   }
   const pauseWaitSeconds = props.group.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS
   const pauseDurationMinutes = props.group.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES
   if (props.group.pauseAllowed === false) {
-    summaries.push({ label: 'Pause', value: 'Not allowed' })
+    summaries.push({ label: 'Pause', value: 'Not allowed', pending: pendingPauseNote.value })
   } else if (
     pauseWaitSeconds !== DEFAULT_PAUSE_WAIT_SECONDS ||
-    pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES
+    pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES ||
+    pendingPauseNote.value
   ) {
     summaries.push({
       label: 'Pause',
       value: `Wait ${pauseWaitSeconds} sec, pause for ${pauseDurationMinutes} min`,
+      pending: pendingPauseNote.value,
     })
   }
   return summaries
@@ -183,6 +198,11 @@ watch(showsActionMenu, (visible) => {
   if (visible) return
   closeActionMenu()
 })
+
+/** 指定フィールドが Lock Mode により保留中なら true。 */
+function isFieldPending(key: keyof Group): boolean {
+  return pendingFieldKeys.value.includes(key)
+}
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {
@@ -290,11 +310,6 @@ function duplicateGroup(): void {
 function removeGroup(): void {
   closeActionMenu()
   emit('remove')
-}
-
-/** このグループに残っている以前の有効設定の確認を親へ通知する。 */
-function viewActiveSettings(): void {
-  emit('viewActiveSettings')
 }
 
 /** グループアクションメニュー外のクリックでメニューを閉じる。 */
@@ -496,69 +511,44 @@ onBeforeUnmount(() => {
           aria-label="Remaining time today"
           class="w-full"
         />
-
-        <div
-          class="rounded-lg border border-border bg-surface-muted px-3 py-2.5"
-          aria-label="Current effect"
-          role="status"
-        >
-          <div class="flex min-w-0 flex-wrap items-center gap-2">
-            <span class="text-label-sm text-muted-foreground">RIGHT NOW</span>
-            <StatusBadge :kind="currentStateBadgeKind">{{ currentState.headline }}</StatusBadge>
-          </div>
-          <ul v-if="currentState.lines.length > 0" class="mt-1.5 space-y-0.5">
-            <li
-              v-for="line in currentState.lines"
-              :key="line"
-              class="text-body-sm text-secondary-foreground"
-            >
-              {{ line }}
-            </li>
-          </ul>
-        </div>
       </div>
+      <PendingFieldNote v-if="isFieldPending('disabled')">
+        This group stays enforced {{ pendingUntilLabel }}.
+      </PendingFieldNote>
       <AlertMessage v-if="isEditing && draftError('name')" class="mt-3">
         {{ draftError('name') }}
       </AlertMessage>
     </div>
 
-    <div
-      v-if="hasEarlierRestrictionsActive"
-      class="border-b border-warning bg-warning/10 p-4 text-warning-text"
-    >
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-label-md">Earlier restrictions are still active.</p>
-          <p class="mt-1 text-body-sm">
-            Stricter saved changes apply now. Changes that relax restrictions apply after
-            {{ appliesAfterLabel }} (rule day starts at {{ resetTimeLabel }}).
-          </p>
-        </div>
-        <BaseButton type="button" variant="secondary" @click="viewActiveSettings">
-          View active settings
-        </BaseButton>
-      </div>
-    </div>
-
     <fieldset :disabled="!isEditing" class="min-w-0 space-y-4 p-4 disabled:cursor-default">
       <legend class="sr-only">Group details</legend>
-      <PatternListEditor
-        v-model="draft.patterns"
-        :is-editing="isEditing"
-        :section-error="patternsSectionError()"
-        :error="patternError"
-        @touch="touchField"
-      />
+      <div>
+        <PatternListEditor
+          v-model="draft.patterns"
+          :is-editing="isEditing"
+          :section-error="patternsSectionError()"
+          :error="patternError"
+          @touch="touchField"
+        />
+        <PendingFieldNote v-if="isFieldPending('patterns')">
+          Earlier URL patterns stay active {{ pendingUntilLabel }}.
+        </PendingFieldNote>
+      </div>
 
-      <RuleListEditor
-        v-model="draftRules"
-        :is-editing="isEditing"
-        :global="globalSettings"
-        :now="now ?? new Date()"
-        :section-error="rulesSectionError()"
-        :error="ruleError"
-        @touch="touchField"
-      />
+      <div>
+        <RuleListEditor
+          v-model="draftRules"
+          :is-editing="isEditing"
+          :global="globalSettings"
+          :now="now ?? new Date()"
+          :section-error="rulesSectionError()"
+          :error="ruleError"
+          @touch="touchField"
+        />
+        <PendingFieldNote v-if="isFieldPending('rules')">
+          Earlier rules stay active {{ pendingUntilLabel }}.
+        </PendingFieldNote>
+      </div>
     </fieldset>
 
     <section v-if="isEditing || visibleOptionSummaries.length > 0" class="space-y-3 px-4 pb-4">
@@ -625,6 +615,9 @@ onBeforeUnmount(() => {
                 </label>
               </div>
             </div>
+            <PendingFieldNote v-if="isFieldPending('lockMode')">
+              Still on {{ pendingUntilLabel }}.
+            </PendingFieldNote>
           </fieldset>
           <fieldset aria-label="Pause settings" class="py-3">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -665,10 +658,13 @@ onBeforeUnmount(() => {
                     <span>Off</span>
                   </label>
                 </div>
-                <div class="flex flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
-                  <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                    <span>Wait</span>
-                    <BaseField :error="draftError('pauseWaitSeconds')">
+                <PendingFieldNote v-if="isFieldPending('pauseAllowed')" class="sm:text-right">
+                  Still not allowed {{ pendingUntilLabel }}.
+                </PendingFieldNote>
+                <div class="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
+                  <div class="min-w-0">
+                    <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                      <span class="shrink-0">Wait</span>
                       <BaseInput
                         :model-value="
                           Number.isFinite(draft.pauseWaitSeconds)
@@ -686,12 +682,18 @@ onBeforeUnmount(() => {
                           setPauseSetting('pauseWaitSeconds', String($event ?? ''))
                         "
                       />
-                    </BaseField>
-                    <span>sec</span>
-                  </label>
-                  <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                    <span>Pause for</span>
-                    <BaseField :error="draftError('pauseDurationMinutes')">
+                      <span class="shrink-0">sec</span>
+                    </label>
+                    <AlertMessage v-if="draftError('pauseWaitSeconds')" class="mt-2">
+                      {{ draftError('pauseWaitSeconds') }}
+                    </AlertMessage>
+                    <PendingFieldNote v-if="isFieldPending('pauseWaitSeconds')">
+                      Still {{ effectivePauseWaitSeconds }} sec {{ pendingUntilLabel }}.
+                    </PendingFieldNote>
+                  </div>
+                  <div class="min-w-0">
+                    <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
+                      <span class="shrink-0">Pause for</span>
                       <BaseInput
                         :model-value="
                           Number.isFinite(draft.pauseDurationMinutes)
@@ -709,9 +711,15 @@ onBeforeUnmount(() => {
                           setPauseSetting('pauseDurationMinutes', String($event ?? ''))
                         "
                       />
-                    </BaseField>
-                    <span>min</span>
-                  </label>
+                      <span class="shrink-0">min</span>
+                    </label>
+                    <AlertMessage v-if="draftError('pauseDurationMinutes')" class="mt-2">
+                      {{ draftError('pauseDurationMinutes') }}
+                    </AlertMessage>
+                    <PendingFieldNote v-if="isFieldPending('pauseDurationMinutes')">
+                      Still {{ effectivePauseDurationMinutes }} min {{ pendingUntilLabel }}.
+                    </PendingFieldNote>
+                  </div>
                 </div>
               </div>
             </div>
@@ -725,6 +733,7 @@ onBeforeUnmount(() => {
           </dt>
           <dd class="mt-1 break-all text-secondary-foreground">
             {{ summary.value }}
+            <PendingFieldNote v-if="summary.pending">{{ summary.pending }}</PendingFieldNote>
           </dd>
         </div>
       </dl>

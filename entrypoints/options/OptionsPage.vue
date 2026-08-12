@@ -5,10 +5,13 @@ import {
   getNextEffectiveSettingsResetAt,
   getPendingEffectiveGroupIds,
   hasLockModeGroup,
+  resolveEffectiveGroup,
 } from '@/utils/effectiveSettings'
 import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
 import {
   DEFAULT_GLOBAL_SETTINGS,
+  DEFAULT_PAUSE_DURATION_MINUTES,
+  DEFAULT_PAUSE_WAIT_SECONDS,
   createGroupFromTemplate,
   type GroupTemplateId,
 } from '@/utils/defaults'
@@ -34,7 +37,6 @@ import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/uti
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import ActiveSettingsDialog from '@/components/options/ActiveSettingsDialog.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
 import PauseCountdownDialog from '@/components/options/PauseCountdownDialog.vue'
@@ -53,7 +55,6 @@ const { now, start: startNowTimer } = useNowTimer()
 const isLoaded = ref(false)
 const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
-const activeSettingsDialogRef = ref<InstanceType<typeof ActiveSettingsDialog> | null>(null)
 const pauseCountdownDialogRef = ref<InstanceType<typeof PauseCountdownDialog> | null>(null)
 const pauseTargetGroupId = ref<string | undefined>(undefined)
 const activeSection = ref<'groups' | 'general'>('groups')
@@ -87,13 +88,21 @@ const retainedEffectiveGroups = computed(() => {
     (group) => pendingEffectiveGroupIds.value.includes(group.id) && !savedIds.has(group.id),
   )
 })
+/** 指定グループの基準スナップショットを返す。基準設定に存在しなければ undefined。 */
+function effectiveGroup(groupId: string): Group | undefined {
+  return effectiveSettings.value.groups.find((group) => group.id === groupId)
+}
+
+/**
+ * 一時停止の対象グループを、いま実際に適用される値へ解決して返す。
+ * Lock Mode 中は待機秒数・停止分数も基準設定と希望設定の厳しい方を採る。
+ */
 const pauseTargetGroup = computed(() => {
   const id = pauseTargetGroupId.value
   if (!id) return undefined
-  return (
-    settings.value.groups.find((group) => group.id === id) ??
-    effectiveSettings.value.groups.find((group) => group.id === id)
-  )
+  const preferred = settings.value.groups.find((group) => group.id === id)
+  const baseline = effectiveGroup(id)
+  return baseline ? resolveEffectiveGroup(baseline, preferred) : preferred
 })
 
 /**
@@ -235,7 +244,8 @@ async function confirmGroupPause(): Promise<void> {
     groupPauseState: { ...groupPauseState.value.groupPauseState },
   }
   next.groupPauseState[id] = {
-    pausedUntil: nowMs + (targetGroup?.pauseDurationMinutes ?? 10) * 60_000,
+    pausedUntil:
+      nowMs + (targetGroup?.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES) * 60_000,
   }
 
   groupPauseState.value = next
@@ -269,13 +279,6 @@ function exportSettings(): void {
   a.download = 'regex-url-guard-settings.json'
   a.click()
   URL.revokeObjectURL(url)
-}
-
-/**
- * 現在適用中の有効設定モーダルを開く。
- */
-function openActiveSettings(groupId: string): void {
-  activeSettingsDialogRef.value?.open(groupId)
 }
 
 /**
@@ -344,14 +347,11 @@ onMounted(async () => {
   <ConfirmDialog ref="confirmDialogRef" />
   <PauseCountdownDialog
     ref="pauseCountdownDialogRef"
-    :wait-seconds="pauseTargetGroup?.pauseWaitSeconds ?? 60"
-    :pause-duration-minutes="pauseTargetGroup?.pauseDurationMinutes ?? 10"
+    :wait-seconds="pauseTargetGroup?.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS"
+    :pause-duration-minutes="
+      pauseTargetGroup?.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES
+    "
     @confirm="confirmGroupPause"
-  />
-  <ActiveSettingsDialog
-    ref="activeSettingsDialogRef"
-    :effective-settings="effectiveSettings"
-    :preferred-settings="settings"
   />
   <main class="min-h-screen overflow-x-hidden bg-secondary/40 text-foreground">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -429,12 +429,11 @@ onMounted(async () => {
               :new-groups="newGroupDrafts"
               :group-pause-state="groupPauseState"
               :now="now"
-              :pending-effective-group-ids="pendingEffectiveGroupIds"
               :retained-effective-groups="retainedEffectiveGroups"
               :applies-after-label="appliesAfterLabel"
-              :reset-time-label="resetTimeLabel"
               :time-limit-usage-summary="timeLimitUsageSummary"
               :pause-disabled-reason="pauseDisabledReason"
+              :effective-group="effectiveGroup"
               @add-group="addGroup"
               @save-group="saveGroup"
               @save-new-group="saveNewGroup"
@@ -442,7 +441,6 @@ onMounted(async () => {
               @remove-group="removeGroup"
               @duplicate-group="duplicateGroup"
               @request-group-pause="requestGroupPause"
-              @view-active-settings="openActiveSettings"
             />
 
             <GlobalSettingsSection
