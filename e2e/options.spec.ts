@@ -2109,10 +2109,35 @@ test.describe('Options 画面', () => {
     await page.getByLabel('Rule 1 daily limit minutes').fill('30')
     await page.getByLabel('Rule 1 daily limit minutes').fill('')
 
-    await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save group' })).toBeEnabled()
     await page.getByRole('button', { name: 'Save group' }).click()
-    await expect(page.getByText('Enter a whole number of 0 or greater.')).toBeVisible()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
+  })
+
+  test('Daily limit に 0 分は指定できない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('ZeroLimit')
+    await page.getByRole('button', { name: 'Add URL pattern' }).click()
+    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
+    await page.getByRole('button', { name: 'Add rule' }).click()
+    await page.getByLabel('Rule 1 restriction').last().selectOption('dailyLimit')
+    await page.getByLabel('Rule 1 daily limit minutes').fill('0')
+
+    // 0 分は Block と等価なので、Block ルールへ誘導するために弾く。
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
+
+    await page.getByLabel('Rule 1 daily limit minutes').fill('1')
+    await expect(page.getByText('Enter a whole number of 1 or greater.')).not.toBeVisible()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expectVisibleGroupsStored(page)
+    await page.reload()
+
+    await expect(page.getByLabel('Rule 1')).toContainText('Allow 1 min per day')
   })
 
   test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {

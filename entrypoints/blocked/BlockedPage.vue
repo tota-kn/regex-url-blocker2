@@ -5,6 +5,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import {
+  getDailyLimitReleaseAt,
   getEffectiveGroupBlockStatus,
   getNextDailyResetAt,
   getTimeRangeUnblockAt,
@@ -69,11 +70,15 @@ function buildReason(
       releaseAt: new Date(reason.breakUntil),
     }
   }
+  // 上限は日次リセットで戻るが、ウィンドウを抜けた時点でも解除される。
+  // 先に来る方を表示し、どちらなのかがラベルで分かるようにする。
+  const releaseAt = getDailyLimitReleaseAt(reason.rule, now, global)
+  const resetAt = getNextDailyResetAt(now, global)
   return {
     label: RULE_KIND_LABELS.dailyLimit,
     summary,
-    releaseLabel: 'Resets at',
-    releaseAt: getNextDailyResetAt(now, global),
+    releaseLabel: releaseAt.getTime() < resetAt.getTime() ? 'Unblocks at' : 'Resets at',
+    releaseAt,
   }
 }
 

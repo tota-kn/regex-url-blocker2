@@ -249,6 +249,57 @@ async function saveBlockedPageDetailSettings(
 }
 
 /**
+ * Service Worker 上に、時間帯付き Daily limit ルール1件だけの blockedPage 設定を書き込む。
+ * 旧形式は時間帯を Block ルールへ展開してしまうため、新形式の `rules` を直接保存する。
+ */
+async function saveWindowedDailyLimitSettings(
+  serviceWorker: Worker,
+  origin: string,
+  dailyResetHour: HHMM,
+  group: { id: string; name: string; timeRange: TimeRange; minutes: number; counter: UsageCounter },
+): Promise<void> {
+  await serviceWorker.evaluate(
+    async (settings) => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: { set: (items: Record<string, unknown>) => Promise<void> }
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+          }
+        }
+      }
+      await chromeApi.chrome.storage.sync.set({
+        global: { dailyResetHour: settings.dailyResetHour },
+        groups: [
+          {
+            id: settings.group.id,
+            name: settings.group.name,
+            mode: 'blacklist',
+            patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
+            rules: [
+              {
+                id: 'windowed-daily-limit',
+                window: {
+                  type: 'scheduled',
+                  condition: { type: 'daily' },
+                  timeRanges: [settings.group.timeRange],
+                },
+                restriction: { kind: 'dailyLimit', minutes: settings.group.minutes },
+                destination: { type: 'blockedPage' },
+              },
+            ],
+          },
+        ],
+      })
+      await chromeApi.chrome.storage.local.set({
+        counters: { [settings.group.id]: settings.group.counter },
+      })
+    },
+    { origin, dailyResetHour, group },
+  )
+}
+
+/**
  * 毎日同じ上限分数を使うテスト用の Daily limit ルールを作る。undefined はルールなし。
  */
 function buildRestrictionParts(
@@ -522,6 +573,42 @@ test.describe('Background blocking', () => {
       await expect(reason).toContainText('Daily limit')
       await expect(reason).toContainText('Allow 15 min per day')
       await expect(reason).toContainText('Resets at')
+    } finally {
+      await server.close()
+    }
+  })
+
+  test('時間帯付き daily limit ではリセット時刻ではなくウィンドウ終了時刻を表示する', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const server = await startServer()
+    try {
+      const serviceWorker =
+        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+      const now = new Date()
+      // リセットは約24時間先、ウィンドウ終了は約1時間先。先に来るのはウィンドウ終了。
+      const dailyResetHour = buildStableDailyResetHour(now)
+      const range = buildActiveTimeRange(now)
+      await saveWindowedDailyLimitSettings(serviceWorker, server.origin, dailyResetHour, {
+        id: 'windowed-cap',
+        name: 'Windowed cap',
+        timeRange: range,
+        minutes: 15,
+        counter: {
+          logicalDate: buildLogicalDate(now, dailyResetHour),
+          consumedSec: 15 * 60,
+        },
+      })
+      await waitForEffectiveSettings(serviceWorker)
+
+      await gotoPossiblyRedirected(page, `${server.origin}/target`)
+      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      const reason = page.getByLabel('Windowed cap Daily limit')
+      await expect(reason).toContainText('Allow 15 min per day')
+      await expect(reason).toContainText('Unblocks at')
+      await expect(reason).toContainText(formatMinute(range.endMinute))
     } finally {
       await server.close()
     }

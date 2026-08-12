@@ -149,6 +149,9 @@ function normalizeRuleRestriction(value: unknown): RuleRestriction | undefined {
   const restriction = asRecord(value)
   if (restriction.kind === 'block') return { kind: 'block' }
   if (restriction.kind === 'dailyLimit') {
+    // 旧バージョンで保存できた 0 分は常時ブロックと等価。
+    // Block へ寄せることで解除時刻の表示もウィンドウ基準の正しいものになる。
+    if (restriction.minutes === 0) return { kind: 'block' }
     return {
       kind: 'dailyLimit',
       minutes: typeof restriction.minutes === 'number' ? restriction.minutes : -1,

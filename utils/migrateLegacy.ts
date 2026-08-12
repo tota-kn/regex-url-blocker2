@@ -56,7 +56,9 @@ export interface LegacyGroupInput {
  */
 function toRuleRestriction(restriction: LegacyRestriction): RuleRestriction {
   if (restriction.type === 'grace') {
-    return { kind: 'dailyLimit', minutes: restriction.graceMinutes ?? 0 }
+    // 旧 grace の 0 分（未設定含む）は即ブロックを意味するため Block へ畳む。
+    const minutes = restriction.graceMinutes ?? 0
+    return minutes > 0 ? { kind: 'dailyLimit', minutes } : { kind: 'block' }
   }
   if (restriction.type === 'wait') {
     return {

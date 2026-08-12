@@ -54,6 +54,22 @@ describe('migrateLegacyRules', () => {
     ])
   })
 
+  it('grace が 0 分または未設定なら block へ畳む', () => {
+    const zero = migrateLegacyRules({
+      groupId: 'g1',
+      timeWindows: [always],
+      restrictions: [{ type: 'grace', graceMinutes: 0 }],
+    })
+    const missing = migrateLegacyRules({
+      groupId: 'g1',
+      timeWindows: [always],
+      restrictions: [{ type: 'grace' }],
+    })
+
+    expect(zero[0]?.restriction).toEqual({ kind: 'block' })
+    expect(missing[0]?.restriction).toEqual({ kind: 'block' })
+  })
+
   it('redirect は block + 遷移先 URL へ畳む', () => {
     const rules = migrateLegacyRules({
       groupId: 'g1',

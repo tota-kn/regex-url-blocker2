@@ -350,20 +350,28 @@ export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSe
 }
 
 /**
+ * ルール1件のウィンドウのうち、指定時刻に該当する time range 配列を返す。
+ * 空 `timeRanges`（終日）や `always` は24時間相当の1件を返す。
+ * 適用日条件は判定しないため、呼び出し側で `isWindowActiveAt` と併用すること。
+ */
+function getRuleActiveTimeRanges(rule: Rule, at: Date): TimeRange[] {
+  if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) {
+    return [{ startMinute: 0, endMinute: 0 }]
+  }
+  const atMinute = at.getHours() * 60 + at.getMinutes()
+  return rule.window.timeRanges.filter((range) =>
+    timeInRange(atMinute, range.startMinute, range.endMinute),
+  )
+}
+
+/**
  * 現在アクティブな block ルールが該当する time range 配列を返す。
  * 空 `timeRanges`（終日）や `always` は24時間ブロック相当の1件を返す。
  */
 function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
-  const nowMinute = now.getHours() * 60 + now.getMinutes()
   return getActiveRules(group, now, global)
     .filter((rule) => rule.restriction.kind === 'block')
-    .flatMap((rule) => {
-      if (rule.window.type === 'always' || rule.window.timeRanges.length === 0)
-        return [{ startMinute: 0, endMinute: 0 }]
-      return rule.window.timeRanges.filter((range) =>
-        timeInRange(nowMinute, range.startMinute, range.endMinute),
-      )
-    })
+    .flatMap((rule) => getRuleActiveTimeRanges(rule, now))
 }
 
 /** 上限分数と counter から利用状況を組み立てる。 */
@@ -570,6 +578,29 @@ export function getTimeRangeUnblockAt(
     t = new Date(Math.min(...nextBoundaries))
   }
   return undefined
+}
+
+/**
+ * dailyLimit による現在のブロックが解除される日時を返す。
+ * 上限は日次リセットで戻るが、ルールのウィンドウを抜けた時点でもブロックは解除されるため、
+ * ウィンドウ終了と次の日次リセットのうち早い方を返す。
+ */
+export function getDailyLimitReleaseAt(rule: Rule, now: Date, global: GlobalSettings): Date {
+  const resetAt = getNextDailyResetAt(now, global)
+  if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) return resetAt
+
+  // 時間帯の境界ごとに再評価し、ウィンドウを抜ける最初の時刻を探す。
+  // 境界は必ず未来へ進み、日次リセットで打ち切るため必ず停止する。
+  let t = new Date(now)
+  while (t.getTime() < resetAt.getTime()) {
+    if (!isWindowActiveAt(rule.window, t, global)) return t
+    const boundaries = getRuleActiveTimeRanges(rule, t).map((range) =>
+      getBlockedTimeRangeReleaseAt(range, t).getTime(),
+    )
+    if (boundaries.length === 0) return t
+    t = new Date(Math.min(...boundaries))
+  }
+  return resetAt
 }
 
 /**

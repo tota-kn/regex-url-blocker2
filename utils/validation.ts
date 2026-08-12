@@ -201,11 +201,12 @@ function validateRule(rule: Rule, prefix: string): ValidationError[] {
   const errors = validateTimeWindow(rule.window, `${prefix}.window`)
   const restriction = rule.restriction
 
+  // 0 分は Block と同義だが解除タイミングの意味論が違うため、Block ルールへ誘導する。
   if (restriction.kind === 'dailyLimit') {
-    if (!Number.isInteger(restriction.minutes) || restriction.minutes < 0) {
+    if (!Number.isInteger(restriction.minutes) || restriction.minutes < 1) {
       errors.push({
         field: `${prefix}.restriction.minutes`,
-        message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
+        message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
       })
     }
   }

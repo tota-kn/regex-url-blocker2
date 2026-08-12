@@ -8,6 +8,7 @@ import {
   getBlockDestination,
   getBlockReason,
   getBlockedTimeRangeReleaseAt,
+  getDailyLimitReleaseAt,
   getEffectiveWaitSeconds,
   getEffectiveWaitGrantMinutes,
   getEffectiveGroupBlockStatus,
@@ -557,6 +558,61 @@ describe('time range unblock walk', () => {
   })
 })
 
+describe('daily limit release time', () => {
+  it('ウィンドウ終了が先なら日次リセットではなくウィンドウ終了時刻を返す', () => {
+    const s = settings(
+      [
+        group({
+          ...dailyRule(
+            { kind: 'dailyLimit', minutes: 30 },
+            { timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] },
+          ),
+        }),
+      ],
+      '03:00',
+    )
+    const releaseAt = getDailyLimitReleaseAt(
+      s.groups[0]!.rules[0]!,
+      new Date('2026-05-06T10:30:00+09:00'),
+      s.global,
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-06T08:00:00.000Z')
+  })
+
+  it('終日ルールでは次回 daily reset 時刻を返す', () => {
+    const s = settings([group({ ...dailyRule({ kind: 'dailyLimit', minutes: 30 }) })], '03:00')
+    const releaseAt = getDailyLimitReleaseAt(
+      s.groups[0]!.rules[0]!,
+      new Date('2026-05-06T12:00:00+09:00'),
+      s.global,
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-06T18:00:00.000Z')
+  })
+
+  it('日次リセットが先なら日跨ぎウィンドウの終了より reset 時刻を優先する', () => {
+    const s = settings(
+      [
+        group({
+          ...dailyRule(
+            { kind: 'dailyLimit', minutes: 30 },
+            { timeRanges: [{ startMinute: 22 * 60, endMinute: 6 * 60 }] },
+          ),
+        }),
+      ],
+      '03:00',
+    )
+    const releaseAt = getDailyLimitReleaseAt(
+      s.groups[0]!.rules[0]!,
+      new Date('2026-05-06T23:30:00+09:00'),
+      s.global,
+    )
+
+    expect(releaseAt.toISOString()).toBe('2026-05-06T18:00:00.000Z')
+  })
+})
+
 describe('blocking evaluation', () => {
   it('通常時間帯のブロックを判定する', () => {
     const s = settings([
@@ -581,7 +637,7 @@ describe('blocking evaluation', () => {
     const s = settings([
       group({
         disabled: true,
-        ...dailyRule({ kind: 'dailyLimit', minutes: 0 }),
+        ...dailyRule({ kind: 'block' }),
       }),
     ])
     const result = evaluateUrl(
@@ -653,10 +709,10 @@ describe('blocking evaluation', () => {
     ).toBe(true)
   })
 
-  it('0 分上限は即ブロックにする', () => {
+  it('常時 Block ルールは即ブロックにする', () => {
     const s = settings([
       group({
-        ...dailyRule({ kind: 'dailyLimit', minutes: 0 }),
+        ...dailyRule({ kind: 'block' }),
       }),
     ])
     const result = evaluateUrl(
@@ -668,11 +724,11 @@ describe('blocking evaluation', () => {
     expect(result.blocked).toBe(true)
   })
 
-  it('https?://x.com.* と 0 分上限で x.com をブロックする', () => {
+  it('https?://x.com.* と Block ルールで x.com をブロックする', () => {
     const s = settings([
       group({
         patterns: ['https?://x.com.*'],
-        ...dailyRule({ kind: 'dailyLimit', minutes: 0 }),
+        ...dailyRule({ kind: 'block' }),
       }),
     ])
     const result = evaluateUrl(
@@ -718,12 +774,12 @@ describe('blocking evaluation', () => {
       group({
         id: 'paused',
         patterns: ['example'],
-        ...dailyRule({ kind: 'dailyLimit', minutes: 0 }),
+        ...dailyRule({ kind: 'block' }),
       }),
       group({
         id: 'active',
         patterns: ['example'],
-        ...dailyRule({ kind: 'dailyLimit', minutes: 0 }),
+        ...dailyRule({ kind: 'block' }),
       }),
     ])
     const evaluation = evaluateUrl(
@@ -749,7 +805,7 @@ describe('blocking evaluation', () => {
   })
 
   it('一時停止中 group だけがブロック理由ならブロックしない', () => {
-    const s = settings([group({ id: 'paused', ...dailyRule({ kind: 'dailyLimit', minutes: 0 }) })])
+    const s = settings([group({ id: 'paused', ...dailyRule({ kind: 'block' }) })])
     const evaluation = evaluateUrl(
       s,
       emptyCounters(),
@@ -777,7 +833,7 @@ describe('blocking evaluation', () => {
       group({
         id: 'shared',
         patterns: ['example'],
-        ...dailyRule({ kind: 'dailyLimit', minutes: 0 }),
+        ...dailyRule({ kind: 'block' }),
       }),
     ])
     const preferred = settings([

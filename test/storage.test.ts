@@ -184,6 +184,28 @@ describe('saveSettings', () => {
     expect(loaded).toEqual(settings)
   })
 
+  it('旧バージョンで保存された0分の Daily limit は Block へ移行する', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...createEmptyGroup('Zero daily limit'),
+          rules: [
+            {
+              id: 'r0',
+              window: { type: 'always' },
+              restriction: { kind: 'dailyLimit', minutes: 0 },
+              destination: { type: 'blockedPage' },
+            },
+          ],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+    expect(settings.groups[0].rules[0]?.restriction).toEqual({ kind: 'block' })
+    expect(settings.groups[0].rules[0]?.destination).toEqual({ type: 'blockedPage' })
+  })
+
   it('save → load で Daily limit / Wait のルールもラウンドトリップする', async () => {
     const graceGroup = {
       ...createEmptyGroup('Grace'),

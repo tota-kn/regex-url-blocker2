@@ -131,9 +131,9 @@ function strictestSessionLimit(
 }
 
 /**
- * ブロック中のルールが解除される時刻を "HH:MM" で返す。終日なら undefined。
+ * ルールのウィンドウが現在の時間帯を抜ける時刻を "HH:MM" で返す。終日なら undefined。
  */
-function blockEndsAtLabel(rule: Rule, at: Date): string | undefined {
+function windowEndsAtLabel(rule: Rule, at: Date): string | undefined {
   if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) return undefined
   const atMinute = at.getHours() * 60 + at.getMinutes()
   const active = rule.window.timeRanges.find((range) =>
@@ -202,7 +202,7 @@ function buildCurrentState(
   const wait = strictestWait(active)
 
   if (blockRule) {
-    const endsAt = blockEndsAtLabel(blockRule, now)
+    const endsAt = windowEndsAtLabel(blockRule, now)
     const lines = [
       `Block is active (${formatTimeWindow(blockRule.window)}) → ${formatDestination(blockRule.destination)}.`,
       endsAt ? `Access returns at ${endsAt}.` : 'Active all day.',
@@ -224,12 +224,16 @@ function buildCurrentState(
   const remainingSec = daily ? Math.max(0, daily.minutes * 60 - consumedSec) : undefined
 
   if (daily && remainingSec === 0) {
+    // ウィンドウを抜けた時点でも解除されるため、終日ルールでない限り両方の可能性を示す。
+    const endsAt = windowEndsAtLabel(daily.rule, now)
     return {
       kind: 'blocked',
       headline: 'Blocked now',
       lines: [
         `Daily limit of ${daily.minutes} min is used up → ${destination}.`,
-        'Resets at the start of the next rule day.',
+        endsAt
+          ? `Access returns when the window ends at ${endsAt}, or at the next daily reset — whichever is first.`
+          : 'Resets at the start of the next rule day.',
       ],
     }
   }

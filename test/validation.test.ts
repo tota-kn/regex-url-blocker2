@@ -278,10 +278,16 @@ describe('validateRestriction (validateGroup 経由)', () => {
     ).toEqual([])
   })
 
-  it('grace は graceMinutes が 0以上の整数でないとエラー', () => {
+  it('dailyLimit は minutes が 1以上の整数でないとエラー', () => {
     expect(
-      validateRestrictionRule(restriction({ restriction: { kind: 'dailyLimit', minutes: 0 } })),
+      validateRestrictionRule(restriction({ restriction: { kind: 'dailyLimit', minutes: 1 } })),
     ).toEqual([])
+    // 0 分は Block と等価なので、Block ルールを使わせるために弾く。
+    expect(
+      validateRestrictionRule(restriction({ restriction: { kind: 'dailyLimit', minutes: 0 } })).some(
+        (e) => e.field === 'rules[0].restriction.minutes',
+      ),
+    ).toBe(true)
     expect(
       validateRestrictionRule(
         restriction({
