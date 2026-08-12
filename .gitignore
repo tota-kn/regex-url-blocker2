@@ -26,3 +26,7 @@ web-ext.config.ts
 playwright-report
 test-results
 .dev-browser-profile
+
+# エージェント用の git worktree。リポジトリ配下に作られるため、
+# ここを除外しないと oxlint がネストした .oxlintrc.json を拾って設定解析に失敗する。
+.claude/worktrees
