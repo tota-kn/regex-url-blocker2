@@ -36,19 +36,17 @@ describe('migrateLegacyRules', () => {
     expect(migrateLegacyRules(input)).toEqual(migrateLegacyRules(input))
   })
 
-  it('grace は dailyLimit へ、sessionLimit と wait はそのまま移行する', () => {
+  it('grace は dailyLimit へ、wait はそのまま移行する', () => {
     const rules = migrateLegacyRules({
       groupId: 'g1',
       timeWindows: [always],
       restrictions: [
         { type: 'grace', graceMinutes: 45 },
         { type: 'wait', waitSeconds: 30, waitGrantMinutes: 5 },
-        { type: 'sessionLimit', sessionMinutes: 10, breakMinutes: 20 },
       ],
     })
 
     expect(rules.map((rule) => rule.restriction)).toEqual([
-      { kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 20 },
       { kind: 'dailyLimit', minutes: 45 },
       { kind: 'wait', seconds: 30, grantMinutes: 5 },
     ])
@@ -116,10 +114,9 @@ describe('migrateLegacyRules', () => {
     const rules = migrateLegacyRules({
       groupId: 'g1',
       timeWindows: [always],
-      restrictions: [{ type: 'wait', waitSeconds: 30 }, { type: 'sessionLimit' }],
+      restrictions: [{ type: 'wait', waitSeconds: 30 }],
     })
     expect(rules.map((rule) => rule.restriction)).toEqual([
-      { kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 },
       { kind: 'wait', seconds: 30, grantMinutes: 10 },
     ])
   })
@@ -132,7 +129,7 @@ describe('migrateLegacyRules', () => {
 })
 
 describe('sortRulesByEvaluationOrder', () => {
-  const rule = (kind: 'block' | 'sessionLimit' | 'dailyLimit' | 'wait', id: string) => ({
+  const rule = (kind: 'block' | 'dailyLimit' | 'wait', id: string) => ({
     id,
     window: always,
     restriction:
@@ -140,19 +137,16 @@ describe('sortRulesByEvaluationOrder', () => {
         ? ({ kind } as const)
         : kind === 'dailyLimit'
           ? ({ kind, minutes: 30 } as const)
-          : kind === 'wait'
-            ? ({ kind, seconds: 60, grantMinutes: 10 } as const)
-            : ({ kind, sessionMinutes: 10, breakMinutes: 30 } as const),
+          : ({ kind, seconds: 60, grantMinutes: 10 } as const),
   })
 
-  it('Block → Session limit → Daily limit → Wait の順へ並べ替える', () => {
+  it('Block → Daily limit → Wait の順へ並べ替える', () => {
     const sorted = sortRulesByEvaluationOrder([
       rule('wait', 'a'),
       rule('dailyLimit', 'b'),
       rule('block', 'c'),
-      rule('sessionLimit', 'd'),
     ])
-    expect(sorted.map((r) => r.id)).toEqual(['c', 'd', 'b', 'a'])
+    expect(sorted.map((r) => r.id)).toEqual(['c', 'b', 'a'])
   })
 
   it('同種は元の並び順を保つ（安定ソート）', () => {

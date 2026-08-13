@@ -254,7 +254,7 @@ describe('block ルールの遷移先', () => {
   it('getBlockReason はブロックしたルールを返し、その遷移先を採用する', () => {
     const global = settings([]).global
     const active = group({ ...blockRestriction({ redirectUrl: 'https://elsewhere.test/' }) })
-    const reason = getBlockReason(active, undefined, undefined, now, global)
+    const reason = getBlockReason(active, undefined, now, global)
     expect(reason?.kind).toBe('block')
     expect(getBlockDestination(reason!)).toEqual({
       type: 'redirect',
@@ -262,7 +262,7 @@ describe('block ルールの遷移先', () => {
     })
 
     const inactive = group({ rules: [] })
-    expect(getBlockReason(inactive, undefined, undefined, now, global)).toBeUndefined()
+    expect(getBlockReason(inactive, undefined, now, global)).toBeUndefined()
   })
 
   it('block が複数あるときは並べ替え後の先頭の遷移先を使う', () => {
@@ -282,7 +282,7 @@ describe('block ルールの遷移先', () => {
         },
       ],
     })
-    const reason = getBlockReason(g, undefined, undefined, now, settings([]).global)
+    const reason = getBlockReason(g, undefined, now, settings([]).global)
     expect(getBlockDestination(reason!)).toEqual({ type: 'redirect', url: 'https://first.test/' })
   })
 
@@ -923,89 +923,6 @@ describe('blocking evaluation', () => {
       blockedByDailyLimit: false,
       blocked: false,
     })
-  })
-})
-
-describe('Session limit', () => {
-  it('利用枠終了から休憩終了まで対象 URL をブロックする', () => {
-    const s = settings([
-      group({ ...dailyRule({ kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 }) }),
-    ])
-    const startedAt = new Date('2026-05-06T10:00:00+09:00').getTime()
-    const state = { sessionLimitState: { g1: { startedAt } } }
-
-    expect(
-      evaluateUrl(
-        s,
-        emptyCounters(),
-        'https://example.com/',
-        new Date(startedAt + 9 * 60_000),
-        state,
-      ).blocked,
-    ).toBe(false)
-    expect(
-      evaluateUrl(
-        s,
-        emptyCounters(),
-        'https://example.com/',
-        new Date(startedAt + 10 * 60_000),
-        state,
-      ).blocked,
-    ).toBe(true)
-    expect(
-      evaluateUrl(
-        s,
-        emptyCounters(),
-        'https://example.com/',
-        new Date(startedAt + 40 * 60_000),
-        state,
-      ).blocked,
-    ).toBe(false)
-  })
-
-  it('時間枠外では進行中の休憩を適用しない', () => {
-    const s = settings([
-      group({
-        ...dailyRule(
-          { kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 },
-          { timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] },
-        ),
-      }),
-    ])
-    const startedAt = new Date('2026-05-06T10:00:00+09:00').getTime()
-    const state = { sessionLimitState: { g1: { startedAt } } }
-
-    expect(
-      evaluateUrl(
-        s,
-        emptyCounters(),
-        'https://example.com/',
-        new Date('2026-05-06T18:00:00+09:00'),
-        state,
-      ).blocked,
-    ).toBe(false)
-  })
-
-  it('Daily limit と併用時はどちらかの到達でブロックする', () => {
-    const s = settings([
-      group({
-        ...rules(
-          dailyRule({ kind: 'dailyLimit', minutes: 30 }),
-          dailyRule({ kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 }),
-        ),
-      }),
-    ])
-    const startedAt = new Date('2026-05-06T10:00:00+09:00').getTime()
-
-    expect(
-      evaluateUrl(
-        s,
-        { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 30 * 60 } } },
-        'https://example.com/',
-        new Date(startedAt + 1_000),
-        { sessionLimitState: { g1: { startedAt } } },
-      ).blocked,
-    ).toBe(true)
   })
 })
 

@@ -224,20 +224,6 @@ function validateRule(rule: Rule, prefix: string): ValidationError[] {
       })
     }
   }
-  if (restriction.kind === 'sessionLimit') {
-    if (!Number.isInteger(restriction.sessionMinutes) || restriction.sessionMinutes < 1) {
-      errors.push({
-        field: `${prefix}.restriction.sessionMinutes`,
-        message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
-      })
-    }
-    if (!Number.isInteger(restriction.breakMinutes) || restriction.breakMinutes < 1) {
-      errors.push({
-        field: `${prefix}.restriction.breakMinutes`,
-        message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,
-      })
-    }
-  }
   if (restriction.kind !== 'wait') {
     errors.push(...validateBlockDestination(rule.destination, prefix))
   }

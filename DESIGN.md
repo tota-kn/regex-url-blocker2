@@ -301,7 +301,7 @@ The core of the group editor. One row is one rule, and reads left to right as **
 - **Edit mode:** two selects (`when`, `what`) on one line followed by that restriction's own inputs, then a second line for the destination. `Wait` rows have no destination line because they never block.
 - Rows sit in a bordered `surface` card at `rounded-lg` with 12 px padding, stacked with 8 px gaps.
 
-Rules are stored and displayed in evaluation order (Block → Session limit → Daily limit → Wait). The list is re-sorted on save, so **row order always equals the order the engine applies them**.
+Rules are stored and displayed in evaluation order (Block → Daily limit → Wait). The list is re-sorted on save, so **row order always equals the order the engine applies them**.
 
 ### Right-now Panel
 

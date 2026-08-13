@@ -83,9 +83,6 @@ describe('group utilities', () => {
     expect(formatRuleRestriction({ kind: 'wait', seconds: 5, grantMinutes: 1 })).toBe(
       'Wait 5 sec, then allow 1 min',
     )
-    expect(
-      formatRuleRestriction({ kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 }),
-    ).toBe('Allow 10 min, then break 30 min')
   })
 
   it('ルール1件を「いつ → 何を → どこへ」の自然文にする', () => {

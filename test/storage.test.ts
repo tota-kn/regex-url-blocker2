@@ -148,6 +148,54 @@ describe('loadSettings', () => {
       grantMinutes: 10,
     })
   })
+
+  it('廃止した sessionLimit ルールは読み替えずに黙って捨てる', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...createEmptyGroup('Session limit'),
+          rules: [
+            {
+              id: 'r1',
+              window: { type: 'always' },
+              restriction: { kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 },
+              destination: { type: 'blockedPage' },
+            },
+            {
+              id: 'r2',
+              window: { type: 'always' },
+              restriction: { kind: 'dailyLimit', minutes: 30 },
+              destination: { type: 'blockedPage' },
+            },
+          ],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+    expect(settings.groups[0].rules).toHaveLength(1)
+    expect(settings.groups[0].rules[0]?.restriction).toEqual({ kind: 'dailyLimit', minutes: 30 })
+  })
+
+  it('旧フォーマットの sessionLimit 制限も移行せず捨てる', async () => {
+    await browser.storage.sync.set({
+      groups: [
+        {
+          ...legacyGroup('Legacy session limit'),
+          timeWindows: [{ type: 'always' }],
+          restrictions: [
+            { type: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 },
+            { type: 'grace', graceMinutes: 45 },
+          ],
+        },
+      ],
+    })
+
+    const settings = await loadSettings()
+    expect(settings.groups[0].rules.map((rule) => rule.restriction)).toEqual([
+      { kind: 'dailyLimit', minutes: 45 },
+    ])
+  })
 })
 
 describe('saveSettings', () => {

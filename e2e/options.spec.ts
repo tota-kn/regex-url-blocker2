@@ -1759,30 +1759,21 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Enter a whole number of 1 or greater.')).toBeVisible()
   })
 
-  test('Session limit の利用枠と休憩時間を保存→リロード後も保持される', async ({
+  test('制限種別は Block / Daily limit / Wait の3種のみで Session limit は選べない', async ({
     page,
     extensionId,
   }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await createBlankGroup(page)
-    await page.getByLabel('Name').fill('Session break')
-    await page.getByRole('button', { name: 'Add URL pattern' }).click()
-    await page.getByRole('textbox', { name: 'URL pattern' }).fill('example.com')
     await page.getByRole('button', { name: 'Add rule' }).click()
-    await page.getByLabel('Rule 1 restriction').selectOption('sessionLimit')
-    await page.getByLabel('Rule 1 session minutes').fill('10')
-    await page.getByLabel('Rule 1 break minutes').fill('30')
-    await page.getByRole('button', { name: 'Save group' }).click()
 
-    await expect(page.getByLabel('Rule 1')).toContainText('Allow 10 min, then break 30 min')
-    await expectVisibleGroupsStored(page)
-    await page.reload()
-
-    await expect(page.getByLabel('Rule 1')).toContainText('Allow 10 min, then break 30 min')
-    await page.getByRole('button', { name: 'Edit group' }).click()
-    await expect(page.getByLabel('Rule 1 session minutes')).toHaveValue('10')
-    await expect(page.getByLabel('Rule 1 break minutes')).toHaveValue('30')
+    const restriction = page.getByLabel('Rule 1 restriction')
+    await expect(restriction.locator('option')).toHaveText([
+      'Block access',
+      'Daily limit',
+      'Wait before access',
+    ])
   })
 
   test('重なるルールは保存を止めず、影響を警告として表示する', async ({ page, extensionId }) => {
@@ -1825,7 +1816,7 @@ test.describe('Options 画面', () => {
     await trigger.hover()
     await expect(orderText).toBeVisible()
     await expect(page.getByRole('tooltip')).toContainText('1. Block')
-    await expect(page.getByRole('tooltip')).toContainText('4. Wait')
+    await expect(page.getByRole('tooltip')).toContainText('3. Wait')
 
     await page.getByRole('heading', { name: 'Rules' }).hover()
     await expect(orderText).toHaveCount(0)

@@ -22,7 +22,7 @@ describe('createDefaultRule', () => {
     expect(rule.destination).toEqual({ type: 'blockedPage' })
   })
 
-  it('dailyLimit / wait / sessionLimit は初期表示でエラーにならない既定値を持つ', () => {
+  it('dailyLimit / wait は初期表示でエラーにならない既定値を持つ', () => {
     expect(createDefaultRule('dailyLimit').restriction).toEqual({
       kind: 'dailyLimit',
       minutes: 30,
@@ -31,11 +31,6 @@ describe('createDefaultRule', () => {
       kind: 'wait',
       seconds: 60,
       grantMinutes: 10,
-    })
-    expect(createDefaultRule('sessionLimit').restriction).toEqual({
-      kind: 'sessionLimit',
-      sessionMinutes: 10,
-      breakMinutes: 30,
     })
   })
 

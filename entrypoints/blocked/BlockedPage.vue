@@ -62,14 +62,6 @@ function buildReason(
       ...(releaseAt ? { releaseAt } : {}),
     }
   }
-  if (reason.kind === 'sessionLimit') {
-    return {
-      label: RULE_KIND_LABELS.sessionLimit,
-      summary,
-      releaseLabel: 'Break ends at',
-      releaseAt: new Date(reason.breakUntil),
-    }
-  }
   // 上限は日次リセットで戻るが、ウィンドウを抜けた時点でも解除される。
   // 先に来る方を表示し、どちらなのかがラベルで分かるようにする。
   const releaseAt = getDailyLimitReleaseAt(reason.rule, now, global)
@@ -106,7 +98,7 @@ function goBack(): void {
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
-  const { settings, counters, effectiveSettings, sessionLimitState } = await loadPageState()
+  const { settings, counters, effectiveSettings } = await loadPageState()
   const now = new Date()
   blockedUrl.value = parseBlockedUrl(params)
   blockedGroupDisplays.value = [...groupIds].flatMap((groupId) => {
@@ -117,7 +109,6 @@ onMounted(async () => {
       counters.counters[groupId],
       blockedUrl.value,
       now,
-      sessionLimitState,
     )
     if (!effective) return []
     const { group, status } = effective

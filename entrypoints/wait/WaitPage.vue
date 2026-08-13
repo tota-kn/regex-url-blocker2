@@ -135,7 +135,7 @@ onUnmounted(() => {
 
         <p class="text-body-sm text-muted-foreground" aria-label="Wait grant explanation">
           After the countdown you can browse for {{ grantMinutes }} min without waiting again. Any
-          daily or session limit on this group keeps counting down during that time.
+          daily limit on this group keeps counting down during that time.
         </p>
       </div>
 

@@ -9,12 +9,6 @@ export const DEFAULT_WAIT_SECONDS = 60
 /** Daily limit の既定上限分数。 */
 export const DEFAULT_DAILY_LIMIT_MINUTES = 30
 
-/** Session limit の既定利用枠（分）。 */
-export const DEFAULT_SESSION_LIMIT_MINUTES = 10
-
-/** Session limit の既定休憩時間（分）。 */
-export const DEFAULT_SESSION_BREAK_MINUTES = 30
-
 /** 一時停止を開始するまでの既定待機時間（秒）。 */
 export const DEFAULT_PAUSE_WAIT_SECONDS = 60
 
@@ -47,17 +41,6 @@ export function createDefaultRule(kind: RuleKind): Rule {
     return {
       ...base,
       restriction: { kind, minutes: DEFAULT_DAILY_LIMIT_MINUTES },
-      destination: { type: 'blockedPage' },
-    }
-  }
-  if (kind === 'sessionLimit') {
-    return {
-      ...base,
-      restriction: {
-        kind,
-        sessionMinutes: DEFAULT_SESSION_LIMIT_MINUTES,
-        breakMinutes: DEFAULT_SESSION_BREAK_MINUTES,
-      },
       destination: { type: 'blockedPage' },
     }
   }

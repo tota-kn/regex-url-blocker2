@@ -36,7 +36,6 @@ const whenOptions = [
 /** 「何を」のプルダウン選択肢。評価順に並べる。 */
 const kindOptions = [
   { value: 'block', label: 'Block access' },
-  { value: 'sessionLimit', label: 'Session limit' },
   { value: 'dailyLimit', label: 'Daily limit' },
   { value: 'wait', label: 'Wait before access' },
 ] satisfies { value: RuleKind; label: string }[]
@@ -208,31 +207,6 @@ const selectClass =
           @update:model-value="setNumber('minutes', $event)"
         />
         <span class="shrink-0 text-label-sm text-muted-foreground">min per day</span>
-      </template>
-
-      <template v-if="rule.restriction.kind === 'sessionLimit'">
-        <BaseInput
-          type="text"
-          inputmode="numeric"
-          :aria-label="`Rule ${props.index + 1} session minutes`"
-          class="w-16"
-          size="sm"
-          :model-value="numberText(rule.restriction.sessionMinutes)"
-          @beforeinput="preventNonDigitInput"
-          @update:model-value="setNumber('sessionMinutes', $event)"
-        />
-        <span class="shrink-0 text-label-sm text-muted-foreground">min, then break</span>
-        <BaseInput
-          type="text"
-          inputmode="numeric"
-          :aria-label="`Rule ${props.index + 1} break minutes`"
-          class="w-16"
-          size="sm"
-          :model-value="numberText(rule.restriction.breakMinutes)"
-          @beforeinput="preventNonDigitInput"
-          @update:model-value="setNumber('breakMinutes', $event)"
-        />
-        <span class="shrink-0 text-label-sm text-muted-foreground">min</span>
       </template>
 
       <template v-if="rule.restriction.kind === 'wait'">

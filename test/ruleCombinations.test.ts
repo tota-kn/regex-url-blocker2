@@ -51,7 +51,6 @@ function counters(consumedSec: number): UsageCountersState {
 }
 
 const BLOCK = rule('block', { kind: 'block' })
-const SESSION = rule('session', { kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 })
 const DAILY = rule('daily', { kind: 'dailyLimit', minutes: 30 })
 const WAIT = rule('wait', { kind: 'wait', seconds: 60, grantMinutes: 10 })
 
@@ -65,13 +64,7 @@ describe('ルールの組み合わせ表', () => {
 
   it('Block × Daily limit — Daily limit に残りがあっても Block でブロックする', () => {
     const s = settingsWith(BLOCK, DAILY)
-    const reason = getBlockReason(
-      s.groups[0]!,
-      counters(0).counters.g1,
-      undefined,
-      at('12:00'),
-      s.global,
-    )
+    const reason = getBlockReason(s.groups[0]!, counters(0).counters.g1, at('12:00'), s.global)
     expect(reason?.kind).toBe('block')
   })
 
@@ -101,76 +94,26 @@ describe('ルールの組み合わせ表', () => {
     expect(next.counters.g1?.consumedSec).toBe(60)
   })
 
-  it('Session limit × Wait — 休憩中は Wait より優先してブロックする', () => {
-    const s = settingsWith(SESSION, WAIT)
-    const startedAt = at('12:00').getTime()
-    const state = { sessionLimitState: { g1: { startedAt } } }
-
-    const during = evaluateUrl(s, counters(0), URL, at('12:05'), state)
-    expect(during.blocked).toBe(false)
-
-    const onBreak = evaluateUrl(s, counters(0), URL, at('12:15'), state)
-    expect(onBreak.blocked).toBe(true)
-
-    const afterBreak = evaluateUrl(s, counters(0), URL, at('12:45'), state)
-    expect(afterBreak.blocked).toBe(false)
-  })
-
-  it('Daily limit × Session limit — 先に尽きた方でブロックし、理由もそちらになる', () => {
-    const s = settingsWith(SESSION, DAILY)
-    const startedAt = at('12:00').getTime()
-    const state = { sessionLimitState: { g1: { startedAt } } }
-
-    // 休憩が先に来る（利用枠10分）。
-    const sessionFirst = getBlockReason(
-      s.groups[0]!,
-      counters(5 * 60).counters.g1,
-      state.sessionLimitState.g1,
-      at('12:15'),
-      s.global,
-    )
-    expect(sessionFirst?.kind).toBe('sessionLimit')
-
-    // 休憩明けに Daily limit を使い切っていればそちらでブロックする。
-    const dailyLater = getBlockReason(
-      s.groups[0]!,
-      counters(30 * 60).counters.g1,
-      state.sessionLimitState.g1,
-      at('12:45'),
-      s.global,
-    )
-    expect(dailyLater?.kind).toBe('dailyLimit')
-  })
-
   it('遷移先はブロックを起こしたルールのものを使う', () => {
     const s = settingsWith(
       rule('daily', { kind: 'dailyLimit', minutes: 30 }, 'https://daily.test/'),
-      rule(
-        'session',
-        { kind: 'sessionLimit', sessionMinutes: 10, breakMinutes: 30 },
-        'https://session.test/',
-      ),
+      rule('block', { kind: 'block' }, 'https://block.test/'),
     )
-    const startedAt = at('12:00').getTime()
 
-    const sessionReason = getBlockReason(
-      s.groups[0]!,
-      counters(0).counters.g1,
-      { startedAt },
-      at('12:15'),
-      s.global,
-    )
-    expect(getBlockDestination(sessionReason!)).toEqual({
+    const blockReason = getBlockReason(s.groups[0]!, counters(0).counters.g1, at('12:00'), s.global)
+    expect(getBlockDestination(blockReason!)).toEqual({
       type: 'redirect',
-      url: 'https://session.test/',
+      url: 'https://block.test/',
     })
 
+    const dailyOnly = settingsWith(
+      rule('daily', { kind: 'dailyLimit', minutes: 30 }, 'https://daily.test/'),
+    )
     const dailyReason = getBlockReason(
-      s.groups[0]!,
+      dailyOnly.groups[0]!,
       counters(30 * 60).counters.g1,
-      undefined,
       at('12:00'),
-      s.global,
+      dailyOnly.global,
     )
     expect(getBlockDestination(dailyReason!)).toEqual({
       type: 'redirect',

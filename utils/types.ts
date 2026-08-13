@@ -57,18 +57,16 @@ export type BlockDestination = { type: 'blockedPage' } | { type: 'redirect'; url
  * Rule が課す制限の種別。遷移先は含まない。
  * 評価はこの順（`RULE_KIND_ORDER`）で行い、最初に成立したものが勝つ。
  * - `'block'`: 有効ウィンドウ中は常にアクセスを禁止する。
- * - `'sessionLimit'`: 最初のアクセスから一定時間だけ許可し、その後は休憩としてブロックする。
  * - `'dailyLimit'`: 有効ウィンドウ中の閲覧秒数を積算し、1日の上限分数に達するとブロックする。
  * - `'wait'`: アクセス前に待機ゲート（カウントダウン）を課す。ブロックはしない。
  */
-export type RuleKind = 'block' | 'sessionLimit' | 'dailyLimit' | 'wait'
+export type RuleKind = 'block' | 'dailyLimit' | 'wait'
 
 /**
  * Rule が課す制限内容。遷移先は含まず、種別ごとに必要な値だけを持つ。
  */
 export type RuleRestriction =
   | { kind: 'block' }
-  | { kind: 'sessionLimit'; sessionMinutes: number; breakMinutes: number }
   | { kind: 'dailyLimit'; minutes: number }
   | { kind: 'wait'; seconds: number; grantMinutes: number }
 
@@ -204,18 +202,6 @@ export interface DelayGrantEntry {
 export interface DelayGrantState {
   /** group id を key とする待機ゲート許可状態辞書。 */
   delayGrantState: Record<string, DelayGrantEntry>
-}
-
-/** 1グループ分の利用枠開始状態。 */
-export interface SessionLimitEntry {
-  /** 対象サイトを最初に開いた epoch milliseconds。 */
-  startedAt: number
-}
-
-/** chrome.storage.local に保存する利用枠・休憩状態。 */
-export interface SessionLimitState {
-  /** group id を key とする利用枠開始状態。 */
-  sessionLimitState: Record<string, SessionLimitEntry>
 }
 
 /**

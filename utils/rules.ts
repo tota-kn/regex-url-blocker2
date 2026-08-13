@@ -8,7 +8,6 @@ import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction 
  */
 export const RULE_KIND_LABELS: Record<RuleKind, string> = {
   block: 'Block',
-  sessionLimit: 'Session limit',
   dailyLimit: 'Daily limit',
   wait: 'Wait',
 }
@@ -18,7 +17,6 @@ export const RULE_KIND_LABELS: Record<RuleKind, string> = {
  */
 export const EVALUATION_ORDER_STEPS: { kind: RuleKind; label: string; detail: string }[] = [
   { kind: 'block', label: 'Block', detail: 'Always sends you to the destination.' },
-  { kind: 'sessionLimit', label: 'Session limit', detail: 'Blocks while a break is in progress.' },
   { kind: 'dailyLimit', label: 'Daily limit', detail: "Blocks once today's minutes run out." },
   { kind: 'wait', label: 'Wait', detail: 'Shows the gate page, then lets you through.' },
 ]
@@ -27,7 +25,7 @@ export const EVALUATION_ORDER_STEPS: { kind: RuleKind; label: string; detail: st
  * 評価順の補足。Wait が時間を消費しないという誤解を防ぐ。
  */
 export const EVALUATION_ORDER_NOTE =
-  'The first rule that applies wins. Wait only gates access — daily and session limits keep counting down while you browse, including during the minutes granted after a wait.'
+  'The first rule that applies wins. Wait only gates access — the daily limit keeps counting down while you browse, including during the minutes granted after a wait.'
 
 /**
  * 現在時刻におけるグループ全体の合成結果。
@@ -55,9 +53,6 @@ export function formatDestination(destination: BlockDestination | undefined): st
 export function formatRuleRestriction(restriction: RuleRestriction): string {
   if (restriction.kind === 'block') return 'Block access'
   if (restriction.kind === 'dailyLimit') return `Allow ${restriction.minutes} min per day`
-  if (restriction.kind === 'sessionLimit') {
-    return `Allow ${restriction.sessionMinutes} min, then break ${restriction.breakMinutes} min`
-  }
   return `Wait ${restriction.seconds} sec, then allow ${restriction.grantMinutes} min`
 }
 
@@ -108,26 +103,6 @@ function strictestWait(rules: Rule[]): { seconds: number; grantMinutes: number }
         : [],
     )
     .toSorted((a, b) => b.seconds - a.seconds)[0]
-}
-
-/** アクティブなルールから、実際に採用される sessionLimit を返す（最短枠・最長休憩）。 */
-function strictestSessionLimit(
-  rules: Rule[],
-): { sessionMinutes: number; breakMinutes: number; rule: Rule } | undefined {
-  const limits = rules.flatMap((rule) =>
-    rule.restriction.kind === 'sessionLimit'
-      ? [
-          {
-            sessionMinutes: rule.restriction.sessionMinutes,
-            breakMinutes: rule.restriction.breakMinutes,
-            rule,
-          },
-        ]
-      : [],
-  )
-  if (limits.length === 0) return undefined
-  const shortest = limits.toSorted((a, b) => a.sessionMinutes - b.sessionMinutes)[0]!
-  return { ...shortest, breakMinutes: Math.max(...limits.map((item) => item.breakMinutes)) }
 }
 
 /**
@@ -197,7 +172,6 @@ function buildCurrentState(
   }
 
   const blockRule = active.find((rule) => rule.restriction.kind === 'block')
-  const session = strictestSessionLimit(active)
   const daily = strictestDailyLimit(active)
   const wait = strictestWait(active)
 
@@ -208,7 +182,6 @@ function buildCurrentState(
       endsAt ? `Access returns at ${endsAt}.` : 'Active all day.',
     ]
     const shadowed = [
-      session ? RULE_KIND_LABELS.sessionLimit : undefined,
       daily ? RULE_KIND_LABELS.dailyLimit : undefined,
       wait ? RULE_KIND_LABELS.wait : undefined,
     ].filter((label): label is string => label !== undefined)
@@ -220,7 +193,7 @@ function buildCurrentState(
     return { kind: 'blocked', headline: 'Blocked now', lines }
   }
 
-  const destination = formatDestination((daily?.rule ?? session?.rule)?.destination)
+  const destination = formatDestination(daily?.rule?.destination)
   const remainingSec = daily ? Math.max(0, daily.minutes * 60 - consumedSec) : undefined
 
   if (daily && remainingSec === 0) {
@@ -243,12 +216,6 @@ function buildCurrentState(
   if (wait) {
     lines.push(
       `${step}. Wait ${wait.seconds} sec on the gate page, then browse for ${wait.grantMinutes} min without waiting again.`,
-    )
-    step += 1
-  }
-  if (session) {
-    lines.push(
-      `${step}. Session limit: ${session.sessionMinutes} min of browsing, then a ${session.breakMinutes} min break → ${destination}.`,
     )
     step += 1
   }
@@ -316,11 +283,6 @@ export function describeRuleConflicts(rules: Rule[], now: Date, global: GlobalSe
     if (first.kind === 'wait' && second.kind === 'wait') {
       messages.add(
         `Two Wait rules overlap. The longer wait (${Math.max(first.seconds, second.seconds)} sec) is used.`,
-      )
-    }
-    if (first.kind === 'sessionLimit' && second.kind === 'sessionLimit') {
-      messages.add(
-        `Two Session limit rules overlap. The shorter session (${Math.min(first.sessionMinutes, second.sessionMinutes)} min) and the longer break (${Math.max(first.breakMinutes, second.breakMinutes)} min) are used.`,
       )
     }
   }

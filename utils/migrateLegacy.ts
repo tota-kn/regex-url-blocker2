@@ -1,8 +1,4 @@
-import {
-  DEFAULT_SESSION_BREAK_MINUTES,
-  DEFAULT_SESSION_LIMIT_MINUTES,
-  DEFAULT_WAIT_GRANT_MINUTES,
-} from './defaults'
+import { DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
 import { sortRulesByEvaluationOrder } from './blocking'
 import type { BlockDestination, Rule, RuleRestriction, TimeWindow } from './types'
 
@@ -10,7 +6,7 @@ import type { BlockDestination, Rule, RuleRestriction, TimeWindow } from './type
  * 旧フォーマット（`Group.restrictions`）の制限種別。
  * `Rule` へ移行済みのため、この形式は読み取り時の変換にのみ使う。
  */
-export type LegacyRestrictionType = 'block' | 'redirect' | 'grace' | 'wait' | 'sessionLimit'
+export type LegacyRestrictionType = 'block' | 'redirect' | 'grace' | 'wait'
 
 /**
  * 旧フォーマットの制限。時間条件とは独立に保存されており、`timeWindows` との直積で適用されていた。
@@ -26,10 +22,6 @@ export interface LegacyRestriction {
   waitGrantMinutes?: number
   /** `type === 'redirect'` のときの遷移先 URL。 */
   redirectUrl?: string
-  /** `type === 'sessionLimit'` のとき、最初のアクセスから許可する分数。 */
-  sessionMinutes?: number
-  /** `type === 'sessionLimit'` のとき、利用枠後にブロックする休憩分数。 */
-  breakMinutes?: number
 }
 
 /**
@@ -65,13 +57,6 @@ function toRuleRestriction(restriction: LegacyRestriction): RuleRestriction {
       kind: 'wait',
       seconds: restriction.waitSeconds ?? 0,
       grantMinutes: restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES,
-    }
-  }
-  if (restriction.type === 'sessionLimit') {
-    return {
-      kind: 'sessionLimit',
-      sessionMinutes: restriction.sessionMinutes ?? DEFAULT_SESSION_LIMIT_MINUTES,
-      breakMinutes: restriction.breakMinutes ?? DEFAULT_SESSION_BREAK_MINUTES,
     }
   }
   return { kind: 'block' }
