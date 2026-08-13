@@ -24,6 +24,15 @@ export function duplicateGroup(group: Group): Group {
 }
 
 /**
+ * 基準スナップショットのグループを、保存設定のグループ配列へ復元した新しい配列を返す。
+ * 同じ id のグループが既にあるときは復元せず、内容の等しい新しい配列を返す。
+ */
+export function restoreGroupToList(groups: Group[], restored: Group): Group[] {
+  if (groups.some((group) => group.id === restored.id)) return [...groups]
+  return [...groups, cloneGroup(restored)]
+}
+
+/**
  * 設定値を JSON 互換の deep clone として複製する。
  */
 export function cloneSettings(settings: Settings): Settings {

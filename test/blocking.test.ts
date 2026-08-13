@@ -35,7 +35,7 @@ import type {
   TimeRange,
   UsageCountersState,
 } from '../utils/types'
-import { dailyRule, rules, weeklyRule } from './helpers'
+import { dailyRule, weeklyRule } from './helpers'
 
 /**
  * テスト用のグループを生成する。

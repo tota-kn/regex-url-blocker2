@@ -5,6 +5,7 @@ import {
   duplicateGroup,
   formatScheduleRuleCondition,
   formatTimeWindow,
+  restoreGroupToList,
 } from '../utils/groups'
 import { formatRuleRestriction, formatRuleSentence } from '../utils/rules'
 import type { Group, Settings } from '../utils/types'
@@ -139,6 +140,35 @@ describe('group utilities', () => {
     duplicated.rules[0]!.restriction = { kind: 'dailyLimit', minutes: 30 }
     expect(original.patterns).toEqual(['example\\.com'])
     expect(original.rules[0]!.restriction).toEqual({ kind: 'dailyLimit', minutes: 15 })
+  })
+
+  it('削除済みグループを同じ id のまま末尾へ復元する', () => {
+    const groups = [group({ id: 'kept', name: 'Kept' })]
+    const restored = restoreGroupToList(groups, group({ id: 'deleted', name: 'Deleted' }))
+
+    expect(restored.map((g) => g.id)).toEqual(['kept', 'deleted'])
+    expect(restored[1]!.name).toBe('Deleted')
+    // 元の配列は破壊しない。
+    expect(groups.map((g) => g.id)).toEqual(['kept'])
+  })
+
+  it('復元したグループは復元元と独立した deep clone にする', () => {
+    const baseline = group({ id: 'deleted', ...dailyRule({ kind: 'dailyLimit', minutes: 15 }) })
+    const restored = restoreGroupToList([], baseline)
+
+    restored[0]!.patterns.push('news\\.example')
+    restored[0]!.rules[0]!.restriction = { kind: 'dailyLimit', minutes: 30 }
+
+    expect(baseline.patterns).toEqual(['example\\.com'])
+    expect(baseline.rules[0]!.restriction).toEqual({ kind: 'dailyLimit', minutes: 15 })
+  })
+
+  it('同じ id のグループが既にあるときは復元しない', () => {
+    const groups = [group({ id: 'deleted', name: 'Saved' })]
+    const restored = restoreGroupToList(groups, group({ id: 'deleted', name: 'Baseline' }))
+
+    expect(restored).toHaveLength(1)
+    expect(restored[0]!.name).toBe('Saved')
   })
 
   it('設定を独立した deep clone として複製する', () => {

@@ -284,9 +284,9 @@ describe('validateRestriction (validateGroup 経由)', () => {
     ).toEqual([])
     // 0 分は Block と等価なので、Block ルールを使わせるために弾く。
     expect(
-      validateRestrictionRule(restriction({ restriction: { kind: 'dailyLimit', minutes: 0 } })).some(
-        (e) => e.field === 'rules[0].restriction.minutes',
-      ),
+      validateRestrictionRule(
+        restriction({ restriction: { kind: 'dailyLimit', minutes: 0 } }),
+      ).some((e) => e.field === 'rules[0].restriction.minutes'),
     ).toBe(true)
     expect(
       validateRestrictionRule(

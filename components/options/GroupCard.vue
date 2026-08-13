@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowUturnLeftIcon,
   CheckCircleIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -51,6 +52,8 @@ interface Props {
   timeLimitUsageSummary?: TimeLimitUsageSummary
   /** 読み取り専用表示にして編集・削除・Pause を含む操作を無効化するかどうか。 */
   readOnly?: boolean
+  /** 保存設定へ戻す Restore 操作を表示するかどうか。 */
+  restorable?: boolean
   /** このグループの基準スナップショット。Lock Mode の保留状況の算出に使う。 */
   effectiveGroup?: Group
   /** 保留中の制限が反映される日時。 */
@@ -66,6 +69,7 @@ interface Emits {
   remove: []
   duplicate: []
   requestPause: []
+  restore: []
 }
 
 const props = defineProps<Props>()
@@ -306,6 +310,12 @@ function duplicateGroup(): void {
   emit('duplicate')
 }
 
+/** 保存設定への復元要求を親へ通知する。 */
+function restoreGroup(): void {
+  if (!props.restorable) return
+  emit('restore')
+}
+
 /** 削除要求を親へ通知し、メニューを閉じる。 */
 function removeGroup(): void {
   closeActionMenu()
@@ -405,6 +415,16 @@ onBeforeUnmount(() => {
               <ClockIcon aria-hidden="true" class="size-4" />
               {{ pauseButtonState.label }}
             </span>
+            <BaseButton
+              v-if="restorable"
+              type="button"
+              aria-label="Restore group"
+              variant="primary"
+              @click="restoreGroup"
+            >
+              <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
+              Restore
+            </BaseButton>
             <BaseButton
               v-if="!isEditing && !readOnly"
               type="button"

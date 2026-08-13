@@ -88,6 +88,57 @@ async function seedLockedPauseGroup(): Promise<void> {
 }
 
 /**
+ * 希望設定からは削除済みだが、Lock Mode により当日の基準スナップショットには残っている
+ * グループを書き込む。Service Worker 内で実行する。
+ */
+async function seedDeletedActiveGroup(): Promise<void> {
+  const chromeApi = globalThis as unknown as {
+    chrome: {
+      storage: {
+        sync: { set: (items: Record<string, unknown>) => Promise<void> }
+        local: { set: (items: Record<string, unknown>) => Promise<void> }
+      }
+    }
+  }
+  const global = {
+    dailyResetHour: '03:00',
+    remainingTimeNotificationsEnabled: true,
+    notificationThresholdMinutes: 5,
+  }
+  const deletedGroup = {
+    id: 'deleted-active',
+    name: 'Deleted active',
+    mode: 'blacklist',
+    disabled: false,
+    lockMode: true,
+    patterns: ['deleted\\.example'],
+    pauseAllowed: true,
+    rules: [
+      {
+        id: 'deleted-active-rule',
+        window: { type: 'always' },
+        restriction: { kind: 'block' },
+        destination: { type: 'blockedPage' },
+      },
+    ],
+  }
+  const now = new Date()
+  const reset = new Date(now)
+  reset.setHours(3, 0, 0, 0)
+  if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
+  const logicalDate = [
+    reset.getFullYear(),
+    String(reset.getMonth() + 1).padStart(2, '0'),
+    String(reset.getDate()).padStart(2, '0'),
+  ].join('-')
+  await chromeApi.chrome.storage.local.set({
+    effectiveSettings: { global, groups: [deletedGroup] },
+    effectiveSettingsLogicalDate: logicalDate,
+  })
+  await chromeApi.chrome.storage.sync.set({ global, groups: [] })
+}
+
+/**
  * Options 画面の General settings セクションを開く。
  */
 async function openGeneralSettings(page: Page): Promise<void> {
@@ -1292,9 +1343,42 @@ test.describe('Options 画面', () => {
     await expect(retainedSection.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(retainedSection.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
     await expect(retainedSection.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
+    // 編集へ復帰する手段として Restore だけを残す。
+    await expect(retainedSection.getByRole('button', { name: 'Restore group' })).toBeVisible()
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)
     await expect(page.locator('dialog').filter({ hasText: 'Take a breath' })).not.toBeVisible()
+  })
+
+  test('取り残しの active group を Restore すると通常の一覧へ戻り編集できる', async ({
+    page,
+    context,
+    extensionId,
+  }) => {
+    const serviceWorker =
+      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+    await serviceWorker.evaluate(seedDeletedActiveGroup)
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await page
+      .getByLabel('Earlier active groups')
+      .getByRole('button', { name: 'Restore group' })
+      .click()
+
+    // 通常のグループカードへ戻り、編集・削除メニューが使えるようになる。
+    await expect(page.getByLabel('Earlier active groups')).toHaveCount(0)
+    await expect(page.getByLabel('Name')).toHaveValue('Deleted active')
+    await expect(page.getByRole('button', { name: 'Edit group' })).toBeVisible()
+    await openGroupActions(page)
+    await expect(page.getByRole('menuitem', { name: 'Delete group' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expectVisibleGroupsStored(page)
+
+    // 同じ id で保存されるため、リロードしても二重にならない。
+    await page.reload()
+    await expect(page.getByLabel('Name')).toHaveValue('Deleted active')
+    await expect(page.getByLabel('Earlier active groups')).toHaveCount(0)
+    await expect(page.getByText('1 group')).toBeVisible()
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {

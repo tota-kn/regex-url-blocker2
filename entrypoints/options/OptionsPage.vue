@@ -18,7 +18,11 @@ import {
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
 import { isGroupPauseAllowed } from '@/utils/groupPause'
-import { cloneSettings, duplicateGroup as createGroupDuplicate } from '@/utils/groups'
+import {
+  cloneSettings,
+  duplicateGroup as createGroupDuplicate,
+  restoreGroupToList,
+} from '@/utils/groups'
 import {
   loadCounters,
   loadEffectiveSettingsState,
@@ -215,6 +219,16 @@ function duplicateGroup(id: string): void {
 async function removeGroup(id: string): Promise<void> {
   if (!(await confirmDialogRef.value?.open('Delete group?'))) return
   settings.value.groups = settings.value.groups.filter((g) => g.id !== id)
+}
+
+/**
+ * 保存設定から削除済みだが制限が有効なままのグループを、同じ id で保存設定へ戻す。
+ * 復元元は現在適用中の基準スナップショットなので、実際に効いている制限は変わらない。
+ */
+function restoreGroup(id: string): void {
+  const baseline = effectiveGroup(id)
+  if (!baseline) return
+  settings.value.groups = restoreGroupToList(settings.value.groups, baseline)
 }
 
 /** グループ一時停止前の集中カウントダウンを開始する。 */
@@ -441,6 +455,7 @@ onMounted(async () => {
               @remove-group="removeGroup"
               @duplicate-group="duplicateGroup"
               @request-group-pause="requestGroupPause"
+              @restore-group="restoreGroup"
             />
 
             <GlobalSettingsSection

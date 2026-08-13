@@ -56,6 +56,7 @@ interface Emits {
   removeGroup: [id: string]
   duplicateGroup: [id: string]
   requestGroupPause: [id: string]
+  restoreGroup: [id: string]
 }
 
 const props = defineProps<Props>()
@@ -234,7 +235,7 @@ function createGroup(templateId: GroupTemplateId): void {
           <h3 class="text-label-md text-secondary-foreground">Earlier restrictions still active</h3>
           <p class="mt-1 text-body-sm text-muted">
             These groups were removed from saved settings, but remain active until the next rule
-            day.
+            day. Restore one to edit it again.
           </p>
         </div>
         <GroupCard
@@ -247,7 +248,9 @@ function createGroup(templateId: GroupTemplateId): void {
           :now="now"
           :applies-after-label="appliesAfterLabel"
           read-only
+          restorable
           @request-pause="$emit('requestGroupPause', group.id)"
+          @restore="$emit('restoreGroup', group.id)"
         />
       </section>
     </div>
