@@ -50,3 +50,9 @@ lint（Oxlint + Oxfmt）と typecheck（vue-tsc）はフックで自動実行さ
    - `pnpm test:e2e`（UI／拡張機能の挙動を伴う変更時。純粋なロジック変更時は省略可）
 
    lint と typecheck はフックが自動で担保するため、ここで手動実行する必要はない（「自動実行されるフック」を参照）。
+
+## リリース
+
+Chrome ウェブストアの更新手順は [.claude/skills/release/SKILL.md](.claude/skills/release/SKILL.md) に定義する。バージョン bump（`wxt.config.ts` の `manifest.version` が単一の真実）、[docs/CHANGELOG.md](docs/CHANGELOG.md) 追記、リリースコミット、`v` なしの軽量タグ、push、`pnpm zip` までを扱う。ストアへのアップロードのみ手動。
+
+Claude Code では `/release` で呼び出せる。Codex には skill 機構がないため、同ファイルを直接読んで手順に従うこと。
