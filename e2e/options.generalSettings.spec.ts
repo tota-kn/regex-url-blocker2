@@ -131,16 +131,7 @@ test.describe('Options generalSettings', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         groups: Array.from({ length: 12 }, (_, index) => ({
           id: `group-${index}`,
           name: `Group ${index + 1}`,

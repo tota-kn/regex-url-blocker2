@@ -41,14 +41,7 @@ test.describe('Options groupActions', () => {
     await expect(page.getByText('Enable this group to use Pause.')).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeEnabled()
     const stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { get: (keys: string[]) => Promise<{ groups?: Array<Record<string, unknown>> }> }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.sync.get(['groups'])
+      return globalThis.chrome.storage.sync.get(['groups'])
     })
     expect(stored.groups?.[0].disabled).toBe(true)
 

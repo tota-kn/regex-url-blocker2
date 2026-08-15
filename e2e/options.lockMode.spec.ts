@@ -20,14 +20,6 @@ test.describe('Options lockMode', () => {
     await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(
       async (logicalDate) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: { set: (items: Record<string, unknown>) => Promise<void> }
-              local: { set: (items: Record<string, unknown>) => Promise<void> }
-            }
-          }
-        }
         const activeSettings = {
           global: {
             blockAction: 'redirect',
@@ -65,11 +57,11 @@ test.describe('Options lockMode', () => {
             },
           ],
         }
-        await chromeApi.chrome.storage.local.set({
+        await globalThis.chrome.storage.local.set({
           effectiveSettings: activeSettings,
           effectiveSettingsLogicalDate: logicalDate,
         })
-        await chromeApi.chrome.storage.sync.set({
+        await globalThis.chrome.storage.sync.set({
           global: {
             blockAction: 'redirect',
             redirectUrl: 'https://preferred-blocked.test',
@@ -141,14 +133,6 @@ test.describe('Options lockMode', () => {
   }) => {
     await serviceWorker.evaluate(
       async (logicalDate) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: { set: (items: Record<string, unknown>) => Promise<void> }
-              local: { set: (items: Record<string, unknown>) => Promise<void> }
-            }
-          }
-        }
         const settings = {
           global: {
             blockAction: 'blockedPage',
@@ -173,11 +157,11 @@ test.describe('Options lockMode', () => {
             },
           ],
         }
-        await chromeApi.chrome.storage.local.set({
+        await globalThis.chrome.storage.local.set({
           effectiveSettings: settings,
           effectiveSettingsLogicalDate: logicalDate,
         })
-        await chromeApi.chrome.storage.sync.set(settings)
+        await globalThis.chrome.storage.sync.set(settings)
       },
       logicalDateId(new Date(), '03:00'),
     )
@@ -199,14 +183,6 @@ test.describe('Options lockMode', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
-          }
-        }
-      }
       const activeSettings = {
         global: {
           blockAction: 'redirect',
@@ -230,32 +206,16 @@ test.describe('Options lockMode', () => {
           },
         ],
       }
-      await chromeApi.chrome.storage.sync.set(activeSettings)
+      await globalThis.chrome.storage.sync.set(activeSettings)
     })
     await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({ groups: [] })
+      await globalThis.chrome.storage.sync.set({ groups: [] })
     })
     await expect
       .poll(async () => {
         return serviceWorker.evaluate(async () => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: {
-                local: {
-                  get: (key: string) => Promise<{ effectiveSettings?: { groups?: unknown[] } }>
-                }
-              }
-            }
-          }
-          return (await chromeApi.chrome.storage.local.get('effectiveSettings')).effectiveSettings
+          return (await globalThis.chrome.storage.local.get('effectiveSettings')).effectiveSettings
             ?.groups?.length
         })
       })

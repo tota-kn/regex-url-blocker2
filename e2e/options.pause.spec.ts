@@ -9,19 +9,7 @@ test.describe('Options pause', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'blockedPage',
           redirectUrl: 'https://blocked.test',
@@ -72,18 +60,7 @@ test.describe('Options pause', () => {
     )
     expect(elementAtEditButton).toContain('Take a breath')
     let stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+      return globalThis.chrome.storage.local.get(['groupPauseState'])
     })
     expect(stored.groupPauseState?.['pause-target']?.waitingUntil).toBeUndefined()
     expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
@@ -91,18 +68,7 @@ test.describe('Options pause', () => {
     await page.clock.fastForward(4_000)
     await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeDisabled()
     stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+      return globalThis.chrome.storage.local.get(['groupPauseState'])
     })
     expect(stored.groupPauseState?.['pause-target']?.pausedUntil).toBeUndefined()
 
@@ -112,18 +78,7 @@ test.describe('Options pause', () => {
     await pauseDialog.getByRole('button', { name: 'Pause 7 min' }).click()
     await expect(page.getByText(/Paused 7:00|Paused 6:59/)).toBeVisible()
     stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+      return globalThis.chrome.storage.local.get(['groupPauseState'])
     })
     const pausedUntil = stored.groupPauseState?.['pause-target']?.pausedUntil
     expect(pausedUntil).toBeGreaterThanOrEqual(pauseRequestedAt + 7 * 60_000)
@@ -137,19 +92,7 @@ test.describe('Options pause', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'blockedPage',
           redirectUrl: 'https://blocked.test',
@@ -184,18 +127,7 @@ test.describe('Options pause', () => {
     await expect(pauseDialog).not.toBeVisible()
 
     let stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+      return globalThis.chrome.storage.local.get(['groupPauseState'])
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
@@ -205,18 +137,7 @@ test.describe('Options pause', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('blur')))
     await expect(pauseDialog).not.toBeVisible()
     stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+      return globalThis.chrome.storage.local.get(['groupPauseState'])
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
 
@@ -232,18 +153,7 @@ test.describe('Options pause', () => {
     })
     await expect(pauseDialog).not.toBeVisible()
     stored = await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              get: (keys: string[]) => Promise<{
-                groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-              }>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.local.get(['groupPauseState'])
+      return globalThis.chrome.storage.local.get(['groupPauseState'])
     })
     expect(stored.groupPauseState?.['pause-cancel-target']).toBeUndefined()
   })
@@ -256,10 +166,7 @@ test.describe('Options pause', () => {
     /** Pause 禁止フラグを指定してテスト対象グループを保存する。 */
     const savePauseTargetGroup = async (pauseAllowed: boolean): Promise<void> =>
       serviceWorker.evaluate(async (allowed) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
-        await chromeApi.chrome.storage.sync.set({
+        await globalThis.chrome.storage.sync.set({
           global: {
             blockAction: 'blockedPage',
             redirectUrl: 'https://blocked.test',
@@ -284,18 +191,7 @@ test.describe('Options pause', () => {
     /** storage.local に保存されている一時停止期限を返す。 */
     const storedPausedUntil = async (): Promise<number | null> =>
       serviceWorker.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              local: {
-                get: (keys: string[]) => Promise<{
-                  groupPauseState?: Record<string, { waitingUntil?: number; pausedUntil?: number }>
-                }>
-              }
-            }
-          }
-        }
-        const stored = await chromeApi.chrome.storage.local.get(['groupPauseState'])
+        const stored = await globalThis.chrome.storage.local.get(['groupPauseState'])
         return stored.groupPauseState?.['pause-forbidden']?.pausedUntil ?? null
       })
 
@@ -304,10 +200,7 @@ test.describe('Options pause', () => {
     await expect(page.getByRole('button', { name: 'Edit group' })).toBeVisible()
 
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
-      }
-      await chromeApi.chrome.storage.local.set({
+      await globalThis.chrome.storage.local.set({
         groupPauseState: { 'pause-forbidden': { pausedUntil: Date.now() + 600_000 } },
       })
     })
@@ -332,10 +225,7 @@ test.describe('Options pause', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'blockedPage',
           redirectUrl: 'https://blocked.test',
@@ -368,16 +258,7 @@ test.describe('Options pause', () => {
     await expect
       .poll(async () =>
         serviceWorker.evaluate(async () => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: {
-                sync: {
-                  get: (keys: string[]) => Promise<{ groups?: Array<{ pauseAllowed?: boolean }> }>
-                }
-              }
-            }
-          }
-          const stored = await chromeApi.chrome.storage.sync.get(['groups'])
+          const stored = await globalThis.chrome.storage.sync.get(['groups'])
           return stored.groups?.[0]?.pauseAllowed ?? null
         }),
       )
@@ -393,10 +274,7 @@ test.describe('Options pause', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'blockedPage',
           redirectUrl: 'https://blocked.test',

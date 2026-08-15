@@ -60,19 +60,7 @@ test.describe('Options remainingTime', () => {
     extensionId,
   }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-            local: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'redirect',
           redirectUrl: 'https://example.com',
@@ -101,16 +89,8 @@ test.describe('Options remainingTime', () => {
         String(date.getMonth() + 1).padStart(2, '0'),
         String(date.getDate()).padStart(2, '0'),
       ].join('-')
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.local.set({
+
+      await globalThis.chrome.storage.local.set({
         counters: {
           limited: {
             logicalDate,
@@ -133,19 +113,7 @@ test.describe('Options remainingTime', () => {
 
   test('カウンタ更新時に残り時間を更新する', async ({ page, serviceWorker, extensionId }) => {
     await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-            local: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'redirect',
           redirectUrl: 'https://example.com',
@@ -174,16 +142,8 @@ test.describe('Options remainingTime', () => {
         String(date.getMonth() + 1).padStart(2, '0'),
         String(date.getDate()).padStart(2, '0'),
       ].join('-')
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.local.set({
+
+      await globalThis.chrome.storage.local.set({
         counters: {
           limited: {
             logicalDate,
@@ -204,16 +164,8 @@ test.describe('Options remainingTime', () => {
         String(date.getMonth() + 1).padStart(2, '0'),
         String(date.getDate()).padStart(2, '0'),
       ].join('-')
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.local.set({
+
+      await globalThis.chrome.storage.local.set({
         counters: {
           limited: {
             logicalDate,

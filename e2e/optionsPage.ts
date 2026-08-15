@@ -58,14 +58,7 @@ export async function expectGlobalSettingsStored(
   await expect
     .poll(() =>
       page.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: { get: (key: string) => Promise<{ global?: Record<string, unknown> }> }
-            }
-          }
-        }
-        return (await chromeApi.chrome.storage.sync.get('global')).global
+        return (await globalThis.chrome.storage.sync.get('global')).global
       }),
     )
     .toEqual(expect.objectContaining(expected))
@@ -83,16 +76,10 @@ export async function expectVisibleGroupsStored(page: Page): Promise<void> {
   await expect
     .poll(() =>
       page.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: { get: (key: string) => Promise<{ groups?: Array<{ name: string }> }> }
-            }
-          }
-        }
         return (
-          (await chromeApi.chrome.storage.sync.get('groups')).groups?.map((group) => group.name) ??
-          []
+          (await globalThis.chrome.storage.sync.get('groups')).groups?.map(
+            (group: { name: string }) => group.name,
+          ) ?? []
         )
       }),
     )

@@ -16,10 +16,7 @@ async function saveWaitGateSettings(
 ): Promise<void> {
   await serviceWorker.evaluate(
     async (settings) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: { dailyResetHour: '00:00' },
         groups: [
           {
@@ -142,10 +139,7 @@ test.describe('Wait gate', () => {
 
       // 許可期間を過去にすると、次のアクセスで再び待機ページになる。
       await serviceWorker.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
-        await chromeApi.chrome.storage.local.set({
+        await globalThis.chrome.storage.local.set({
           delayGrantState: { 'wait-local': { grantedUntil: Date.now() - 1_000 } },
         })
       })
@@ -173,10 +167,7 @@ test.describe('Wait gate', () => {
       )
 
       await serviceWorker.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
-        await chromeApi.chrome.storage.local.set({
+        await globalThis.chrome.storage.local.set({
           groupPauseState: { 'wait-local': { pausedUntil: Date.now() + 5 * 60_000 } },
         })
       })

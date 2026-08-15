@@ -84,16 +84,7 @@ test.describe('Options importExport', () => {
     await expect(page.getByLabel('Rule 1')).toContainText('Allow 15 min per day')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
     const stored = (await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: {
-              get: (keys: string[]) => Promise<Record<string, unknown>>
-            }
-          }
-        }
-      }
-      return chromeApi.chrome.storage.sync.get(['global', 'groups'])
+      return globalThis.chrome.storage.sync.get(['global', 'groups'])
     })) as { global?: Record<string, unknown>; groups?: Array<Record<string, unknown>> }
     expect(stored.global?.dailyResetHour).toBe('04:30')
     expect(stored.global?.remainingTimeNotificationsEnabled).toBe(true)

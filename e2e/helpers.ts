@@ -60,15 +60,7 @@ export async function getExtensionStorage(
 ): Promise<Record<string, unknown>> {
   return serviceWorker.evaluate(
     async ({ area, keys }) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: { get: (keys?: string[]) => Promise<Record<string, unknown>> }
-            sync: { get: (keys?: string[]) => Promise<Record<string, unknown>> }
-          }
-        }
-      }
-      return chromeApi.chrome.storage[area].get(keys)
+      return globalThis.chrome.storage[area].get(keys)
     },
     { area, keys },
   )
@@ -82,15 +74,7 @@ export async function setExtensionStorage(
 ): Promise<void> {
   await serviceWorker.evaluate(
     async ({ area, items }) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-          }
-        }
-      }
-      await chromeApi.chrome.storage[area].set(items)
+      await globalThis.chrome.storage[area].set(items)
     },
     { area, items },
   )

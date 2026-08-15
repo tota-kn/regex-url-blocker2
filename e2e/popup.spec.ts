@@ -8,15 +8,6 @@ import { logicalDateId } from './logicalDate'
  */
 async function savePopupSettings(serviceWorker: Worker, origin: string): Promise<void> {
   await serviceWorker.evaluate(async (origin) => {
-    const chromeApi = globalThis as unknown as {
-      chrome: {
-        storage: {
-          sync: {
-            set: (items: Record<string, unknown>) => Promise<void>
-          }
-        }
-      }
-    }
     const dailyRules = (override: Record<string, unknown> = {}) =>
       [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
         dayOfWeek,
@@ -31,7 +22,7 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
       inactiveStart + 30 <= 1440
         ? { startMinute: inactiveStart, endMinute: inactiveStart + 30 }
         : { startMinute: 0, endMinute: 30 }
-    await chromeApi.chrome.storage.sync.set({
+    await globalThis.chrome.storage.sync.set({
       global: {
         blockAction: 'redirect',
         redirectUrl: 'https://example.com/blocked',
@@ -99,16 +90,7 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
 async function savePopupCounters(serviceWorker: Worker): Promise<void> {
   await serviceWorker.evaluate(
     async (logicalDate) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.local.set({
+      await globalThis.chrome.storage.local.set({
         counters: {
           'limited-a': {
             logicalDate,
@@ -149,16 +131,7 @@ async function savePopupPauseState(
   entry: { waitingUntil?: number; pausedUntil?: number },
 ): Promise<void> {
   await serviceWorker.evaluate(async (entry) => {
-    const chromeApi = globalThis as unknown as {
-      chrome: {
-        storage: {
-          local: {
-            set: (items: Record<string, unknown>) => Promise<void>
-          }
-        }
-      }
-    }
-    await chromeApi.chrome.storage.local.set({
+    await globalThis.chrome.storage.local.set({
       groupPauseState: {
         'pause-target': entry,
       },
@@ -264,16 +237,7 @@ test.describe('Popup 画面', () => {
       )
       await popup.evaluate(
         async (logicalDate) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: {
-                local: {
-                  set: (items: Record<string, unknown>) => Promise<void>
-                }
-              }
-            }
-          }
-          await chromeApi.chrome.storage.local.set({
+          await globalThis.chrome.storage.local.set({
             counters: {
               'limited-a': {
                 logicalDate,

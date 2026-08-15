@@ -16,12 +16,7 @@ import { buildEffectiveSettingsFixture } from './settingsFixture'
  */
 async function getBadgeText(serviceWorker: Worker, tabId: number): Promise<string> {
   return serviceWorker.evaluate(async (id) => {
-    const chrome = (
-      globalThis as unknown as {
-        chrome: { action: { getBadgeText: (d: { tabId: number }) => Promise<string> } }
-      }
-    ).chrome
-    return chrome.action.getBadgeText({ tabId: id })
+    return globalThis.chrome.action.getBadgeText({ tabId: id })
   }, tabId)
 }
 
@@ -30,12 +25,7 @@ async function getBadgeText(serviceWorker: Worker, tabId: number): Promise<strin
  */
 async function getNotifications(serviceWorker: Worker): Promise<Record<string, unknown>> {
   return serviceWorker.evaluate(async () => {
-    const chrome = (
-      globalThis as unknown as {
-        chrome: { notifications: { getAll: () => Promise<Record<string, unknown>> } }
-      }
-    ).chrome
-    return chrome.notifications.getAll()
+    return globalThis.chrome.notifications.getAll()
   })
 }
 
@@ -44,18 +34,10 @@ async function getNotifications(serviceWorker: Worker): Promise<Record<string, u
  */
 async function clearNotifications(serviceWorker: Worker): Promise<void> {
   await serviceWorker.evaluate(async () => {
-    const chrome = (
-      globalThis as unknown as {
-        chrome: {
-          notifications: {
-            clear: (notificationId: string) => Promise<boolean>
-            getAll: () => Promise<Record<string, unknown>>
-          }
-        }
-      }
-    ).chrome
-    const notifications = await chrome.notifications.getAll()
-    await Promise.all(Object.keys(notifications).map((id) => chrome.notifications.clear(id)))
+    const notifications = await globalThis.chrome.notifications.getAll()
+    await Promise.all(
+      Object.keys(notifications).map((id) => globalThis.chrome.notifications.clear(id)),
+    )
   })
 }
 
@@ -64,12 +46,7 @@ async function clearNotifications(serviceWorker: Worker): Promise<void> {
  */
 async function getTabIdByUrl(serviceWorker: Worker, url: string): Promise<number | undefined> {
   return serviceWorker.evaluate(async (targetUrl) => {
-    const chrome = (
-      globalThis as unknown as {
-        chrome: { tabs: { query: (q: object) => Promise<Array<{ id?: number }>> } }
-      }
-    ).chrome
-    const tabs = await chrome.tabs.query({ url: targetUrl })
+    const tabs = await globalThis.chrome.tabs.query({ url: targetUrl })
     return tabs[0]?.id
   }, url)
 }
@@ -107,16 +84,7 @@ async function saveBlockingSettingsWithPattern(
 ): Promise<void> {
   await serviceWorker.evaluate(
     async (settings) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'redirect',
           redirectUrl: `${settings.origin}/blocked`,
@@ -153,16 +121,7 @@ async function saveBlockedPageSettings(
 ): Promise<void> {
   await serviceWorker.evaluate(
     async (settings) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: {
-              set: (items: Record<string, unknown>) => Promise<void>
-            }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'blockedPage',
           redirectUrl: `${settings.origin}/blocked`,
@@ -204,15 +163,7 @@ async function saveBlockedPageDetailSettings(
 ): Promise<void> {
   await serviceWorker.evaluate(
     async (settings) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: {
           blockAction: 'blockedPage',
           redirectUrl: `${settings.origin}/blocked`,
@@ -232,7 +183,7 @@ async function saveBlockedPageDetailSettings(
           })),
         })),
       })
-      await chromeApi.chrome.storage.local.set({
+      await globalThis.chrome.storage.local.set({
         counters: Object.fromEntries(
           settings.groups
             .filter((group) => group.counter)
@@ -256,15 +207,7 @@ async function saveWindowedDailyLimitSettings(
 ): Promise<void> {
   await serviceWorker.evaluate(
     async (settings) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.sync.set({
+      await globalThis.chrome.storage.sync.set({
         global: { dailyResetHour: settings.dailyResetHour },
         groups: [
           {
@@ -287,7 +230,7 @@ async function saveWindowedDailyLimitSettings(
           },
         ],
       })
-      await chromeApi.chrome.storage.local.set({
+      await globalThis.chrome.storage.local.set({
         counters: { [settings.group.id]: settings.group.counter },
       })
     },
@@ -550,15 +493,12 @@ test.describe('Background blocking', () => {
     const server = await startServer()
     try {
       await serviceWorker.evaluate(async (origin) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
         const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
           dayOfWeek,
           blockedTimeRanges: [],
           dailyLimitMinutes: 0,
         }))
-        await chromeApi.chrome.storage.sync.set({
+        await globalThis.chrome.storage.sync.set({
           global: {
             blockAction: 'redirect',
             redirectUrl: `${origin}/legacy-blocked`,
@@ -608,15 +548,12 @@ test.describe('Background blocking', () => {
     const server = await startServer()
     try {
       await serviceWorker.evaluate(async (origin) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
         const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
           dayOfWeek,
           blockedTimeRanges: [],
           dailyLimitMinutes: 0,
         }))
-        await chromeApi.chrome.storage.sync.set({
+        await globalThis.chrome.storage.sync.set({
           global: {
             blockAction: 'blockedPage',
             redirectUrl: `${origin}/legacy-blocked`,
@@ -659,19 +596,12 @@ test.describe('Background blocking', () => {
     const server = await startServer()
     try {
       await serviceWorker.evaluate(async (origin) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            }
-          }
-        }
         const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
           dayOfWeek,
           blockedTimeRanges: [],
           dailyLimitMinutes: 0,
         }))
-        await chromeApi.chrome.storage.sync.set({
+        await globalThis.chrome.storage.sync.set({
           global: {
             blockAction: 'redirect',
             redirectUrl: `${origin}/blocked`,
@@ -693,10 +623,7 @@ test.describe('Background blocking', () => {
       }, server.origin)
       await waitForEffectiveSettings(serviceWorker)
       await serviceWorker.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
-        await chromeApi.chrome.storage.local.set({
+        await globalThis.chrome.storage.local.set({
           groupPauseState: {
             paused: { pausedUntil: Date.now() + 600_000 },
           },
@@ -718,19 +645,12 @@ test.describe('Background blocking', () => {
     const server = await startServer()
     try {
       await serviceWorker.evaluate(async (origin) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            }
-          }
-        }
         const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
           dayOfWeek,
           blockedTimeRanges: [],
           dailyLimitMinutes: 0,
         }))
-        await chromeApi.chrome.storage.sync.set({
+        await globalThis.chrome.storage.sync.set({
           global: {
             blockAction: 'redirect',
             redirectUrl: `${origin}/legacy-blocked`,
@@ -762,10 +682,7 @@ test.describe('Background blocking', () => {
       }, server.origin)
       await waitForEffectiveSettings(serviceWorker)
       await serviceWorker.evaluate(async () => {
-        const chromeApi = globalThis as unknown as {
-          chrome: { storage: { local: { set: (items: Record<string, unknown>) => Promise<void> } } }
-        }
-        await chromeApi.chrome.storage.local.set({
+        await globalThis.chrome.storage.local.set({
           groupPauseState: {
             paused: { pausedUntil: Date.now() + 600_000 },
           },
@@ -785,12 +702,7 @@ test.describe('Background blocking', () => {
       const origin = server.origin
       await serviceWorker.evaluate(
         async (settings) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } }
-            }
-          }
-          await chromeApi.chrome.storage.sync.set({
+          await globalThis.chrome.storage.sync.set({
             global: {
               blockAction: 'blockedPage',
               redirectUrl: `${settings.origin}/unused`,
@@ -839,17 +751,9 @@ test.describe('Effective settings behavior', () => {
       await expect
         .poll(async () => {
           return serviceWorker.evaluate(async () => {
-            const chromeApi = globalThis as unknown as {
-              chrome: {
-                storage: {
-                  local: { get: (key: string) => Promise<Record<string, unknown>> }
-                  sync: { get: (key: string) => Promise<Record<string, unknown>> }
-                }
-              }
-            }
             const [preferred, active] = await Promise.all([
-              chromeApi.chrome.storage.sync.get('groups'),
-              chromeApi.chrome.storage.local.get('effectiveSettings'),
+              globalThis.chrome.storage.sync.get('groups'),
+              globalThis.chrome.storage.local.get('effectiveSettings'),
             ])
             const preferredGroup = (preferred.groups as Settings['groups'])[0]
             const effectiveSettings = active.effectiveSettings as Settings
@@ -1001,12 +905,7 @@ test.describe('Badge display', () => {
     try {
       await serviceWorker.evaluate(
         async (settings) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } }
-            }
-          }
-          await chromeApi.chrome.storage.sync.set({
+          await globalThis.chrome.storage.sync.set({
             global: {
               blockAction: 'redirect',
               redirectUrl: `${settings.origin}/blocked`,
@@ -1048,12 +947,7 @@ test.describe('Badge display', () => {
     try {
       await serviceWorker.evaluate(
         async (settings) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } }
-            }
-          }
-          await chromeApi.chrome.storage.sync.set({
+          await globalThis.chrome.storage.sync.set({
             global: {
               blockAction: 'redirect',
               redirectUrl: `${settings.origin}/blocked`,
@@ -1095,15 +989,7 @@ test.describe('Badge display', () => {
       const logicalDate = logicalDateId(new Date(), dailyResetHour)
       await serviceWorker.evaluate(
         async (settings) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: {
-                sync: { set: (items: Record<string, unknown>) => Promise<void> }
-                local: { set: (items: Record<string, unknown>) => Promise<void> }
-              }
-            }
-          }
-          await chromeApi.chrome.storage.sync.set({
+          await globalThis.chrome.storage.sync.set({
             global: {
               blockAction: 'redirect',
               redirectUrl: `${settings.origin}/blocked`,
@@ -1123,7 +1009,7 @@ test.describe('Badge display', () => {
               },
             ],
           })
-          await chromeApi.chrome.storage.local.set({
+          await globalThis.chrome.storage.local.set({
             counters: { 'timed-group': { logicalDate: settings.logicalDate, consumedSec: 600 } },
           })
         },
@@ -1163,15 +1049,7 @@ test.describe('Remaining time notifications', () => {
 
       await serviceWorker.evaluate(
         async (settings) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: {
-                sync: { set: (items: Record<string, unknown>) => Promise<void> }
-                local: { set: (items: Record<string, unknown>) => Promise<void> }
-              }
-            }
-          }
-          await chromeApi.chrome.storage.sync.set({
+          await globalThis.chrome.storage.sync.set({
             global: {
               blockAction: 'redirect',
               redirectUrl: `${settings.origin}/blocked`,
@@ -1193,7 +1071,7 @@ test.describe('Remaining time notifications', () => {
               },
             ],
           })
-          await chromeApi.chrome.storage.local.set({
+          await globalThis.chrome.storage.local.set({
             counters: { 'notify-group': { logicalDate: settings.logicalDate, consumedSec: 54 } },
             usageNotificationHistory: {},
           })
@@ -1231,15 +1109,7 @@ test.describe('Remaining time notifications', () => {
 
       await serviceWorker.evaluate(
         async (settings) => {
-          const chromeApi = globalThis as unknown as {
-            chrome: {
-              storage: {
-                sync: { set: (items: Record<string, unknown>) => Promise<void> }
-                local: { set: (items: Record<string, unknown>) => Promise<void> }
-              }
-            }
-          }
-          await chromeApi.chrome.storage.sync.set({
+          await globalThis.chrome.storage.sync.set({
             global: {
               blockAction: 'redirect',
               redirectUrl: `${settings.origin}/blocked`,
@@ -1261,7 +1131,7 @@ test.describe('Remaining time notifications', () => {
               },
             ],
           })
-          await chromeApi.chrome.storage.local.set({
+          await globalThis.chrome.storage.local.set({
             counters: {
               'notify-disabled-group': { logicalDate: settings.logicalDate, consumedSec: 54 },
             },
