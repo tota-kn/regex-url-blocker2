@@ -52,13 +52,11 @@ async function saveWaitGateSettings(
 test.describe('Wait gate', () => {
   test('待機ゲート対象ページは wait.html へ遷移し、待機完了後に許可される', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveWaitGateSettings(serviceWorker, server.origin, 1)
       await waitForEffectiveSettings(serviceWorker)
 
@@ -82,13 +80,11 @@ test.describe('Wait gate', () => {
 
   test('ブラウザバックで待機を回避しても再訪時は再び待機ページになる', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveWaitGateSettings(serviceWorker, server.origin, 30)
       await waitForEffectiveSettings(serviceWorker)
 
@@ -106,11 +102,13 @@ test.describe('Wait gate', () => {
     }
   })
 
-  test('通過後の許可期間が切れると再び待機ページになる', async ({ page, context, extensionId }) => {
+  test('通過後の許可期間が切れると再び待機ページになる', async ({
+    page,
+    serviceWorker,
+    extensionId,
+  }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       // 許可期間を 1 分にして、期限切れを storage 側で早送りする。
       await saveWaitGateSettings(serviceWorker, server.origin, 1, 1)
       await waitForEffectiveSettings(serviceWorker)
@@ -144,11 +142,9 @@ test.describe('Wait gate', () => {
     }
   })
 
-  test('Pause 中は待機ページを出さず素通しする', async ({ page, context, extensionId }) => {
+  test('Pause 中は待機ページを出さず素通しする', async ({ page, serviceWorker, extensionId }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveWaitGateSettings(serviceWorker, server.origin, 30)
       await waitForEffectiveSettings(serviceWorker)
 

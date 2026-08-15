@@ -368,11 +368,9 @@ test.describe('Options 画面', () => {
 
   test('グループ一時停止は設定した待機時間と継続時間を反映する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -498,11 +496,9 @@ test.describe('Options 画面', () => {
 
   test('一時停止前カウントダウンのキャンセルとフォーカス喪失は保存しない', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -617,11 +613,9 @@ test.describe('Options 画面', () => {
 
   test('Pause を禁止したグループは一時停止できず、保存済みの一時停止も解除される', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     /** Pause 禁止フラグを指定してテスト対象グループを保存する。 */
     const savePauseTargetGroup = async (pauseAllowed: boolean): Promise<void> =>
       serviceWorker.evaluate(async (allowed) => {
@@ -697,11 +691,9 @@ test.describe('Options 画面', () => {
 
   test('Pause 設定を Off にすると保存され、Pause メニューが無効になる', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
@@ -760,11 +752,9 @@ test.describe('Options 画面', () => {
 
   test('Pause 設定のバリデーションエラーを出してもカードのレイアウトが崩れない', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
@@ -824,11 +814,9 @@ test.describe('Options 画面', () => {
 
   test('Lock Mode ON では Pause 設定の緩和が次の rule day まで保留される', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(seedLockedPauseGroup)
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -854,11 +842,9 @@ test.describe('Options 画面', () => {
 
   test('Lock Mode ON でも Pause 設定の強化は即時に反映される', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(seedLockedPauseGroup)
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -898,11 +884,9 @@ test.describe('Options 画面', () => {
 
   test('セクション切り替え時にサイドバーの位置がずれない', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -1017,7 +1001,7 @@ test.describe('Options 画面', () => {
 
   test('設定ファイルをインポートすると既存設定が全置換される', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -1068,9 +1052,6 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('textbox', { name: 'URL pattern' })).toHaveCount(0)
     await expect(page.getByLabel('Rule 1')).toContainText('Allow 15 min per day')
     await expect(page.getByText('BeforeImport')).not.toBeVisible()
-
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     const stored = (await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -1092,11 +1073,9 @@ test.describe('Options 画面', () => {
 
   test('保留中は希望設定を表示し、保留フィールドを注記で示す', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
@@ -1222,11 +1201,9 @@ test.describe('Options 画面', () => {
 
   test('Lock Mode ON のグループを Disable しても同じ論理日中は有効のままだと注記で示す', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -1289,11 +1266,9 @@ test.describe('Options 画面', () => {
 
   test('希望設定から削除済みの active group は専用セクションに読み取り専用で残る', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -1375,11 +1350,9 @@ test.describe('Options 画面', () => {
 
   test('取り残しの active group を Restore すると通常の一覧へ戻り編集できる', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     await serviceWorker.evaluate(seedDeletedActiveGroup)
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -1963,7 +1936,7 @@ test.describe('Options 画面', () => {
 
   test('ケバブメニューからグループを無効化し、リロード後も Disabled 表示を保持する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -1993,9 +1966,6 @@ test.describe('Options 画面', () => {
     await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
     await expect(page.getByText('Enable this group to use Pause.')).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeEnabled()
-
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
     const stored = await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -2255,9 +2225,11 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Rule 1')).toContainText('Allow 1 min per day')
   })
 
-  test('今日有効な上限がある場合に残り時間を表示する', async ({ page, context, extensionId }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+  test('今日有効な上限がある場合に残り時間を表示する', async ({
+    page,
+    serviceWorker,
+    extensionId,
+  }) => {
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {
@@ -2330,9 +2302,7 @@ test.describe('Options 画面', () => {
     )
   })
 
-  test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
-    const serviceWorker =
-      context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
+  test('カウンタ更新時に残り時間を更新する', async ({ page, serviceWorker, extensionId }) => {
     await serviceWorker.evaluate(async () => {
       const chromeApi = globalThis as unknown as {
         chrome: {

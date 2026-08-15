@@ -448,11 +448,12 @@ async function savePreferredSettings(serviceWorker: Worker, preferred: Settings)
 }
 
 test.describe('Background blocking', () => {
-  test('該当 URL への新規ナビゲーションを redirectUrl に書き換える', async ({ page, context }) => {
+  test('該当 URL への新規ナビゲーションを redirectUrl に書き換える', async ({
+    page,
+    serviceWorker,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveBlockingSettings(serviceWorker, server.origin)
       await waitForEffectiveSettings(serviceWorker)
 
@@ -465,13 +466,11 @@ test.describe('Background blocking', () => {
 
   test('redirectUrl 自体と extension URL はリダイレクトしない', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveBlockingSettings(serviceWorker, server.origin)
       await waitForEffectiveSettings(serviceWorker)
 
@@ -487,13 +486,11 @@ test.describe('Background blocking', () => {
 
   test('blockedPage 設定では複数のブロックグループ名を表示する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await saveBlockedPageSettings(serviceWorker, server.origin, [
         { id: 'work', name: 'Work block' },
         { id: 'night', name: 'Night block' },
@@ -513,13 +510,11 @@ test.describe('Background blocking', () => {
 
   test('blockedPage 設定では時間帯ブロック理由と解除時刻を表示する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const range = buildActiveTimeRange(now)
       await saveBlockedPageDetailSettings(serviceWorker, server.origin, '00:00', [
@@ -546,13 +541,11 @@ test.describe('Background blocking', () => {
 
   test('blockedPage 設定では daily limit 理由と次回リセット時刻を表示する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       await saveBlockedPageDetailSettings(serviceWorker, server.origin, dailyResetHour, [
@@ -582,13 +575,11 @@ test.describe('Background blocking', () => {
 
   test('時間帯付き daily limit ではリセット時刻ではなくウィンドウ終了時刻を表示する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       // リセットは約24時間先、ウィンドウ終了は約1時間先。先に来るのはウィンドウ終了。
       const dailyResetHour = buildStableDailyResetHour(now)
@@ -618,13 +609,11 @@ test.describe('Background blocking', () => {
 
   test('blockedPage 設定では複数グループと複数理由を表示する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       const range = buildActiveTimeRange(now)
@@ -664,13 +653,11 @@ test.describe('Background blocking', () => {
 
   test('複数グループ同時ブロックでは表示順が上の blockedPage 設定を優先する', async ({
     page,
-    context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await serviceWorker.evaluate(async (origin) => {
         const chromeApi = globalThis as unknown as {
           chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
@@ -722,12 +709,10 @@ test.describe('Background blocking', () => {
 
   test('複数グループ同時ブロックでは表示順が上の redirect URL を優先する', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await serviceWorker.evaluate(async (origin) => {
         const chromeApi = globalThis as unknown as {
           chrome: { storage: { sync: { set: (items: Record<string, unknown>) => Promise<void> } } }
@@ -776,12 +761,10 @@ test.describe('Background blocking', () => {
 
   test('一時停止中のグループだけがブロック理由なら対象 URL へ遷移できる', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await serviceWorker.evaluate(async (origin) => {
         const chromeApi = globalThis as unknown as {
           chrome: {
@@ -837,12 +820,10 @@ test.describe('Background blocking', () => {
 
   test('同じURLを未停止グループもブロックする場合は引き続きリダイレクトする', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await serviceWorker.evaluate(async (origin) => {
         const chromeApi = globalThis as unknown as {
           chrome: {
@@ -906,11 +887,9 @@ test.describe('Background blocking', () => {
     }
   })
 
-  test('redirect 制限は指定 URL へ遷移する', async ({ page, context }) => {
+  test('redirect 制限は指定 URL へ遷移する', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const origin = server.origin
       await serviceWorker.evaluate(
         async (settings) => {
@@ -954,12 +933,10 @@ test.describe('Background blocking', () => {
 test.describe('Effective settings behavior', () => {
   test('Lock Mode ON では緩和しても同じ論理日中は有効設定によりブロックされ続ける', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const dailyResetHour: HHMM = '03:00'
       const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true)
       await savePreferredSettings(serviceWorker, effective)
@@ -1003,11 +980,9 @@ test.describe('Effective settings behavior', () => {
     }
   })
 
-  test('disabled group は対象 URL をブロックしない', async ({ page, context }) => {
+  test('disabled group は対象 URL をブロックしない', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       const disabled = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, false, true)
@@ -1028,12 +1003,10 @@ test.describe('Effective settings behavior', () => {
 
   test('Lock Mode ON では disabled 変更も次回 reset まで反映されずブロックされ続ける', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true, false)
@@ -1055,12 +1028,10 @@ test.describe('Effective settings behavior', () => {
 
   test('Lock Mode OFF では厳格化すると開いているタブが即時ブロックされる', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       const relaxed = buildEffectiveSettingsFixture(server.origin, dailyResetHour, undefined)
@@ -1086,12 +1057,10 @@ test.describe('Effective settings behavior', () => {
 
   test('Lock Mode OFF ではブロック設定削除後に対象 URL がすぐブロック解除される', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0)
@@ -1112,12 +1081,10 @@ test.describe('Effective settings behavior', () => {
 
   test('Lock Mode ON ではブロック設定を削除しても次回 reset まで現在のブロック挙動が残る', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
       const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true)
@@ -1140,12 +1107,10 @@ test.describe('Effective settings behavior', () => {
 test.describe('Badge display', () => {
   test('時間制限のある URL にアクセスするとバッジに残り時間を表示する', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await serviceWorker.evaluate(
         async (settings) => {
           const chromeApi = globalThis as unknown as {
@@ -1190,11 +1155,9 @@ test.describe('Badge display', () => {
     }
   })
 
-  test('対象外の URL ではバッジが空になる', async ({ page, context }) => {
+  test('対象外の URL ではバッジが空になる', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await serviceWorker.evaluate(
         async (settings) => {
           const chromeApi = globalThis as unknown as {
@@ -1237,11 +1200,9 @@ test.describe('Badge display', () => {
     }
   })
 
-  test('消費時間がある場合にバッジが残り時間を正しく反映する', async ({ page, context }) => {
+  test('消費時間がある場合にバッジが残り時間を正しく反映する', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       const dailyResetHour = '00:00'
       const logicalDate = buildLogicalDate(new Date(), dailyResetHour)
       await serviceWorker.evaluate(
@@ -1301,11 +1262,12 @@ test.describe('Badge display', () => {
 })
 
 test.describe('Remaining time notifications', () => {
-  test('閾値以下になった同じグループは同じ論理日に1回だけ通知される', async ({ page, context }) => {
+  test('閾値以下になった同じグループは同じ論理日に1回だけ通知される', async ({
+    page,
+    serviceWorker,
+  }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await clearNotifications(serviceWorker)
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
@@ -1370,12 +1332,10 @@ test.describe('Remaining time notifications', () => {
 
   test('remainingTimeNotificationsEnabled が false なら閾値内でも残り時間通知を出さない', async ({
     page,
-    context,
+    serviceWorker,
   }) => {
     const server = await startServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await clearNotifications(serviceWorker)
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)

@@ -217,12 +217,11 @@ test.describe('Popup 画面', () => {
   test('現在ページに一致する複数グループの残り時間をすべて表示する', async ({
     page,
     context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
@@ -255,11 +254,14 @@ test.describe('Popup 画面', () => {
     }
   })
 
-  test('カウンタ更新時に残り時間を更新する', async ({ page, context, extensionId }) => {
+  test('カウンタ更新時に残り時間を更新する', async ({
+    page,
+    context,
+    serviceWorker,
+    extensionId,
+  }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
 
@@ -301,11 +303,14 @@ test.describe('Popup 画面', () => {
     }
   })
 
-  test('一致グループがない場合は空状態を表示する', async ({ page, context, extensionId }) => {
+  test('一致グループがない場合は空状態を表示する', async ({
+    page,
+    context,
+    serviceWorker,
+    extensionId,
+  }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/other`)
@@ -319,12 +324,11 @@ test.describe('Popup 画面', () => {
   test('今日の時間帯ルールも閲覧上限も一時停止状態もない場合は空状態を表示する', async ({
     page,
     context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/no-limits`)
@@ -338,12 +342,11 @@ test.describe('Popup 画面', () => {
   test('時間帯ルールが現在時間外でもグループ状態を表示する', async ({
     page,
     context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(
@@ -361,11 +364,14 @@ test.describe('Popup 画面', () => {
     }
   })
 
-  test('一時停止中のグループ状態を表示する', async ({ page, context, extensionId }) => {
+  test('一時停止中のグループ状態を表示する', async ({
+    page,
+    context,
+    serviceWorker,
+    extensionId,
+  }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { pausedUntil: Date.now() + 125_000 })
 
@@ -377,11 +383,14 @@ test.describe('Popup 画面', () => {
     }
   })
 
-  test('一時停止リクエスト待機中の残り時間を表示する', async ({ page, context, extensionId }) => {
+  test('一時停止リクエスト待機中の残り時間を表示する', async ({
+    page,
+    context,
+    serviceWorker,
+    extensionId,
+  }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 65_000 })
 
@@ -396,12 +405,11 @@ test.describe('Popup 画面', () => {
   test('一時停止リクエスト待機完了後に ready 表示へ切り替える', async ({
     page,
     context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 1_000 })
 
@@ -416,12 +424,11 @@ test.describe('Popup 画面', () => {
   test('disabled group だけが一致する URL は一致なしとして表示する', async ({
     page,
     context,
+    serviceWorker,
     extensionId,
   }) => {
     const server = await startTestServer()
     try {
-      const serviceWorker =
-        context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'))
       await savePopupFixture(serviceWorker, server.origin)
 
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/disabled`)
