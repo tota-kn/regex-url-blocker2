@@ -4,13 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) and Codex when worki
 
 ## プロジェクト概要
 
-正規表現で指定した URL の表示をブロックする Chrome 拡張機能。WXT + Vue 3 + TypeScript + Tailwind CSS v4 で構築。
+正規表現で指定した URL の表示をブロックする Chrome 拡張機能。
 
 - **デザインシステム**: [DESIGN.md](DESIGN.md) に UI の視覚的アイデンティティを定義。YAML フロントマターにデザイントークン（色・タイポグラフィ・角丸・スペーシング・コンポーネント）を、Markdown 本文に設計思想と適用ガイドラインを記載する。UI を変更・追加する際はこのファイルに従うこと。
 
 ## 主要コマンド
-
-パッケージマネージャは **pnpm**。スクリプト一覧は [package.json](package.json) の `scripts` を参照。
 
 E2E は `.output/chrome-mv3` の既ビルド成果物に依存する。`pnpm test:e2e` は内部で `wxt build` を先に走らせるが、Playwright を単独実行する場合は手動でビルドが必要。
 
@@ -22,16 +20,14 @@ E2E は `.output/chrome-mv3` の既ビルド成果物に依存する。`pnpm tes
 
 ### Tailwind CSS v4
 
-Vite プラグイン `@tailwindcss/vite` 経由（PostCSS 不使用）。色は **oklch** 色空間で出力されるため、E2E で色アサートする場合はブラウザが返す計算済みスタイルの値に合わせて比較する。
+色は **oklch** 色空間で出力されるため、E2E で色アサートする場合はブラウザが返す計算済みスタイルの値に合わせて比較する。
 
 ## 自動実行されるフック
 
 lint（Oxlint + Oxfmt）と typecheck（vue-tsc）はフックで自動実行されるため、実装中に手動で叩く必要はない。
 
-- **Claude Code** — [.claude/settings.json](.claude/settings.json) の **Stop フック**で [.claude/hooks/verify.sh](.claude/hooks/verify.sh) が実行される。編集ごとではなく**ターン終了時に 1 回だけ**、`oxlint --fix` → `oxfmt --write` → `vue-tsc --noEmit --incremental` をまとめて走らせる。失敗すると exit 2 でターン終了がブロックされ、エラーが返るので修正してから完了報告すること。連続 3 回失敗した場合のみ無限ループ回避のため打ち切られる。
-- **Codex** — Stop 相当のフックイベントが存在しないため、[.codex/config.toml](.codex/config.toml) の **PostToolUse フック**で [.codex/hooks/verify-file.sh](.codex/hooks/verify-file.sh) を実行する。編集ファイルの拡張子でゲートし（`.md` / `.css` などは何もしない）、typecheck は `.ts` / `.tsx` / `.vue` のときだけ走る。失敗時は exit 2 で編集が止まる。
-
-いずれも `pnpm` を経由せず `node_modules/.bin` を直接実行し、typecheck は `node_modules/.cache/vue-tsc.tsbuildinfo` を使った incremental ビルドで高速化している。
+- **Claude Code** — [.claude/settings.json](.claude/settings.json) の **Stop フック**で [.claude/hooks/verify.sh](.claude/hooks/verify.sh) が実行される。編集ごとではなく**ターン終了時に 1 回だけ**走る。失敗すると exit 2 でターン終了がブロックされ、エラーが返るので修正してから完了報告すること。連続 3 回失敗した場合のみ無限ループ回避のため打ち切られる。
+- **Codex** — Stop 相当のフックイベントが存在しないため、[.codex/config.toml](.codex/config.toml) の **PostToolUse フック**で [.codex/hooks/verify-file.sh](.codex/hooks/verify-file.sh) を実行する。失敗時は exit 2 で編集が止まる。
 
 ## コーディング規約
 
@@ -53,6 +49,6 @@ lint（Oxlint + Oxfmt）と typecheck（vue-tsc）はフックで自動実行さ
 
 ## リリース
 
-Chrome ウェブストアの更新手順は [.claude/skills/release/SKILL.md](.claude/skills/release/SKILL.md) に定義する。バージョン bump（`wxt.config.ts` の `manifest.version` が単一の真実）、[docs/CHANGELOG.md](docs/CHANGELOG.md) 追記、リリースコミット、`v` なしの軽量タグ、push、`pnpm zip` までを扱う。ストアへのアップロードのみ手動。
+Chrome ウェブストアの更新手順は [.claude/skills/release/SKILL.md](.claude/skills/release/SKILL.md) に定義する。ストアへのアップロードのみ手動。
 
 Claude Code では `/release` で呼び出せる。Codex には skill 機構がないため、同ファイルを直接読んで手順に従うこと。
