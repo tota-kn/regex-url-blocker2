@@ -30,7 +30,7 @@ import {
 } from '../utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type { Rule, ScheduleRuleCondition, TimeRange, UsageCountersState } from '../utils/types'
-import { dailyRule, group, settings, weeklyRule } from './helpers'
+import { at, dailyRule, group, settings, weeklyRule } from './helpers'
 
 /**
  * テスト用の block ルールを1件生成する。
@@ -165,49 +165,31 @@ describe('Rule の時間ウィンドウ', () => {
     const global = settings([]).global
 
     // 午前は block だけ、夜は wait だけが有効になる。旧モデルの直積では表現できなかった。
-    expect(isRestrictionActiveNow(g, new Date('2026-05-06T10:00:00+09:00'), global)).toBe(true)
+    expect(isRestrictionActiveNow(g, at('10:00:00'), global)).toBe(true)
+    expect(getEffectiveWait(g, at('10:00:00'), global)?.seconds).toBeUndefined()
+    expect(getEffectiveWait(g, at('19:00:00'), global)?.seconds).toBe(30)
     expect(
-      getEffectiveWait(g, new Date('2026-05-06T10:00:00+09:00'), global)?.seconds,
-    ).toBeUndefined()
-    expect(getEffectiveWait(g, new Date('2026-05-06T19:00:00+09:00'), global)?.seconds).toBe(30)
-    expect(
-      evaluateUrl(
-        settings([g]),
-        emptyCounters(),
-        'https://example.com/',
-        new Date('2026-05-06T10:00:00+09:00'),
-      ).blocked,
+      evaluateUrl(settings([g]), emptyCounters(), 'https://example.com/', at('10:00:00')).blocked,
     ).toBe(true)
     expect(
-      evaluateUrl(
-        settings([g]),
-        emptyCounters(),
-        'https://example.com/',
-        new Date('2026-05-06T19:00:00+09:00'),
-      ).blocked,
+      evaluateUrl(settings([g]), emptyCounters(), 'https://example.com/', at('19:00:00')).blocked,
     ).toBe(false)
   })
 
   it('Always window は常時有効になる', () => {
     const g = group({ ...dailyRule({ kind: 'block' }) })
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T02:00:00+09:00'), settings([]).global),
-    ).toBe(true)
+    expect(isRestrictionActiveNow(g, at('02:00:00'), settings([]).global)).toBe(true)
   })
 
   it('ルールが空なら適用しない', () => {
-    expect(
-      isRestrictionActiveNow(
-        group({ rules: [] }),
-        new Date('2026-05-06T12:00:00+09:00'),
-        settings([]).global,
-      ),
-    ).toBe(false)
+    expect(isRestrictionActiveNow(group({ rules: [] }), at('12:00:00'), settings([]).global)).toBe(
+      false,
+    )
   })
 })
 
 describe('block ルールの遷移先', () => {
-  const now = new Date('2026-05-06T12:00:00+09:00')
+  const now = at('12:00:00')
 
   it('遷移先が URL でもアクティブウィンドウ中はハードブロックする', () => {
     const g = group({ ...blockRestriction({ redirectUrl: 'https://elsewhere.test/' }) })
@@ -260,7 +242,7 @@ describe('block ルールの遷移先', () => {
 
 describe('logical date', () => {
   it('リセット時刻前は前日を論理日にし、曜日・月日も論理日開始時点で判定する', () => {
-    const info = getLogicalDate(new Date('2026-05-06T02:59:00+09:00'), '03:00')
+    const info = getLogicalDate(at('02:59:00'), '03:00')
     expect(info.logicalDate).toBe('2026-05-05')
     expect(info.dayOfWeek).toBe(2)
     expect(info.month).toBe(5)
@@ -270,12 +252,12 @@ describe('logical date', () => {
 
 describe('schedule rule conditions', () => {
   it('daily 条件は常に一致する', () => {
-    const info = getLogicalDate(new Date('2026-05-06T12:00:00+09:00'), '00:00')
+    const info = getLogicalDate(at('12:00:00'), '00:00')
     expect(matchesScheduleRuleCondition({ type: 'daily' }, info)).toBe(true)
   })
 
   it('weekly 条件は指定曜日だけに一致する', () => {
-    const wednesday = getLogicalDate(new Date('2026-05-06T12:00:00+09:00'), '00:00')
+    const wednesday = getLogicalDate(at('12:00:00'), '00:00')
     const thursday = getLogicalDate(new Date('2026-05-07T12:00:00+09:00'), '00:00')
     expect(matchesScheduleRuleCondition({ type: 'weekly', daysOfWeek: [3] }, wednesday)).toBe(true)
     expect(matchesScheduleRuleCondition({ type: 'weekly', daysOfWeek: [3] }, thursday)).toBe(false)
@@ -308,12 +290,9 @@ describe('schedule rule conditions', () => {
         getLogicalDate(new Date('2027-01-03T12:00:00+09:00'), '00:00'),
       ),
     ).toBe(true)
-    expect(
-      matchesScheduleRuleCondition(
-        condition,
-        getLogicalDate(new Date('2026-05-06T12:00:00+09:00'), '00:00'),
-      ),
-    ).toBe(false)
+    expect(matchesScheduleRuleCondition(condition, getLogicalDate(at('12:00:00'), '00:00'))).toBe(
+      false,
+    )
   })
 
   it('period 条件は start === end で単日に一致する', () => {
@@ -322,12 +301,9 @@ describe('schedule rule conditions', () => {
       start: { month: 5, day: 6 },
       end: { month: 5, day: 6 },
     } as const
-    expect(
-      matchesScheduleRuleCondition(
-        condition,
-        getLogicalDate(new Date('2026-05-06T12:00:00+09:00'), '00:00'),
-      ),
-    ).toBe(true)
+    expect(matchesScheduleRuleCondition(condition, getLogicalDate(at('12:00:00'), '00:00'))).toBe(
+      true,
+    )
     expect(
       matchesScheduleRuleCondition(
         condition,
@@ -382,44 +358,32 @@ describe('schedule rule conditions', () => {
 describe('isRestrictionActiveNow', () => {
   it('制限未設定は false', () => {
     const g = group({})
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global),
-    ).toBe(false)
+    expect(isRestrictionActiveNow(g, at('12:00:00'), settings([]).global)).toBe(false)
   })
 
   it('disabled group は制限があっても false', () => {
     const g = group({ disabled: true, ...blockRestriction() })
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global),
-    ).toBe(false)
+    expect(isRestrictionActiveNow(g, at('12:00:00'), settings([]).global)).toBe(false)
   })
 
   it('条件が今日に一致しなければ false', () => {
     const g = group({ ...weeklyRule([1], { kind: 'block' }) })
-    const wednesday = new Date('2026-05-06T12:00:00+09:00')
+    const wednesday = at('12:00:00')
     expect(isRestrictionActiveNow(g, wednesday, settings([]).global)).toBe(false)
   })
 
   it('timeRanges が空なら終日アクティブ', () => {
     const g = group({ ...dailyRule({ kind: 'block' }) })
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T00:00:00+09:00'), settings([]).global),
-    ).toBe(true)
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T23:59:00+09:00'), settings([]).global),
-    ).toBe(true)
+    expect(isRestrictionActiveNow(g, at('00:00:00'), settings([]).global)).toBe(true)
+    expect(isRestrictionActiveNow(g, at('23:59:00'), settings([]).global)).toBe(true)
   })
 
   it('timeRanges 指定時は範囲内だけアクティブ', () => {
     const g = group({
       ...blockRestriction({ timeRanges: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }),
     })
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T10:00:00+09:00'), settings([]).global),
-    ).toBe(true)
-    expect(
-      isRestrictionActiveNow(g, new Date('2026-05-06T20:00:00+09:00'), settings([]).global),
-    ).toBe(false)
+    expect(isRestrictionActiveNow(g, at('10:00:00'), settings([]).global)).toBe(true)
+    expect(isRestrictionActiveNow(g, at('20:00:00'), settings([]).global)).toBe(false)
   })
 })
 
@@ -427,7 +391,7 @@ describe('block release time', () => {
   it('通常時間帯ブロックの解除時刻を返す', () => {
     const releaseAt = getBlockedTimeRangeReleaseAt(
       { startMinute: 9 * 60, endMinute: 17 * 60 },
-      new Date('2026-05-06T10:30:00+09:00'),
+      at('10:30:00'),
     )
 
     expect(releaseAt.toISOString()).toBe('2026-05-06T08:00:00.000Z')
@@ -436,7 +400,7 @@ describe('block release time', () => {
   it('日跨ぎ時間帯ブロックの翌日側解除時刻を返す', () => {
     const releaseAt = getBlockedTimeRangeReleaseAt(
       { startMinute: 22 * 60, endMinute: 6 * 60 },
-      new Date('2026-05-06T23:30:00+09:00'),
+      at('23:30:00'),
     )
 
     expect(releaseAt.toISOString()).toBe('2026-05-06T21:00:00.000Z')
@@ -445,7 +409,7 @@ describe('block release time', () => {
   it('日跨ぎ時間帯ブロックの当日側解除時刻を返す', () => {
     const releaseAt = getBlockedTimeRangeReleaseAt(
       { startMinute: 22 * 60, endMinute: 6 * 60 },
-      new Date('2026-05-06T05:30:00+09:00'),
+      at('05:30:00'),
     )
 
     expect(releaseAt.toISOString()).toBe('2026-05-05T21:00:00.000Z')
@@ -454,17 +418,14 @@ describe('block release time', () => {
   it('start と end が同じ24時間ブロックの次の同時刻を返す', () => {
     const releaseAt = getBlockedTimeRangeReleaseAt(
       { startMinute: 9 * 60, endMinute: 9 * 60 },
-      new Date('2026-05-06T10:30:00+09:00'),
+      at('10:30:00'),
     )
 
     expect(releaseAt.toISOString()).toBe('2026-05-07T00:00:00.000Z')
   })
 
   it('daily limit 到達時の次回 daily reset 時刻を返す', () => {
-    const releaseAt = getNextDailyResetAt(
-      new Date('2026-05-06T12:00:00+09:00'),
-      settings([], '03:00').global,
-    )
+    const releaseAt = getNextDailyResetAt(at('12:00:00'), settings([], '03:00').global)
 
     expect(releaseAt.toISOString()).toBe('2026-05-06T18:00:00.000Z')
   })
@@ -480,11 +441,7 @@ describe('time range unblock walk', () => {
         ),
       }),
     ])
-    const unblockAt = getTimeRangeUnblockAt(
-      s.groups[0],
-      new Date('2026-05-06T10:30:00+09:00'),
-      s.global,
-    )
+    const unblockAt = getTimeRangeUnblockAt(s.groups[0], at('10:30:00'), s.global)
 
     expect(unblockAt?.toISOString()).toBe('2026-05-06T08:00:00.000Z')
   })
@@ -502,11 +459,7 @@ describe('time range unblock walk', () => {
       ],
       '03:00',
     )
-    const unblockAt = getTimeRangeUnblockAt(
-      s.groups[0],
-      new Date('2026-05-06T23:30:00+09:00'),
-      s.global,
-    )
+    const unblockAt = getTimeRangeUnblockAt(s.groups[0], at('23:30:00'), s.global)
 
     expect(unblockAt?.toISOString()).toBe('2026-05-06T18:00:00.000Z')
   })
@@ -517,9 +470,7 @@ describe('time range unblock walk', () => {
         ...dailyRule({ kind: 'block' }, { timeRanges: [{ startMinute: 0, endMinute: 0 }] }),
       }),
     ])
-    expect(
-      getTimeRangeUnblockAt(s.groups[0], new Date('2026-05-06T10:30:00+09:00'), s.global),
-    ).toBeUndefined()
+    expect(getTimeRangeUnblockAt(s.groups[0], at('10:30:00'), s.global)).toBeUndefined()
   })
 })
 
@@ -536,22 +487,14 @@ describe('daily limit release time', () => {
       ],
       '03:00',
     )
-    const releaseAt = getDailyLimitReleaseAt(
-      s.groups[0]!.rules[0]!,
-      new Date('2026-05-06T10:30:00+09:00'),
-      s.global,
-    )
+    const releaseAt = getDailyLimitReleaseAt(s.groups[0]!.rules[0]!, at('10:30:00'), s.global)
 
     expect(releaseAt.toISOString()).toBe('2026-05-06T08:00:00.000Z')
   })
 
   it('終日ルールでは次回 daily reset 時刻を返す', () => {
     const s = settings([group({ ...dailyRule({ kind: 'dailyLimit', minutes: 30 }) })], '03:00')
-    const releaseAt = getDailyLimitReleaseAt(
-      s.groups[0]!.rules[0]!,
-      new Date('2026-05-06T12:00:00+09:00'),
-      s.global,
-    )
+    const releaseAt = getDailyLimitReleaseAt(s.groups[0]!.rules[0]!, at('12:00:00'), s.global)
 
     expect(releaseAt.toISOString()).toBe('2026-05-06T18:00:00.000Z')
   })
@@ -568,11 +511,7 @@ describe('daily limit release time', () => {
       ],
       '03:00',
     )
-    const releaseAt = getDailyLimitReleaseAt(
-      s.groups[0]!.rules[0]!,
-      new Date('2026-05-06T23:30:00+09:00'),
-      s.global,
-    )
+    const releaseAt = getDailyLimitReleaseAt(s.groups[0]!.rules[0]!, at('23:30:00'), s.global)
 
     expect(releaseAt.toISOString()).toBe('2026-05-06T18:00:00.000Z')
   })
@@ -588,12 +527,7 @@ describe('blocking evaluation', () => {
         ),
       }),
     ])
-    const result = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T10:00:00+09:00'),
-    )
+    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('10:00:00'))
     expect(result.blocked).toBe(true)
     expect(result.blockedGroupIds).toEqual(['g1'])
   })
@@ -605,12 +539,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }),
       }),
     ])
-    const result = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
 
     expect(result).toEqual({
       blocked: false,
@@ -629,18 +558,15 @@ describe('blocking evaluation', () => {
         ),
       }),
     ])
-    expect(
-      evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T23:00:00+09:00'))
-        .blocked,
-    ).toBe(true)
-    expect(
-      evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T05:59:00+09:00'))
-        .blocked,
-    ).toBe(true)
-    expect(
-      evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
-        .blocked,
-    ).toBe(false)
+    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('23:00:00')).blocked).toBe(
+      true,
+    )
+    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('05:59:00')).blocked).toBe(
+      true,
+    )
+    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00')).blocked).toBe(
+      false,
+    )
   })
 
   it('start と end が同じ時間帯は 24 時間ブロックにする', () => {
@@ -649,10 +575,9 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }, { timeRanges: [{ startMinute: 0, endMinute: 0 }] }),
       }),
     ])
-    expect(
-      evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
-        .blocked,
-    ).toBe(true)
+    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00')).blocked).toBe(
+      true,
+    )
   })
 
   it('曜日指定は論理日開始時点の曜日で判定する', () => {
@@ -668,10 +593,9 @@ describe('blocking evaluation', () => {
       ],
       '03:00',
     )
-    expect(
-      evaluateUrl(s, emptyCounters(), 'https://example.com/', new Date('2026-05-06T02:00:00+09:00'))
-        .blocked,
-    ).toBe(true)
+    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('02:00:00')).blocked).toBe(
+      true,
+    )
   })
 
   it('常時 Block ルールは即ブロックにする', () => {
@@ -680,12 +604,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }),
       }),
     ])
-    const result = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
     expect(result.blocked).toBe(true)
   })
 
@@ -696,22 +615,14 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }),
       }),
     ])
-    const result = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://x.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const result = evaluateUrl(s, emptyCounters(), 'https://x.com/', at('12:00:00'))
     expect(result.blocked).toBe(true)
   })
 
   it('上限秒数以上のカウンタでブロックする', () => {
     const s = settings([group({ ...dailyRule({ kind: 'dailyLimit', minutes: 1 }) })])
     const counters = { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 60 } } }
-    expect(
-      evaluateUrl(s, counters, 'https://example.com/', new Date('2026-05-06T12:00:00+09:00'))
-        .blocked,
-    ).toBe(true)
+    expect(evaluateUrl(s, counters, 'https://example.com/', at('12:00:00')).blocked).toBe(true)
   })
 
   it('猶予はアクティブなウィンドウ内でのみブロックする（ウィンドウ外は消費超過でもブロックしない）', () => {
@@ -724,14 +635,8 @@ describe('blocking evaluation', () => {
       }),
     ])
     const counters = { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 120 } } }
-    expect(
-      evaluateUrl(s, counters, 'https://example.com/', new Date('2026-05-06T21:00:00+09:00'))
-        .blocked,
-    ).toBe(true)
-    expect(
-      evaluateUrl(s, counters, 'https://example.com/', new Date('2026-05-06T10:00:00+09:00'))
-        .blocked,
-    ).toBe(false)
+    expect(evaluateUrl(s, counters, 'https://example.com/', at('21:00:00')).blocked).toBe(true)
+    expect(evaluateUrl(s, counters, 'https://example.com/', at('10:00:00')).blocked).toBe(false)
   })
 
   it('一時停止中 group id のブロックだけを除外する', () => {
@@ -747,12 +652,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }),
       }),
     ])
-    const evaluation = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const evaluation = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
 
     const result = applyGroupPauseState(
       evaluation,
@@ -771,12 +671,7 @@ describe('blocking evaluation', () => {
 
   it('一時停止中 group だけがブロック理由ならブロックしない', () => {
     const s = settings([group({ id: 'paused', ...dailyRule({ kind: 'block' }) })])
-    const evaluation = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const evaluation = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
 
     const result = applyGroupPauseState(
       evaluation,
@@ -808,7 +703,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }),
       }),
     ])
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
     const evaluation = evaluateEffectiveUrl(
       baseline,
       preferred,
@@ -837,7 +732,7 @@ describe('blocking evaluation', () => {
         ),
       }),
     ])
-    const now = new Date('2026-05-06T10:00:00+09:00')
+    const now = at('10:00:00')
     const status = getGroupBlockStatus(s.groups[0], undefined, now, s.global)
 
     expect(status.activeTimeRanges).toEqual([{ startMinute: 540, endMinute: 1020 }])
@@ -854,7 +749,7 @@ describe('blocking evaluation', () => {
     const status = getGroupBlockStatus(
       s.groups[0],
       { logicalDate: '2026-05-06', consumedSec: 60 },
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       s.global,
     )
 
@@ -870,12 +765,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }, { timeRanges: [{ startMinute: 0, endMinute: 0 }] }),
       }),
     ])
-    const status = getGroupBlockStatus(
-      s.groups[0],
-      undefined,
-      new Date('2026-05-06T12:00:00+09:00'),
-      s.global,
-    )
+    const status = getGroupBlockStatus(s.groups[0], undefined, at('12:00:00'), s.global)
 
     expect(status).toEqual({
       rules: [],
@@ -901,7 +791,7 @@ describe('counters', () => {
     const summary = getTimeLimitUsageSummary(
       s.groups[0],
       { logicalDate: '2026-05-06', consumedSec: 75 },
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       s.global,
     )
     expect(summary).toEqual({
@@ -921,7 +811,7 @@ describe('counters', () => {
     const summary = getTimeLimitUsageSummary(
       s.groups[0],
       { logicalDate: '2026-05-06', consumedSec: 300 },
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       s.global,
     )
     expect(summary?.limitMinutes).toBe(20)
@@ -937,7 +827,7 @@ describe('counters', () => {
     const summary = getTimeLimitUsageSummary(
       s.groups[0],
       { logicalDate: '2026-05-05', consumedSec: 600 },
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       s.global,
     )
     expect(summary?.consumedSec).toBe(0)
@@ -951,12 +841,7 @@ describe('counters', () => {
       }),
     ])
     expect(
-      getTimeLimitUsageSummary(
-        s.groups[0],
-        undefined,
-        new Date('2026-05-06T12:00:00+09:00'),
-        s.global,
-      ),
+      getTimeLimitUsageSummary(s.groups[0], undefined, at('12:00:00'), s.global),
     ).toBeUndefined()
   })
 
@@ -969,12 +854,7 @@ describe('counters', () => {
     ])
 
     expect(
-      getTimeLimitUsageSummary(
-        s.groups[0],
-        undefined,
-        new Date('2026-05-06T12:00:00+09:00'),
-        s.global,
-      ),
+      getTimeLimitUsageSummary(s.groups[0], undefined, at('12:00:00'), s.global),
     ).toBeUndefined()
     expect(
       getMinimumEffectiveRemainingTimeLimit(
@@ -982,7 +862,7 @@ describe('counters', () => {
         s,
         emptyCounters(),
         'https://example.com/',
-        new Date('2026-05-06T12:00:00+09:00'),
+        at('12:00:00'),
       ),
     ).toBeUndefined()
   })
@@ -1025,7 +905,7 @@ describe('counters', () => {
       s,
       counters,
       'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
     )
     expect(result?.group.id).toBe('short')
     expect(result?.summary.remainingSec).toBe(60)
@@ -1043,7 +923,7 @@ describe('counters', () => {
         s,
         emptyCounters(),
         'https://example.com/',
-        new Date('2026-05-06T12:00:00+09:00'),
+        at('12:00:00'),
       ),
     ).toBeUndefined()
   })
@@ -1066,7 +946,7 @@ describe('counters', () => {
       s,
       emptyCounters(),
       'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       1,
     )
     expect(counters.counters.a.consumedSec).toBe(1)
@@ -1080,7 +960,7 @@ describe('counters', () => {
       s,
       emptyCounters(),
       'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       1,
     )
     expect(counters.counters['no-restriction']?.consumedSec ?? 0).toBe(0)
@@ -1102,7 +982,7 @@ describe('counters', () => {
       s,
       emptyCounters(),
       'https://example.com/',
-      new Date('2026-05-06T10:00:00+09:00'),
+      at('10:00:00'),
       1,
     )
     expect(counters.counters.inactive?.consumedSec ?? 0).toBe(0)
@@ -1130,14 +1010,14 @@ describe('counters', () => {
           disabled: { logicalDate: '2026-05-06', consumedSec: 20 },
         },
       },
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
     )
     const incremented = incrementEffectiveCounters(
       s,
       s,
       normalized,
       'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       1,
     )
 
@@ -1162,7 +1042,7 @@ describe('counters', () => {
       s,
       emptyCounters(),
       'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
       1,
     )
 
@@ -1179,7 +1059,7 @@ describe('counters', () => {
           removed: { logicalDate: '2026-05-06', consumedSec: 20 },
         },
       },
-      new Date('2026-05-06T12:00:00+09:00'),
+      at('12:00:00'),
     )
     expect(normalized.counters).toEqual({
       keep: { logicalDate: '2026-05-06', consumedSec: 0 },
@@ -1223,19 +1103,17 @@ describe('counters', () => {
 describe('wait gate', () => {
   it('アクティブな wait 制限の待機秒数を返す', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 30, grantMinutes: 10 }) })
-    expect(
-      getEffectiveWait(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global)?.seconds,
-    ).toBe(30)
+    expect(getEffectiveWait(g, at('12:00:00'), settings([]).global)?.seconds).toBe(30)
   })
 
   it('Wait の通過後許可期間を返し、未設定の旧データは10分として扱う', () => {
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 30, grantMinutes: 10 }) })
     expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBe(10)
   })
 
   it('Lock Mode の基準設定と最新版が併存するときは最長の許可期間を採用する', () => {
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
     const baseline = settings([
       group({
         lockMode: true,
@@ -1263,21 +1141,19 @@ describe('wait gate', () => {
 
   it('0 以下の待機秒数は待機なしとして扱う', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 0, grantMinutes: 10 }) })
-    expect(
-      getEffectiveWait(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global)?.seconds,
-    ).toBeUndefined()
+    expect(getEffectiveWait(g, at('12:00:00'), settings([]).global)?.seconds).toBeUndefined()
   })
 
   it('待機秒数が正なら通過後の許可期間も返す', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 60, grantMinutes: 15 }) })
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
     expect(getEffectiveWait(g, now, settings([]).global)?.seconds).toBe(60)
     expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBe(15)
   })
 
   it('1 未満の許可期間は待機なしとして扱う', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 60, grantMinutes: 0 }) })
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
     expect(getEffectiveWait(g, now, settings([]).global)).toBeUndefined()
     expect(getEffectiveWait(g, now, settings([]).global)?.seconds).toBeUndefined()
     expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBeUndefined()
@@ -1290,19 +1166,12 @@ describe('wait gate', () => {
         { timeRanges: [{ startMinute: 20 * 60, endMinute: 24 * 60 }] },
       ),
     })
-    expect(
-      getEffectiveWait(g, new Date('2026-05-06T10:00:00+09:00'), settings([]).global)?.seconds,
-    ).toBeUndefined()
+    expect(getEffectiveWait(g, at('10:00:00'), settings([]).global)?.seconds).toBeUndefined()
   })
 
   it('ハードブロックされていない待機対象グループを delayedGroupIds に入れる', () => {
     const s = settings([group({ ...dailyRule({ kind: 'wait', seconds: 30, grantMinutes: 10 }) })])
-    const result = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
     expect(result.blocked).toBe(false)
     expect(result.delayedGroupIds).toEqual(['g1'])
   })
@@ -1313,12 +1182,7 @@ describe('wait gate', () => {
         ...dailyRule({ kind: 'block' }, { timeRanges: [{ startMinute: 0, endMinute: 1440 }] }),
       }),
     ])
-    const result = evaluateUrl(
-      s,
-      emptyCounters(),
-      'https://example.com/',
-      new Date('2026-05-06T12:00:00+09:00'),
-    )
+    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
     expect(result.blocked).toBe(true)
     expect(result.blockedGroupIds).toEqual(['g1'])
     expect(result.delayedGroupIds).toEqual([])
@@ -1326,7 +1190,7 @@ describe('wait gate', () => {
 
   it('許可期限内のグループは delayedGroupIds から除外する', () => {
     const s = settings([group({ ...dailyRule({ kind: 'wait', seconds: 30, grantMinutes: 10 }) })])
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
     const evaluation = evaluateUrl(s, emptyCounters(), 'https://example.com/', now)
 
     const granted = applyDelayGrantState(
@@ -1354,7 +1218,7 @@ describe('wait gate', () => {
     const preferred = settings([
       group({ patterns: ['new\\.test'], ...dailyRule({ kind: 'block' }) }),
     ])
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
 
     expect(
       evaluateEffectiveUrl(baseline, preferred, emptyCounters(), 'https://old.test/', now).blocked,
@@ -1367,7 +1231,7 @@ describe('wait gate', () => {
   it('両設定で対象でも共有 counter は一度だけ加算する', () => {
     const baseline = settings([group({ ...dailyRule({ kind: 'dailyLimit', minutes: 30 }) })])
     const preferred = settings([group({ ...dailyRule({ kind: 'dailyLimit', minutes: 10 }) })])
-    const now = new Date('2026-05-06T12:00:00+09:00')
+    const now = at('12:00:00')
 
     const result = incrementEffectiveCounters(
       baseline,

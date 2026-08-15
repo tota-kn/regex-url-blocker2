@@ -1,12 +1,11 @@
-import { createServer } from 'node:http'
 import type { Worker } from '@playwright/test'
 import type { HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 import {
-  closeServer,
   gotoAndWaitForUrl,
   savePreferredAndEffectiveSettings,
   savePreferredSettings,
+  startTestServer,
   waitForEffectiveSettings,
 } from './helpers'
 import { logicalDateId } from './logicalDate'
@@ -79,7 +78,7 @@ async function getTabIdByUrl(serviceWorker: Worker, url: string): Promise<number
  * テスト用 HTTP サーバーを起動する。
  */
 async function startServer(): Promise<{ origin: string; close: () => Promise<void> }> {
-  const server = createServer((req, res) => {
+  return startTestServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
     if (req.url === '/spa') {
       res.end(
@@ -89,17 +88,6 @@ async function startServer(): Promise<{ origin: string; close: () => Promise<voi
     }
     res.end(`<!doctype html><title>${req.url}</title><main>${req.url}</main>`)
   })
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const address = server.address()
-  if (!address || typeof address === 'string') {
-    throw new Error('Failed to start test server')
-  }
-
-  return {
-    origin: `http://127.0.0.1:${address.port}`,
-    close: async () => closeServer(server),
-  }
 }
 
 /**

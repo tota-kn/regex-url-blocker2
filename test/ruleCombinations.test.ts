@@ -5,11 +5,10 @@ import { incrementEffectiveCounters } from '../utils/usageCounters'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { describeCurrentState } from '../utils/rules'
 import { buildRule } from '../utils/ruleFactory'
+import { at } from './helpers'
 import type { Group, Rule, RuleRestriction, Settings, UsageCountersState } from '../utils/types'
 
 const URL = 'https://example.com/'
-const DATE = '2026-05-06' // 水曜
-const at = (time: string): Date => new Date(`${DATE}T${time}+09:00`)
 
 /** 常時ウィンドウのルールを1件作る。 */
 function rule(id: string, restriction: RuleRestriction, redirectUrl?: string): Rule {
@@ -40,7 +39,7 @@ function settingsWith(...rules: Rule[]): Settings {
 
 /** 指定消費秒数のカウンタを作る。 */
 function counters(consumedSec: number): UsageCountersState {
-  return { counters: { g1: { logicalDate: DATE, consumedSec } } }
+  return { counters: { g1: { logicalDate: '2026-05-06', consumedSec } } }
 }
 
 const BLOCK = rule('block', { kind: 'block' })

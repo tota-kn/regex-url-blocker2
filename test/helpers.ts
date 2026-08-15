@@ -10,6 +10,25 @@ import type {
 } from '../utils/types'
 import { createGroupFromTemplate, DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { buildRule as createRule } from '../utils/ruleFactory'
+import { evaluateUrl } from '../utils/blocking'
+import { expect } from 'vitest'
+
+/** 2026-05-06（JST）の指定時刻を返す。 */
+export function at(time: string): Date {
+  return new Date(`2026-05-06T${time}+09:00`)
+}
+
+/** 指定時刻に設定が URL をブロックするか検証する。 */
+export function expectBlockedAt(
+  settingsValue: Settings,
+  time: string,
+  expected: boolean,
+  countersValue: UsageCountersState = { counters: {} },
+): void {
+  expect(evaluateUrl(settingsValue, countersValue, 'https://example.com/', at(time)).blocked).toBe(
+    expected,
+  )
+}
 
 /** テスト用の標準グループを生成する。 */
 export function group(overrides: Partial<Group> = {}): Group {
