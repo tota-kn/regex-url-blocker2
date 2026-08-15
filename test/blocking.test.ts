@@ -12,7 +12,6 @@ import {
   getEffectiveGroupBlockStatus,
   getGroupBlockStatus,
   getMinimumEffectiveRemainingTimeLimit,
-  getTimeLimitUsageSummary,
   getTimeRangeUnblockAt,
   incrementEffectiveCounters,
 } from '../utils/blocking'
@@ -24,6 +23,7 @@ import {
 } from '../utils/logicalDate'
 import { getBlockedTimeRangeReleaseAt, isRestrictionActiveNow } from '../utils/timeWindow'
 import { countersEqual, normalizeCounters } from '../utils/usageCounters'
+import { getTimeLimitUsageSummary } from '../utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type {
   Group,

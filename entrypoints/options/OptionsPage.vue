@@ -7,7 +7,7 @@ import {
   hasLockModeGroup,
   resolveEffectiveGroup,
 } from '@/utils/effectiveSettings'
-import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/blocking'
+import { getTimeLimitUsageSummary, type TimeLimitUsageSummary } from '@/utils/usageCounters'
 import {
   DEFAULT_GLOBAL_SETTINGS,
   DEFAULT_PAUSE_DURATION_MINUTES,

@@ -1,4 +1,5 @@
-import { collectTargetCandidates, getTimeLimitUsageSummary } from './blocking'
+import { collectTargetCandidates } from './targetCandidates'
+import { getTimeLimitUsageSummary } from './usageCounters'
 import type { Settings, UsageCountersState, UsageNotificationEntry } from './types'
 
 /**

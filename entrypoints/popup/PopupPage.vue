@@ -5,11 +5,8 @@ import TimeLimitMeter from '@/components/TimeLimitMeter.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import {
-  getEffectiveGroupBlockStatus,
-  type GroupBlockStatus,
-  type TimeLimitUsageSummary,
-} from '@/utils/blocking'
+import { getEffectiveGroupBlockStatus, type GroupBlockStatus } from '@/utils/blocking'
+import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '@/utils/urlTargeting'
 import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'

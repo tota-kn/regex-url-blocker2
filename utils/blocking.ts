@@ -12,8 +12,9 @@ import type {
   UsageCountersState,
 } from './types'
 import { jsonEqual, uniqueByJson } from './json'
-import { getLogicalDate, getNextDailyResetAt, windowMatchesLogicalDate } from './logicalDate'
+import { getLogicalDate, getNextDailyResetAt } from './logicalDate'
 import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
+import { collectTargetCandidates } from './targetCandidates'
 import {
   getActiveBlockTimeRanges,
   getActiveRules,
@@ -25,6 +26,13 @@ import {
 } from './timeWindow'
 import { getTargetGroupIds, isTargetGroup } from './urlTargeting'
 import { normalizeCounters } from './usageCounters'
+import {
+  buildUsageSummary,
+  getTimeLimitUsageSummary,
+  resolveDailyLimitRule,
+  type MinimumRemainingTimeLimit,
+  type TimeLimitUsageSummary,
+} from './usageCounters'
 
 /**
  * 制限が評価される順序。先に並ぶものほど強く、成立した時点でそれ以降は評価されない。
@@ -51,30 +59,6 @@ export interface UrlEvaluation {
   blockedGroupIds: string[]
   /** ハードブロックされていないが待機ゲートを課す group id。 */
   delayedGroupIds: string[]
-}
-
-/**
- * 1グループの今日の閲覧上限と消費状況。
- */
-export interface TimeLimitUsageSummary {
-  /** `dailyResetHour` を起点に算出した論理日の識別子。 */
-  logicalDate: string
-  /** 今日有効な上限分数。 */
-  limitMinutes: number
-  /** 今日の累積閲覧秒数。 */
-  consumedSec: number
-  /** 今日の残り閲覧秒数。0 未満にはしない。 */
-  remainingSec: number
-}
-
-/**
- * URL に該当する閲覧上限のうち、最も残り時間が短いグループの利用状況。
- */
-export interface MinimumRemainingTimeLimit {
-  /** 残り時間が最短だったグループ。 */
-  group: Group
-  /** 今日の上限利用状況。 */
-  summary: TimeLimitUsageSummary
 }
 
 /**
@@ -129,56 +113,9 @@ export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
   )
 }
 
-/** 上限分数と counter から利用状況を組み立てる。 */
-function buildUsageSummary(
-  limitMinutes: number,
-  counter: UsageCounter | undefined,
-  logicalDate: string,
-): TimeLimitUsageSummary {
-  const consumedSec = counter?.logicalDate === logicalDate ? counter.consumedSec : 0
-  return {
-    logicalDate,
-    limitMinutes,
-    consumedSec,
-    remainingSec: Math.max(0, limitMinutes * 60 - consumedSec),
-  }
-}
-
-/**
- * ルール配列から、実際に採用される dailyLimit ルールを返す（最小分数）。
- * dailyLimit ルールが1件も無ければ undefined。
- *
- * 「どのルールが効いているか」を画面表示でも使うため、分数と併せて由来ルールを返す。
- */
-export function resolveDailyLimitRule(rules: Rule[]): { minutes: number; rule: Rule } | undefined {
-  return rules
-    .flatMap((rule) =>
-      rule.restriction.kind === 'dailyLimit' ? [{ minutes: rule.restriction.minutes, rule }] : [],
-    )
-    .toSorted((a, b) => a.minutes - b.minutes)[0]
-}
-
 /** ルール配列から dailyLimit の最小上限分数を返す。1件も無ければ undefined。 */
 function minDailyLimitMinutes(rules: Rule[]): number | undefined {
   return resolveDailyLimitRule(rules)?.minutes
-}
-
-/**
- * group に今日有効な dailyLimit ルールがあれば、上限・消費・残り時間を返す。
- * アクティブウィンドウ外でも、適用日条件が今日に一致していれば累積消費を表示するため値を返す。
- */
-export function getTimeLimitUsageSummary(
-  group: Group,
-  counter: UsageCounter | undefined,
-  now: Date,
-  global: GlobalSettings,
-): TimeLimitUsageSummary | undefined {
-  if (group.disabled) return undefined
-  const info = getLogicalDate(now, global.dailyResetHour)
-  const todaysRules = group.rules.filter((rule) => windowMatchesLogicalDate(rule.window, info))
-  const limitMinutes = minDailyLimitMinutes(todaysRules)
-  if (limitMinutes === undefined) return undefined
-  return buildUsageSummary(limitMinutes, counter, info.logicalDate)
 }
 
 /**
@@ -346,39 +283,6 @@ export function getDailyLimitReleaseAt(rule: Rule, now: Date, global: GlobalSett
     t = new Date(Math.min(...boundaries))
   }
   return resetAt
-}
-
-/**
- * 二重評価で集めた、1グループ分の候補値。
- */
-export interface TargetCandidate<T> {
-  /** 候補の出どころとなったグループ。 */
-  group: Group
-  /** そのグループが属していた設定のグローバル設定。 */
-  global: GlobalSettings
-  /** `pick` が返した値。 */
-  value: T
-}
-
-/**
- * 基準設定と希望設定を独立に評価し、URL の制限対象グループごとの候補値を集める。
- *
- * 同じ group id が両設定に存在すれば候補は2件になる。どちらを採るかは呼び出し側が
- * `strictestBy` などで決める。`pick` が undefined を返した候補は除外する。
- */
-export function collectTargetCandidates<T>(
-  pair: SettingsPair,
-  url: string | undefined,
-  pick: (group: Group, global: GlobalSettings) => T | undefined,
-): TargetCandidate<T>[] {
-  return bothSettings(pair).flatMap((settings) => {
-    const targetIds = new Set(getTargetGroupIds(settings, url))
-    return settings.groups.flatMap((group) => {
-      if (!targetIds.has(group.id)) return []
-      const value = pick(group, settings.global)
-      return value === undefined ? [] : [{ group, global: settings.global, value }]
-    })
-  })
 }
 
 /**

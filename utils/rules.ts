@@ -1,4 +1,4 @@
-import { resolveDailyLimitRule, resolveEffectiveWait } from './blocking'
+import { resolveEffectiveWait } from './blocking'
 import { minutesToTime } from './datetime'
 import { formatTimeWindow } from './groups'
 import {
@@ -8,6 +8,7 @@ import {
   isWindowActiveAt,
 } from './timeWindow'
 import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction } from './types'
+import { resolveDailyLimitRule } from './usageCounters'
 
 /**
  * 制限種別の画面表示名。

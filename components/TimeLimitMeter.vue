@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ClockIcon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
-import type { TimeLimitUsageSummary } from '@/utils/blocking'
+import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 
 /**
