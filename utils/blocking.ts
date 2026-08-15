@@ -6,17 +6,21 @@ import type {
   GroupPauseState,
   Rule,
   RuleKind,
-  ScheduleRuleCondition,
   Settings,
   TimeRange,
-  TimeWindow,
   UsageCounter,
   UsageCountersState,
 } from './types'
-import { dateAtMinuteOfDay, minuteOfDate, minuteOfDay } from './datetime'
+import { minuteOfDate } from './datetime'
 import { jsonEqual, uniqueByJson } from './json'
-import { getLogicalDate, type LogicalDateInfo } from './logicalDate'
+import { getLogicalDate, getNextDailyResetAt, windowMatchesLogicalDate } from './logicalDate'
 import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
+import {
+  getActiveRules,
+  getBlockedTimeRangeReleaseAt,
+  isWindowActiveAt,
+  timeInRange,
+} from './timeWindow'
 import { getTargetGroupIds, isTargetGroup } from './urlTargeting'
 
 /**
@@ -32,9 +36,6 @@ export const RULE_KIND_PRIORITY: Record<RuleKind, number> = {
 /** 制限種別を評価順に並べた配列。 */
 export const RULE_KIND_ORDER: RuleKind[] = ['block', 'dailyLimit', 'wait']
 
-/**
- * 論理日と、その論理日開始時点の暦情報。
- */
 /**
  * URL 判定の結果。
  */
@@ -123,106 +124,6 @@ export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
   return rules.toSorted(
     (a, b) => RULE_KIND_PRIORITY[a.restriction.kind] - RULE_KIND_PRIORITY[b.restriction.kind],
   )
-}
-
-/**
- * 時刻 T が時間帯に含まれるなら true を返す。
- * `startMinute === endMinute` は終日、`startMinute > endMinute` は日跨ぎとして扱う。
- */
-export function timeInRange(nowMinute: number, startMinute: number, endMinute: number): boolean {
-  if (startMinute === endMinute) return true
-  if (startMinute < endMinute) return nowMinute >= startMinute && nowMinute < endMinute
-  return nowMinute >= startMinute || nowMinute < endMinute
-}
-
-/**
- * 現在有効な時間帯が次に解除される日時を返す。
- */
-export function getBlockedTimeRangeReleaseAt(range: TimeRange, now: Date): Date {
-  const nowMinute = minuteOfDate(now)
-
-  if (range.startMinute === range.endMinute) {
-    const releaseAt = dateAtMinuteOfDay(now, range.endMinute)
-    if (releaseAt.getTime() <= now.getTime()) releaseAt.setDate(releaseAt.getDate() + 1)
-    return releaseAt
-  }
-
-  const releaseAt = dateAtMinuteOfDay(now, range.endMinute)
-  if (range.startMinute > range.endMinute && nowMinute >= range.startMinute) {
-    releaseAt.setDate(releaseAt.getDate() + 1)
-  }
-  return releaseAt
-}
-
-/**
- * 次の daily reset 到来日時を返す。
- */
-export function getNextDailyResetAt(now: Date, global: GlobalSettings): Date {
-  const resetMinute = minuteOfDay(global.dailyResetHour)
-  const resetAt = dateAtMinuteOfDay(now, resetMinute)
-  if (resetAt.getTime() <= now.getTime()) resetAt.setDate(resetAt.getDate() + 1)
-  return resetAt
-}
-
-/**
- * 月日を比較可能な数値キーへ変換する。
- */
-function monthDayKey(month: number, day: number): number {
-  return month * 100 + day
-}
-
-/**
- * スケジュールルールの条件が指定した論理日に一致するなら true を返す。
- */
-export function matchesScheduleRuleCondition(
-  condition: ScheduleRuleCondition,
-  info: LogicalDateInfo,
-): boolean {
-  if (condition.type === 'weekly') return condition.daysOfWeek.includes(info.dayOfWeek)
-  if (condition.type === 'monthly') return condition.daysOfMonth.includes(info.dayOfMonth)
-  if (condition.type === 'period') {
-    const start = monthDayKey(condition.start.month, condition.start.day)
-    const end = monthDayKey(condition.end.month, condition.end.day)
-    const key = monthDayKey(info.month, info.dayOfMonth)
-    return start <= end ? key >= start && key <= end : key >= start || key <= end
-  }
-  return true
-}
-
-/** 時間ウィンドウの適用日条件が指定した論理日に一致するなら true を返す。時刻は問わない。 */
-function windowMatchesLogicalDate(window: TimeWindow, info: LogicalDateInfo): boolean {
-  return window.type === 'always' || matchesScheduleRuleCondition(window.condition, info)
-}
-
-/** 時間ウィンドウが指定時刻に有効かを返す。 */
-export function isWindowActiveAt(window: TimeWindow, at: Date, global: GlobalSettings): boolean {
-  if (window.type === 'always') return true
-  const info = getLogicalDate(at, global.dailyResetHour)
-  if (!matchesScheduleRuleCondition(window.condition, info)) return false
-  if (window.timeRanges.length === 0) return true
-  const atMinute = minuteOfDate(at)
-  return window.timeRanges.some((range) =>
-    timeInRange(atMinute, range.startMinute, range.endMinute),
-  )
-}
-
-/** ルール配列のうち、指定時刻に有効なものだけを返す。 */
-export function filterActiveRules(rules: Rule[], at: Date, global: GlobalSettings): Rule[] {
-  return rules.filter((rule) => isWindowActiveAt(rule.window, at, global))
-}
-
-/** group のルールのうち、指定時刻に有効なものだけを返す。disabled group では空配列。 */
-export function getActiveRules(group: Group, now: Date, global: GlobalSettings): Rule[] {
-  if (group.disabled) return []
-  return filterActiveRules(group.rules, now, global)
-}
-
-/**
- * group のルールが現在時刻で1件以上アクティブかを返す。
- * disabled group やルール未設定では false。
- */
-export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSettings): boolean {
-  return getActiveRules(group, now, global).length > 0
 }
 
 /**

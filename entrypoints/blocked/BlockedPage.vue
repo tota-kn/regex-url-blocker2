@@ -7,11 +7,11 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import {
   getDailyLimitReleaseAt,
   getEffectiveGroupBlockStatus,
-  getNextDailyResetAt,
   getTimeRangeUnblockAt,
   type GroupBlockStatus,
 } from '@/utils/blocking'
 import { formatDateTime } from '@/utils/datetime'
+import { getNextDailyResetAt } from '@/utils/logicalDate'
 import { formatRuleSentence, RULE_KIND_LABELS } from '@/utils/rules'
 import { loadPageState } from '@/utils/storage'
 import type { GlobalSettings, Group } from '@/utils/types'

@@ -1,12 +1,7 @@
-import {
-  filterActiveRules,
-  isWindowActiveAt,
-  resolveDailyLimitRule,
-  resolveEffectiveWait,
-  timeInRange,
-} from './blocking'
+import { resolveDailyLimitRule, resolveEffectiveWait } from './blocking'
 import { minuteOfDate, minutesToTime } from './datetime'
 import { formatTimeWindow } from './groups'
+import { filterActiveRules, isWindowActiveAt, timeInRange } from './timeWindow'
 import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction } from './types'
 
 /**

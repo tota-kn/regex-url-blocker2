@@ -8,22 +8,23 @@ import {
   formatRemainingMinutesBadge,
   getBlockDestination,
   getBlockReason,
-  getBlockedTimeRangeReleaseAt,
   getDailyLimitReleaseAt,
   getEffectiveWait,
   getEffectiveGroupBlockStatus,
   getGroupBlockStatus,
   getMinimumEffectiveRemainingTimeLimit,
-  getNextDailyResetAt,
   getTimeLimitUsageSummary,
   getTimeRangeUnblockAt,
   incrementEffectiveCounters,
-  isRestrictionActiveNow,
-  matchesScheduleRuleCondition,
   normalizeCounters,
 } from '../utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import { getLogicalDate } from '../utils/logicalDate'
+import {
+  getLogicalDate,
+  getNextDailyResetAt,
+  matchesScheduleRuleCondition,
+} from '../utils/logicalDate'
+import { getBlockedTimeRangeReleaseAt, isRestrictionActiveNow } from '../utils/timeWindow'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type {
   Group,
