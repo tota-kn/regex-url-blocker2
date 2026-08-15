@@ -3,7 +3,7 @@ interface ChromeTestStorageArea {
   /** storage の値を取得する。 */
   get: (keys?: string | string[]) => Promise<any>
   /** storage へ値を書き込む。 */
-  set: (items: Record<string, unknown>) => Promise<void>
+  set: (items: object) => Promise<void>
 }
 
 /** E2E で利用する Chrome API の最小型。 */

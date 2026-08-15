@@ -5,11 +5,16 @@ import {
   gotoAndWaitForUrl,
   savePreferredAndEffectiveSettings,
   savePreferredSettings,
+  setExtensionStorage,
   startTestServer,
   waitForEffectiveSettings,
 } from './helpers'
 import { logicalDateId } from './logicalDate'
-import { buildEffectiveSettingsFixture } from './settingsFixture'
+import {
+  buildEffectiveSettingsFixture,
+  buildGroupFixture,
+  buildSettingsFixture,
+} from './settingsFixture'
 
 /**
  * Service Worker 経由で指定タブのアクション badge テキストを取得する。
@@ -82,32 +87,27 @@ async function saveBlockingSettingsWithPattern(
   origin: string,
   pattern: string,
 ): Promise<void> {
-  await serviceWorker.evaluate(
-    async (settings) => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: `${settings.origin}/blocked`,
-          dailyResetHour: '00:00',
-        },
-        groups: [
-          {
-            id: 'block-local',
-            name: 'Block local',
-            mode: 'blacklist',
-            patterns: [settings.pattern],
-            blockAction: 'redirect',
-            redirectUrl: `${settings.origin}/blocked`,
-            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 0,
-            })),
-          },
-        ],
-      })
-    },
-    { origin, pattern },
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: 'block-local',
+          name: 'Block local',
+          patterns: [pattern],
+          rules: [
+            {
+              id: 'block-local-rule',
+              window: { type: 'always' },
+              restriction: { kind: 'block' },
+              destination: { type: 'redirect', url: `${origin}/blocked` },
+            },
+          ],
+        }),
+      ],
+      { dailyResetHour: '00:00' },
+    ),
   )
 }
 
@@ -119,30 +119,26 @@ async function saveBlockedPageSettings(
   origin: string,
   groups: Array<{ id: string; name: string }>,
 ): Promise<void> {
-  await serviceWorker.evaluate(
-    async (settings) => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: `${settings.origin}/blocked`,
-          dailyResetHour: '00:00',
-        },
-        groups: settings.groups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          mode: 'blacklist',
-          patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
-          blockAction: 'blockedPage',
-          redirectUrl: `${settings.origin}/blocked`,
-          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-            dayOfWeek,
-            blockedTimeRanges: [],
-            dailyLimitMinutes: 0,
-          })),
-        })),
-      })
-    },
-    { origin, groups },
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      groups.map((group) =>
+        buildGroupFixture({
+          ...group,
+          patterns: [`^${origin.replaceAll('.', '\\.')}`],
+          rules: [
+            {
+              id: `${group.id}-rule`,
+              window: { type: 'always' },
+              restriction: { kind: 'block' },
+              destination: { type: 'blockedPage' },
+            },
+          ],
+        }),
+      ),
+      { dailyResetHour: '00:00' },
+    ),
   )
 }
 
@@ -161,38 +157,58 @@ async function saveBlockedPageDetailSettings(
     counter?: UsageCounter
   }>,
 ): Promise<void> {
-  await serviceWorker.evaluate(
-    async (settings) => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: `${settings.origin}/blocked`,
-          dailyResetHour: settings.dailyResetHour,
-        },
-        groups: settings.groups.map((group) => ({
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      groups.map((group) => {
+        const window =
+          group.blockedTimeRanges.length === 0
+            ? ({ type: 'always' } as const)
+            : ({
+                type: 'scheduled',
+                condition: { type: 'daily' },
+                timeRanges: group.blockedTimeRanges,
+              } as const)
+        return buildGroupFixture({
           id: group.id,
           name: group.name,
-          mode: 'blacklist',
-          patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
-          blockAction: 'blockedPage',
-          redirectUrl: `${settings.origin}/blocked`,
-          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-            dayOfWeek,
-            blockedTimeRanges: group.blockedTimeRanges,
-            dailyLimitMinutes: group.dailyLimitMinutes,
-          })),
-        })),
-      })
-      await globalThis.chrome.storage.local.set({
-        counters: Object.fromEntries(
-          settings.groups
-            .filter((group) => group.counter)
-            .map((group) => [group.id, group.counter]),
-        ),
-      })
-    },
-    { origin, dailyResetHour, groups },
+          patterns: [`^${origin.replaceAll('.', '\\.')}`],
+          rules: [
+            ...(group.blockedTimeRanges.length > 0
+              ? [
+                  {
+                    id: `${group.id}-block`,
+                    window,
+                    restriction: { kind: 'block' } as const,
+                    destination: { type: 'blockedPage' } as const,
+                  },
+                ]
+              : []),
+            ...(group.dailyLimitMinutes !== undefined
+              ? [
+                  {
+                    id: `${group.id}-limit`,
+                    window,
+                    restriction: {
+                      kind: 'dailyLimit' as const,
+                      minutes: group.dailyLimitMinutes,
+                    },
+                    destination: { type: 'blockedPage' } as const,
+                  },
+                ]
+              : []),
+          ],
+        })
+      }),
+      { dailyResetHour },
+    ),
   )
+  await setExtensionStorage(serviceWorker, 'local', {
+    counters: Object.fromEntries(
+      groups.filter((group) => group.counter).map((group) => [group.id, group.counter]),
+    ),
+  })
 }
 
 /**
@@ -205,37 +221,35 @@ async function saveWindowedDailyLimitSettings(
   dailyResetHour: HHMM,
   group: { id: string; name: string; timeRange: TimeRange; minutes: number; counter: UsageCounter },
 ): Promise<void> {
-  await serviceWorker.evaluate(
-    async (settings) => {
-      await globalThis.chrome.storage.sync.set({
-        global: { dailyResetHour: settings.dailyResetHour },
-        groups: [
-          {
-            id: settings.group.id,
-            name: settings.group.name,
-            mode: 'blacklist',
-            patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
-            rules: [
-              {
-                id: 'windowed-daily-limit',
-                window: {
-                  type: 'scheduled',
-                  condition: { type: 'daily' },
-                  timeRanges: [settings.group.timeRange],
-                },
-                restriction: { kind: 'dailyLimit', minutes: settings.group.minutes },
-                destination: { type: 'blockedPage' },
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: group.id,
+          name: group.name,
+          patterns: [`^${origin.replaceAll('.', '\\.')}`],
+          rules: [
+            {
+              id: 'windowed-daily-limit',
+              window: {
+                type: 'scheduled',
+                condition: { type: 'daily' },
+                timeRanges: [group.timeRange],
               },
-            ],
-          },
-        ],
-      })
-      await globalThis.chrome.storage.local.set({
-        counters: { [settings.group.id]: settings.group.counter },
-      })
-    },
-    { origin, dailyResetHour, group },
+              restriction: { kind: 'dailyLimit', minutes: group.minutes },
+              destination: { type: 'blockedPage' },
+            },
+          ],
+        }),
+      ],
+      { dailyResetHour },
+    ),
   )
+  await setExtensionStorage(serviceWorker, 'local', {
+    counters: { [group.id]: group.counter },
+  })
 }
 
 /**

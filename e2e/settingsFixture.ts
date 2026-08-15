@@ -1,4 +1,30 @@
-import type { Group, HHMM, Settings } from '../utils/types'
+import type { GlobalSettings, Group, HHMM, Settings } from '../utils/types'
+import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+
+/** E2E 用の現行スキーマグループを生成する。 */
+export function buildGroupFixture(overrides: Partial<Group> = {}): Group {
+  return {
+    id: 'fixture-group',
+    name: 'Fixture group',
+    mode: 'blacklist',
+    disabled: false,
+    lockMode: false,
+    patterns: [],
+    pauseWaitSeconds: 60,
+    pauseDurationMinutes: 10,
+    pauseAllowed: true,
+    rules: [],
+    ...overrides,
+  }
+}
+
+/** E2E 用の現行スキーマ設定を生成する。 */
+export function buildSettingsFixture(
+  groups: Group[],
+  global: Partial<GlobalSettings> = {},
+): Settings {
+  return { global: { ...DEFAULT_GLOBAL_SETTINGS, ...global }, groups }
+}
 
 /** 毎日同じ上限分数を使うテスト用ルールを作る。undefined はルールなし。 */
 function buildRestrictionParts(
@@ -26,14 +52,9 @@ export function buildEffectiveSettingsFixture(
   lockMode = false,
   disabled = false,
 ): Settings {
-  return {
-    global: {
-      dailyResetHour,
-      remainingTimeNotificationsEnabled: true,
-      notificationThresholdMinutes: 5,
-    },
-    groups: [
-      {
+  return buildSettingsFixture(
+    [
+      buildGroupFixture({
         id: 'effective-group',
         name: 'Effective group',
         mode: 'blacklist',
@@ -44,7 +65,8 @@ export function buildEffectiveSettingsFixture(
         pauseDurationMinutes: 10,
         pauseAllowed: true,
         ...buildRestrictionParts(dailyLimitMinutes, `${origin}/blocked`),
-      },
+      }),
     ],
-  }
+    { dailyResetHour },
+  )
 }

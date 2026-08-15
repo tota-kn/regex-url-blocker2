@@ -70,7 +70,7 @@ export async function getExtensionStorage(
 export async function setExtensionStorage(
   serviceWorker: Worker,
   area: 'local' | 'sync',
-  items: Record<string, unknown>,
+  items: object,
 ): Promise<void> {
   await serviceWorker.evaluate(
     async ({ area, items }) => {
