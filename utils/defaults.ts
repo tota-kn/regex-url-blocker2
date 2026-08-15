@@ -29,6 +29,7 @@ export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
   language: 'auto',
+  theme: 'auto',
   dailyResetHour: '03:00',
   remainingTimeNotificationsEnabled: true,
   notificationThresholdMinutes: 5,

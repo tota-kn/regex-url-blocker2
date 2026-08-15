@@ -186,6 +186,13 @@ describe('effective settings', () => {
     ).toBe(false)
   })
 
+  it('テーマは Lock Mode に関係なく即時に有効設定へ反映される', () => {
+    const active = settings([group({ lockMode: true })], { theme: 'light' })
+    const preferred = settings([group({ lockMode: true })], { theme: 'dark' })
+
+    expect(mergeImmediateRestrictions(active, preferred).global.theme).toBe('dark')
+  })
+
   it('Lock Mode ON の group 削除は次回 reset まで effective に残る', () => {
     const active = settings([group({ lockMode: true })], '03:00')
     const preferred = settings([], '03:00')

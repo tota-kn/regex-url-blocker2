@@ -17,6 +17,7 @@ import NumberInput from '@/components/ui/NumberInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import type { GlobalSettings } from '@/utils/types'
 import { setLanguage } from '@/utils/i18n'
+import { setTheme } from '@/utils/theme'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -63,6 +64,13 @@ const incognitoStatusText = computed(() => {
 function changeLanguage(): void {
   setLanguage(globalSettings.value.language)
   emit('touch', 'language')
+  emit('saveNow')
+}
+
+/** 選択されたテーマを即座に適用し、Lock Modeとは独立して保存を要求する。 */
+function changeTheme(): void {
+  setTheme(globalSettings.value.theme)
+  emit('touch', 'theme')
   emit('saveNow')
 }
 
@@ -148,6 +156,18 @@ onUnmounted(() => {
           <option value="auto">{{ t('Automatic (browser language)') }}</option>
           <option value="en">{{ t('English') }}</option>
           <option value="ja">{{ t('Japanese') }}</option>
+        </BaseSelect>
+      </BaseField>
+      <BaseField :label="t('Theme')" emphasis>
+        <BaseSelect
+          v-model="globalSettings.theme"
+          :aria-label="t('Theme')"
+          class="w-full"
+          @change="changeTheme"
+        >
+          <option value="auto">{{ t('Automatic (browser theme)') }}</option>
+          <option value="light">{{ t('Light') }}</option>
+          <option value="dark">{{ t('Dark') }}</option>
         </BaseSelect>
       </BaseField>
       <BaseField

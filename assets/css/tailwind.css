@@ -3,6 +3,8 @@
 
 html {
   scrollbar-gutter: stable;
+  color-scheme: light;
+  background-color: var(--color-background);
 }
 
 @theme {
@@ -72,6 +74,91 @@ html {
   --radius-md: 0.25rem;
   --radius-lg: 0.5rem;
   --radius-full: 9999px;
+}
+
+/* 明示的な dark、または light を明示していない OS dark 環境で共通トークンを差し替える。 */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-background: #111827;
+  --color-foreground: #f3f4f6;
+  --color-surface: #1f2937;
+  --color-surface-muted: #111827;
+  --color-surface-subtle: #374151;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-primary-foreground: #111827;
+  --color-secondary: #374151;
+  --color-secondary-hover: #4b5563;
+  --color-secondary-foreground: #d1d5db;
+  --color-warning: #f59e0b;
+  --color-warning-text: #fbbf24;
+  --color-danger: #f87171;
+  --color-danger-hover: #ef4444;
+  --color-danger-subtle: #450a0a;
+  --color-danger-border: #991b1b;
+  --color-danger-foreground: #111827;
+  --color-border: #374151;
+  --color-border-hover: #4b5563;
+  --color-field: #1f2937;
+  --color-field-hover: #374151;
+  --color-field-disabled: #374151;
+  --color-field-border: #4b5563;
+  --color-field-border-hover: #6b7280;
+  --color-input-foreground: #f3f4f6;
+  --color-tag-selected-bg: #1e3a5f;
+  --color-tag-selected-text: #bfdbfe;
+  --color-tag-selected-border: #3b82f6;
+  --color-tag-default-bg: #374151;
+  --color-tag-default-text: #d1d5db;
+  --color-tag-default-border: #4b5563;
+  --color-ring: #60a5fa;
+  --color-scrim: rgb(0 0 0 / 60%);
+  --color-muted: #6b7280;
+  --color-muted-foreground: #9ca3af;
+  --color-accent: #172554;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --color-background: #111827;
+    --color-foreground: #f3f4f6;
+    --color-surface: #1f2937;
+    --color-surface-muted: #111827;
+    --color-surface-subtle: #374151;
+    --color-primary: #60a5fa;
+    --color-primary-hover: #3b82f6;
+    --color-primary-foreground: #111827;
+    --color-secondary: #374151;
+    --color-secondary-hover: #4b5563;
+    --color-secondary-foreground: #d1d5db;
+    --color-warning: #f59e0b;
+    --color-warning-text: #fbbf24;
+    --color-danger: #f87171;
+    --color-danger-hover: #ef4444;
+    --color-danger-subtle: #450a0a;
+    --color-danger-border: #991b1b;
+    --color-danger-foreground: #111827;
+    --color-border: #374151;
+    --color-border-hover: #4b5563;
+    --color-field: #1f2937;
+    --color-field-hover: #374151;
+    --color-field-disabled: #374151;
+    --color-field-border: #4b5563;
+    --color-field-border-hover: #6b7280;
+    --color-input-foreground: #f3f4f6;
+    --color-tag-selected-bg: #1e3a5f;
+    --color-tag-selected-text: #bfdbfe;
+    --color-tag-selected-border: #3b82f6;
+    --color-tag-default-bg: #374151;
+    --color-tag-default-text: #d1d5db;
+    --color-tag-default-border: #4b5563;
+    --color-ring: #60a5fa;
+    --color-scrim: rgb(0 0 0 / 60%);
+    --color-muted: #6b7280;
+    --color-muted-foreground: #9ca3af;
+    --color-accent: #172554;
+  }
 }
 
 /* タイポグラフィトークン（DESIGN.md typography 定義に準拠） */

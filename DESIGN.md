@@ -41,6 +41,45 @@ colors:
   danger-border: '#fecaca'
   warning: '#f59e0b'
   warning-text: '#b45309'
+darkColors:
+  primary: '#60a5fa'
+  primary-hover: '#3b82f6'
+  primary-foreground: '#111827'
+  secondary: '#374151'
+  secondary-hover: '#4b5563'
+  secondary-foreground: '#d1d5db'
+  foreground: '#f3f4f6'
+  background: '#111827'
+  surface: '#1f2937'
+  surface-muted: '#111827'
+  surface-subtle: '#374151'
+  border: '#374151'
+  border-hover: '#4b5563'
+  field: '#1f2937'
+  field-hover: '#374151'
+  field-readonly: 'transparent'
+  field-disabled: '#374151'
+  field-border: '#4b5563'
+  field-border-hover: '#6b7280'
+  input-foreground: '#f3f4f6'
+  tag-selected-bg: '#1e3a5f'
+  tag-selected-text: '#bfdbfe'
+  tag-selected-border: '#3b82f6'
+  tag-default-bg: '#374151'
+  tag-default-text: '#d1d5db'
+  tag-default-border: '#4b5563'
+  muted: '#6b7280'
+  muted-foreground: '#9ca3af'
+  accent: '#172554'
+  ring: '#60a5fa'
+  scrim: 'rgb(0 0 0 / 60%)'
+  danger: '#f87171'
+  danger-hover: '#ef4444'
+  danger-foreground: '#111827'
+  danger-subtle: '#450a0a'
+  danger-border: '#991b1b'
+  warning: '#f59e0b'
+  warning-text: '#fbbf24'
 typography:
   heading-lg:
     fontFamily: system-ui, sans-serif
@@ -204,6 +243,12 @@ The palette is a high-contrast, accessibility-conscious combination of cool gray
 - **Danger Subtle (#fef2f2) / Danger Border (#fecaca):** Red 50/200. Danger ghost button hover and border; error input borders.
 - **Warning (#f59e0b):** Amber 500. Progress meter fill when remaining time ≤ 20%.
 - **Warning Text (#b45309):** Amber 700. Remaining-time text when in warning threshold.
+
+### Dark mode
+
+All extension-owned pages support `auto`, `light`, and `dark` themes. `auto` is the default and follows the browser's `prefers-color-scheme`; explicit choices override it. Theme changes apply immediately and independently of Lock Mode.
+
+Dark mode preserves the same semantic token names rather than adding component-specific overrides. Gray 900 (`#111827`) is the base background, Gray 800 (`#1f2937`) is the raised surface and field color, and Gray 100 (`#f3f4f6`) is the primary foreground. Blue 400 (`#60a5fa`) provides a brighter primary and focus color on dark surfaces. Danger and warning surfaces use deep red and amber combinations so status meaning remains distinct without relying on brightness alone. Native controls use `color-scheme: dark`.
 
 ## Typography
 

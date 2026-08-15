@@ -8,6 +8,7 @@ import { createEmptyGroup } from './helpers'
 
 describe('DEFAULT_GLOBAL_SETTINGS', () => {
   it('仕様書の既定値と一致する', () => {
+    expect(DEFAULT_GLOBAL_SETTINGS.theme).toBe('auto')
     expect(DEFAULT_GLOBAL_SETTINGS.dailyResetHour).toBe('03:00')
     expect(DEFAULT_GLOBAL_SETTINGS.remainingTimeNotificationsEnabled).toBe(true)
     expect(DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes).toBe(5)

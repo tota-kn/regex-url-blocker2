@@ -34,11 +34,11 @@ import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
- * リリース済みの旧バージョンは v2（1.0.0）・v3（1.1.0/1.2.0）・v4（1.3.0）・v11（1.4.0）のみ。
+ * 対応する旧バージョンは v2・v3・v4・v11・v12・v13。
  * v5〜v10 は未リリース開発中にのみ存在した形式のためサポートしない。
  */
-export const SETTINGS_EXPORT_VERSION = 13
-const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, 12, SETTINGS_EXPORT_VERSION] as const
+export const SETTINGS_EXPORT_VERSION = 14
+const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, 12, 13, SETTINGS_EXPORT_VERSION] as const
 type SupportedExportVersion = (typeof SUPPORTED_EXPORT_VERSIONS)[number]
 
 /**
@@ -210,6 +210,10 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
       language:
         rawGlobal.language === 'en' || rawGlobal.language === 'ja' || rawGlobal.language === 'auto'
           ? rawGlobal.language
+          : 'auto',
+      theme:
+        rawGlobal.theme === 'light' || rawGlobal.theme === 'dark' || rawGlobal.theme === 'auto'
+          ? rawGlobal.theme
           : 'auto',
       notificationThresholdMinutes,
       remainingTimeNotificationsEnabled: normalizeRemainingTimeNotificationsEnabled(

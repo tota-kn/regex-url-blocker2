@@ -39,6 +39,15 @@ describe('loadSettings', () => {
     expect(s.global.dailyResetHour).toBe('05:00')
     expect(s.global.remainingTimeNotificationsEnabled).toBe(true)
     expect(s.global.notificationThresholdMinutes).toBe(5)
+    expect(s.global.theme).toBe('auto')
+  })
+
+  it('theme は既知の値だけを保持し、不正値は auto に戻す', async () => {
+    await browser.storage.sync.set({ global: { theme: 'dark' } })
+    expect((await loadSettings()).global.theme).toBe('dark')
+
+    await browser.storage.sync.set({ global: { theme: 'sepia' } })
+    expect((await loadSettings()).global.theme).toBe('auto')
   })
 
   it('旧形式の notificationThresholdMinutes: 0 は残り時間通知 OFF へ移行される', async () => {
@@ -294,7 +303,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 13,
+      version: 14,
       settings,
     })
   })
@@ -440,6 +449,15 @@ describe('settings export file', () => {
         remainingTimeNotificationsEnabled: false,
         notificationThresholdMinutes: 12,
       },
+      groups: [],
+    }
+
+    expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
+  })
+
+  it('テーマ設定をエクスポート/インポートでラウンドトリップする', () => {
+    const settings = {
+      global: { ...DEFAULT_GLOBAL_SETTINGS, theme: 'dark' as const },
       groups: [],
     }
 

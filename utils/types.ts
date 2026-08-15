@@ -11,6 +11,9 @@ export type HHMM = string
 /** ユーザーが選択できる表示言語。`auto` はブラウザの UI 言語へ追従する。 */
 export type LanguagePreference = 'auto' | 'en' | 'ja'
 
+/** ユーザーが選択できる配色。`auto` はブラウザのカラースキームへ追従する。 */
+export type ThemePreference = 'auto' | 'light' | 'dark'
+
 /**
  * 分単位のブロック時間帯。
  * `startMinute === endMinute` のときは24時間ブロックとして扱う。
@@ -144,6 +147,8 @@ export interface Group {
 export interface GlobalSettings {
   /** 拡張機能内ページの表示言語。 */
   language: LanguagePreference
+  /** 拡張機能内ページの配色。 */
+  theme: ThemePreference
   /** 論理日の境界となる時刻（"HH:MM"）。 */
   dailyResetHour: HHMM
   /** 残り閲覧時間通知を有効にするか。 */

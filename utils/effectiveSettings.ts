@@ -185,6 +185,7 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
   return {
     global: {
       language: preferred.global.language,
+      theme: preferred.global.theme,
       dailyResetHour: lockModeExists
         ? active.global.dailyResetHour
         : preferred.global.dailyResetHour,
