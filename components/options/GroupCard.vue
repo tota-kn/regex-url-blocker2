@@ -2,9 +2,7 @@
 import {
   ArrowUturnLeftIcon,
   CheckIcon,
-  ChevronDownIcon,
   ClockIcon,
-  LockClosedIcon,
   NoSymbolIcon,
   PencilSquareIcon,
   XMarkIcon,
@@ -13,12 +11,9 @@ import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
-import BooleanRadioGroup from '@/components/ui/BooleanRadioGroup.vue'
-import NumberInput from '@/components/ui/NumberInput.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
 import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
-import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
 import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
@@ -27,6 +22,7 @@ import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import { useLockModePending } from '@/utils/useLockModePending'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
 import GroupActionMenu from './GroupActionMenu.vue'
+import GroupOptionsPanel from './GroupOptionsPanel.vue'
 import PatternListEditor from './PatternListEditor.vue'
 import PendingFieldNote from './PendingFieldNote.vue'
 import RuleListEditor from './RuleListEditor.vue'
@@ -83,7 +79,6 @@ const validationFeedback = useValidationFeedback()
 const invalidTextFields = ref<Set<string>>(new Set())
 
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
-const isOptionsOpen = ref(false)
 
 const draftErrors = computed(() => validateGroup(draft.value, { requireConfiguredSections: true }))
 const draftRules = computed({
@@ -99,52 +94,6 @@ const { resolvedGroup, pendingUntilLabel, isFieldPending } = useLockModePending(
   comparedGroup,
   () => props.appliesAfterLabel,
 )
-/** いま実際に適用されている一時停止の待機秒数。 */
-const effectivePauseWaitSeconds = computed(() => resolvedGroup.value.pauseWaitSeconds)
-/** いま実際に適用されている一時停止の継続分数。 */
-const effectivePauseDurationMinutes = computed(() => resolvedGroup.value.pauseDurationMinutes)
-/** 一時停止設定のうち保留中の項目を、いま効いている値の文言として並べる。 */
-const pendingPauseNote = computed(() => {
-  const parts: string[] = []
-  if (isFieldPending('pauseAllowed')) parts.push('not allowed')
-  if (isFieldPending('pauseWaitSeconds')) {
-    parts.push(`wait ${effectivePauseWaitSeconds.value} sec`)
-  }
-  if (isFieldPending('pauseDurationMinutes')) {
-    parts.push(`pause for ${effectivePauseDurationMinutes.value} min`)
-  }
-  if (parts.length === 0) return undefined
-  return `Still ${parts.join(', ')} ${pendingUntilLabel.value}.`
-})
-const visibleOptionSummaries = computed(() => {
-  const summaries: Array<{ label: string; value: string; pending?: string }> = []
-  const lockModeLabel = 'Delay relaxed restrictions until next rule day'
-  if (props.group.lockMode) {
-    summaries.push({ label: lockModeLabel, value: 'On' })
-  } else if (isFieldPending('lockMode')) {
-    summaries.push({
-      label: lockModeLabel,
-      value: 'Off',
-      pending: `Still on ${pendingUntilLabel.value}.`,
-    })
-  }
-  const pauseWaitSeconds = props.group.pauseWaitSeconds
-  const pauseDurationMinutes = props.group.pauseDurationMinutes
-  if (props.group.pauseAllowed === false) {
-    summaries.push({ label: 'Pause', value: 'Not allowed', pending: pendingPauseNote.value })
-  } else if (
-    pauseWaitSeconds !== DEFAULT_PAUSE_WAIT_SECONDS ||
-    pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES ||
-    pendingPauseNote.value
-  ) {
-    summaries.push({
-      label: 'Pause',
-      value: `Wait ${pauseWaitSeconds} sec, pause for ${pauseDurationMinutes} min`,
-      pending: pendingPauseNote.value,
-    })
-  }
-  return summaries
-})
 const pauseButtonState = computed(() =>
   getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()),
 )
@@ -215,7 +164,6 @@ function startEditing(): void {
   draft.value = cloneGroup(props.group)
   validationFeedback.reset()
   invalidTextFields.value = new Set()
-  isOptionsOpen.value = false
   isEditing.value = true
 }
 
@@ -239,13 +187,7 @@ function saveEditing(): void {
   // 保存時に評価順へ並べ替え、表示順と実際の適用順を一致させる。
   draft.value.rules = sortRulesByEvaluationOrder(draft.value.rules)
   emit('save', cloneGroup(draft.value))
-  isOptionsOpen.value = false
   isEditing.value = false
-}
-
-/** Options 全体の disclosure panel 表示を切り替える。 */
-function toggleOptions(): void {
-  isOptionsOpen.value = !isOptionsOpen.value
 }
 
 /** 一時停止要求を親へ通知し、メニューを閉じる。 */
@@ -291,11 +233,6 @@ function setTextFieldValidity(field: string, valid: boolean): void {
   if (valid) next.delete(field)
   else next.add(field)
   invalidTextFields.value = next
-}
-
-/** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
-function optionsPanelId(): string {
-  return `options-panel-${props.group.id}`
 }
 </script>
 
@@ -422,134 +359,15 @@ function optionsPanelId(): string {
       </div>
     </fieldset>
 
-    <section v-if="isEditing || visibleOptionSummaries.length > 0" class="space-y-3 px-4 pb-4">
-      <h3 v-if="!isEditing" class="flex items-center gap-1.5 text-label-md">
-        <LockClosedIcon aria-hidden="true" class="size-4 text-muted" />
-        Options
-      </h3>
-
-      <template v-if="isEditing">
-        <button
-          type="button"
-          class="flex w-full items-center gap-3 bg-transparent py-2.5 text-left text-label-md text-secondary-foreground transition hover:bg-field-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          :aria-expanded="isOptionsOpen"
-          :aria-controls="optionsPanelId()"
-          @click="toggleOptions"
-        >
-          <span class="flex min-w-0 items-center gap-1.5">
-            <ChevronDownIcon
-              aria-hidden="true"
-              class="size-4 shrink-0 text-muted transition-transform"
-              :class="isOptionsOpen ? 'rotate-0' : '-rotate-90'"
-            />
-            <span>Options</span>
-          </span>
-        </button>
-
-        <div v-if="isOptionsOpen" :id="optionsPanelId()" class="divide-y divide-border">
-          <fieldset aria-label="Delay relaxed restrictions until next rule day" class="py-3">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
-                <LockClosedIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
-                <div>
-                  <span class="text-label-md">Delay relaxed restrictions until next rule day</span>
-                  <p class="mt-1 text-body-sm text-muted">
-                    Stricter changes apply immediately. Relaxed restrictions take effect on the next
-                    rule day.
-                  </p>
-                </div>
-              </div>
-              <BooleanRadioGroup
-                v-model="draft.lockMode"
-                label="Delay relaxed restrictions until next rule day"
-              />
-            </div>
-            <PendingFieldNote v-if="isFieldPending('lockMode')">
-              Still on {{ pendingUntilLabel }}.
-            </PendingFieldNote>
-          </fieldset>
-          <fieldset aria-label="Pause settings" class="py-3">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
-                <ClockIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
-                <div>
-                  <span class="text-label-md">Pause</span>
-                  <p class="mt-1 text-body-sm text-muted">
-                    Take a short break before temporarily disabling this group.
-                  </p>
-                </div>
-              </div>
-              <div class="flex flex-col gap-2 sm:items-end">
-                <div class="flex flex-wrap items-center gap-4">
-                  <span class="text-label-md text-secondary-foreground">Allow Pause</span>
-                  <BooleanRadioGroup v-model="draft.pauseAllowed" label="Allow Pause" on-first />
-                </div>
-                <PendingFieldNote v-if="isFieldPending('pauseAllowed')" class="sm:text-right">
-                  Still not allowed {{ pendingUntilLabel }}.
-                </PendingFieldNote>
-                <div class="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
-                  <div class="min-w-0">
-                    <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                      <span class="shrink-0">Wait</span>
-                      <NumberInput
-                        v-model="draft.pauseWaitSeconds"
-                        min="0"
-                        step="1"
-                        aria-label="Wait seconds before pausing"
-                        class="w-20"
-                        :disabled="!draft.pauseAllowed"
-                        :invalid="Boolean(draftError('pauseWaitSeconds'))"
-                        @input="touchField('pauseWaitSeconds')"
-                      />
-                      <span class="shrink-0">sec</span>
-                    </label>
-                    <AlertMessage v-if="draftError('pauseWaitSeconds')" class="mt-2">
-                      {{ draftError('pauseWaitSeconds') }}
-                    </AlertMessage>
-                    <PendingFieldNote v-if="isFieldPending('pauseWaitSeconds')">
-                      Still {{ effectivePauseWaitSeconds }} sec {{ pendingUntilLabel }}.
-                    </PendingFieldNote>
-                  </div>
-                  <div class="min-w-0">
-                    <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                      <span class="shrink-0">Pause for</span>
-                      <NumberInput
-                        v-model="draft.pauseDurationMinutes"
-                        min="1"
-                        step="1"
-                        aria-label="Pause duration minutes"
-                        class="w-20"
-                        :disabled="!draft.pauseAllowed"
-                        :invalid="Boolean(draftError('pauseDurationMinutes'))"
-                        @input="touchField('pauseDurationMinutes')"
-                      />
-                      <span class="shrink-0">min</span>
-                    </label>
-                    <AlertMessage v-if="draftError('pauseDurationMinutes')" class="mt-2">
-                      {{ draftError('pauseDurationMinutes') }}
-                    </AlertMessage>
-                    <PendingFieldNote v-if="isFieldPending('pauseDurationMinutes')">
-                      Still {{ effectivePauseDurationMinutes }} min {{ pendingUntilLabel }}.
-                    </PendingFieldNote>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </fieldset>
-        </div>
-      </template>
-      <dl v-else class="grid gap-3 text-body-sm sm:grid-cols-2">
-        <div v-for="summary in visibleOptionSummaries" :key="summary.label">
-          <dt class="text-label-sm text-muted">
-            {{ summary.label }}
-          </dt>
-          <dd class="mt-1 break-all text-secondary-foreground">
-            {{ summary.value }}
-            <PendingFieldNote v-if="summary.pending">{{ summary.pending }}</PendingFieldNote>
-          </dd>
-        </div>
-      </dl>
-    </section>
+    <GroupOptionsPanel
+      v-model="draft"
+      :group="group"
+      :is-editing="isEditing"
+      :effective-group="effectiveGroup"
+      :applies-after-label="appliesAfterLabel"
+      :error="draftError"
+      @touch="touchField"
+    />
 
     <div
       v-if="isEditing"
