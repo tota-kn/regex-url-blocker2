@@ -6,20 +6,18 @@ import {
 } from '@/utils/blocking'
 import {
   getBlockDestination,
-  getBlockReason,
-  getEffectiveWait,
-  strictestBlockReason,
-  type BlockReason,
+  getEffectiveWaitForPair,
+  strictestEffectiveBlockReason,
 } from '@/utils/groupStatus'
 import { countersEqual, incrementEffectiveCounters, normalizeCounters } from '@/utils/usageCounters'
 import { ACTION_TITLE, buildActionState } from '@/utils/actionBadge'
 import { getChromeApi } from '@/utils/chromeApi'
 import { buildBlockedPageUrl, buildWaitPageUrl } from '@/utils/extensionUrls'
-import { getRedirectUrls, isTargetGroup, shouldSkipUrl } from '@/utils/urlTargeting'
+import { getRedirectUrls, shouldSkipUrl } from '@/utils/urlTargeting'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import { getPauseAllowedGroupIds } from '@/utils/groupPause'
 import { jsonEqual } from '@/utils/json'
-import { bothSettings, settingsPair, unionOf, type SettingsPair } from '@/utils/settingsPair'
+import { settingsPair, unionOf, type SettingsPair } from '@/utils/settingsPair'
 import {
   buildEffectiveRemainingTimeNotificationPlans,
   markNotificationPlanHistory,
@@ -277,23 +275,6 @@ function allRedirectUrls(s: Settings): string[] {
  * ブロックされたグループのうち、評価順で最も強い理由を返す。
  * 基準設定と最新設定のどちらで成立したものでも拾う。
  */
-function findBlockReason(
-  s: Settings,
-  evaluation: UrlEvaluation,
-  now: Date,
-): BlockReason | undefined {
-  const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  const reasons = bothSettings(currentPair(s)).flatMap((item) =>
-    item.groups
-      .filter((group) => blockedGroupIds.has(group.id))
-      .flatMap((group) => {
-        const reason = getBlockReason(group, counters.counters[group.id], now, item.global)
-        return reason ? [reason] : []
-      }),
-  )
-  return strictestBlockReason(reasons)
-}
-
 /**
  * ブロック時にタブを書き換える遷移先 URL を作る。
  * ブロックを起こしたルールの `destination` に従い、ブロックページか指定 URL を返す。
@@ -304,7 +285,12 @@ function buildBlockDestinationUrl(
   evaluation: UrlEvaluation,
   now: Date,
 ): string {
-  const reason = findBlockReason(s, evaluation, now)
+  const reason = strictestEffectiveBlockReason(
+    currentPair(s),
+    evaluation.blockedGroupIds,
+    counters,
+    now,
+  )
   if (!reason) return buildBlockedPageUrl({ extensionId: browser.runtime.id, url, evaluation })
   const destination = getBlockDestination(reason)
   return destination.type === 'redirect'
@@ -353,23 +339,15 @@ async function redirectToWaitIfNeeded(
   if (!groupId) return
 
   // 基準設定と最新設定で待機設定が違う場合は、どちらの制限も満たすよう厳しい方を採る。
-  const waits = bothSettings(currentPair(s)).flatMap((item) => {
-    const group = item.groups.find((candidate) => candidate.id === groupId)
-    if (!group || !isTargetGroup(group, url)) return []
-    const wait = getEffectiveWait(group, now, item.global)
-    return wait ? [wait] : []
-  })
-  if (waits.length === 0) return
-
-  const seconds = Math.max(...waits.map((wait) => wait.seconds))
-  const grantMinutes = Math.max(...waits.map((wait) => wait.grantMinutes))
+  const wait = getEffectiveWaitForPair(currentPair(s), groupId, url, now)
+  if (!wait) return
   await browser.tabs.update(tabId, {
     url: buildWaitPageUrl({
       extensionId: browser.runtime.id,
       url,
       groupId,
-      seconds,
-      grantMinutes,
+      seconds: wait.seconds,
+      grantMinutes: wait.grantMinutes,
     }),
   })
 }

@@ -1,6 +1,6 @@
 import { jsonEqual, uniqueByJson } from './json'
 import { getLogicalDate, getNextDailyResetAt } from './logicalDate'
-import { bothSettings, strictestBy } from './settingsPair'
+import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
 import {
   getActiveBlockTimeRanges,
   getActiveRules,
@@ -19,6 +19,7 @@ import type {
   Settings,
   TimeRange,
   UsageCounter,
+  UsageCountersState,
 } from './types'
 import { isTargetGroup } from './urlTargeting'
 import {
@@ -185,6 +186,45 @@ export function getBlockDestination(reason: BlockReason): BlockDestination {
  */
 export function strictestBlockReason(reasons: BlockReason[]): BlockReason | undefined {
   return strictestBy(reasons, (reason) => RULE_KIND_PRIORITY[reason.rule.restriction.kind], 'min')
+}
+
+/** 二重評価結果のblocked groupから、評価順で最も強いブロック理由を返す。 */
+export function strictestEffectiveBlockReason(
+  pair: SettingsPair,
+  blockedGroupIds: string[],
+  counters: UsageCountersState,
+  now: Date,
+): BlockReason | undefined {
+  const ids = new Set(blockedGroupIds)
+  const reasons = bothSettings(pair).flatMap((settings) =>
+    settings.groups
+      .filter((group) => ids.has(group.id))
+      .flatMap((group) => {
+        const reason = getBlockReason(group, counters.counters[group.id], now, settings.global)
+        return reason ? [reason] : []
+      }),
+  )
+  return strictestBlockReason(reasons)
+}
+
+/** 基準設定と希望設定から、対象groupに課される最も厳しいwait設定を返す。 */
+export function getEffectiveWaitForPair(
+  pair: SettingsPair,
+  groupId: string,
+  url: string,
+  now: Date,
+): EffectiveWait | undefined {
+  const waits = bothSettings(pair).flatMap((settings) => {
+    const group = settings.groups.find((candidate) => candidate.id === groupId)
+    if (!group || !isTargetGroup(group, url)) return []
+    const wait = getEffectiveWait(group, now, settings.global)
+    return wait ? [wait] : []
+  })
+  if (waits.length === 0) return undefined
+  return {
+    seconds: Math.max(...waits.map((wait) => wait.seconds)),
+    grantMinutes: Math.max(...waits.map((wait) => wait.grantMinutes)),
+  }
 }
 
 /**
