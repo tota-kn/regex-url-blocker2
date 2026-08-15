@@ -19,12 +19,12 @@ import StatusChip from '@/components/ui/StatusChip.vue'
 import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
 import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
-import { getPendingGroupFieldKeys, resolveEffectiveGroup } from '@/utils/effectiveSettings'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { cloneGroup } from '@/utils/groups'
 import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
+import { useLockModePending } from '@/utils/useLockModePending'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
 import GroupActionMenu from './GroupActionMenu.vue'
 import PatternListEditor from './PatternListEditor.vue'
@@ -94,24 +94,15 @@ const draftRules = computed({
 })
 /** 保留状況の比較対象。編集中は入力中のドラフト、それ以外は保存済みの値を使う。 */
 const comparedGroup = computed(() => (isEditing.value ? draft.value : props.group))
-/** Lock Mode により希望値がまだ適用されていないフィールドのキー。 */
-const pendingFieldKeys = computed<Array<keyof Group>>(() =>
-  props.effectiveGroup ? getPendingGroupFieldKeys(props.effectiveGroup, comparedGroup.value) : [],
-)
-/** いま実際に適用されている値へ解決したグループ。 */
-const resolvedGroup = computed(() =>
-  props.effectiveGroup
-    ? resolveEffectiveGroup(props.effectiveGroup, comparedGroup.value)
-    : comparedGroup.value,
+const { resolvedGroup, pendingUntilLabel, isFieldPending } = useLockModePending(
+  () => props.effectiveGroup,
+  comparedGroup,
+  () => props.appliesAfterLabel,
 )
 /** いま実際に適用されている一時停止の待機秒数。 */
 const effectivePauseWaitSeconds = computed(() => resolvedGroup.value.pauseWaitSeconds)
 /** いま実際に適用されている一時停止の継続分数。 */
 const effectivePauseDurationMinutes = computed(() => resolvedGroup.value.pauseDurationMinutes)
-/** 保留中フィールドに添える適用時期の文言。 */
-const pendingUntilLabel = computed(() =>
-  props.appliesAfterLabel ? `until ${props.appliesAfterLabel}` : 'until the next rule day',
-)
 /** 一時停止設定のうち保留中の項目を、いま効いている値の文言として並べる。 */
 const pendingPauseNote = computed(() => {
   const parts: string[] = []
@@ -191,11 +182,6 @@ watch(
   },
   { deep: true },
 )
-
-/** 指定フィールドが Lock Mode により保留中なら true。 */
-function isFieldPending(key: keyof Group): boolean {
-  return pendingFieldKeys.value.includes(key)
-}
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {
