@@ -3,7 +3,9 @@ import { ArrowRightIcon, ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
+import PageShell from '@/components/ui/PageShell.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
+import SubtlePanel from '@/components/ui/SubtlePanel.vue'
 import { DEFAULT_WAIT_GRANT_MINUTES } from '@/utils/defaults'
 import { loadDelayGrantState, loadPageState, saveDelayGrantState } from '@/utils/storage'
 import { useCountdown } from '@/utils/useCountdown'
@@ -78,71 +80,58 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-surface-muted px-4 py-10 text-foreground sm:px-6">
-    <section class="mx-auto max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm">
-      <div class="flex items-start gap-3">
-        <img src="/icon/48.png" alt="" aria-hidden="true" class="mt-0.5 size-8 shrink-0" />
-        <div class="min-w-0">
-          <h1 class="text-heading-lg">Take a moment</h1>
-          <p class="mt-1 text-body-md text-secondary-foreground">
-            <template v-if="groupName">
-              This page is gated by "{{ groupName }}". Wait before continuing.
-            </template>
-            <template v-else>
-              This page is gated by Regex URL Guard. Wait before continuing.
-            </template>
-          </p>
+  <PageShell title="Take a moment">
+    <template #description>
+      <template v-if="groupName">
+        This page is gated by "{{ groupName }}". Wait before continuing.
+      </template>
+      <template v-else> This page is gated by Regex URL Guard. Wait before continuing. </template>
+    </template>
+
+    <div class="mt-6 space-y-4">
+      <SubtlePanel class="p-4" aria-label="Wait countdown">
+        <div class="flex items-baseline justify-between gap-2">
+          <span class="text-label-md text-secondary-foreground">Time remaining</span>
+          <span
+            class="font-mono text-heading-lg tabular-nums"
+            aria-label="Remaining seconds"
+            role="timer"
+            >{{ remainingSeconds }}s</span
+          >
         </div>
-      </div>
+        <ProgressBar
+          :value="progressPercent"
+          indicator-class="bg-primary transition-[width] duration-1000 ease-linear"
+          class="mt-3"
+        />
+      </SubtlePanel>
 
-      <div class="mt-6 space-y-4">
-        <div
-          class="rounded-lg border border-border bg-surface-muted p-4"
-          aria-label="Wait countdown"
-        >
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="text-label-md text-secondary-foreground">Time remaining</span>
-            <span
-              class="font-mono text-heading-lg tabular-nums"
-              aria-label="Remaining seconds"
-              role="timer"
-              >{{ remainingSeconds }}s</span
-            >
-          </div>
-          <ProgressBar
-            :value="progressPercent"
-            indicator-class="bg-primary transition-[width] duration-1000 ease-linear"
-            class="mt-3"
-          />
-        </div>
+      <InfoValue label="URL" aria-label="Waiting URL" break-all>
+        {{ targetUrl || 'Unknown' }}
+      </InfoValue>
 
-        <InfoValue label="URL" aria-label="Waiting URL" break-all>
-          {{ targetUrl || 'Unknown' }}
-        </InfoValue>
+      <p class="text-body-sm text-muted-foreground" aria-label="Wait grant explanation">
+        After the countdown you can browse for {{ grantMinutes }} min without waiting again. Any
+        daily limit on this group keeps counting down during that time.
+      </p>
+    </div>
 
-        <p class="text-body-sm text-muted-foreground" aria-label="Wait grant explanation">
-          After the countdown you can browse for {{ grantMinutes }} min without waiting again. Any
-          daily limit on this group keeps counting down during that time.
-        </p>
-      </div>
-
-      <div class="mt-6 flex flex-wrap justify-end gap-2">
-        <BaseButton type="button" variant="secondary" size="lg" @click="goBack">
-          <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
-          Back
-        </BaseButton>
-        <BaseButton
-          type="button"
-          variant="primary"
-          size="lg"
-          :disabled="!canContinue"
-          aria-label="Continue"
-          @click="proceed"
-        >
-          Continue
-          <ArrowRightIcon aria-hidden="true" class="size-4" />
-        </BaseButton>
-      </div>
-    </section>
-  </main>
+    <div class="mt-6 flex flex-wrap justify-end gap-2">
+      <BaseButton type="button" variant="secondary" size="lg" @click="goBack">
+        <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
+        Back
+      </BaseButton>
+      <BaseButton
+        type="button"
+        variant="primary"
+        size="lg"
+        :disabled="!canContinue"
+        aria-label="Continue"
+        @click="proceed"
+      >
+        Continue
+        <ArrowRightIcon aria-hidden="true" class="size-4" />
+      </BaseButton>
+    </div>
+  </PageShell>
 </template>

@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue'
 import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
+import PageShell from '@/components/ui/PageShell.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
+import SubtlePanel from '@/components/ui/SubtlePanel.vue'
 import {
   getDailyLimitReleaseAt,
   getEffectiveGroupBlockStatus,
@@ -120,77 +122,68 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-surface-muted px-4 py-10 text-foreground sm:px-6">
-    <section class="mx-auto max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm">
-      <div class="flex items-start gap-3">
-        <img src="/icon/48.png" alt="" aria-hidden="true" class="mt-0.5 size-8 shrink-0" />
-        <div class="min-w-0">
-          <h1 class="text-heading-lg">Page blocked</h1>
-          <p class="mt-1 text-body-md text-secondary-foreground">
-            This page was blocked by Regex URL Guard.
-          </p>
-        </div>
-      </div>
+  <PageShell title="Page blocked">
+    <template #description>This page was blocked by Regex URL Guard.</template>
 
-      <div class="mt-6 space-y-4">
-        <div>
-          <InfoValue label="URL" aria-label="Blocked URL" break-all>
-            {{ blockedUrl || 'Unknown' }}
-          </InfoValue>
-        </div>
-
-        <p v-if="!isLoaded" class="text-body-sm text-muted-foreground">Loading...</p>
-        <InfoValue v-else-if="blockedGroupDisplays.length === 0" aria-label="Blocking details">
-          Unknown setting
+    <div class="mt-6 space-y-4">
+      <div>
+        <InfoValue label="URL" aria-label="Blocked URL" break-all>
+          {{ blockedUrl || 'Unknown' }}
         </InfoValue>
-        <div v-else class="space-y-3" aria-label="Blocking details">
-          <article
-            v-for="display in blockedGroupDisplays"
-            :key="display.group.id"
-            class="rounded-lg border border-border bg-surface-muted p-3"
+      </div>
+
+      <p v-if="!isLoaded" class="text-body-sm text-muted-foreground">Loading...</p>
+      <InfoValue v-else-if="blockedGroupDisplays.length === 0" aria-label="Blocking details">
+        Unknown setting
+      </InfoValue>
+      <div v-else class="space-y-3" aria-label="Blocking details">
+        <SubtlePanel
+          v-for="display in blockedGroupDisplays"
+          :key="display.group.id"
+          as="article"
+          class="p-3"
+        >
+          <h3 class="text-heading-md">
+            {{ display.group.name }}
+          </h3>
+
+          <div
+            v-if="display.reason"
+            class="mt-3 rounded-lg border border-border bg-background px-3 py-2"
+            :aria-label="`${display.group.name} ${display.reason.label}`"
           >
-            <h3 class="text-heading-md">
-              {{ display.group.name }}
-            </h3>
-
-            <div
-              v-if="display.reason"
-              class="mt-3 rounded-lg border border-border bg-background px-3 py-2"
-              :aria-label="`${display.group.name} ${display.reason.label}`"
-            >
-              <div class="flex flex-wrap items-center gap-2">
-                <StatusBadge kind="danger" class="inline-flex">
-                  {{ display.reason.label }}
-                </StatusBadge>
-                <span class="font-mono text-body-sm text-secondary-foreground">
-                  {{ display.reason.summary }}
-                </span>
-              </div>
-              <dl class="mt-2 grid gap-1 text-body-sm sm:grid-cols-[max-content_1fr] sm:gap-x-3">
-                <dt class="text-muted-foreground">
-                  {{ display.reason.releaseLabel }}
-                </dt>
-                <dd class="font-medium text-foreground">
-                  {{
-                    display.reason.releaseAt
-                      ? formatDateTime(display.reason.releaseAt)
-                      : 'Not scheduled'
-                  }}
-                </dd>
-              </dl>
+            <div class="flex flex-wrap items-center gap-2">
+              <StatusBadge kind="danger" class="inline-flex">
+                {{ display.reason.label }}
+              </StatusBadge>
+              <span class="font-mono text-body-sm text-secondary-foreground">
+                {{ display.reason.summary }}
+              </span>
             </div>
+            <dl class="mt-2 grid gap-1 text-body-sm sm:grid-cols-[max-content_1fr] sm:gap-x-3">
+              <dt class="text-muted-foreground">
+                {{ display.reason.releaseLabel }}
+              </dt>
+              <dd class="font-medium text-foreground">
+                {{
+                  display.reason.releaseAt
+                    ? formatDateTime(display.reason.releaseAt)
+                    : 'Not scheduled'
+                }}
+              </dd>
+            </dl>
+          </div>
 
-            <p v-else class="mt-2 text-body-sm text-muted-foreground">No active reason found.</p>
-          </article>
-        </div>
+          <p v-else class="mt-2 text-body-sm text-muted-foreground">No active reason found.</p>
+        </SubtlePanel>
       </div>
+    </div>
 
-      <div class="mt-6 flex justify-end">
-        <BaseButton type="button" variant="primary" class="h-10 px-4" @click="goBack">
-          <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
-          Back
-        </BaseButton>
-      </div>
-    </section>
-  </main>
+    <div class="mt-6 flex justify-end">
+      <BaseButton type="button" variant="primary" class="h-10 px-4" @click="goBack">
+        <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
+        Back
+      </BaseButton>
+    </div>
+  </PageShell>
 </template>
