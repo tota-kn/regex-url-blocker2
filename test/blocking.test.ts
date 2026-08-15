@@ -30,7 +30,7 @@ import {
 } from '../utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type { Rule, ScheduleRuleCondition, TimeRange, UsageCountersState } from '../utils/types'
-import { at, dailyRule, group, settings, weeklyRule } from './helpers'
+import { at, dailyRule, expectBlockedAt, group, settings, weeklyRule } from './helpers'
 
 /**
  * テスト用の block ルールを1件生成する。
@@ -168,12 +168,8 @@ describe('Rule の時間ウィンドウ', () => {
     expect(isRestrictionActiveNow(g, at('10:00:00'), global)).toBe(true)
     expect(getEffectiveWait(g, at('10:00:00'), global)?.seconds).toBeUndefined()
     expect(getEffectiveWait(g, at('19:00:00'), global)?.seconds).toBe(30)
-    expect(
-      evaluateUrl(settings([g]), emptyCounters(), 'https://example.com/', at('10:00:00')).blocked,
-    ).toBe(true)
-    expect(
-      evaluateUrl(settings([g]), emptyCounters(), 'https://example.com/', at('19:00:00')).blocked,
-    ).toBe(false)
+    expectBlockedAt(settings([g]), '10:00:00', true)
+    expectBlockedAt(settings([g]), '19:00:00', false)
   })
 
   it('Always window は常時有効になる', () => {
@@ -558,15 +554,9 @@ describe('blocking evaluation', () => {
         ),
       }),
     ])
-    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('23:00:00')).blocked).toBe(
-      true,
-    )
-    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('05:59:00')).blocked).toBe(
-      true,
-    )
-    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00')).blocked).toBe(
-      false,
-    )
+    expectBlockedAt(s, '23:00:00', true)
+    expectBlockedAt(s, '05:59:00', true)
+    expectBlockedAt(s, '12:00:00', false)
   })
 
   it('start と end が同じ時間帯は 24 時間ブロックにする', () => {
@@ -575,9 +565,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }, { timeRanges: [{ startMinute: 0, endMinute: 0 }] }),
       }),
     ])
-    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00')).blocked).toBe(
-      true,
-    )
+    expectBlockedAt(s, '12:00:00', true)
   })
 
   it('曜日指定は論理日開始時点の曜日で判定する', () => {
@@ -593,9 +581,7 @@ describe('blocking evaluation', () => {
       ],
       '03:00',
     )
-    expect(evaluateUrl(s, emptyCounters(), 'https://example.com/', at('02:00:00')).blocked).toBe(
-      true,
-    )
+    expectBlockedAt(s, '02:00:00', true)
   })
 
   it('常時 Block ルールは即ブロックにする', () => {
@@ -604,8 +590,7 @@ describe('blocking evaluation', () => {
         ...dailyRule({ kind: 'block' }),
       }),
     ])
-    const result = evaluateUrl(s, emptyCounters(), 'https://example.com/', at('12:00:00'))
-    expect(result.blocked).toBe(true)
+    expectBlockedAt(s, '12:00:00', true)
   })
 
   it('https?://x.com.* と Block ルールで x.com をブロックする', () => {
@@ -622,7 +607,7 @@ describe('blocking evaluation', () => {
   it('上限秒数以上のカウンタでブロックする', () => {
     const s = settings([group({ ...dailyRule({ kind: 'dailyLimit', minutes: 1 }) })])
     const counters = { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 60 } } }
-    expect(evaluateUrl(s, counters, 'https://example.com/', at('12:00:00')).blocked).toBe(true)
+    expectBlockedAt(s, '12:00:00', true, counters)
   })
 
   it('猶予はアクティブなウィンドウ内でのみブロックする（ウィンドウ外は消費超過でもブロックしない）', () => {
@@ -635,8 +620,8 @@ describe('blocking evaluation', () => {
       }),
     ])
     const counters = { counters: { g1: { logicalDate: '2026-05-06', consumedSec: 120 } } }
-    expect(evaluateUrl(s, counters, 'https://example.com/', at('21:00:00')).blocked).toBe(true)
-    expect(evaluateUrl(s, counters, 'https://example.com/', at('10:00:00')).blocked).toBe(false)
+    expectBlockedAt(s, '21:00:00', true, counters)
+    expectBlockedAt(s, '10:00:00', false, counters)
   })
 
   it('一時停止中 group id のブロックだけを除外する', () => {
