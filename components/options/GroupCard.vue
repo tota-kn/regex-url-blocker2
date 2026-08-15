@@ -13,6 +13,8 @@ import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import BooleanRadioGroup from '@/components/ui/BooleanRadioGroup.vue'
+import NumberInput from '@/components/ui/NumberInput.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
 import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
@@ -292,12 +294,6 @@ function removeGroup(): void {
   emit('remove')
 }
 
-/** Pause 時間の数値入力を作業中グループへ反映する。 */
-function setPauseSetting(field: 'pauseWaitSeconds' | 'pauseDurationMinutes', value: string): void {
-  validationFeedback.touch(field)
-  draft.value[field] = value === '' ? Number.NaN : Number(value)
-}
-
 /** 子エディタが編集したフィールドを検証表示の対象にする。 */
 function touchField(field: string): void {
   validationFeedback.touch(field)
@@ -477,32 +473,10 @@ function optionsPanelId(): string {
                   </p>
                 </div>
               </div>
-              <div class="flex flex-wrap items-center gap-4 sm:justify-end">
-                <label
-                  class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
-                >
-                  <input
-                    v-model="draft.lockMode"
-                    type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
-                    aria-label="Delay relaxed restrictions until next rule day Off"
-                    :value="false"
-                  />
-                  <span>Off</span>
-                </label>
-                <label
-                  class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
-                >
-                  <input
-                    v-model="draft.lockMode"
-                    type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
-                    aria-label="Delay relaxed restrictions until next rule day On"
-                    :value="true"
-                  />
-                  <span>On</span>
-                </label>
-              </div>
+              <BooleanRadioGroup
+                v-model="draft.lockMode"
+                label="Delay relaxed restrictions until next rule day"
+              />
             </div>
             <PendingFieldNote v-if="isFieldPending('lockMode')">
               Still on {{ pendingUntilLabel }}.
@@ -522,30 +496,7 @@ function optionsPanelId(): string {
               <div class="flex flex-col gap-2 sm:items-end">
                 <div class="flex flex-wrap items-center gap-4">
                   <span class="text-label-md text-secondary-foreground">Allow Pause</span>
-                  <label
-                    class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
-                  >
-                    <input
-                      v-model="draft.pauseAllowed"
-                      type="radio"
-                      class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
-                      aria-label="Allow Pause On"
-                      :value="true"
-                    />
-                    <span>On</span>
-                  </label>
-                  <label
-                    class="inline-flex items-center gap-2 text-label-md text-secondary-foreground"
-                  >
-                    <input
-                      v-model="draft.pauseAllowed"
-                      type="radio"
-                      class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
-                      aria-label="Allow Pause Off"
-                      :value="false"
-                    />
-                    <span>Off</span>
-                  </label>
+                  <BooleanRadioGroup v-model="draft.pauseAllowed" label="Allow Pause" on-first />
                 </div>
                 <PendingFieldNote v-if="isFieldPending('pauseAllowed')" class="sm:text-right">
                   Still not allowed {{ pendingUntilLabel }}.
@@ -554,22 +505,15 @@ function optionsPanelId(): string {
                   <div class="min-w-0">
                     <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
                       <span class="shrink-0">Wait</span>
-                      <BaseInput
-                        :model-value="
-                          Number.isFinite(draft.pauseWaitSeconds)
-                            ? String(draft.pauseWaitSeconds)
-                            : ''
-                        "
-                        type="number"
+                      <NumberInput
+                        v-model="draft.pauseWaitSeconds"
                         min="0"
                         step="1"
                         aria-label="Wait seconds before pausing"
                         class="w-20"
                         :disabled="!draft.pauseAllowed"
                         :invalid="Boolean(draftError('pauseWaitSeconds'))"
-                        @update:model-value="
-                          setPauseSetting('pauseWaitSeconds', String($event ?? ''))
-                        "
+                        @input="touchField('pauseWaitSeconds')"
                       />
                       <span class="shrink-0">sec</span>
                     </label>
@@ -583,22 +527,15 @@ function optionsPanelId(): string {
                   <div class="min-w-0">
                     <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
                       <span class="shrink-0">Pause for</span>
-                      <BaseInput
-                        :model-value="
-                          Number.isFinite(draft.pauseDurationMinutes)
-                            ? String(draft.pauseDurationMinutes)
-                            : ''
-                        "
-                        type="number"
+                      <NumberInput
+                        v-model="draft.pauseDurationMinutes"
                         min="1"
                         step="1"
                         aria-label="Pause duration minutes"
                         class="w-20"
                         :disabled="!draft.pauseAllowed"
                         :invalid="Boolean(draftError('pauseDurationMinutes'))"
-                        @update:model-value="
-                          setPauseSetting('pauseDurationMinutes', String($event ?? ''))
-                        "
+                        @input="touchField('pauseDurationMinutes')"
                       />
                       <span class="shrink-0">min</span>
                     </label>

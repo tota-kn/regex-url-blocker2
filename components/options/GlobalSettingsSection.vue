@@ -13,6 +13,7 @@ import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import NumberInput from '@/components/ui/NumberInput.vue'
 import GlobalSettingsItemTitle from '@/components/options/GlobalSettingsItemTitle.vue'
 import type { GlobalSettings } from '@/utils/types'
 
@@ -47,17 +48,6 @@ const emit = defineEmits<{
 const globalSettings = defineModel<GlobalSettings>({ required: true })
 const importInput = ref<HTMLInputElement | null>(null)
 const incognitoAccessAllowed = ref<boolean | undefined>()
-
-const notificationThresholdInput = computed({
-  get: () =>
-    Number.isFinite(globalSettings.value.notificationThresholdMinutes)
-      ? String(globalSettings.value.notificationThresholdMinutes)
-      : '',
-  set: (value: string | number | undefined) => {
-    const text = String(value ?? '')
-    globalSettings.value.notificationThresholdMinutes = text === '' ? Number.NaN : Number(text)
-  },
-})
 
 const incognitoStatusText = computed(() => {
   if (incognitoAccessAllowed.value === true) return 'Enabled'
@@ -181,9 +171,8 @@ onUnmounted(() => {
                 Notify me
               </label>
               <BaseField class="min-w-0" :error="error('notificationThresholdMinutes')">
-                <BaseInput
-                  v-model="notificationThresholdInput"
-                  type="number"
+                <NumberInput
+                  v-model="globalSettings.notificationThresholdMinutes"
                   min="1"
                   step="1"
                   aria-label="Minutes before daily limit warning"
