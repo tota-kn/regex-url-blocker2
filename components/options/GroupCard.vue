@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import {
   ArrowUturnLeftIcon,
-  CheckCircleIcon,
   CheckIcon,
   ChevronDownIcon,
   ClockIcon,
-  DocumentDuplicateIcon,
-  EllipsisVerticalIcon,
   LockClosedIcon,
   NoSymbolIcon,
-  PauseIcon,
   PencilSquareIcon,
-  TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
@@ -27,8 +22,8 @@ import { cloneGroup } from '@/utils/groups'
 import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
-import { useDismissOnOutsidePointer } from '@/utils/useDismissOnOutsidePointer'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
+import GroupActionMenu from './GroupActionMenu.vue'
 import PatternListEditor from './PatternListEditor.vue'
 import PendingFieldNote from './PendingFieldNote.vue'
 import RuleListEditor from './RuleListEditor.vue'
@@ -86,8 +81,6 @@ const invalidTextFields = ref<Set<string>>(new Set())
 
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 const isOptionsOpen = ref(false)
-const isActionMenuOpen = ref(false)
-const actionMenuRoot = ref<HTMLElement | null>(null)
 
 const draftErrors = computed(() => validateGroup(draft.value, { requireConfiguredSections: true }))
 const draftRules = computed({
@@ -171,7 +164,6 @@ const canRequestPause = computed(() => {
   if (effectivePauseDisabledReason.value) return false
   return !pauseButtonState.value.paused
 })
-const disabledToggleLabel = computed(() => (props.group.disabled ? 'Enable' : 'Disable'))
 const showsPauseMenuItem = computed(
   () => !props.isNew && !props.readOnly && !pauseButtonState.value.paused,
 )
@@ -196,11 +188,6 @@ watch(
   },
   { deep: true },
 )
-
-watch(showsActionMenu, (visible) => {
-  if (visible) return
-  closeActionMenu()
-})
 
 /** 指定フィールドが Lock Mode により保留中なら true。 */
 function isFieldPending(key: keyof Group): boolean {
@@ -240,7 +227,6 @@ function startEditing(): void {
   validationFeedback.reset()
   invalidTextFields.value = new Set()
   isOptionsOpen.value = false
-  closeActionMenu()
   isEditing.value = true
 }
 
@@ -265,7 +251,6 @@ function saveEditing(): void {
   draft.value.rules = sortRulesByEvaluationOrder(draft.value.rules)
   emit('save', cloneGroup(draft.value))
   isOptionsOpen.value = false
-  closeActionMenu()
   isEditing.value = false
 }
 
@@ -274,28 +259,15 @@ function toggleOptions(): void {
   isOptionsOpen.value = !isOptionsOpen.value
 }
 
-/** グループアクションメニューを開閉する。 */
-function toggleActionMenu(): void {
-  if (!showsActionMenu.value) return
-  isActionMenuOpen.value = !isActionMenuOpen.value
-}
-
-/** グループアクションメニューを閉じる。 */
-function closeActionMenu(): void {
-  isActionMenuOpen.value = false
-}
-
 /** 一時停止要求を親へ通知し、メニューを閉じる。 */
 function requestPause(): void {
   if (!canRequestPause.value) return
-  closeActionMenu()
   emit('requestPause')
 }
 
 /** グループの永続的な無効化状態を切り替え、保存要求として親へ通知する。 */
 function toggleGroupDisabled(): void {
   if (props.readOnly) return
-  closeActionMenu()
   emit('save', {
     ...cloneGroup(props.group),
     disabled: !props.group.disabled,
@@ -305,7 +277,6 @@ function toggleGroupDisabled(): void {
 /** グループ複製要求を親へ通知し、メニューを閉じる。 */
 function duplicateGroup(): void {
   if (props.readOnly || props.isNew) return
-  closeActionMenu()
   emit('duplicate')
 }
 
@@ -317,18 +288,7 @@ function restoreGroup(): void {
 
 /** 削除要求を親へ通知し、メニューを閉じる。 */
 function removeGroup(): void {
-  closeActionMenu()
   emit('remove')
-}
-
-/** グループアクションメニューに紐づく一意な DOM id を返す。 */
-function actionMenuId(): string {
-  return `group-actions-menu-${props.group.id}`
-}
-
-/** 一時停止操作の無効理由に紐づく一意な DOM id を返す。 */
-function pauseDisabledReasonId(): string {
-  return `group-pause-disabled-reason-${props.group.id}`
 }
 
 /** Pause 時間の数値入力を作業中グループへ反映する。 */
@@ -354,8 +314,6 @@ function setTextFieldValidity(field: string, valid: boolean): void {
 function optionsPanelId(): string {
   return `options-panel-${props.group.id}`
 }
-
-useDismissOnOutsidePointer(actionMenuRoot, isActionMenuOpen, closeActionMenu)
 </script>
 
 <template>
@@ -424,93 +382,22 @@ useDismissOnOutsidePointer(actionMenuRoot, isActionMenuOpen, closeActionMenu)
               <PencilSquareIcon aria-hidden="true" class="size-4" />
               Edit
             </BaseButton>
-            <div
+            <GroupActionMenu
               v-if="showsActionMenu"
-              ref="actionMenuRoot"
-              class="relative"
-              @keydown.escape.stop.prevent="closeActionMenu"
-            >
-              <BaseButton
-                type="button"
-                aria-label="Group actions"
-                aria-haspopup="menu"
-                :aria-controls="actionMenuId()"
-                :aria-expanded="isActionMenuOpen"
-                size="icon-md"
-                @click="toggleActionMenu"
-              >
-                <EllipsisVerticalIcon aria-hidden="true" class="size-5" />
-              </BaseButton>
-
-              <div
-                v-if="isActionMenuOpen"
-                :id="actionMenuId()"
-                role="menu"
-                class="absolute right-0 z-20 mt-2 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg"
-              >
-                <div v-if="showsPauseMenuItem">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    :aria-label="pauseButtonLabel"
-                    :aria-describedby="
-                      effectivePauseDisabledReason ? pauseDisabledReasonId() : undefined
-                    "
-                    :disabled="!canRequestPause"
-                    class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                    @click="requestPause"
-                  >
-                    <PauseIcon aria-hidden="true" class="size-4 shrink-0" />
-                    <span>{{ pauseButtonLabel }}</span>
-                  </button>
-                  <p
-                    v-if="effectivePauseDisabledReason"
-                    :id="pauseDisabledReasonId()"
-                    class="px-3 pb-2 text-body-sm text-muted"
-                  >
-                    {{ effectivePauseDisabledReason }}
-                  </p>
-                </div>
-                <button
-                  v-if="showsDisabledToggleMenuItem"
-                  type="button"
-                  role="menuitem"
-                  :aria-label="disabledToggleLabel"
-                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none"
-                  @click="toggleGroupDisabled"
-                >
-                  <CheckCircleIcon
-                    v-if="group.disabled"
-                    aria-hidden="true"
-                    class="size-4 shrink-0"
-                  />
-                  <NoSymbolIcon v-else aria-hidden="true" class="size-4 shrink-0" />
-                  <span>{{ disabledToggleLabel }}</span>
-                </button>
-                <button
-                  v-if="showsDuplicateMenuItem"
-                  type="button"
-                  role="menuitem"
-                  aria-label="Duplicate group"
-                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-secondary-foreground transition hover:bg-secondary-hover focus:bg-secondary-hover focus:outline-none"
-                  @click="duplicateGroup"
-                >
-                  <DocumentDuplicateIcon aria-hidden="true" class="size-4 shrink-0" />
-                  <span>Duplicate</span>
-                </button>
-                <button
-                  v-if="showsDeleteMenuItem"
-                  type="button"
-                  role="menuitem"
-                  aria-label="Delete group"
-                  class="flex h-9 w-full items-center gap-2 px-3 text-left text-label-md text-danger transition hover:bg-danger-subtle focus:bg-danger-subtle focus:outline-none"
-                  @click="removeGroup"
-                >
-                  <TrashIcon aria-hidden="true" class="size-4 shrink-0" />
-                  <span>Delete</span>
-                </button>
-              </div>
-            </div>
+              :group-id="group.id"
+              :disabled="group.disabled"
+              :show-pause="showsPauseMenuItem"
+              :show-disabled-toggle="showsDisabledToggleMenuItem"
+              :show-duplicate="showsDuplicateMenuItem"
+              :show-delete="showsDeleteMenuItem"
+              :pause-label="pauseButtonLabel"
+              :can-pause="canRequestPause"
+              :pause-disabled-reason="effectivePauseDisabledReason"
+              @pause="requestPause"
+              @toggle-disabled="toggleGroupDisabled"
+              @duplicate="duplicateGroup"
+              @remove="removeGroup"
+            />
           </div>
         </div>
 
