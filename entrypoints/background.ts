@@ -1,12 +1,12 @@
 import {
   applyDelayGrantState,
   applyGroupPauseState,
+  countersEqual,
   evaluateEffectiveUrl,
   formatRemainingMinutesBadge,
   getBlockDestination,
   getBlockReason,
-  getEffectiveWaitGrantMinutes,
-  getEffectiveWaitSeconds,
+  getEffectiveWait,
   getMinimumEffectiveRemainingTimeLimit,
   getRedirectUrls,
   isTargetGroup,
@@ -20,13 +20,7 @@ import {
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import { getPauseAllowedGroupIds } from '@/utils/groupPause'
 import { jsonEqual } from '@/utils/json'
-import {
-  bothSettings,
-  settingsPair,
-  strictestBy,
-  unionOf,
-  type SettingsPair,
-} from '@/utils/settingsPair'
+import { bothSettings, settingsPair, unionOf, type SettingsPair } from '@/utils/settingsPair'
 import {
   buildEffectiveRemainingTimeNotificationPlans,
   markNotificationPlanHistory,
@@ -240,7 +234,8 @@ async function reloadCounters(): Promise<void> {
   const s = await currentSettings()
   const storedCounters = await loadCounters()
   const nextCounters = normalizeCounters(s, mergeCounters(counters, storedCounters), new Date())
-  dirtyCounters = !jsonEqual(nextCounters, storedCounters)
+  // 正規化でキー順が変わるだけの場合に無駄な書き戻しを起こさないよう、内容で比較する。
+  dirtyCounters = !countersEqual(nextCounters, storedCounters)
   counters = nextCounters
 }
 
@@ -412,29 +407,17 @@ async function redirectToWaitIfNeeded(
   const groupId = delayed.delayedGroupIds[0]
   if (!groupId) return
 
-  const candidates = bothSettings(currentPair(s)).flatMap((item) => {
+  // 基準設定と最新設定で待機設定が違う場合は、どちらの制限も満たすよう厳しい方を採る。
+  const waits = bothSettings(currentPair(s)).flatMap((item) => {
     const group = item.groups.find((candidate) => candidate.id === groupId)
-    return group && isTargetGroup(group, url)
-      ? [
-          {
-            seconds: getEffectiveWaitSeconds(group, now, item.global),
-            grantMinutes: getEffectiveWaitGrantMinutes(group, now, item.global),
-          },
-        ]
-      : []
+    if (!group || !isTargetGroup(group, url)) return []
+    const wait = getEffectiveWait(group, now, item.global)
+    return wait ? [wait] : []
   })
-  const seconds = strictestBy(
-    candidates.map((value) => value.seconds).filter((value) => value !== undefined),
-    (value) => value,
-    'max',
-  )
-  const grantMinutes = strictestBy(
-    candidates.map((value) => value.grantMinutes).filter((value) => value !== undefined),
-    (value) => value,
-    'max',
-  )
-  if (seconds === undefined || grantMinutes === undefined) return
+  if (waits.length === 0) return
 
+  const seconds = Math.max(...waits.map((wait) => wait.seconds))
+  const grantMinutes = Math.max(...waits.map((wait) => wait.grantMinutes))
   await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds, grantMinutes) })
 }
 

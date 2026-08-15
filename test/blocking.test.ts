@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyDelayGrantState,
   applyGroupPauseState,
+  countersEqual,
   evaluateEffectiveUrl,
   evaluateUrl,
   formatRemainingMinutesBadge,
@@ -9,6 +10,7 @@ import {
   getBlockReason,
   getBlockedTimeRangeReleaseAt,
   getDailyLimitReleaseAt,
+  getEffectiveWait,
   getEffectiveWaitSeconds,
   getEffectiveWaitGrantMinutes,
   getEffectiveGroupBlockStatus,
@@ -1220,6 +1222,39 @@ describe('counters', () => {
       keep: { logicalDate: '2026-05-06', consumedSec: 0 },
     })
   })
+
+  it('キーの並び順が違うだけの counter は等価とみなす', () => {
+    expect(
+      countersEqual(
+        {
+          counters: {
+            a: { logicalDate: '2026-05-06', consumedSec: 5 },
+            b: { logicalDate: '2026-05-06', consumedSec: 7 },
+          },
+        },
+        {
+          counters: {
+            b: { logicalDate: '2026-05-06', consumedSec: 7 },
+            a: { logicalDate: '2026-05-06', consumedSec: 5 },
+          },
+        },
+      ),
+    ).toBe(true)
+  })
+
+  it('消費秒数・論理日・group 集合の違いは非等価とみなす', () => {
+    const base = { counters: { a: { logicalDate: '2026-05-06', consumedSec: 5 } } }
+    expect(
+      countersEqual(base, { counters: { a: { logicalDate: '2026-05-06', consumedSec: 6 } } }),
+    ).toBe(false)
+    expect(
+      countersEqual(base, { counters: { a: { logicalDate: '2026-05-05', consumedSec: 5 } } }),
+    ).toBe(false)
+    expect(
+      countersEqual(base, { counters: { b: { logicalDate: '2026-05-06', consumedSec: 5 } } }),
+    ).toBe(false)
+    expect(countersEqual(base, { counters: {} })).toBe(false)
+  })
 })
 
 describe('wait gate', () => {
@@ -1275,6 +1310,14 @@ describe('wait gate', () => {
     const now = new Date('2026-05-06T12:00:00+09:00')
     expect(getEffectiveWaitSeconds(g, now, settings([]).global)).toBe(60)
     expect(getEffectiveWaitGrantMinutes(g, now, settings([]).global)).toBe(15)
+  })
+
+  it('1 未満の許可期間は待機なしとして扱う', () => {
+    const g = group({ ...dailyRule({ kind: 'wait', seconds: 60, grantMinutes: 0 }) })
+    const now = new Date('2026-05-06T12:00:00+09:00')
+    expect(getEffectiveWait(g, now, settings([]).global)).toBeUndefined()
+    expect(getEffectiveWaitSeconds(g, now, settings([]).global)).toBeUndefined()
+    expect(getEffectiveWaitGrantMinutes(g, now, settings([]).global)).toBeUndefined()
   })
 
   it('ウィンドウ外の wait 制限は待機秒数を返さない', () => {

@@ -371,18 +371,50 @@ export function getTimeLimitUsageSummary(
   return buildUsageSummary(limitMinutes, counter, info.logicalDate)
 }
 
+/**
+ * group に現在課される待機ゲートの設定。
+ */
+export interface EffectiveWait {
+  /** 待機ゲートで待たせる秒数。アクティブな wait ルールのうち最長。 */
+  seconds: number
+  /** 通過後にアクセスを許可する分数。アクティブな wait ルールのうち最長。 */
+  grantMinutes: number
+}
+
+/**
+ * group のアクティブな wait ルールから、実際に課される待機ゲートを返す。
+ *
+ * 秒数・許可分数とも最長のものを採る（同一ルール由来とは限らない）。
+ * `seconds <= 0` と `grantMinutes < 1` のルールは「待機を課さない」として無視する。
+ * 待機を課すルールが1件も無ければ undefined。
+ */
+export function getEffectiveWait(
+  group: Group,
+  now: Date,
+  global: GlobalSettings,
+): EffectiveWait | undefined {
+  const waits = getActiveRules(group, now, global).flatMap((rule) =>
+    rule.restriction.kind === 'wait' &&
+    rule.restriction.seconds > 0 &&
+    Number.isInteger(rule.restriction.grantMinutes) &&
+    rule.restriction.grantMinutes >= 1
+      ? [{ seconds: rule.restriction.seconds, grantMinutes: rule.restriction.grantMinutes }]
+      : [],
+  )
+  if (waits.length === 0) return undefined
+  return {
+    seconds: Math.max(...waits.map((wait) => wait.seconds)),
+    grantMinutes: Math.max(...waits.map((wait) => wait.grantMinutes)),
+  }
+}
+
 /** group のアクティブな wait ルールにおける最長の待機秒数を返す。0以下は待機なし扱い。 */
 export function getEffectiveWaitSeconds(
   group: Group,
   now: Date,
   global: GlobalSettings,
 ): number | undefined {
-  const seconds = getActiveRules(group, now, global).flatMap((rule) =>
-    rule.restriction.kind === 'wait' && rule.restriction.seconds > 0
-      ? [rule.restriction.seconds]
-      : [],
-  )
-  return seconds.length > 0 ? Math.max(...seconds) : undefined
+  return getEffectiveWait(group, now, global)?.seconds
 }
 
 /** group のアクティブな wait ルールにおける、通過後の最長許可期間（分）を返す。 */
@@ -391,13 +423,7 @@ export function getEffectiveWaitGrantMinutes(
   now: Date,
   global: GlobalSettings,
 ): number | undefined {
-  if (getEffectiveWaitSeconds(group, now, global) === undefined) return undefined
-  const minutes = getActiveRules(group, now, global).flatMap((rule) =>
-    rule.restriction.kind === 'wait' && Number.isInteger(rule.restriction.grantMinutes)
-      ? [rule.restriction.grantMinutes]
-      : [],
-  )
-  return minutes.length > 0 ? Math.max(...minutes) : undefined
+  return getEffectiveWait(group, now, global)?.grantMinutes
 }
 
 /**
@@ -775,6 +801,28 @@ export function applyDelayGrantState(
     ...evaluation,
     delayedGroupIds,
   }
+}
+
+/**
+ * 2つの counter 状態が同じ group について同じ論理日・同じ消費秒数を持つなら true を返す。
+ *
+ * `normalizeCounters` は `settings.groups` の順にキーを作り直すため、
+ * 保存済みの値とはキーの並び順が違いうる。JSON 比較では内容が同じでも差分と誤判定するので、
+ * キー集合と値で比べる。
+ */
+export function countersEqual(a: UsageCountersState, b: UsageCountersState): boolean {
+  const aIds = Object.keys(a.counters)
+  const bIds = Object.keys(b.counters)
+  if (aIds.length !== bIds.length) return false
+  return aIds.every((groupId) => {
+    const left = a.counters[groupId]
+    const right = b.counters[groupId]
+    return (
+      right !== undefined &&
+      left!.logicalDate === right.logicalDate &&
+      left!.consumedSec === right.consumedSec
+    )
+  })
 }
 
 /**
