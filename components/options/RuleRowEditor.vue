@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowRightIcon } from '@heroicons/vue/24/outline'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import { createDefaultRule, DEFAULT_REDIRECT_URL } from '@/utils/defaults'
 import type { Rule, RuleKind, ScheduleRuleCondition, TimeRange, TimeWindow } from '@/utils/types'
@@ -158,10 +159,6 @@ function preventNonDigitInput(event: InputEvent): void {
   if (/^\d+$/.test(event.data)) return
   event.preventDefault()
 }
-
-/** 選択欄の共通クラス。 */
-const selectClass =
-  'h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring'
 </script>
 
 <template>
@@ -169,32 +166,32 @@ const selectClass =
     <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
       <label class="min-w-0">
         <span class="sr-only">Rule {{ props.index + 1 }} when</span>
-        <select
+        <BaseSelect
           :aria-label="`Rule ${props.index + 1} when`"
-          :value="windowValue(rule.window)"
-          :class="selectClass"
-          @change="setWindow(($event.target as HTMLSelectElement).value)"
+          size="sm"
+          :model-value="windowValue(rule.window)"
+          @update:model-value="setWindow(String($event ?? ''))"
         >
           <option v-for="option in whenOptions" :key="option.value" :value="option.value">
             {{ option.label }}
           </option>
-        </select>
+        </BaseSelect>
       </label>
 
       <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
 
       <label class="min-w-0">
         <span class="sr-only">Rule {{ props.index + 1 }} restriction</span>
-        <select
+        <BaseSelect
           :aria-label="`Rule ${props.index + 1} restriction`"
-          :value="rule.restriction.kind"
-          :class="selectClass"
-          @change="setKind(($event.target as HTMLSelectElement).value)"
+          size="sm"
+          :model-value="rule.restriction.kind"
+          @update:model-value="setKind(String($event ?? ''))"
         >
           <option v-for="option in kindOptions" :key="option.value" :value="option.value">
             {{ option.label }}
           </option>
-        </select>
+        </BaseSelect>
       </label>
 
       <template v-if="rule.restriction.kind === 'dailyLimit'">
@@ -244,15 +241,15 @@ const selectClass =
       <span class="shrink-0 text-label-sm text-muted-foreground">When blocked, go to</span>
       <label class="min-w-0">
         <span class="sr-only">Rule {{ props.index + 1 }} destination</span>
-        <select
+        <BaseSelect
           :aria-label="`Rule ${props.index + 1} destination`"
-          :value="rule.destination?.type ?? 'blockedPage'"
-          :class="selectClass"
-          @change="setDestinationType(($event.target as HTMLSelectElement).value)"
+          size="sm"
+          :model-value="rule.destination?.type ?? 'blockedPage'"
+          @update:model-value="setDestinationType(String($event ?? ''))"
         >
           <option value="blockedPage">Blocked page</option>
           <option value="redirect">Another URL</option>
-        </select>
+        </BaseSelect>
       </label>
       <BaseInput
         v-if="rule.destination?.type === 'redirect'"
