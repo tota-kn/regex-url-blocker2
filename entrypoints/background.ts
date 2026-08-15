@@ -6,17 +6,15 @@ import {
   getBlockDestination,
   getBlockReason,
   getEffectiveWait,
-  getRedirectUrls,
-  isTargetGroup,
   incrementEffectiveCounters,
   normalizeCounters,
-  shouldSkipUrl,
   strictestBlockReason,
   type BlockReason,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { ACTION_TITLE, buildActionState } from '@/utils/actionBadge'
 import { buildBlockedPageUrl, buildWaitPageUrl } from '@/utils/extensionUrls'
+import { getRedirectUrls, isTargetGroup, shouldSkipUrl } from '@/utils/urlTargeting'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import { getPauseAllowedGroupIds } from '@/utils/groupPause'
 import { jsonEqual } from '@/utils/json'

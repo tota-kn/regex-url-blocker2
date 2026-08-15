@@ -12,21 +12,19 @@ import {
   getDailyLimitReleaseAt,
   getEffectiveWait,
   getEffectiveGroupBlockStatus,
-  getRedirectUrls,
   getGroupBlockStatus,
-  getLogicalDate,
   getMinimumEffectiveRemainingTimeLimit,
   getNextDailyResetAt,
-  getTargetGroupIds,
   getTimeLimitUsageSummary,
   getTimeRangeUnblockAt,
   incrementEffectiveCounters,
   isRestrictionActiveNow,
   matchesScheduleRuleCondition,
   normalizeCounters,
-  shouldSkipUrl,
 } from '../utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import { getLogicalDate } from '../utils/logicalDate'
+import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type {
   Group,
   Rule,

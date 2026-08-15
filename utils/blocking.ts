@@ -1,6 +1,5 @@
 import type {
   BlockDestination,
-  DayOfWeek,
   DelayGrantState,
   GlobalSettings,
   Group,
@@ -16,13 +15,9 @@ import type {
 } from './types'
 import { dateAtMinuteOfDay, minuteOfDate, minuteOfDay } from './datetime'
 import { jsonEqual, uniqueByJson } from './json'
-import { getLogicalDate } from './logicalDate'
+import { getLogicalDate, type LogicalDateInfo } from './logicalDate'
 import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
-import { urlPatternMatches } from './urlPatterns'
-
-const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
-
-export { getLogicalDate } from './logicalDate'
+import { getTargetGroupIds, isTargetGroup } from './urlTargeting'
 
 /**
  * 制限が評価される順序。先に並ぶものほど強く、成立した時点でそれ以降は評価されない。
@@ -40,17 +35,6 @@ export const RULE_KIND_ORDER: RuleKind[] = ['block', 'dailyLimit', 'wait']
 /**
  * 論理日と、その論理日開始時点の暦情報。
  */
-export interface LogicalDateInfo {
-  /** 論理日を一意に表すローカル日付文字列。 */
-  logicalDate: string
-  /** 論理日開始時点のローカル曜日。 */
-  dayOfWeek: DayOfWeek
-  /** 論理日開始時点のローカル月（1-12）。 */
-  month: number
-  /** 論理日開始時点のローカル日（1-31）。 */
-  dayOfMonth: number
-}
-
 /**
  * URL 判定の結果。
  */
@@ -139,58 +123,6 @@ export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
   return rules.toSorted(
     (a, b) => RULE_KIND_PRIORITY[a.restriction.kind] - RULE_KIND_PRIORITY[b.restriction.kind],
   )
-}
-
-/**
- * URL が判定対象外なら true を返す。
- */
-export function shouldSkipUrl(url: string | undefined, redirectUrls: string | string[]): boolean {
-  if (!url) return true
-  const urls = Array.isArray(redirectUrls) ? redirectUrls : [redirectUrls]
-  if (urls.includes(url)) return true
-  return SKIPPED_URL_PREFIXES.some((prefix) => url.startsWith(prefix))
-}
-
-/**
- * settings 内の全グループのルールが指定する遷移先 URL を返す。
- * redirect 先自体を再びブロックしないための除外判定に使うため、時刻ウィンドウは問わず列挙する。
- */
-export function getRedirectUrls(settings: Settings): string[] {
-  return settings.groups
-    .filter((group) => !group.disabled)
-    .flatMap((group) =>
-      group.rules.flatMap((rule) =>
-        rule.destination?.type === 'redirect' && rule.destination.url.trim().length > 0
-          ? [rule.destination.url]
-          : [],
-      ),
-    )
-}
-
-/**
- * group の有効な URL pattern のうち、URL に一致するものがあるかを返す。
- */
-function patternMatches(group: Group, url: string): boolean {
-  return group.patterns.some((pattern) => urlPatternMatches(pattern, url))
-}
-
-/**
- * URL が group の制限対象に該当するなら true を返す。
- */
-export function isTargetGroup(group: Group, url: string): boolean {
-  const matched = patternMatches(group, url)
-  return group.mode === 'whitelist' ? !matched : matched
-}
-
-/**
- * URL が制限対象として該当する group id を返す。
- */
-export function getTargetGroupIds(settings: Settings, url: string | undefined): string[] {
-  if (shouldSkipUrl(url, getRedirectUrls(settings)) || !url) return []
-  return settings.groups
-    .filter((group) => !group.disabled)
-    .filter((group) => isTargetGroup(group, url))
-    .map((group) => group.id)
 }
 
 /**

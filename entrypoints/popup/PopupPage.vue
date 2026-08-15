@@ -7,12 +7,10 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import {
   getEffectiveGroupBlockStatus,
-  getRedirectUrls,
-  getTargetGroupIds,
-  shouldSkipUrl,
   type GroupBlockStatus,
   type TimeLimitUsageSummary,
 } from '@/utils/blocking'
+import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '@/utils/urlTargeting'
 import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
 import { loadGroupPauseState, loadPageState } from '@/utils/storage'
