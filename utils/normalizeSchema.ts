@@ -36,7 +36,7 @@ export function normalizeMonthDay(value: unknown): MonthDay {
 /**
  * unknown の値からスケジュールルールの条件を生成する。既知の type 以外は undefined を返す。
  */
-export function normalizeScheduleRuleCondition(value: unknown): ScheduleRuleCondition | undefined {
+function normalizeScheduleRuleCondition(value: unknown): ScheduleRuleCondition | undefined {
   const condition = asRecord(value)
   if (condition.type === 'daily') {
     return { type: 'daily' }

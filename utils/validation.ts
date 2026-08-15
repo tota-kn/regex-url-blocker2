@@ -270,15 +270,13 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
     }
   })
 
-  if (options.requireConfiguredSections && (group.patterns ?? []).length === 0) {
+  if (options.requireConfiguredSections && group.patterns.length === 0) {
     errors.push({ field: 'patterns', message: VALIDATION_MESSAGES.patterns })
   }
-  if (options.requireConfiguredSections && (group.rules ?? []).length === 0) {
+  if (options.requireConfiguredSections && group.rules.length === 0) {
     errors.push({ field: 'rules', message: VALIDATION_MESSAGES.rules })
   }
-  ;(group.rules ?? []).forEach((rule, index) =>
-    errors.push(...validateRule(rule, `rules[${index}]`)),
-  )
+  group.rules.forEach((rule, index) => errors.push(...validateRule(rule, `rules[${index}]`)))
 
   return errors
 }

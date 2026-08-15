@@ -14,7 +14,7 @@ import type {
   UsageCounter,
   UsageCountersState,
 } from './types'
-import { dateAtMinuteOfDay, formatDate, minuteOfDay } from './datetime'
+import { dateAtMinuteOfDay, formatDate, minuteOfDate, minuteOfDay } from './datetime'
 import { jsonEqual, uniqueByJson } from './json'
 import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
 import { urlPatternMatches } from './urlPatterns'
@@ -25,6 +25,13 @@ const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'fil
  * 制限が評価される順序。先に並ぶものほど強く、成立した時点でそれ以降は評価されない。
  * 保存時とロード時にこの順へ並べ替えるため、画面のルール順と評価順は常に一致する。
  */
+export const RULE_KIND_PRIORITY: Record<RuleKind, number> = {
+  block: 0,
+  dailyLimit: 1,
+  wait: 2,
+}
+
+/** 制限種別を評価順に並べた配列。 */
 export const RULE_KIND_ORDER: RuleKind[] = ['block', 'dailyLimit', 'wait']
 
 /**
@@ -121,19 +128,13 @@ export interface EffectiveGroupBlockStatus {
   status: GroupBlockStatus
 }
 
-/** グループの制限ルールを返す。 */
-export function getRules(group: Group): Rule[] {
-  return group.rules ?? []
-}
-
 /**
  * ルールを評価順（Block → Daily limit → Wait）へ安定ソートする。
  * 同種のルールは元の並び順を保つ。冪等。
  */
 export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
   return rules.toSorted(
-    (a, b) =>
-      RULE_KIND_ORDER.indexOf(a.restriction.kind) - RULE_KIND_ORDER.indexOf(b.restriction.kind),
+    (a, b) => RULE_KIND_PRIORITY[a.restriction.kind] - RULE_KIND_PRIORITY[b.restriction.kind],
   )
 }
 
@@ -171,7 +172,7 @@ export function getRedirectUrls(settings: Settings): string[] {
   return settings.groups
     .filter((group) => !group.disabled)
     .flatMap((group) =>
-      getRules(group).flatMap((rule) =>
+      group.rules.flatMap((rule) =>
         rule.destination?.type === 'redirect' && rule.destination.url.trim().length > 0
           ? [rule.destination.url]
           : [],
@@ -219,7 +220,7 @@ export function timeInRange(nowMinute: number, startMinute: number, endMinute: n
  * 現在有効な時間帯が次に解除される日時を返す。
  */
 export function getBlockedTimeRangeReleaseAt(range: TimeRange, now: Date): Date {
-  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  const nowMinute = minuteOfDate(now)
 
   if (range.startMinute === range.endMinute) {
     const releaseAt = dateAtMinuteOfDay(now, range.endMinute)
@@ -270,7 +271,7 @@ export function matchesScheduleRuleCondition(
 }
 
 /** 時間ウィンドウの適用日条件が指定した論理日に一致するなら true を返す。時刻は問わない。 */
-export function windowMatchesLogicalDate(window: TimeWindow, info: LogicalDateInfo): boolean {
+function windowMatchesLogicalDate(window: TimeWindow, info: LogicalDateInfo): boolean {
   return window.type === 'always' || matchesScheduleRuleCondition(window.condition, info)
 }
 
@@ -280,7 +281,7 @@ export function isWindowActiveAt(window: TimeWindow, at: Date, global: GlobalSet
   const info = getLogicalDate(at, global.dailyResetHour)
   if (!matchesScheduleRuleCondition(window.condition, info)) return false
   if (window.timeRanges.length === 0) return true
-  const atMinute = at.getHours() * 60 + at.getMinutes()
+  const atMinute = minuteOfDate(at)
   return window.timeRanges.some((range) =>
     timeInRange(atMinute, range.startMinute, range.endMinute),
   )
@@ -294,7 +295,7 @@ export function filterActiveRules(rules: Rule[], at: Date, global: GlobalSetting
 /** group のルールのうち、指定時刻に有効なものだけを返す。disabled group では空配列。 */
 export function getActiveRules(group: Group, now: Date, global: GlobalSettings): Rule[] {
   if (group.disabled) return []
-  return filterActiveRules(getRules(group), now, global)
+  return filterActiveRules(group.rules, now, global)
 }
 
 /**
@@ -314,10 +315,20 @@ function getRuleActiveTimeRanges(rule: Rule, at: Date): TimeRange[] {
   if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) {
     return [{ startMinute: 0, endMinute: 0 }]
   }
-  const atMinute = at.getHours() * 60 + at.getMinutes()
+  const atMinute = minuteOfDate(at)
   return rule.window.timeRanges.filter((range) =>
     timeInRange(atMinute, range.startMinute, range.endMinute),
   )
+}
+
+/**
+ * アクティブなルール配列のうち block ルールが該当する time range 配列を返す。
+ * 空 `timeRanges`（終日）や `always` は24時間ブロック相当の1件を返す。
+ */
+function activeBlockTimeRanges(activeRules: Rule[], at: Date): TimeRange[] {
+  return activeRules
+    .filter((rule) => rule.restriction.kind === 'block')
+    .flatMap((rule) => getRuleActiveTimeRanges(rule, at))
 }
 
 /**
@@ -325,9 +336,7 @@ function getRuleActiveTimeRanges(rule: Rule, at: Date): TimeRange[] {
  * 空 `timeRanges`（終日）や `always` は24時間ブロック相当の1件を返す。
  */
 function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
-  return getActiveRules(group, now, global)
-    .filter((rule) => rule.restriction.kind === 'block')
-    .flatMap((rule) => getRuleActiveTimeRanges(rule, now))
+  return activeBlockTimeRanges(getActiveRules(group, now, global), now)
 }
 
 /** 上限分数と counter から利用状況を組み立てる。 */
@@ -345,12 +354,23 @@ function buildUsageSummary(
   }
 }
 
+/**
+ * ルール配列から、実際に採用される dailyLimit ルールを返す（最小分数）。
+ * dailyLimit ルールが1件も無ければ undefined。
+ *
+ * 「どのルールが効いているか」を画面表示でも使うため、分数と併せて由来ルールを返す。
+ */
+export function resolveDailyLimitRule(rules: Rule[]): { minutes: number; rule: Rule } | undefined {
+  return rules
+    .flatMap((rule) =>
+      rule.restriction.kind === 'dailyLimit' ? [{ minutes: rule.restriction.minutes, rule }] : [],
+    )
+    .toSorted((a, b) => a.minutes - b.minutes)[0]
+}
+
 /** ルール配列から dailyLimit の最小上限分数を返す。1件も無ければ undefined。 */
 function minDailyLimitMinutes(rules: Rule[]): number | undefined {
-  const minutes = rules.flatMap((rule) =>
-    rule.restriction.kind === 'dailyLimit' ? [rule.restriction.minutes] : [],
-  )
-  return minutes.length > 0 ? Math.min(...minutes) : undefined
+  return resolveDailyLimitRule(rules)?.minutes
 }
 
 /**
@@ -365,7 +385,7 @@ export function getTimeLimitUsageSummary(
 ): TimeLimitUsageSummary | undefined {
   if (group.disabled) return undefined
   const info = getLogicalDate(now, global.dailyResetHour)
-  const todaysRules = getRules(group).filter((rule) => windowMatchesLogicalDate(rule.window, info))
+  const todaysRules = group.rules.filter((rule) => windowMatchesLogicalDate(rule.window, info))
   const limitMinutes = minDailyLimitMinutes(todaysRules)
   if (limitMinutes === undefined) return undefined
   return buildUsageSummary(limitMinutes, counter, info.logicalDate)
@@ -382,18 +402,17 @@ export interface EffectiveWait {
 }
 
 /**
- * group のアクティブな wait ルールから、実際に課される待機ゲートを返す。
+ * ルール配列から、実際に課される待機ゲートを返す。
  *
  * 秒数・許可分数とも最長のものを採る（同一ルール由来とは限らない）。
  * `seconds <= 0` と `grantMinutes < 1` のルールは「待機を課さない」として無視する。
  * 待機を課すルールが1件も無ければ undefined。
+ *
+ * 画面表示（`describeCurrentState`）と実際の待機ゲートが食い違わないよう、
+ * 両者はこの関数だけを縮約の単一の入口として使うこと。
  */
-export function getEffectiveWait(
-  group: Group,
-  now: Date,
-  global: GlobalSettings,
-): EffectiveWait | undefined {
-  const waits = getActiveRules(group, now, global).flatMap((rule) =>
+export function resolveEffectiveWait(rules: Rule[]): EffectiveWait | undefined {
+  const waits = rules.flatMap((rule) =>
     rule.restriction.kind === 'wait' &&
     rule.restriction.seconds > 0 &&
     Number.isInteger(rule.restriction.grantMinutes) &&
@@ -408,22 +427,16 @@ export function getEffectiveWait(
   }
 }
 
-/** group のアクティブな wait ルールにおける最長の待機秒数を返す。0以下は待機なし扱い。 */
-export function getEffectiveWaitSeconds(
+/**
+ * group のアクティブな wait ルールから、実際に課される待機ゲートを返す。
+ * 縮約の規則は {@link resolveEffectiveWait} を参照。
+ */
+export function getEffectiveWait(
   group: Group,
   now: Date,
   global: GlobalSettings,
-): number | undefined {
-  return getEffectiveWait(group, now, global)?.seconds
-}
-
-/** group のアクティブな wait ルールにおける、通過後の最長許可期間（分）を返す。 */
-export function getEffectiveWaitGrantMinutes(
-  group: Group,
-  now: Date,
-  global: GlobalSettings,
-): number | undefined {
-  return getEffectiveWait(group, now, global)?.grantMinutes
+): EffectiveWait | undefined {
+  return resolveEffectiveWait(getActiveRules(group, now, global))
 }
 
 /**
@@ -465,11 +478,7 @@ export function getBlockDestination(reason: BlockReason): BlockDestination {
  * 基準設定と最新設定の両方で成立した理由を1つに畳むために使う。
  */
 export function strictestBlockReason(reasons: BlockReason[]): BlockReason | undefined {
-  return strictestBy(
-    reasons,
-    (reason) => RULE_KIND_ORDER.indexOf(reason.rule.restriction.kind),
-    'min',
-  )
+  return strictestBy(reasons, (reason) => RULE_KIND_PRIORITY[reason.rule.restriction.kind], 'min')
 }
 
 /**
@@ -481,16 +490,19 @@ export function getGroupBlockStatus(
   now: Date,
   global: GlobalSettings,
 ): GroupBlockStatus {
-  const rules = group.disabled ? [] : getRules(group)
+  const rules = group.disabled ? [] : group.rules
   const blockReason = getBlockReason(group, counter, now, global)
+  // 同じアクティブルール集合を4つの派生値で使うため、1回だけ求める。
+  const activeRules = getActiveRules(group, now, global)
+  const wait = resolveEffectiveWait(activeRules)
 
   return {
     rules,
-    isActive: isRestrictionActiveNow(group, now, global),
-    activeTimeRanges: getActiveTimeRanges(group, now, global),
+    isActive: activeRules.length > 0,
+    activeTimeRanges: activeBlockTimeRanges(activeRules, now),
     timeLimitSummary: getTimeLimitUsageSummary(group, counter, now, global),
-    waitSeconds: getEffectiveWaitSeconds(group, now, global),
-    waitGrantMinutes: getEffectiveWaitGrantMinutes(group, now, global),
+    waitSeconds: wait?.seconds,
+    waitGrantMinutes: wait?.grantMinutes,
     blockedByTimeRange: blockReason?.kind === 'block',
     blockedByDailyLimit: blockReason?.kind === 'dailyLimit',
     ...(blockReason ? { blockReason } : {}),
@@ -622,7 +634,7 @@ export function evaluateUrl(
     .map((group) => group.id)
 
   const delayedGroupIds = targetGroups
-    .filter((group) => getEffectiveWaitSeconds(group, now, settings.global) !== undefined)
+    .filter((group) => getEffectiveWait(group, now, settings.global) !== undefined)
     .map((group) => group.id)
 
   return {
@@ -759,7 +771,7 @@ export function incrementEffectiveCounters(
  * dailyLimit ルールが現在アクティブなら true を返す。
  * 閲覧秒数は上限を持つルールが有効な時間帯だけ加算する。
  */
-export function hasActiveDailyLimit(group: Group, now: Date, global: GlobalSettings): boolean {
+function hasActiveDailyLimit(group: Group, now: Date, global: GlobalSettings): boolean {
   return getActiveRules(group, now, global).some((rule) => rule.restriction.kind === 'dailyLimit')
 }
 

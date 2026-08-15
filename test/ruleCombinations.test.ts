@@ -5,9 +5,11 @@ import {
   evaluateUrl,
   getBlockDestination,
   getBlockReason,
+  getEffectiveWait,
   incrementEffectiveCounters,
 } from '../utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import { describeCurrentState } from '../utils/rules'
 import type { Group, Rule, RuleRestriction, Settings, UsageCountersState } from '../utils/types'
 
 const URL = 'https://example.com/'
@@ -119,6 +121,56 @@ describe('ルールの組み合わせ表', () => {
       type: 'redirect',
       url: 'https://daily.test/',
     })
+  })
+})
+
+describe('画面表示は実際に課される制限と一致する', () => {
+  it('Wait ルールが2件重なるとき、説明文は秒数・許可分数とも最長を示す', () => {
+    // seconds は A が長く、grantMinutes は B が長い。実際に課されるのは 60 秒 / 20 分。
+    const a = rule('wait-a', { kind: 'wait', seconds: 60, grantMinutes: 5 })
+    const b = rule('wait-b', { kind: 'wait', seconds: 30, grantMinutes: 20 })
+    const s = settingsWith(a, b)
+    const now = at('12:00')
+
+    const effective = getEffectiveWait(s.groups[0]!, now, s.global)
+    expect(effective).toEqual({ seconds: 60, grantMinutes: 20 })
+
+    const summary = describeCurrentState(s.groups[0]!.rules, now, s.global)
+    expect(summary.kind).toBe('gated')
+    expect(summary.lines[0]).toContain(`Wait ${effective!.seconds} sec`)
+    expect(summary.lines[0]).toContain(`browse for ${effective!.grantMinutes} min`)
+  })
+
+  it('seconds が 0 の Wait は待機を課さないので gated にならない', () => {
+    const s = settingsWith(rule('wait-zero', { kind: 'wait', seconds: 0, grantMinutes: 10 }))
+    const now = at('12:00')
+
+    expect(getEffectiveWait(s.groups[0]!, now, s.global)).toBeUndefined()
+
+    const summary = describeCurrentState(s.groups[0]!.rules, now, s.global)
+    expect(summary.kind).not.toBe('gated')
+    expect(summary.headline).not.toBe('Wait required before access')
+  })
+
+  it('grantMinutes が 1 未満の Wait も待機を課さない', () => {
+    const s = settingsWith(rule('wait-nogrant', { kind: 'wait', seconds: 60, grantMinutes: 0 }))
+    const now = at('12:00')
+
+    expect(getEffectiveWait(s.groups[0]!, now, s.global)).toBeUndefined()
+    expect(describeCurrentState(s.groups[0]!.rules, now, s.global).kind).not.toBe('gated')
+  })
+
+  it('Daily limit ルールが2件重なるとき、説明文は最小分数を示す', () => {
+    const s = settingsWith(
+      rule('daily-long', { kind: 'dailyLimit', minutes: 60 }),
+      rule('daily-short', { kind: 'dailyLimit', minutes: 15 }),
+    )
+    const now = at('12:00')
+
+    const summary = describeCurrentState(s.groups[0]!.rules, now, s.global)
+    expect(summary.lines.join(' ')).toContain('15 min')
+    // 実際にブロックされるのも 15 分ぶんを使い切った時点。
+    expect(evaluateUrl(s, counters(15 * 60), URL, now).blocked).toBe(true)
   })
 })
 

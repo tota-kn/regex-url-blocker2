@@ -9,7 +9,7 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghos
 /**
  * 共通ボタンのサイズ。
  */
-type ButtonSize = 'sm' | 'md' | 'icon-sm' | 'icon-md'
+type ButtonSize = 'sm' | 'md' | 'lg' | 'icon-sm' | 'icon-md'
 
 /**
  * 共通ボタンの props。
@@ -37,6 +37,7 @@ const sizeClass = computed(
     ({
       sm: 'h-8 px-2.5',
       md: 'h-9 px-3',
+      lg: 'h-10 px-4',
       'icon-sm': 'size-8',
       'icon-md': 'size-9',
     })[props.size],

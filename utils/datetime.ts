@@ -65,6 +65,11 @@ export function minuteOfDay(time: string): number {
   return minutes === undefined || minutes >= 1440 ? 0 : minutes
 }
 
+/** Date のローカル時刻を日内分へ変換する。 */
+export function minuteOfDate(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes()
+}
+
 /**
  * ローカル日付を YYYY-MM-DD で表示する。
  */

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { QuestionMarkCircleIcon } from '@heroicons/vue/24/outline'
-import { onBeforeUnmount, ref, useId, watch } from 'vue'
+import { ref, useId } from 'vue'
+import { useDismissOnOutsidePointer } from '@/utils/useDismissOnOutsidePointer'
 
 /**
  * 補足説明ツールチップの props。
@@ -47,24 +48,7 @@ function toggle(): void {
   isOpen.value = !isOpen.value
 }
 
-/** ツールチップ外のポインタ操作で閉じる。 */
-function closeFromOutside(event: PointerEvent): void {
-  const target = event.target
-  if (target instanceof Node && root.value?.contains(target)) return
-  close()
-}
-
-watch(isOpen, (value) => {
-  if (value) {
-    document.addEventListener('pointerdown', closeFromOutside, true)
-    return
-  }
-  document.removeEventListener('pointerdown', closeFromOutside, true)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', closeFromOutside, true)
-})
+useDismissOnOutsidePointer(root, isOpen, close)
 </script>
 
 <template>

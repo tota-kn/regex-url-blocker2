@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { PAUSE_COUNTDOWN_TICK_MS } from '@/utils/constants'
-import { useNowTimer } from '@/utils/useNowTimer'
+import { useCountdown } from '@/utils/useCountdown'
 
 /**
  * 一時停止前カウントダウンダイアログが親へ通知するイベント。
@@ -25,14 +25,14 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
-const startedAt = ref(0)
-const { now, start: startTimer, stop: stopTimer } = useNowTimer(PAUSE_COUNTDOWN_TICK_MS)
-
-const elapsedMs = computed(() => Math.max(0, now.value.getTime() - startedAt.value))
 const waitMilliseconds = computed(() => props.waitSeconds * 1_000)
-const remainingMs = computed(() => Math.max(0, waitMilliseconds.value - elapsedMs.value))
-const remainingSeconds = computed(() => Math.ceil(remainingMs.value / 1_000))
-const isReady = computed(() => elapsedMs.value >= waitMilliseconds.value)
+const {
+  now,
+  remainingSeconds,
+  isReady,
+  start: startTimer,
+  stop: stopTimer,
+} = useCountdown(waitMilliseconds, PAUSE_COUNTDOWN_TICK_MS)
 
 watch(now, () => {
   if (!dialogRef.value?.open) return
@@ -42,8 +42,6 @@ watch(now, () => {
 /** ダイアログを開いてカウントダウンを開始する。 */
 function open(): void {
   stopTimer()
-  startedAt.value = Date.now()
-  now.value = new Date(startedAt.value)
   dialogRef.value?.showModal()
   window.addEventListener('blur', cancelForFocusLoss, true)
   document.addEventListener('blur', cancelForFocusLoss, true)
@@ -108,7 +106,7 @@ onUnmounted(() => {
   <dialog
     ref="dialogRef"
     aria-labelledby="pause-countdown-title"
-    class="dialog-centered w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/30"
+    class="dialog-centered w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-scrim"
     @cancel.prevent="cancel"
   >
     <div class="space-y-5 p-5 text-center">

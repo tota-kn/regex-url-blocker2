@@ -45,6 +45,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   /** 編集したフィールドを親フォームへ伝える。 */ touch: [field: string]
+  /** テキスト入力が保存可能かどうかを親フォームへ伝える。 */
+  'validity-change': [field: string, valid: boolean]
 }>()
 
 const rules = defineModel<Rule[]>({ required: true })
@@ -103,6 +105,9 @@ function removeRule(index: number): void {
             :error="props.error(index)"
             class="min-w-0 flex-1"
             @touch="(field) => emit('touch', `rules[${index}].${field}`)"
+            @validity-change="
+              (field, valid) => emit('validity-change', `rules[${index}].${field}`, valid)
+            "
           />
           <BaseButton
             type="button"

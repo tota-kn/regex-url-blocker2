@@ -1,5 +1,11 @@
-import { filterActiveRules, isWindowActiveAt, timeInRange } from './blocking'
-import { minutesToTime } from './datetime'
+import {
+  filterActiveRules,
+  isWindowActiveAt,
+  resolveDailyLimitRule,
+  resolveEffectiveWait,
+  timeInRange,
+} from './blocking'
+import { minuteOfDate, minutesToTime } from './datetime'
 import { formatTimeWindow } from './groups'
 import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction } from './types'
 
@@ -85,32 +91,12 @@ function formatDuration(totalSec: number): string {
   return `${Math.floor(clamped / 60)}:${String(clamped % 60).padStart(2, '0')}`
 }
 
-/** アクティブなルールから、実際に採用される dailyLimit を返す（最小分数）。 */
-function strictestDailyLimit(rules: Rule[]): { minutes: number; rule: Rule } | undefined {
-  return rules
-    .flatMap((rule) =>
-      rule.restriction.kind === 'dailyLimit' ? [{ minutes: rule.restriction.minutes, rule }] : [],
-    )
-    .toSorted((a, b) => a.minutes - b.minutes)[0]
-}
-
-/** アクティブなルールから、実際に採用される wait を返す（最長秒数）。 */
-function strictestWait(rules: Rule[]): { seconds: number; grantMinutes: number } | undefined {
-  return rules
-    .flatMap((rule) =>
-      rule.restriction.kind === 'wait'
-        ? [{ seconds: rule.restriction.seconds, grantMinutes: rule.restriction.grantMinutes }]
-        : [],
-    )
-    .toSorted((a, b) => b.seconds - a.seconds)[0]
-}
-
 /**
  * ルールのウィンドウが現在の時間帯を抜ける時刻を "HH:MM" で返す。終日なら undefined。
  */
 function windowEndsAtLabel(rule: Rule, at: Date): string | undefined {
   if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) return undefined
-  const atMinute = at.getHours() * 60 + at.getMinutes()
+  const atMinute = minuteOfDate(at)
   const active = rule.window.timeRanges.find((range) =>
     timeInRange(atMinute, range.startMinute, range.endMinute),
   )
@@ -168,8 +154,9 @@ function buildCurrentState(
   }
 
   const blockRule = active.find((rule) => rule.restriction.kind === 'block')
-  const daily = strictestDailyLimit(active)
-  const wait = strictestWait(active)
+  // 実際に課される制限と説明文が食い違わないよう、縮約は blocking.ts の解決関数へ委ねる。
+  const daily = resolveDailyLimitRule(active)
+  const wait = resolveEffectiveWait(active)
 
   if (blockRule) {
     const endsAt = windowEndsAtLabel(blockRule, now)
@@ -277,8 +264,9 @@ export function describeRuleConflicts(rules: Rule[], now: Date, global: GlobalSe
       )
     }
     if (first.kind === 'wait' && second.kind === 'wait') {
+      // 秒数と許可分数は別々に最長を採るため、片方のルールがまるごと採用されるわけではない。
       messages.add(
-        `Two Wait rules overlap. The longer wait (${Math.max(first.seconds, second.seconds)} sec) is used.`,
+        `Two Wait rules overlap. The longer wait (${Math.max(first.seconds, second.seconds)} sec) and the longer allowance (${Math.max(first.grantMinutes, second.grantMinutes)} min) are used, even if they come from different rules.`,
       )
     }
   }

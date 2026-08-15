@@ -2,6 +2,7 @@
 import { ClockIcon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import type { TimeLimitUsageSummary } from '@/utils/blocking'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
 
 /**
  * 残り時間メーターの props。
@@ -32,10 +33,6 @@ const displayedRemainingSec = computed(() =>
 const displayedConsumedSec = computed(() =>
   Math.max(0, limitSec.value - displayedRemainingSec.value),
 )
-const usedPercent = computed(() => {
-  if (limitSec.value <= 0) return 100
-  return Math.min(100, Math.max(0, (displayedConsumedSec.value / limitSec.value) * 100))
-})
 const remainingPercent = computed(() => {
   if (limitSec.value <= 0) return 0
   return Math.min(100, Math.max(0, (displayedRemainingSec.value / limitSec.value) * 100))
@@ -88,20 +85,13 @@ function formatMinutesSeconds(seconds: number): string {
       {{ formatMinutesSeconds(displayedRemainingSec) }} left
     </p>
 
-    <div
-      role="meter"
+    <ProgressBar
       :aria-label="ariaLabel"
-      :aria-valuemin="0"
-      :aria-valuemax="limitSec"
-      :aria-valuenow="displayedConsumedSec"
-      class="h-2 min-w-12 flex-1 overflow-hidden rounded-sm bg-secondary"
-    >
-      <div
-        aria-hidden="true"
-        :class="['h-full rounded-sm transition-all', meterToneClass]"
-        :style="{ width: `${usedPercent}%` }"
-      />
-    </div>
+      :value="displayedConsumedSec"
+      :max="limitSec"
+      :indicator-class="`transition-all ${meterToneClass}`"
+      class="min-w-12 flex-1 bg-secondary"
+    />
 
     <p class="shrink-0 text-body-sm text-muted">
       {{ formatMinutesSeconds(displayedConsumedSec) }} / {{ formatMinutesSeconds(limitSec) }}

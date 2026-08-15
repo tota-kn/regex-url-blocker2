@@ -14,7 +14,7 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -26,6 +26,7 @@ import { cloneGroup } from '@/utils/groups'
 import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
+import { useDismissOnOutsidePointer } from '@/utils/useDismissOnOutsidePointer'
 import TimeLimitMeter from '../TimeLimitMeter.vue'
 import PatternListEditor from './PatternListEditor.vue'
 import PendingFieldNote from './PendingFieldNote.vue'
@@ -80,6 +81,7 @@ const emit = defineEmits<Emits>()
  */
 const draft = ref<Group>(cloneGroup(props.group))
 const validationFeedback = useValidationFeedback()
+const invalidTextFields = ref<Set<string>>(new Set())
 
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 const isOptionsOpen = ref(false)
@@ -241,6 +243,7 @@ function startEditing(): void {
   if (props.readOnly) return
   draft.value = cloneGroup(props.group)
   validationFeedback.reset()
+  invalidTextFields.value = new Set()
   isOptionsOpen.value = false
   closeActionMenu()
   isEditing.value = true
@@ -254,6 +257,7 @@ function cancelEditing(): void {
   }
   draft.value = cloneGroup(props.group)
   validationFeedback.reset()
+  invalidTextFields.value = new Set()
   isEditing.value = false
 }
 
@@ -261,7 +265,7 @@ function cancelEditing(): void {
 function saveEditing(): void {
   if (props.readOnly) return
   validationFeedback.showAllErrors()
-  if (draftErrors.value.length > 0) return
+  if (draftErrors.value.length > 0 || invalidTextFields.value.size > 0) return
   // 保存時に評価順へ並べ替え、表示順と実際の適用順を一致させる。
   draft.value.rules = sortRulesByEvaluationOrder(draft.value.rules)
   emit('save', cloneGroup(draft.value))
@@ -322,14 +326,6 @@ function removeGroup(): void {
   emit('remove')
 }
 
-/** グループアクションメニュー外のクリックでメニューを閉じる。 */
-function closeActionMenuFromOutside(event: PointerEvent): void {
-  if (!isActionMenuOpen.value) return
-  const target = event.target
-  if (target instanceof Node && actionMenuRoot.value?.contains(target)) return
-  closeActionMenu()
-}
-
 /** グループアクションメニューに紐づく一意な DOM id を返す。 */
 function actionMenuId(): string {
   return `group-actions-menu-${props.group.id}`
@@ -351,22 +347,20 @@ function touchField(field: string): void {
   validationFeedback.touch(field)
 }
 
+/** テキスト入力の一時的な妥当性を保存可否へ反映する。 */
+function setTextFieldValidity(field: string, valid: boolean): void {
+  const next = new Set(invalidTextFields.value)
+  if (valid) next.delete(field)
+  else next.add(field)
+  invalidTextFields.value = next
+}
+
 /** Options 全体の disclosure panel に紐づく一意な DOM id を返す。 */
 function optionsPanelId(): string {
   return `options-panel-${props.group.id}`
 }
 
-watch(isActionMenuOpen, (open) => {
-  if (open) {
-    document.addEventListener('pointerdown', closeActionMenuFromOutside, true)
-    return
-  }
-  document.removeEventListener('pointerdown', closeActionMenuFromOutside, true)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', closeActionMenuFromOutside, true)
-})
+useDismissOnOutsidePointer(actionMenuRoot, isActionMenuOpen, closeActionMenu)
 </script>
 
 <template>
@@ -564,6 +558,7 @@ onBeforeUnmount(() => {
           :section-error="rulesSectionError()"
           :error="ruleError"
           @touch="touchField"
+          @validity-change="setTextFieldValidity"
         />
         <PendingFieldNote v-if="isFieldPending('rules')">
           Earlier rules stay active {{ pendingUntilLabel }}.

@@ -20,6 +20,8 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   /** 編集したフィールドを親フォームへ伝える。 */ touch: [field: string]
+  /** テキスト入力が保存可能かどうかを親フォームへ伝える。 */
+  'validity-change': [field: string, valid: boolean]
 }>()
 
 const rule = defineModel<Rule>({ required: true })
@@ -270,8 +272,11 @@ const selectClass =
       v-if="rule.window.type === 'scheduled'"
       :condition="rule.window.condition"
       :time-ranges="rule.window.timeRanges"
+      :error="() => props.error"
       @update:condition="setCondition"
       @update:time-ranges="setTimeRanges"
+      @touch="(field) => emit('touch', `window.${field}`)"
+      @validity-change="(field, valid) => emit('validity-change', `window.${field}`, valid)"
     />
   </div>
 </template>

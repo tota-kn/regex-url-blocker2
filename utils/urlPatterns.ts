@@ -17,7 +17,7 @@ function normalizeHostname(hostname: string): string {
 /**
  * 文字列が裸ドメイン指定として扱えるなら true を返す。
  */
-export function isDomainPattern(pattern: string): boolean {
+function isDomainPattern(pattern: string): boolean {
   const normalized = normalizePattern(pattern)
   if (normalized.length === 0) return false
   if (normalized.includes('://') || normalized.includes('/') || normalized.includes(':'))

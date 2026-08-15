@@ -3,19 +3,26 @@ import { ArrowRightIcon, ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { DEFAULT_WAIT_GRANT_MINUTES } from '@/utils/defaults'
 import { loadDelayGrantState, loadPageState, saveDelayGrantState } from '@/utils/storage'
+import { useCountdown } from '@/utils/useCountdown'
 
 const targetUrl = ref('')
 const groupId = ref('')
 const groupName = ref('')
 const totalSeconds = ref(0)
-const remainingSeconds = ref(0)
 const grantMinutes = ref(DEFAULT_WAIT_GRANT_MINUTES)
-let intervalId: ReturnType<typeof setInterval> | undefined
+const totalMilliseconds = computed(() => totalSeconds.value * 1_000)
+const {
+  remainingSeconds,
+  isReady,
+  start: startCountdown,
+  stop: stopCountdown,
+} = useCountdown(totalMilliseconds, 250)
 
 /** カウントダウンが完了しアクセス可能なら true。 */
-const canContinue = computed(() => remainingSeconds.value <= 0 && targetUrl.value !== '')
+const canContinue = computed(() => isReady.value && targetUrl.value !== '')
 
 /** 進捗バーの充填率（0-100）。 */
 const progressPercent = computed(() => {
@@ -34,18 +41,6 @@ function parseSeconds(params: URLSearchParams): number {
 function parseGrantMinutes(params: URLSearchParams): number {
   const raw = Number(params.get('grantMinutes'))
   return Number.isInteger(raw) && raw >= 1 ? raw : DEFAULT_WAIT_GRANT_MINUTES
-}
-
-/** カウントダウンを開始する。 */
-function startCountdown(): void {
-  if (remainingSeconds.value <= 0) return
-  intervalId = setInterval(() => {
-    remainingSeconds.value = Math.max(0, remainingSeconds.value - 1)
-    if (remainingSeconds.value <= 0 && intervalId !== undefined) {
-      clearInterval(intervalId)
-      intervalId = undefined
-    }
-  }, 1000)
 }
 
 /** 待機を完了して対象 URL へ進む。許可枠を保存してから遷移する。 */
@@ -69,7 +64,6 @@ onMounted(async () => {
   targetUrl.value = params.get('url') ?? ''
   groupId.value = params.get('group') ?? ''
   totalSeconds.value = parseSeconds(params)
-  remainingSeconds.value = totalSeconds.value
   grantMinutes.value = parseGrantMinutes(params)
 
   const { effectiveSettings } = await loadPageState()
@@ -79,12 +73,12 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (intervalId !== undefined) clearInterval(intervalId)
+  stopCountdown()
 })
 </script>
 
 <template>
-  <main class="min-h-screen bg-secondary/40 px-4 py-10 text-foreground sm:px-6">
+  <main class="min-h-screen bg-surface-muted px-4 py-10 text-foreground sm:px-6">
     <section class="mx-auto max-w-2xl rounded-lg border border-border bg-background p-6 shadow-sm">
       <div class="flex items-start gap-3">
         <img src="/icon/48.png" alt="" aria-hidden="true" class="mt-0.5 size-8 shrink-0" />
@@ -115,18 +109,11 @@ onUnmounted(() => {
               >{{ remainingSeconds }}s</span
             >
           </div>
-          <div
-            class="mt-3 h-2 overflow-hidden rounded-sm bg-surface-subtle"
-            role="meter"
-            :aria-valuenow="progressPercent"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div
-              class="h-full rounded-sm bg-primary transition-[width] duration-1000 ease-linear"
-              :style="{ width: `${progressPercent}%` }"
-            />
-          </div>
+          <ProgressBar
+            :value="progressPercent"
+            indicator-class="bg-primary transition-[width] duration-1000 ease-linear"
+            class="mt-3"
+          />
         </div>
 
         <InfoValue label="URL" aria-label="Waiting URL" break-all>
@@ -140,14 +127,14 @@ onUnmounted(() => {
       </div>
 
       <div class="mt-6 flex flex-wrap justify-end gap-2">
-        <BaseButton type="button" variant="secondary" class="h-10 px-4" @click="goBack">
+        <BaseButton type="button" variant="secondary" size="lg" @click="goBack">
           <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
           Back
         </BaseButton>
         <BaseButton
           type="button"
           variant="primary"
-          class="h-10 px-4"
+          size="lg"
           :disabled="!canContinue"
           aria-label="Continue"
           @click="proceed"

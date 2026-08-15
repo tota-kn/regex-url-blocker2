@@ -39,8 +39,6 @@ import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import AlertMessage from '@/components/ui/AlertMessage.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
 import PauseCountdownDialog from '@/components/options/PauseCountdownDialog.vue'
@@ -85,7 +83,8 @@ const nextResetAt = computed(() =>
 const resetTimeLabel = computed(() => effectiveSettings.value.global.dailyResetHour)
 const appliesAfterLabel = computed(() => formatDateTime(nextResetAt.value))
 const groupCount = computed(() => settings.value.groups.length + newGroupDrafts.value.length)
-const hasGlobalErrors = computed(() => Boolean(importError.value))
+// General settings のナビは、全体設定の検証エラーと取り込みエラーのどちらでも印を出す。
+const hasGlobalErrors = computed(() => globalErrors.value.length > 0 || Boolean(importError.value))
 const retainedEffectiveGroups = computed(() => {
   const savedIds = new Set(settings.value.groups.map((group) => group.id))
   return effectiveSettings.value.groups.filter(
@@ -367,7 +366,7 @@ onMounted(async () => {
     "
     @confirm="confirmGroupPause"
   />
-  <main class="min-h-screen overflow-x-hidden bg-secondary/40 text-foreground">
+  <main class="min-h-screen overflow-x-hidden bg-surface-muted text-foreground">
     <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
       <p
         v-if="!isLoaded"

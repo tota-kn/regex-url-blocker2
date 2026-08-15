@@ -11,8 +11,6 @@ import {
   getBlockedTimeRangeReleaseAt,
   getDailyLimitReleaseAt,
   getEffectiveWait,
-  getEffectiveWaitSeconds,
-  getEffectiveWaitGrantMinutes,
   getEffectiveGroupBlockStatus,
   getRedirectUrls,
   getGroupBlockStatus,
@@ -204,9 +202,9 @@ describe('Rule の時間ウィンドウ', () => {
     // 午前は block だけ、夜は wait だけが有効になる。旧モデルの直積では表現できなかった。
     expect(isRestrictionActiveNow(g, new Date('2026-05-06T10:00:00+09:00'), global)).toBe(true)
     expect(
-      getEffectiveWaitSeconds(g, new Date('2026-05-06T10:00:00+09:00'), global),
+      getEffectiveWait(g, new Date('2026-05-06T10:00:00+09:00'), global)?.seconds,
     ).toBeUndefined()
-    expect(getEffectiveWaitSeconds(g, new Date('2026-05-06T19:00:00+09:00'), global)).toBe(30)
+    expect(getEffectiveWait(g, new Date('2026-05-06T19:00:00+09:00'), global)?.seconds).toBe(30)
     expect(
       evaluateUrl(
         settings([g]),
@@ -1261,14 +1259,14 @@ describe('wait gate', () => {
   it('アクティブな wait 制限の待機秒数を返す', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 30, grantMinutes: 10 }) })
     expect(
-      getEffectiveWaitSeconds(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global),
+      getEffectiveWait(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global)?.seconds,
     ).toBe(30)
   })
 
   it('Wait の通過後許可期間を返し、未設定の旧データは10分として扱う', () => {
     const now = new Date('2026-05-06T12:00:00+09:00')
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 30, grantMinutes: 10 }) })
-    expect(getEffectiveWaitGrantMinutes(g, now, settings([]).global)).toBe(10)
+    expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBe(10)
   })
 
   it('Lock Mode の基準設定と最新版が併存するときは最長の許可期間を採用する', () => {
@@ -1301,23 +1299,23 @@ describe('wait gate', () => {
   it('0 以下の待機秒数は待機なしとして扱う', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 0, grantMinutes: 10 }) })
     expect(
-      getEffectiveWaitSeconds(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global),
+      getEffectiveWait(g, new Date('2026-05-06T12:00:00+09:00'), settings([]).global)?.seconds,
     ).toBeUndefined()
   })
 
   it('待機秒数が正なら通過後の許可期間も返す', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 60, grantMinutes: 15 }) })
     const now = new Date('2026-05-06T12:00:00+09:00')
-    expect(getEffectiveWaitSeconds(g, now, settings([]).global)).toBe(60)
-    expect(getEffectiveWaitGrantMinutes(g, now, settings([]).global)).toBe(15)
+    expect(getEffectiveWait(g, now, settings([]).global)?.seconds).toBe(60)
+    expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBe(15)
   })
 
   it('1 未満の許可期間は待機なしとして扱う', () => {
     const g = group({ ...dailyRule({ kind: 'wait', seconds: 60, grantMinutes: 0 }) })
     const now = new Date('2026-05-06T12:00:00+09:00')
     expect(getEffectiveWait(g, now, settings([]).global)).toBeUndefined()
-    expect(getEffectiveWaitSeconds(g, now, settings([]).global)).toBeUndefined()
-    expect(getEffectiveWaitGrantMinutes(g, now, settings([]).global)).toBeUndefined()
+    expect(getEffectiveWait(g, now, settings([]).global)?.seconds).toBeUndefined()
+    expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBeUndefined()
   })
 
   it('ウィンドウ外の wait 制限は待機秒数を返さない', () => {
@@ -1328,7 +1326,7 @@ describe('wait gate', () => {
       ),
     })
     expect(
-      getEffectiveWaitSeconds(g, new Date('2026-05-06T10:00:00+09:00'), settings([]).global),
+      getEffectiveWait(g, new Date('2026-05-06T10:00:00+09:00'), settings([]).global)?.seconds,
     ).toBeUndefined()
   })
 

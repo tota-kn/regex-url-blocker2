@@ -343,6 +343,29 @@ test.describe('Options 画面', () => {
     await expect(page.getByText('Import replaces all groups and general settings.')).toBeVisible()
   })
 
+  test('General settings の入力エラーを別セクションでもナビに表示する', async ({
+    page,
+    extensionId,
+  }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await openGeneralSettings(page)
+    const thresholdInput = page.getByLabel('Minutes before daily limit warning', { exact: true })
+    await thresholdInput.fill('')
+    await expect(page.getByText('Enter a whole number of 1 or greater')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Groups' }).click()
+    const errorIcon = page
+      .getByRole('button', { name: 'General settings', exact: true })
+      .locator('svg.text-danger')
+    await expect(errorIcon).toBeVisible()
+
+    await openGeneralSettings(page)
+    await thresholdInput.fill('5')
+    await page.getByRole('button', { name: 'Groups' }).click()
+    await expect(errorIcon).toHaveCount(0)
+  })
+
   test('グループ一時停止は設定した待機時間と継続時間を反映する', async ({
     page,
     context,
@@ -2172,6 +2195,23 @@ test.describe('Options 画面', () => {
     await expect(page.getByLabel('Rule 1')).toContainText('Every day')
     await expect(page.getByLabel('Rule 1')).toContainText('09:15-10:45, 22:00-01:30')
     await expect(page.getByLabel('Rule 1')).toContainText('Allow 30 min per day')
+  })
+
+  test('不正な時間帯テキストはエラーを表示し保存しない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Invalid window')
+    await addRequiredGroupSections(page)
+    await page.getByLabel('Rule 1 when').selectOption('daily')
+    await page.getByLabel('Active time ranges').fill('not-a-time-range')
+
+    await expect(
+      page.getByText('Enter time ranges as HH:MM-HH:MM, separated by commas.'),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Save group' }).click()
+    await expect(page.getByRole('button', { name: 'Save group' })).toBeVisible()
+    await expectVisibleGroupsStored(page)
   })
 
   test('スケジュールルールが時間帯も上限もないと保存できない', async ({ page, extensionId }) => {

@@ -16,7 +16,7 @@ export interface NotificationPlan {
 /**
  * 残り秒数を通知本文向けの分数表記へ変換する。
  */
-export function formatRemainingNotificationMinutes(remainingSec: number): string {
+function formatRemainingNotificationMinutes(remainingSec: number): string {
   const minutes = Math.ceil(remainingSec / 60)
   return `${minutes} minute${minutes === 1 ? '' : 's'}`
 }

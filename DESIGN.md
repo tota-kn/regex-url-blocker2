@@ -33,6 +33,7 @@ colors:
   muted-foreground: '#6b7280'
   accent: '#eff6ff'
   ring: '#93c5fd'
+  scrim: 'rgb(0 0 0 / 30%)'
   danger: '#dc2626'
   danger-hover: '#b91c1c'
   danger-foreground: '#ffffff'

@@ -3,11 +3,9 @@ import {
   applyGroupPauseState,
   countersEqual,
   evaluateEffectiveUrl,
-  formatRemainingMinutesBadge,
   getBlockDestination,
   getBlockReason,
   getEffectiveWait,
-  getMinimumEffectiveRemainingTimeLimit,
   getRedirectUrls,
   isTargetGroup,
   incrementEffectiveCounters,
@@ -17,6 +15,8 @@ import {
   type BlockReason,
   type UrlEvaluation,
 } from '@/utils/blocking'
+import { ACTION_TITLE, buildActionState } from '@/utils/actionBadge'
+import { buildBlockedPageUrl, buildWaitPageUrl } from '@/utils/extensionUrls'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import { getPauseAllowedGroupIds } from '@/utils/groupPause'
 import { jsonEqual } from '@/utils/json'
@@ -51,10 +51,6 @@ const HEARTBEAT_ALARM = 'heartbeat'
 const FLUSH_INTERVAL_MS = 7_000
 const TICK_INTERVAL_MS = 1_000
 const IDLE_DETECTION_SECONDS = 300
-const ACTION_TITLE = 'Regex URL Guard'
-const BADGE_COLOR_NORMAL = '#2563eb'
-const BADGE_COLOR_WARNING = '#f59e0b'
-const BADGE_COLOR_BLOCKED = '#dc2626'
 
 let settings: Settings | undefined
 let preferredSettings: Settings | undefined
@@ -106,10 +102,10 @@ interface ChromePromiseApi {
  * 保存済み設定を読み直し、基準スナップショットと一時停止・待機ゲート状態を更新する。
  *
  * 起動時（`initializeState`）と設定変更時（`reloadSettings`）で共通の手順。
- * @param mergeStoredCounters 既にメモリ上の counter がある場合に永続値と統合するかどうか。
+ * @param mergeInMemoryCounters 既にメモリ上の counter がある場合に永続値と統合するかどうか。
  *   起動直後はメモリ側が空なので false でよい。
  */
-async function applyLatestSettings(now: Date, mergeStoredCounters: boolean): Promise<Settings> {
+async function applyLatestSettings(now: Date, mergeInMemoryCounters: boolean): Promise<Settings> {
   const preferred = await loadSettings()
   const storedEffectiveState = await loadEffectiveSettingsState(preferred, now)
   const nextEffectiveState = reconcileEffectiveSettings(preferred, storedEffectiveState, now)
@@ -121,7 +117,7 @@ async function applyLatestSettings(now: Date, mergeStoredCounters: boolean): Pro
   const storedCounters = await loadCounters()
   counters = normalizeCounters(
     settings,
-    mergeStoredCounters ? mergeCounters(counters, storedCounters) : storedCounters,
+    mergeInMemoryCounters ? mergeCounters(counters, storedCounters) : storedCounters,
     now,
   )
   groupPauseState = await loadGroupPauseState(
@@ -299,15 +295,6 @@ async function notifyRemainingTimeIfNeeded(
 /**
  * 拡張機能のブロックページ URL を作る。
  */
-function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
-  const target = new URL(`chrome-extension://${browser.runtime.id}/blocked.html`)
-  target.searchParams.set('url', url)
-  for (const groupId of evaluation.blockedGroupIds) {
-    target.searchParams.append('group', groupId)
-  }
-  return target.toString()
-}
-
 /**
  * 基準設定と最新設定の両方が指定する遷移先 URL を返す。
  * lockMode で基準側の遷移先が凍結されているとき、最新側の遷移先でループしないために union する。
@@ -348,9 +335,11 @@ function buildBlockDestinationUrl(
   now: Date,
 ): string {
   const reason = findBlockReason(s, evaluation, now)
-  if (!reason) return buildBlockedPageUrl(url, evaluation)
+  if (!reason) return buildBlockedPageUrl({ extensionId: browser.runtime.id, url, evaluation })
   const destination = getBlockDestination(reason)
-  return destination.type === 'redirect' ? destination.url : buildBlockedPageUrl(url, evaluation)
+  return destination.type === 'redirect'
+    ? destination.url
+    : buildBlockedPageUrl({ extensionId: browser.runtime.id, url, evaluation })
 }
 
 /**
@@ -371,20 +360,6 @@ async function redirectTab(
 /**
  * 待機ゲートのカウントダウンページ URL を作る。
  */
-function buildWaitPageUrl(
-  url: string,
-  groupId: string,
-  seconds: number,
-  grantMinutes: number,
-): string {
-  const target = new URL(`chrome-extension://${browser.runtime.id}/wait.html`)
-  target.searchParams.set('url', url)
-  target.searchParams.set('group', groupId)
-  target.searchParams.set('seconds', String(seconds))
-  target.searchParams.set('grantMinutes', String(grantMinutes))
-  return target.toString()
-}
-
 /**
  * 待機ゲート対象タブを待機ページへ遷移する。
  * 遷移直後の再リダイレクトループを避けるため、判定直前に最新の許可状態を読み込む。
@@ -418,7 +393,15 @@ async function redirectToWaitIfNeeded(
 
   const seconds = Math.max(...waits.map((wait) => wait.seconds))
   const grantMinutes = Math.max(...waits.map((wait) => wait.grantMinutes))
-  await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds, grantMinutes) })
+  await browser.tabs.update(tabId, {
+    url: buildWaitPageUrl({
+      extensionId: browser.runtime.id,
+      url,
+      groupId,
+      seconds,
+      grantMinutes,
+    }),
+  })
 }
 
 /**
@@ -442,47 +425,13 @@ async function enforceEvaluation(
 /**
  * 残り秒数に応じた badge 背景色を返す。
  */
-function badgeColor(remainingSec: number): string {
-  if (remainingSec <= 0) return BADGE_COLOR_BLOCKED
-  if (remainingSec <= 5 * 60) return BADGE_COLOR_WARNING
-  return BADGE_COLOR_NORMAL
-}
-
-/**
- * タブに表示すべき action badge/title 状態を作る。
- */
-function buildActionState(
-  s: Settings,
-  tab: ActionTargetTab,
-  now: Date,
-): { text: string; title: string; color: string } {
-  const pair = currentPair(s)
-  const minimum = getMinimumEffectiveRemainingTimeLimit(
-    pair.baseline,
-    pair.preferred,
-    counters,
-    tab.url,
-    now,
-  )
-  if (!minimum) {
-    return { text: '', title: ACTION_TITLE, color: BADGE_COLOR_NORMAL }
-  }
-
-  const text = formatRemainingMinutesBadge(minimum.summary.remainingSec)
-  return {
-    text,
-    title: `${ACTION_TITLE} - remaining ${text}`,
-    color: badgeColor(minimum.summary.remainingSec),
-  }
-}
-
 /**
  * 指定タブの action badge/title を現在の判定結果に合わせて更新する。
  */
 async function updateActionForTab(tab: ActionTargetTab, now = new Date()): Promise<void> {
   if (typeof tab.id !== 'number') return
   const s = await currentSettings()
-  const next = buildActionState(s, tab, now)
+  const next = buildActionState(currentPair(s), counters, tab.url, now)
 
   const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
   await Promise.all([

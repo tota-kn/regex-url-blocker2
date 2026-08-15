@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { CodeBracketIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
-import { ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -31,16 +30,7 @@ const props = withDefaults(defineProps<Props>(), {
  */
 const patterns = defineModel<string[]>({ required: true })
 
-/**
- * ユーザーが編集した URL pattern 入力欄の index。
- */
-const touchedPatternIndexes = ref<Set<number>>(new Set())
-
-/**
- * 指定 index の URL pattern を touched として記録する。
- */
 function markPatternTouched(index: number): void {
-  touchedPatternIndexes.value = new Set(touchedPatternIndexes.value).add(index)
   emit('touch', `patterns[${index}]`)
 }
 
@@ -52,17 +42,11 @@ function visibleError(index: number): string | undefined {
 }
 
 /**
- * URL pattern を削除し、touched index を現在の配列に合わせて詰め直す。
+ * URL pattern を削除する。
  */
 function deletePattern(index: number): void {
   emit('touch', 'patterns')
   patterns.value.splice(index, 1)
-  const next = new Set<number>()
-  for (const touchedIndex of touchedPatternIndexes.value) {
-    if (touchedIndex < index) next.add(touchedIndex)
-    if (touchedIndex > index) next.add(touchedIndex - 1)
-  }
-  touchedPatternIndexes.value = next
 }
 </script>
 

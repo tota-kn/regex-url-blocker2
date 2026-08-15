@@ -165,7 +165,7 @@ function createGroup(templateId: GroupTemplateId): void {
     <dialog
       ref="createGroupDialogRef"
       aria-labelledby="create-group-title"
-      class="dialog-centered w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-black/30"
+      class="dialog-centered w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-scrim"
       @cancel.prevent="closeCreateGroupDialog"
     >
       <div class="space-y-4 p-4">
@@ -209,10 +209,10 @@ function createGroup(templateId: GroupTemplateId): void {
         :now="now"
         :applies-after-label="appliesAfterLabel"
         :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
-        @save="$emit('saveGroup', $event)"
-        @remove="$emit('removeGroup', groups[i].id)"
-        @duplicate="$emit('duplicateGroup', groups[i].id)"
-        @request-pause="$emit('requestGroupPause', groups[i].id)"
+        @save="emit('saveGroup', $event)"
+        @remove="emit('removeGroup', groups[i].id)"
+        @duplicate="emit('duplicateGroup', groups[i].id)"
+        @request-pause="emit('requestGroupPause', groups[i].id)"
       />
       <GroupCard
         v-for="group in newGroups"
@@ -222,9 +222,9 @@ function createGroup(templateId: GroupTemplateId): void {
         :start-in-edit="true"
         :is-new="true"
         data-new-group-card="true"
-        @save="$emit('saveNewGroup', $event)"
-        @cancel="$emit('cancelNewGroup', group.id)"
-        @remove="$emit('cancelNewGroup', group.id)"
+        @save="emit('saveNewGroup', $event)"
+        @cancel="emit('cancelNewGroup', group.id)"
+        @remove="emit('cancelNewGroup', group.id)"
       />
       <section
         v-if="retainedEffectiveGroups.length > 0"
@@ -249,8 +249,8 @@ function createGroup(templateId: GroupTemplateId): void {
           :applies-after-label="appliesAfterLabel"
           read-only
           restorable
-          @request-pause="$emit('requestGroupPause', group.id)"
-          @restore="$emit('restoreGroup', group.id)"
+          @request-pause="emit('requestGroupPause', group.id)"
+          @restore="emit('restoreGroup', group.id)"
         />
       </section>
     </div>

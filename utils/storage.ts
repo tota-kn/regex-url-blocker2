@@ -415,7 +415,7 @@ function normalizeGroupPauseEntry(value: unknown, now: number): GroupPauseEntry 
 /**
  * unknown の値から一時停止状態辞書を生成する。
  */
-export function normalizeGroupPauseState(
+function normalizeGroupPauseState(
   value: unknown,
   validGroupIds?: Iterable<string>,
   now = Date.now(),

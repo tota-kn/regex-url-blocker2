@@ -76,8 +76,3 @@ export function weeklyRule(
     ],
   }
 }
-
-/** 複数のルール断片を1グループへまとめる。 */
-export function rules(...parts: Pick<Group, 'rules'>[]): Pick<Group, 'rules'> {
-  return { rules: parts.flatMap((part) => part.rules) }
-}
