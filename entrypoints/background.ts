@@ -1,17 +1,16 @@
 import {
   applyDelayGrantState,
   applyGroupPauseState,
-  countersEqual,
   evaluateEffectiveUrl,
   getBlockDestination,
   getBlockReason,
   getEffectiveWait,
   incrementEffectiveCounters,
-  normalizeCounters,
   strictestBlockReason,
   type BlockReason,
   type UrlEvaluation,
 } from '@/utils/blocking'
+import { countersEqual, normalizeCounters } from '@/utils/usageCounters'
 import { ACTION_TITLE, buildActionState } from '@/utils/actionBadge'
 import { buildBlockedPageUrl, buildWaitPageUrl } from '@/utils/extensionUrls'
 import { getRedirectUrls, isTargetGroup, shouldSkipUrl } from '@/utils/urlTargeting'

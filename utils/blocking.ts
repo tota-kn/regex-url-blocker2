@@ -24,6 +24,7 @@ import {
   isWindowActiveAt,
 } from './timeWindow'
 import { getTargetGroupIds, isTargetGroup } from './urlTargeting'
+import { normalizeCounters } from './usageCounters'
 
 /**
  * 制限が評価される順序。先に並ぶものほど強く、成立した時点でそれ以降は評価されない。
@@ -602,48 +603,4 @@ export function applyDelayGrantState(
     ...evaluation,
     delayedGroupIds,
   }
-}
-
-/**
- * 2つの counter 状態が同じ group について同じ論理日・同じ消費秒数を持つなら true を返す。
- *
- * `normalizeCounters` は `settings.groups` の順にキーを作り直すため、
- * 保存済みの値とはキーの並び順が違いうる。JSON 比較では内容が同じでも差分と誤判定するので、
- * キー集合と値で比べる。
- */
-export function countersEqual(a: UsageCountersState, b: UsageCountersState): boolean {
-  const aIds = Object.keys(a.counters)
-  const bIds = Object.keys(b.counters)
-  if (aIds.length !== bIds.length) return false
-  return aIds.every((groupId) => {
-    const left = a.counters[groupId]
-    const right = b.counters[groupId]
-    return (
-      right !== undefined &&
-      left!.logicalDate === right.logicalDate &&
-      left!.consumedSec === right.consumedSec
-    )
-  })
-}
-
-/**
- * settings に合わせて counter を現在論理日に正規化し、削除済み group の値を除去する。
- */
-export function normalizeCounters(
-  settings: Settings,
-  counters: UsageCountersState,
-  now: Date,
-): UsageCountersState {
-  const logicalDate = getLogicalDate(now, settings.global.dailyResetHour).logicalDate
-  const normalized: UsageCountersState = { counters: {} }
-  for (const group of settings.groups) {
-    if (group.disabled) continue
-    const current = counters.counters[group.id]
-    normalized.counters[group.id] = {
-      logicalDate,
-      consumedSec:
-        current?.logicalDate === logicalDate ? Math.max(0, Math.floor(current.consumedSec)) : 0,
-    }
-  }
-  return normalized
 }

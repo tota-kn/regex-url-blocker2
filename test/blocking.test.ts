@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   applyDelayGrantState,
   applyGroupPauseState,
-  countersEqual,
   evaluateEffectiveUrl,
   evaluateUrl,
   formatRemainingMinutesBadge,
@@ -16,7 +15,6 @@ import {
   getTimeLimitUsageSummary,
   getTimeRangeUnblockAt,
   incrementEffectiveCounters,
-  normalizeCounters,
 } from '../utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import {
@@ -25,6 +23,7 @@ import {
   matchesScheduleRuleCondition,
 } from '../utils/logicalDate'
 import { getBlockedTimeRangeReleaseAt, isRestrictionActiveNow } from '../utils/timeWindow'
+import { countersEqual, normalizeCounters } from '../utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type {
   Group,
