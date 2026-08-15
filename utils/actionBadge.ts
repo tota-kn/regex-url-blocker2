@@ -1,4 +1,4 @@
-import { formatRemainingMinutesBadge, getMinimumEffectiveRemainingTimeLimit } from './blocking'
+import { formatRemainingMinutesBadge, getMinimumEffectiveRemainingTimeLimit } from './usageCounters'
 import type { SettingsPair } from './settingsPair'
 import type { UsageCountersState } from './types'
 

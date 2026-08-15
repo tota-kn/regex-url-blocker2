@@ -5,13 +5,13 @@ import {
   getBlockDestination,
   getBlockReason,
   getEffectiveWait,
-  incrementEffectiveCounters,
   strictestBlockReason,
   type BlockReason,
   type UrlEvaluation,
 } from '@/utils/blocking'
-import { countersEqual, normalizeCounters } from '@/utils/usageCounters'
+import { countersEqual, incrementEffectiveCounters, normalizeCounters } from '@/utils/usageCounters'
 import { ACTION_TITLE, buildActionState } from '@/utils/actionBadge'
+import { getChromeApi } from '@/utils/chromeApi'
 import { buildBlockedPageUrl, buildWaitPageUrl } from '@/utils/extensionUrls'
 import { getRedirectUrls, isTargetGroup, shouldSkipUrl } from '@/utils/urlTargeting'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
@@ -64,35 +64,6 @@ interface ActionTargetTab {
   id?: number
   /** badge 判定に使う URL。 */
   url?: string
-}
-
-interface ChromeActionPromiseApi {
-  /** action badge に表示する文字列を設定する。 */
-  setBadgeText: (details: { tabId: number; text: string }) => Promise<void>
-  /** action tooltip の title を設定する。 */
-  setTitle: (details: { tabId: number; title: string }) => Promise<void>
-  /** action badge の背景色を設定する。 */
-  setBadgeBackgroundColor: (details: { tabId: number; color: string }) => Promise<void>
-}
-
-interface ChromeNotificationsPromiseApi {
-  /** Chrome notification を作成する。 */
-  create: (
-    notificationId: string,
-    options: {
-      type: 'basic'
-      iconUrl: string
-      title: string
-      message: string
-    },
-  ) => Promise<string>
-}
-
-interface ChromePromiseApi {
-  /** MV3 action API。 */
-  action: ChromeActionPromiseApi
-  /** Chrome notifications API。 */
-  notifications: ChromeNotificationsPromiseApi
 }
 
 /**
@@ -275,7 +246,7 @@ async function notifyRemainingTimeIfNeeded(
     now,
   )
   if (plans.length === 0) return
-  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
+  const chromeApi = getChromeApi()
 
   for (const plan of plans) {
     await chromeApi.notifications.create(plan.notificationId, {
@@ -430,7 +401,7 @@ async function updateActionForTab(tab: ActionTargetTab, now = new Date()): Promi
   const s = await currentSettings()
   const next = buildActionState(currentPair(s), counters, tab.url, now)
 
-  const chromeApi = (globalThis as unknown as { chrome: ChromePromiseApi }).chrome
+  const chromeApi = getChromeApi()
   await Promise.all([
     chromeApi.action.setBadgeText({ tabId: tab.id, text: next.text }),
     chromeApi.action.setTitle({ tabId: tab.id, title: next.title }),

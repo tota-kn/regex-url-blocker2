@@ -6,8 +6,8 @@ import {
   getBlockDestination,
   getBlockReason,
   getEffectiveWait,
-  incrementEffectiveCounters,
 } from '../utils/blocking'
+import { incrementEffectiveCounters } from '../utils/usageCounters'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { describeCurrentState } from '../utils/rules'
 import type { Group, Rule, RuleRestriction, Settings, UsageCountersState } from '../utils/types'

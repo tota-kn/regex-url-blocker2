@@ -4,16 +4,13 @@ import {
   applyGroupPauseState,
   evaluateEffectiveUrl,
   evaluateUrl,
-  formatRemainingMinutesBadge,
   getBlockDestination,
   getBlockReason,
   getDailyLimitReleaseAt,
   getEffectiveWait,
   getEffectiveGroupBlockStatus,
   getGroupBlockStatus,
-  getMinimumEffectiveRemainingTimeLimit,
   getTimeRangeUnblockAt,
-  incrementEffectiveCounters,
 } from '../utils/blocking'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import {
@@ -22,8 +19,14 @@ import {
   matchesScheduleRuleCondition,
 } from '../utils/logicalDate'
 import { getBlockedTimeRangeReleaseAt, isRestrictionActiveNow } from '../utils/timeWindow'
-import { countersEqual, normalizeCounters } from '../utils/usageCounters'
-import { getTimeLimitUsageSummary } from '../utils/usageCounters'
+import {
+  countersEqual,
+  formatRemainingMinutesBadge,
+  getMinimumEffectiveRemainingTimeLimit,
+  getTimeLimitUsageSummary,
+  incrementEffectiveCounters,
+  normalizeCounters,
+} from '../utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
 import type {
   Group,

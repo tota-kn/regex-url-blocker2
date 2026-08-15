@@ -13,8 +13,7 @@ import type {
 } from './types'
 import { jsonEqual, uniqueByJson } from './json'
 import { getLogicalDate, getNextDailyResetAt } from './logicalDate'
-import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
-import { collectTargetCandidates } from './targetCandidates'
+import { bothSettings, strictestBy } from './settingsPair'
 import {
   getActiveBlockTimeRanges,
   getActiveRules,
@@ -25,12 +24,10 @@ import {
   isWindowActiveAt,
 } from './timeWindow'
 import { getTargetGroupIds, isTargetGroup } from './urlTargeting'
-import { normalizeCounters } from './usageCounters'
 import {
   buildUsageSummary,
   getTimeLimitUsageSummary,
   resolveDailyLimitRule,
-  type MinimumRemainingTimeLimit,
   type TimeLimitUsageSummary,
 } from './usageCounters'
 
@@ -286,30 +283,6 @@ export function getDailyLimitReleaseAt(rule: Rule, now: Date, global: GlobalSett
 }
 
 /**
- * 基準設定と最新設定を独立に調べ、残り時間が最短の閲覧上限を返す。
- */
-export function getMinimumEffectiveRemainingTimeLimit(
-  baseline: Settings,
-  preferred: Settings,
-  counters: UsageCountersState,
-  url: string | undefined,
-  now: Date,
-): MinimumRemainingTimeLimit | undefined {
-  const candidates = collectTargetCandidates({ baseline, preferred }, url, (group, global) =>
-    getTimeLimitUsageSummary(group, counters.counters[group.id], now, global),
-  )
-  const strictest = strictestBy(candidates, (item) => item.value.remainingSec, 'min')
-  return strictest ? { group: strictest.group, summary: strictest.value } : undefined
-}
-
-/**
- * 残り秒数を切り上げの分単位 badge 文字列に変換する。
- */
-export function formatRemainingMinutesBadge(remainingSec: number): string {
-  return `${Math.ceil(Math.max(0, remainingSec) / 60)}m`
-}
-
-/**
  * URL が現在ブロックされるかを評価する。
  */
 export function evaluateUrl(
@@ -426,47 +399,6 @@ export function getEffectiveGroupBlockStatus(
       blocked: blockedByTimeRange || blockedByDailyLimit,
     },
   }
-}
-
-/**
- * 基準設定または最新設定で対象かつ dailyLimit がアクティブなグループへ、共有 counter を一度だけ加算する。
- */
-export function incrementEffectiveCounters(
-  baseline: Settings,
-  preferred: Settings,
-  counters: UsageCountersState,
-  url: string | undefined,
-  now: Date,
-  seconds: number,
-): UsageCountersState {
-  const pair: SettingsPair = { baseline, preferred }
-  const allGroups = bothSettings(pair).flatMap((item) => item.groups)
-  const normalizationSettings: Settings = {
-    global: baseline.global,
-    groups: [...new Map(allGroups.map((group) => [group.id, group])).values()],
-  }
-  const normalized = normalizeCounters(normalizationSettings, counters, now)
-  const logicalDate = getLogicalDate(now, baseline.global.dailyResetHour).logicalDate
-
-  // どちらかの設定で dailyLimit がアクティブなら加算対象。共有 counter なので一度だけ足す。
-  const activeIds = new Set(
-    collectTargetCandidates(pair, url, (group, global) =>
-      hasActiveDailyLimit(group, now, global) ? group.id : undefined,
-    ).map((candidate) => candidate.value),
-  )
-  for (const groupId of activeIds) {
-    const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
-    normalized.counters[groupId] = { logicalDate, consumedSec: current.consumedSec + seconds }
-  }
-  return normalized
-}
-
-/**
- * dailyLimit ルールが現在アクティブなら true を返す。
- * 閲覧秒数は上限を持つルールが有効な時間帯だけ加算する。
- */
-function hasActiveDailyLimit(group: Group, now: Date, global: GlobalSettings): boolean {
-  return getActiveRules(group, now, global).some((rule) => rule.restriction.kind === 'dailyLimit')
 }
 
 /**
