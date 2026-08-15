@@ -95,17 +95,8 @@ export function getGroupPauseButtonState(
   entry: GroupPauseEntry | undefined,
   now: Date,
 ): GroupPauseButtonState {
-  const nowMs = now.getTime()
-  const pausedUntil = entry?.pausedUntil
-  if (pausedUntil && pausedUntil > nowMs) {
-    return {
-      label: `Paused ${formatPauseDuration(pausedUntil - nowMs)}`,
-      paused: true,
-    }
-  }
-
-  return {
-    label: 'Pause',
-    paused: false,
-  }
+  // ボタンは待機中／ready を区別せず「一時停止中かどうか」だけを見せる。
+  const display = getGroupPauseDisplayState(entry, now)
+  const paused = display.kind === 'paused'
+  return { label: paused ? display.label : 'Pause', paused }
 }

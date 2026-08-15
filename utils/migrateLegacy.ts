@@ -1,6 +1,15 @@
 import { DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
 import { sortRulesByEvaluationOrder } from './blocking'
-import type { BlockDestination, Rule, RuleRestriction, TimeWindow } from './types'
+import { normalizeTimeRange, toTimeWindow } from './normalizeSchema'
+import { asRecord } from './record'
+import type {
+  BlockDestination,
+  DayOfWeek,
+  Rule,
+  RuleRestriction,
+  TimeRange,
+  TimeWindow,
+} from './types'
 
 /**
  * 旧フォーマット（`Group.restrictions`）の制限種別。
@@ -98,4 +107,132 @@ export function migrateLegacyRules(input: LegacyGroupInput): Rule[] {
     }),
   )
   return sortRulesByEvaluationOrder(rules)
+}
+
+/** unknown の値から旧フォーマットの制限を生成する。移行にのみ使う。 */
+function normalizeLegacyRestriction(value: unknown): LegacyRestriction | undefined {
+  const valueRecord = asRecord(value)
+  if (
+    valueRecord.type !== 'block' &&
+    valueRecord.type !== 'redirect' &&
+    valueRecord.type !== 'grace' &&
+    valueRecord.type !== 'wait'
+  )
+    return undefined
+  const restriction: LegacyRestriction = { type: valueRecord.type }
+  if (typeof valueRecord.graceMinutes === 'number')
+    restriction.graceMinutes = valueRecord.graceMinutes
+  if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
+  if (valueRecord.type === 'wait') {
+    restriction.waitGrantMinutes =
+      typeof valueRecord.waitGrantMinutes === 'number' && valueRecord.waitGrantMinutes >= 1
+        ? valueRecord.waitGrantMinutes
+        : DEFAULT_WAIT_GRANT_MINUTES
+  }
+  if (typeof valueRecord.redirectUrl === 'string') restriction.redirectUrl = valueRecord.redirectUrl
+  return restriction
+}
+
+/**
+ * unknown の値から旧フォーマットの制限配列を生成する。
+ * 同種は厳格側（grace は最小・wait は最大）へ畳む。
+ * 配列でなければ undefined を返し、呼び出し側が `dailyRules` へフォールバックできるようにする。
+ */
+export function normalizeLegacyRestrictions(value: unknown): LegacyRestriction[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const restrictions = value.flatMap((item) => {
+    const restriction = normalizeLegacyRestriction(item)
+    return restriction ? [restriction] : []
+  })
+  const block = restrictions.find((restriction) => restriction.type === 'block')
+  const redirect = restrictions.find((restriction) => restriction.type === 'redirect')
+  const graceMinutes = restrictions
+    .filter((restriction) => restriction.type === 'grace')
+    .map((restriction) => restriction.graceMinutes)
+    .filter((minutes): minutes is number => minutes !== undefined)
+  const waitSeconds = restrictions
+    .filter((restriction) => restriction.type === 'wait')
+    .map((restriction) => restriction.waitSeconds)
+    .filter((seconds): seconds is number => seconds !== undefined)
+  const waitGrantMinutes = restrictions
+    .filter((restriction) => restriction.type === 'wait')
+    .map((restriction) => restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES)
+    .filter(
+      (minutes): minutes is number =>
+        minutes !== undefined && Number.isInteger(minutes) && minutes >= 1,
+    )
+  const normalized: LegacyRestriction[] = []
+  if (block) normalized.push({ type: 'block' })
+  else if (redirect) normalized.push(redirect)
+  if (graceMinutes.length > 0)
+    normalized.push({ type: 'grace', graceMinutes: Math.min(...graceMinutes) })
+  if (waitSeconds.length > 0)
+    normalized.push({
+      type: 'wait',
+      waitSeconds: Math.max(...waitSeconds),
+      waitGrantMinutes:
+        waitGrantMinutes.length > 0 ? Math.max(...waitGrantMinutes) : DEFAULT_WAIT_GRANT_MINUTES,
+    })
+  return normalized
+}
+
+/**
+ * 旧フォーマット（v2〜v4）の曜日別ルール（`dailyRules`）を `timeWindows` / `restrictions` へ変換する。
+ * 同一内容（ブロック時間帯・上限）の曜日をまとめて weekly 条件1件にし、全曜日同一なら daily 条件にする。
+ * ブロック時間帯は block 制限、閲覧上限は grace 制限として block → grace の順に展開する。
+ */
+export function convertLegacyDailyRules(value: unknown): {
+  timeWindows: TimeWindow[]
+  restrictions: LegacyRestriction[]
+} {
+  const timeWindows: TimeWindow[] = []
+  const restrictions: LegacyRestriction[] = []
+  if (!Array.isArray(value)) return { timeWindows, restrictions }
+
+  const byContent = new Map<
+    string,
+    { daysOfWeek: Set<DayOfWeek>; blockedTimeRanges: TimeRange[]; dailyLimitMinutes?: number }
+  >()
+  for (const item of value) {
+    const rule = asRecord(item)
+    const dayOfWeek = rule.dayOfWeek
+    if (!Number.isInteger(dayOfWeek) || (dayOfWeek as number) < 0 || (dayOfWeek as number) > 6)
+      continue
+
+    const blockedTimeRanges = Array.isArray(rule.blockedTimeRanges)
+      ? rule.blockedTimeRanges.map(normalizeTimeRange)
+      : []
+    const dailyLimitMinutes =
+      typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined
+    if (blockedTimeRanges.length === 0 && dailyLimitMinutes === undefined) continue
+
+    const key = JSON.stringify([blockedTimeRanges, dailyLimitMinutes ?? null])
+    const entry = byContent.get(key) ?? {
+      daysOfWeek: new Set<DayOfWeek>(),
+      blockedTimeRanges,
+      dailyLimitMinutes,
+    }
+    entry.daysOfWeek.add(dayOfWeek as DayOfWeek)
+    byContent.set(key, entry)
+  }
+
+  const entries = [...byContent.values()].map((entry) => ({
+    condition:
+      entry.daysOfWeek.size === 7
+        ? { type: 'daily' as const }
+        : { type: 'weekly' as const, daysOfWeek: [...entry.daysOfWeek].toSorted((a, b) => a - b) },
+    blockedTimeRanges: entry.blockedTimeRanges,
+    dailyLimitMinutes: entry.dailyLimitMinutes,
+  }))
+  for (const entry of entries) {
+    if (entry.blockedTimeRanges.length === 0) continue
+    timeWindows.push(toTimeWindow(entry.condition, entry.blockedTimeRanges))
+    restrictions.push({ type: 'block' })
+  }
+  for (const entry of entries) {
+    if (entry.dailyLimitMinutes === undefined) continue
+    timeWindows.push(toTimeWindow(entry.condition, []))
+    restrictions.push({ type: 'grace', graceMinutes: entry.dailyLimitMinutes })
+  }
+  return { timeWindows, restrictions }
 }

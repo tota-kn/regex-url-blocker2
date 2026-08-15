@@ -12,13 +12,21 @@ import {
   isTargetGroup,
   incrementEffectiveCounters,
   normalizeCounters,
-  RULE_KIND_ORDER,
   shouldSkipUrl,
+  strictestBlockReason,
   type BlockReason,
   type UrlEvaluation,
 } from '@/utils/blocking'
 import { reconcileEffectiveSettings } from '@/utils/effectiveSettings'
 import { getPauseAllowedGroupIds } from '@/utils/groupPause'
+import { jsonEqual } from '@/utils/json'
+import {
+  bothSettings,
+  settingsPair,
+  strictestBy,
+  unionOf,
+  type SettingsPair,
+} from '@/utils/settingsPair'
 import {
   buildEffectiveRemainingTimeNotificationPlans,
   markNotificationPlanHistory,
@@ -101,32 +109,46 @@ interface ChromePromiseApi {
 }
 
 /**
+ * 保存済み設定を読み直し、基準スナップショットと一時停止・待機ゲート状態を更新する。
+ *
+ * 起動時（`initializeState`）と設定変更時（`reloadSettings`）で共通の手順。
+ * @param mergeStoredCounters 既にメモリ上の counter がある場合に永続値と統合するかどうか。
+ *   起動直後はメモリ側が空なので false でよい。
+ */
+async function applyLatestSettings(now: Date, mergeStoredCounters: boolean): Promise<Settings> {
+  const preferred = await loadSettings()
+  const storedEffectiveState = await loadEffectiveSettingsState(preferred, now)
+  const nextEffectiveState = reconcileEffectiveSettings(preferred, storedEffectiveState, now)
+  await saveEffectiveSettingsState(nextEffectiveState)
+
+  settings = nextEffectiveState.effectiveSettings
+  preferredSettings = preferred
+
+  const storedCounters = await loadCounters()
+  counters = normalizeCounters(
+    settings,
+    mergeStoredCounters ? mergeCounters(counters, storedCounters) : storedCounters,
+    now,
+  )
+  groupPauseState = await loadGroupPauseState(
+    getPauseAllowedGroupIds(settings, preferred),
+    now.getTime(),
+  )
+  await saveGroupPauseState(groupPauseState)
+  delayGrantState = await loadDelayGrantState(
+    settings.groups.map((group) => group.id),
+    now.getTime(),
+  )
+  dirtyCounters = true
+  return settings
+}
+
+/**
  * background が利用する設定とカウンタを初期化する。
  */
 async function initializeState(): Promise<void> {
-  const now = new Date()
-  const preferredSettings = await loadSettings()
-  const storedEffectiveState = await loadEffectiveSettingsState(preferredSettings, now)
-  const nextEffectiveState = reconcileEffectiveSettings(
-    preferredSettings,
-    storedEffectiveState,
-    now,
-  )
-  await saveEffectiveSettingsState(nextEffectiveState)
-  settings = nextEffectiveState.effectiveSettings
-  globalThisPreferredSettings(preferredSettings)
-  counters = normalizeCounters(settings, await loadCounters(), now)
-  const validGroupIds = settings.groups.map((group) => group.id)
-  const [pauseState, grantState, usageHistory] = await Promise.all([
-    loadGroupPauseState(getPauseAllowedGroupIds(settings, preferredSettings), now.getTime()),
-    loadDelayGrantState(validGroupIds, now.getTime()),
-    loadUsageNotificationHistory(),
-  ])
-  groupPauseState = pauseState
-  delayGrantState = grantState
-  usageNotificationHistory = usageHistory
-  dirtyCounters = true
-  await saveGroupPauseState(groupPauseState)
+  await applyLatestSettings(new Date(), false)
+  usageNotificationHistory = await loadUsageNotificationHistory()
   await removeObsoleteLocalState()
 }
 
@@ -150,14 +172,15 @@ async function currentSettings(): Promise<Settings> {
   return settings
 }
 
-/** 最新の希望設定を background の評価用 state に保存する。 */
-function globalThisPreferredSettings(next: Settings): void {
-  preferredSettings = next
+/** 基準設定と、まだ読み込めていなければ基準設定で代用した希望設定の組を返す。 */
+function currentPair(s: Settings): SettingsPair {
+  return settingsPair(s, preferredSettings)
 }
 
 /** 基準設定と最新設定を使って URL を評価する。 */
 function evaluateCurrentUrl(s: Settings, url: string | undefined, now: Date): UrlEvaluation {
-  return evaluateEffectiveUrl(s, preferredSettings ?? s, counters, url, now)
+  const pair = currentPair(s)
+  return evaluateEffectiveUrl(pair.baseline, pair.preferred, counters, url, now)
 }
 
 /**
@@ -195,28 +218,19 @@ function mergeCounters(
  * 設定変更を再読み込みし、counter を現在のグループ定義に合わせて正規化する。
  */
 async function reloadSettings(): Promise<void> {
-  const now = new Date()
-  const preferredSettings = await loadSettings()
-  const storedEffectiveState = await loadEffectiveSettingsState(preferredSettings, now)
-  const nextEffectiveState = reconcileEffectiveSettings(
-    preferredSettings,
-    storedEffectiveState,
-    now,
-  )
-  await saveEffectiveSettingsState(nextEffectiveState)
-  settings = nextEffectiveState.effectiveSettings
-  globalThisPreferredSettings(preferredSettings)
-  counters = normalizeCounters(settings, mergeCounters(counters, await loadCounters()), now)
-  groupPauseState = await loadGroupPauseState(
-    getPauseAllowedGroupIds(settings, preferredSettings),
-    now.getTime(),
-  )
-  await saveGroupPauseState(groupPauseState)
-  delayGrantState = await loadDelayGrantState(
-    settings.groups.map((group) => group.id),
-    now.getTime(),
-  )
-  dirtyCounters = true
+  await applyLatestSettings(new Date(), true)
+}
+
+/**
+ * 設定の再読み込み中は URL 評価を待たせるため、進行中の Promise を公開しながら実行する。
+ */
+async function withReloadLock(task: () => Promise<void>): Promise<void> {
+  reloadPromise = task()
+  try {
+    await reloadPromise
+  } finally {
+    reloadPromise = undefined
+  }
 }
 
 /**
@@ -226,7 +240,7 @@ async function reloadCounters(): Promise<void> {
   const s = await currentSettings()
   const storedCounters = await loadCounters()
   const nextCounters = normalizeCounters(s, mergeCounters(counters, storedCounters), new Date())
-  dirtyCounters = JSON.stringify(nextCounters) !== JSON.stringify(storedCounters)
+  dirtyCounters = !jsonEqual(nextCounters, storedCounters)
   counters = nextCounters
 }
 
@@ -234,8 +248,10 @@ async function reloadCounters(): Promise<void> {
  * storage.local の一時停止状態を background のメモリ状態へ取り込む。
  */
 async function reloadGroupPauseState(): Promise<void> {
-  const s = await currentSettings()
-  groupPauseState = await loadGroupPauseState(getPauseAllowedGroupIds(s, preferredSettings ?? s))
+  const pair = currentPair(await currentSettings())
+  groupPauseState = await loadGroupPauseState(
+    getPauseAllowedGroupIds(pair.baseline, pair.preferred),
+  )
 }
 
 /**
@@ -261,9 +277,10 @@ async function notifyRemainingTimeIfNeeded(
   tab: ActionTargetTab,
   now: Date,
 ): Promise<void> {
+  const pair = currentPair(s)
   const plans = buildEffectiveRemainingTimeNotificationPlans(
-    s,
-    preferredSettings ?? s,
+    pair.baseline,
+    pair.preferred,
     counters,
     usageNotificationHistory.usageNotificationHistory,
     tab.url,
@@ -301,7 +318,7 @@ function buildBlockedPageUrl(url: string, evaluation: UrlEvaluation): string {
  * lockMode で基準側の遷移先が凍結されているとき、最新側の遷移先でループしないために union する。
  */
 function allRedirectUrls(s: Settings): string[] {
-  return [...new Set([...getRedirectUrls(s), ...getRedirectUrls(preferredSettings ?? s)])]
+  return unionOf(currentPair(s), getRedirectUrls)
 }
 
 /**
@@ -314,20 +331,15 @@ function findBlockReason(
   now: Date,
 ): BlockReason | undefined {
   const blockedGroupIds = new Set(evaluation.blockedGroupIds)
-  return [s, preferredSettings ?? s]
-    .flatMap((item) =>
-      item.groups
-        .filter((group) => blockedGroupIds.has(group.id))
-        .flatMap((group) => {
-          const reason = getBlockReason(group, counters.counters[group.id], now, item.global)
-          return reason ? [reason] : []
-        }),
-    )
-    .toSorted(
-      (a, b) =>
-        RULE_KIND_ORDER.indexOf(a.rule.restriction.kind) -
-        RULE_KIND_ORDER.indexOf(b.rule.restriction.kind),
-    )[0]
+  const reasons = bothSettings(currentPair(s)).flatMap((item) =>
+    item.groups
+      .filter((group) => blockedGroupIds.has(group.id))
+      .flatMap((group) => {
+        const reason = getBlockReason(group, counters.counters[group.id], now, item.global)
+        return reason ? [reason] : []
+      }),
+  )
+  return strictestBlockReason(reasons)
 }
 
 /**
@@ -400,7 +412,7 @@ async function redirectToWaitIfNeeded(
   const groupId = delayed.delayedGroupIds[0]
   if (!groupId) return
 
-  const candidates = [s, preferredSettings ?? s].flatMap((item) => {
+  const candidates = bothSettings(currentPair(s)).flatMap((item) => {
     const group = item.groups.find((candidate) => candidate.id === groupId)
     return group && isTargetGroup(group, url)
       ? [
@@ -411,14 +423,16 @@ async function redirectToWaitIfNeeded(
         ]
       : []
   })
-  const seconds = candidates
-    .map((value) => value.seconds)
-    .filter((value): value is number => value !== undefined)
-    .toSorted((a, b) => b - a)[0]
-  const grantMinutes = candidates
-    .map((value) => value.grantMinutes)
-    .filter((value): value is number => value !== undefined)
-    .toSorted((a, b) => b - a)[0]
+  const seconds = strictestBy(
+    candidates.map((value) => value.seconds).filter((value) => value !== undefined),
+    (value) => value,
+    'max',
+  )
+  const grantMinutes = strictestBy(
+    candidates.map((value) => value.grantMinutes).filter((value) => value !== undefined),
+    (value) => value,
+    'max',
+  )
   if (seconds === undefined || grantMinutes === undefined) return
 
   await browser.tabs.update(tabId, { url: buildWaitPageUrl(url, groupId, seconds, grantMinutes) })
@@ -459,9 +473,10 @@ function buildActionState(
   tab: ActionTargetTab,
   now: Date,
 ): { text: string; title: string; color: string } {
+  const pair = currentPair(s)
   const minimum = getMinimumEffectiveRemainingTimeLimit(
-    s,
-    preferredSettings ?? s,
+    pair.baseline,
+    pair.preferred,
     counters,
     tab.url,
     now,
@@ -538,15 +553,16 @@ async function tick(): Promise<void> {
 
   const now = new Date()
   if (idleState === 'active') {
+    const pair = currentPair(s)
     const nextCounters = incrementEffectiveCounters(
-      s,
-      preferredSettings ?? s,
+      pair.baseline,
+      pair.preferred,
       counters,
       activeTab.url,
       now,
       1,
     )
-    if (JSON.stringify(nextCounters) !== JSON.stringify(counters)) {
+    if (!jsonEqual(nextCounters, counters)) {
       counters = nextCounters
       dirtyCounters = true
     }
@@ -597,12 +613,7 @@ export default defineBackground(() => {
     if (areaName !== 'sync') return
     if (!changes.global && !changes.groups) return
     runAsync(async () => {
-      reloadPromise = reloadSettings()
-      try {
-        await reloadPromise
-      } finally {
-        reloadPromise = undefined
-      }
+      await withReloadLock(reloadSettings)
       await reevaluateAllTabs()
     })
   })
@@ -629,17 +640,7 @@ export default defineBackground(() => {
   browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const url = changeInfo.url ?? tab.url
     if (!url) return
-    runAsync(async () => {
-      const s = await currentSettings()
-      const now = new Date()
-      await updateActionForTab({ ...tab, id: tabId, url }, now)
-      const evaluation = applyGroupPauseState(
-        evaluateCurrentUrl(s, url, now),
-        groupPauseState,
-        now.getTime(),
-      )
-      await enforceEvaluation(tabId, url, s, evaluation, now)
-    })
+    runAsync(async () => reevaluateTab({ ...tab, id: tabId, url }))
   })
 
   browser.tabs.onActivated.addListener((activeInfo) => {
@@ -660,12 +661,7 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== HEARTBEAT_ALARM) return
     runAsync(async () => {
-      reloadPromise = reloadSettings()
-      try {
-        await reloadPromise
-      } finally {
-        reloadPromise = undefined
-      }
+      await withReloadLock(reloadSettings)
       await reevaluateAllTabs()
       await flushCounters()
     })

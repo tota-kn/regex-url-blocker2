@@ -1,4 +1,4 @@
-import { filterActiveRules, isWindowActiveAt } from './blocking'
+import { filterActiveRules, isWindowActiveAt, timeInRange } from './blocking'
 import { minutesToTime } from './datetime'
 import { formatTimeWindow } from './groups'
 import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction } from './types'
@@ -112,11 +112,7 @@ function windowEndsAtLabel(rule: Rule, at: Date): string | undefined {
   if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) return undefined
   const atMinute = at.getHours() * 60 + at.getMinutes()
   const active = rule.window.timeRanges.find((range) =>
-    range.startMinute === range.endMinute
-      ? true
-      : range.startMinute < range.endMinute
-        ? atMinute >= range.startMinute && atMinute < range.endMinute
-        : atMinute >= range.startMinute || atMinute < range.endMinute,
+    timeInRange(atMinute, range.startMinute, range.endMinute),
   )
   if (!active || active.startMinute === active.endMinute) return undefined
   return minutesToTime(active.endMinute % 1440)

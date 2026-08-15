@@ -14,6 +14,9 @@ import type {
   UsageCounter,
   UsageCountersState,
 } from './types'
+import { dateAtMinuteOfDay, formatDate, minuteOfDay } from './datetime'
+import { jsonEqual, uniqueByJson } from './json'
+import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
@@ -135,48 +138,15 @@ export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
 }
 
 /**
- * 指定日の日内分に対応するローカル日時を返す。
- */
-function dateAtMinuteOfDay(date: Date, minute: number): Date {
-  const result = new Date(date)
-  result.setHours(Math.floor(minute / 60), minute % 60, 0, 0)
-  return result
-}
-
-/**
- * "HH:MM" を日内分に変換する。不正値は 0 として扱う。
- */
-function minuteOfDay(value: string): number {
-  const match = /^(\d{2}):(\d{2})$/.exec(value)
-  if (!match) return 0
-  const hour = Number(match[1])
-  const minute = Number(match[2])
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return 0
-  return hour * 60 + minute
-}
-
-/**
- * 日時からローカル日付の ID を作る。
- */
-function dateId(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-/**
  * グローバル設定のリセット時刻を起点にした論理日情報を返す。
  */
 export function getLogicalDate(now: Date, dailyResetHour: string): LogicalDateInfo {
-  const resetMinute = minuteOfDay(dailyResetHour)
-  const start = new Date(now)
-  start.setHours(Math.floor(resetMinute / 60), resetMinute % 60, 0, 0)
+  const start = dateAtMinuteOfDay(now, minuteOfDay(dailyResetHour))
   if (now.getTime() < start.getTime()) {
     start.setDate(start.getDate() - 1)
   }
   return {
-    logicalDate: dateId(start),
+    logicalDate: formatDate(start),
     dayOfWeek: start.getDay() as DayOfWeek,
     month: start.getMonth() + 1,
     dayOfMonth: start.getDate(),
@@ -237,8 +207,9 @@ export function getTargetGroupIds(settings: Settings, url: string | undefined): 
 
 /**
  * 時刻 T が時間帯に含まれるなら true を返す。
+ * `startMinute === endMinute` は終日、`startMinute > endMinute` は日跨ぎとして扱う。
  */
-function timeInRange(nowMinute: number, startMinute: number, endMinute: number): boolean {
+export function timeInRange(nowMinute: number, startMinute: number, endMinute: number): boolean {
   if (startMinute === endMinute) return true
   if (startMinute < endMinute) return nowMinute >= startMinute && nowMinute < endMinute
   return nowMinute >= startMinute || nowMinute < endMinute
@@ -464,6 +435,18 @@ export function getBlockDestination(reason: BlockReason): BlockDestination {
 }
 
 /**
+ * 複数のブロック理由から、評価順（`RULE_KIND_ORDER`）で最も強いものを返す。
+ * 基準設定と最新設定の両方で成立した理由を1つに畳むために使う。
+ */
+export function strictestBlockReason(reasons: BlockReason[]): BlockReason | undefined {
+  return strictestBy(
+    reasons,
+    (reason) => RULE_KIND_ORDER.indexOf(reason.rule.restriction.kind),
+    'min',
+  )
+}
+
+/**
  * group の popup 表示向けブロック状態を返す。
  */
 export function getGroupBlockStatus(
@@ -538,6 +521,39 @@ export function getDailyLimitReleaseAt(rule: Rule, now: Date, global: GlobalSett
 }
 
 /**
+ * 二重評価で集めた、1グループ分の候補値。
+ */
+export interface TargetCandidate<T> {
+  /** 候補の出どころとなったグループ。 */
+  group: Group
+  /** そのグループが属していた設定のグローバル設定。 */
+  global: GlobalSettings
+  /** `pick` が返した値。 */
+  value: T
+}
+
+/**
+ * 基準設定と希望設定を独立に評価し、URL の制限対象グループごとの候補値を集める。
+ *
+ * 同じ group id が両設定に存在すれば候補は2件になる。どちらを採るかは呼び出し側が
+ * `strictestBy` などで決める。`pick` が undefined を返した候補は除外する。
+ */
+export function collectTargetCandidates<T>(
+  pair: SettingsPair,
+  url: string | undefined,
+  pick: (group: Group, global: GlobalSettings) => T | undefined,
+): TargetCandidate<T>[] {
+  return bothSettings(pair).flatMap((settings) => {
+    const targetIds = new Set(getTargetGroupIds(settings, url))
+    return settings.groups.flatMap((group) => {
+      if (!targetIds.has(group.id)) return []
+      const value = pick(group, settings.global)
+      return value === undefined ? [] : [{ group, global: settings.global, value }]
+    })
+  })
+}
+
+/**
  * 基準設定と最新設定を独立に調べ、残り時間が最短の閲覧上限を返す。
  */
 export function getMinimumEffectiveRemainingTimeLimit(
@@ -547,22 +563,11 @@ export function getMinimumEffectiveRemainingTimeLimit(
   url: string | undefined,
   now: Date,
 ): MinimumRemainingTimeLimit | undefined {
-  return [baseline, preferred]
-    .flatMap((item) => {
-      const targetIds = new Set(getTargetGroupIds(item, url))
-      return item.groups
-        .filter((group) => targetIds.has(group.id))
-        .flatMap((group) => {
-          const summary = getTimeLimitUsageSummary(
-            group,
-            counters.counters[group.id],
-            now,
-            item.global,
-          )
-          return summary ? [{ group, summary }] : []
-        })
-    })
-    .toSorted((a, b) => a.summary.remainingSec - b.summary.remainingSec)[0]
+  const candidates = collectTargetCandidates({ baseline, preferred }, url, (group, global) =>
+    getTimeLimitUsageSummary(group, counters.counters[group.id], now, global),
+  )
+  const strictest = strictestBy(candidates, (item) => item.value.remainingSec, 'min')
+  return strictest ? { group: strictest.group, summary: strictest.value } : undefined
 }
 
 /**
@@ -612,17 +617,19 @@ export function evaluateEffectiveUrl(
   url: string | undefined,
   now: Date,
 ): UrlEvaluation {
-  const evaluations = [
-    evaluateUrl(baseline, counters, url, now),
-    evaluateUrl(preferred, counters, url, now),
+  // 評価は URL ごとに毎回走るため、設定 1 件につき 1 回だけ評価して結果を畳む。
+  const evaluations = bothSettings({ baseline, preferred }).map((settings) =>
+    evaluateUrl(settings, counters, url, now),
+  )
+  const unique = (pick: (item: UrlEvaluation) => string[]): string[] => [
+    ...new Set(evaluations.flatMap(pick)),
   ]
-  const unique = (values: string[]): string[] => [...new Set(values)]
-  const blockedGroupIds = unique(evaluations.flatMap((item) => item.blockedGroupIds))
+  const blockedGroupIds = unique((item) => item.blockedGroupIds)
   return {
     blocked: blockedGroupIds.length > 0,
-    targetGroupIds: unique(evaluations.flatMap((item) => item.targetGroupIds)),
+    targetGroupIds: unique((item) => item.targetGroupIds),
     blockedGroupIds,
-    delayedGroupIds: unique(evaluations.flatMap((item) => item.delayedGroupIds)),
+    delayedGroupIds: unique((item) => item.delayedGroupIds),
   }
 }
 
@@ -638,49 +645,47 @@ export function getEffectiveGroupBlockStatus(
   now: Date,
 ): EffectiveGroupBlockStatus | undefined {
   if (!url) return undefined
-  const variants = [baseline, preferred].flatMap((settings) => {
+  const variants = bothSettings({ baseline, preferred }).flatMap((settings) => {
     const group = settings.groups.find((candidate) => candidate.id === groupId)
     if (!group || group.disabled || !isTargetGroup(group, url)) return []
     return [{ group, status: getGroupBlockStatus(group, counter, now, settings.global) }]
   })
   const uniqueVariants = variants.filter(
     (variant, index, all) =>
-      all.findIndex(
-        (candidate) => JSON.stringify(candidate.group) === JSON.stringify(variant.group),
-      ) === index,
+      all.findIndex((candidate) => jsonEqual(candidate.group, variant.group)) === index,
   )
   if (uniqueVariants.length === 0) return undefined
 
   const preferredGroup = preferred.groups.find((group) => group.id === groupId)
-  const uniqueObjects = <T>(values: T[]): T[] => [
-    ...new Map(values.map((value) => [JSON.stringify(value), value])).values(),
-  ]
   const maxOf = (values: (number | undefined)[]): number | undefined =>
-    values.filter((value): value is number => value !== undefined).toSorted((a, b) => b - a)[0]
+    strictestBy(
+      values.filter((value): value is number => value !== undefined),
+      (value) => value,
+      'max',
+    )
 
-  const summaries = uniqueVariants
-    .flatMap((item) => (item.status.timeLimitSummary ? [item.status.timeLimitSummary] : []))
-    .toSorted((a, b) => a.remainingSec - b.remainingSec)
+  const strictestSummary = strictestBy(
+    uniqueVariants.flatMap((item) =>
+      item.status.timeLimitSummary ? [item.status.timeLimitSummary] : [],
+    ),
+    (summary) => summary.remainingSec,
+    'min',
+  )
   const blockedByTimeRange = uniqueVariants.some((item) => item.status.blockedByTimeRange)
   const blockedByDailyLimit = uniqueVariants.some((item) => item.status.blockedByDailyLimit)
-  // 評価順で最も強い理由を採用する。
-  const blockReason = uniqueVariants
-    .flatMap((item) => (item.status.blockReason ? [item.status.blockReason] : []))
-    .toSorted(
-      (a, b) =>
-        RULE_KIND_ORDER.indexOf(a.rule.restriction.kind) -
-        RULE_KIND_ORDER.indexOf(b.rule.restriction.kind),
-    )[0]
+  const blockReason = strictestBlockReason(
+    uniqueVariants.flatMap((item) => (item.status.blockReason ? [item.status.blockReason] : [])),
+  )
 
   return {
     group: preferredGroup ?? uniqueVariants[0]!.group,
     status: {
-      rules: uniqueObjects(uniqueVariants.flatMap((item) => item.status.rules)),
+      rules: uniqueByJson(uniqueVariants.flatMap((item) => item.status.rules)),
       isActive: uniqueVariants.some((item) => item.status.isActive),
-      activeTimeRanges: uniqueObjects(
+      activeTimeRanges: uniqueByJson(
         uniqueVariants.flatMap((item) => item.status.activeTimeRanges),
       ),
-      timeLimitSummary: summaries[0],
+      timeLimitSummary: strictestSummary,
       waitSeconds: maxOf(uniqueVariants.map((item) => item.status.waitSeconds)),
       waitGrantMinutes: maxOf(uniqueVariants.map((item) => item.status.waitGrantMinutes)),
       blockedByTimeRange,
@@ -702,24 +707,21 @@ export function incrementEffectiveCounters(
   now: Date,
   seconds: number,
 ): UsageCountersState {
-  const settings = [baseline, preferred]
-  const allGroups = settings.flatMap((item) => item.groups)
+  const pair: SettingsPair = { baseline, preferred }
+  const allGroups = bothSettings(pair).flatMap((item) => item.groups)
   const normalizationSettings: Settings = {
     global: baseline.global,
     groups: [...new Map(allGroups.map((group) => [group.id, group])).values()],
   }
   const normalized = normalizeCounters(normalizationSettings, counters, now)
   const logicalDate = getLogicalDate(now, baseline.global.dailyResetHour).logicalDate
-  const activeIds = new Set<string>()
 
-  for (const item of settings) {
-    const targetIds = new Set(getTargetGroupIds(item, url))
-    for (const group of item.groups) {
-      if (targetIds.has(group.id) && hasActiveDailyLimit(group, now, item.global)) {
-        activeIds.add(group.id)
-      }
-    }
-  }
+  // どちらかの設定で dailyLimit がアクティブなら加算対象。共有 counter なので一度だけ足す。
+  const activeIds = new Set(
+    collectTargetCandidates(pair, url, (group, global) =>
+      hasActiveDailyLimit(group, now, global) ? group.id : undefined,
+    ).map((candidate) => candidate.value),
+  )
   for (const groupId of activeIds) {
     const current = normalized.counters[groupId] ?? { logicalDate, consumedSec: 0 }
     normalized.counters[groupId] = { logicalDate, consumedSec: current.consumedSec + seconds }

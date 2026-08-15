@@ -1,12 +1,12 @@
 import { dayLabel, formatMonthDay, formatTimeRange } from './datetime'
+import { deepClone } from './json'
 import type { Group, ScheduleRuleCondition, Settings, TimeRange, TimeWindow } from './types'
 
 /**
  * グループを JSON 互換の deep clone として複製する。
  */
 export function cloneGroup(group: Group): Group {
-  const cloned = JSON.parse(JSON.stringify(group)) as Group
-  return cloned
+  return deepClone(group)
 }
 
 /**
@@ -36,7 +36,7 @@ export function restoreGroupToList(groups: Group[], restored: Group): Group[] {
  * 設定値を JSON 互換の deep clone として複製する。
  */
 export function cloneSettings(settings: Settings): Settings {
-  return JSON.parse(JSON.stringify(settings)) as Settings
+  return deepClone(settings)
 }
 
 /**

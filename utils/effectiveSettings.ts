@@ -1,6 +1,7 @@
-import { getLogicalDate } from './blocking'
+import { getLogicalDate, getNextDailyResetAt } from './blocking'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from './defaults'
 import { cloneGroup, cloneSettings } from './groups'
+import { jsonEqual } from './json'
 import type { EffectiveSettingsState, Group, Settings } from './types'
 
 /**
@@ -142,15 +143,8 @@ export function getPendingGroupFieldKeys(baseline: Group, preferred: Group): Arr
   return groupFieldKeys().filter((key) => {
     const policy = GROUP_FIELD_POLICIES[key]
     if (policy.kind === 'identity' || policy.kind === 'immediate') return false
-    return JSON.stringify(resolved[key]) !== JSON.stringify(normalizedPreferred[key])
+    return !jsonEqual(resolved[key], normalizedPreferred[key])
   })
-}
-
-/**
- * JSON 化できる設定値同士が同一なら true を返す。
- */
-function settingsEqual(a: Settings, b: Settings): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 /**
@@ -209,13 +203,8 @@ export function getPendingEffectiveGroupIds(preferred: Settings, effective: Sett
   return effective.groups.flatMap((effectiveGroup) => {
     if (!effectiveGroup.lockMode) return []
     const preferredGroup = preferredById.get(effectiveGroup.id)
-    const isPending =
-      !preferredGroup ||
-      !settingsEqual(
-        { global: preferred.global, groups: [preferredGroup] },
-        { global: preferred.global, groups: [effectiveGroup] },
-      )
-    return isPending ? [effectiveGroup.id] : []
+    // 希望側に無い、または内容が一致しないグループは、基準側の制限が残っている。
+    return jsonEqual(preferredGroup, effectiveGroup) ? [] : [effectiveGroup.id]
   })
 }
 
@@ -260,11 +249,5 @@ export function reconcileEffectiveSettings(
  * 次に有効設定が丸ごと昇格するリセット日時を返す。
  */
 export function getNextEffectiveSettingsResetAt(effectiveSettings: Settings, now: Date): Date {
-  const [hour = '0', minute = '0'] = effectiveSettings.global.dailyResetHour.split(':')
-  const resetAt = new Date(now)
-  resetAt.setHours(Number(hour), Number(minute), 0, 0)
-  if (resetAt.getTime() <= now.getTime()) {
-    resetAt.setDate(resetAt.getDate() + 1)
-  }
-  return resetAt
+  return getNextDailyResetAt(now, effectiveSettings.global)
 }

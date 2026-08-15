@@ -1,4 +1,4 @@
-import { evaluateUrl, getTimeLimitUsageSummary } from './blocking'
+import { collectTargetCandidates, getTimeLimitUsageSummary } from './blocking'
 import type { Settings, UsageCountersState, UsageNotificationEntry } from './types'
 
 /**
@@ -46,27 +46,20 @@ export function buildEffectiveRemainingTimeNotificationPlans(
 ): NotificationPlan[] {
   if (!preferred.global.remainingTimeNotificationsEnabled) return []
   const thresholdSec = preferred.global.notificationThresholdMinutes * 60
-  const candidates = [baseline, preferred].flatMap((settings) => {
-    const targetIds = new Set(evaluateUrl(settings, counters, tabUrl, now).targetGroupIds)
-    return settings.groups.flatMap((group) => {
-      if (!targetIds.has(group.id)) return []
-      const summary = getTimeLimitUsageSummary(
-        group,
-        counters.counters[group.id],
-        now,
-        settings.global,
-      )
-      return summary ? [{ group, summary }] : []
-    })
-  })
+
+  const candidates = collectTargetCandidates({ baseline, preferred }, tabUrl, (group, global) =>
+    getTimeLimitUsageSummary(group, counters.counters[group.id], now, global),
+  )
+  // 同じ group が両設定から挙がったときは、残り時間が短い側だけを通知する。
   const strictest = new Map<string, (typeof candidates)[number]>()
   for (const candidate of candidates) {
     const current = strictest.get(candidate.group.id)
-    if (!current || candidate.summary.remainingSec < current.summary.remainingSec) {
+    if (!current || candidate.value.remainingSec < current.value.remainingSec) {
       strictest.set(candidate.group.id, candidate)
     }
   }
-  return [...strictest.values()].flatMap(({ group, summary }) => {
+
+  return [...strictest.values()].flatMap(({ group, value: summary }) => {
     if (summary.remainingSec <= 0 || summary.remainingSec > thresholdSec) return []
     if (history[group.id]?.logicalDate === summary.logicalDate) return []
     return [

@@ -57,15 +57,40 @@ export function minutesToTime(minutes: number): string {
 }
 
 /**
- * 日時を YYYY-MM-DD HH:MM で表示する。
+ * "HH:MM" を日内分に変換する。不正値と 24:00 は 0 として扱う。
+ * 論理日の境界時刻のように「日内のどこか一点」を表す値の解釈に使う。
  */
-export function formatDateTime(date: Date): string {
+export function minuteOfDay(time: string): number {
+  const minutes = timeToMinutes(time)
+  return minutes === undefined || minutes >= 1440 ? 0 : minutes
+}
+
+/**
+ * ローカル日付を YYYY-MM-DD で表示する。
+ */
+export function formatDate(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/**
+ * 日時を YYYY-MM-DD HH:MM で表示する。
+ */
+export function formatDateTime(date: Date): string {
   const h = String(date.getHours()).padStart(2, '0')
   const min = String(date.getMinutes()).padStart(2, '0')
-  return `${y}-${m}-${d} ${h}:${min}`
+  return `${formatDate(date)} ${h}:${min}`
+}
+
+/**
+ * 指定日の日内分に対応するローカル日時を返す。
+ */
+export function dateAtMinuteOfDay(date: Date, minute: number): Date {
+  const result = new Date(date)
+  result.setHours(Math.floor(minute / 60), minute % 60, 0, 0)
+  return result
 }
 
 /**

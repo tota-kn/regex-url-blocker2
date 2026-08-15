@@ -5,25 +5,26 @@ import {
   DEFAULT_PAUSE_WAIT_SECONDS,
   DEFAULT_WAIT_GRANT_MINUTES,
 } from './defaults'
-import { migrateLegacyRules, type LegacyRestriction } from './migrateLegacy'
+import {
+  convertLegacyDailyRules,
+  migrateLegacyRules,
+  normalizeLegacyRestrictions,
+} from './migrateLegacy'
 import { normalizeDelayGrantState } from './delayGrant'
 import { createEffectiveSettingsState } from './effectiveSettings'
+import { normalizeTimeWindows } from './normalizeSchema'
+import { asRecord, isRecord, normalizeEntryMap, normalizeInteger } from './record'
 import type {
   BlockDestination,
-  DayOfWeek,
   DelayGrantState,
   EffectiveSettingsState,
   Group,
   GroupMode,
   GroupPauseEntry,
   GroupPauseState,
-  MonthDay,
   Rule,
   RuleRestriction,
-  ScheduleRuleCondition,
   Settings,
-  TimeRange,
-  TimeWindow,
   UsageCountersState,
   UsageNotificationEntry,
   UsageNotificationHistoryState,
@@ -48,26 +49,19 @@ export interface SettingsExportFile {
 }
 
 /**
- * 保存済み値を残り時間通知の閾値分数へ正規化する。
+ * storage.local の 1 キーを読み、正規化した値を返す。
+ * 未保存キーは `undefined` として `normalize` に渡るため、既定値の決定は normalize 側に寄せる。
  */
-function normalizeNotificationThresholdMinutes(value: unknown): number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1
-    ? value
-    : DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes
+async function readLocal<T>(key: string, normalize: (value: unknown) => T): Promise<T> {
+  const raw = (await browser.storage.local.get([key])) as Record<string, unknown>
+  return normalize(raw[key])
 }
 
-/** 保存済み値を一時停止前待機秒数へ正規化する。 */
-function normalizePauseWaitSeconds(value: unknown): number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0
-    ? value
-    : DEFAULT_PAUSE_WAIT_SECONDS
-}
-
-/** 保存済み値を一時停止継続分数へ正規化する。 */
-function normalizePauseDurationMinutes(value: unknown): number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1
-    ? value
-    : DEFAULT_PAUSE_DURATION_MINUTES
+/**
+ * storage.local の 1 キーへ書き込む。
+ */
+async function writeLocal(key: string, value: unknown): Promise<void> {
+  await browser.storage.local.set({ [key]: value })
 }
 
 /**
@@ -79,15 +73,6 @@ function normalizeRemainingTimeNotificationsEnabled(
 ): boolean {
   if (typeof value === 'boolean') return value
   return rawThresholdMinutes !== 0
-}
-
-/**
- * object 風の値を安全にレコードとして扱う。
- */
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
 }
 
 /**
@@ -124,8 +109,12 @@ function normalizeGroup(value: unknown, globalRedirectUrl?: string): Group {
     disabled: g.disabled === true,
     lockMode: g.lockMode === true,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter((p) => typeof p === 'string') : [],
-    pauseWaitSeconds: normalizePauseWaitSeconds(g.pauseWaitSeconds),
-    pauseDurationMinutes: normalizePauseDurationMinutes(g.pauseDurationMinutes),
+    pauseWaitSeconds: normalizeInteger(g.pauseWaitSeconds, 0, DEFAULT_PAUSE_WAIT_SECONDS),
+    pauseDurationMinutes: normalizeInteger(
+      g.pauseDurationMinutes,
+      1,
+      DEFAULT_PAUSE_DURATION_MINUTES,
+    ),
     pauseAllowed: g.pauseAllowed !== false,
     rules: sortRulesByEvaluationOrder(rules),
   }
@@ -195,220 +184,6 @@ function normalizeRules(value: unknown, groupId: string): Rule[] | undefined {
 }
 
 /**
- * unknown の値から分単位の時間帯を生成する。
- */
-function normalizeTimeRange(value: unknown): TimeRange {
-  const range = asRecord(value)
-  return {
-    startMinute: typeof range.startMinute === 'number' ? range.startMinute : -1,
-    endMinute: typeof range.endMinute === 'number' ? range.endMinute : -1,
-  }
-}
-
-/**
- * unknown の値から月日を生成する。数値以外は -1（validation で拒否される値）にする。
- */
-function normalizeMonthDay(value: unknown): MonthDay {
-  const monthDay = asRecord(value)
-  return {
-    month: typeof monthDay.month === 'number' ? monthDay.month : -1,
-    day: typeof monthDay.day === 'number' ? monthDay.day : -1,
-  }
-}
-
-/**
- * unknown の値からスケジュールルールの条件を生成する。既知の type 以外は undefined を返す。
- */
-function normalizeScheduleRuleCondition(value: unknown): ScheduleRuleCondition | undefined {
-  const condition = asRecord(value)
-  if (condition.type === 'daily') {
-    return { type: 'daily' }
-  }
-  if (condition.type === 'weekly') {
-    return {
-      type: 'weekly',
-      daysOfWeek: Array.isArray(condition.daysOfWeek)
-        ? condition.daysOfWeek.filter((day): day is DayOfWeek => Number.isInteger(day))
-        : [],
-    }
-  }
-  if (condition.type === 'monthly') {
-    return {
-      type: 'monthly',
-      daysOfMonth: Array.isArray(condition.daysOfMonth)
-        ? condition.daysOfMonth.filter((day): day is number => Number.isInteger(day))
-        : [],
-    }
-  }
-  if (condition.type === 'period') {
-    return {
-      type: 'period',
-      start: normalizeMonthDay(condition.start),
-      end: normalizeMonthDay(condition.end),
-    }
-  }
-  return undefined
-}
-
-/** unknown の値から旧フォーマットの制限を生成する。移行にのみ使う。 */
-function normalizeLegacyRestriction(value: unknown): LegacyRestriction | undefined {
-  const valueRecord = asRecord(value)
-  if (
-    valueRecord.type !== 'block' &&
-    valueRecord.type !== 'redirect' &&
-    valueRecord.type !== 'grace' &&
-    valueRecord.type !== 'wait'
-  )
-    return undefined
-  const restriction: LegacyRestriction = { type: valueRecord.type }
-  if (typeof valueRecord.graceMinutes === 'number')
-    restriction.graceMinutes = valueRecord.graceMinutes
-  if (typeof valueRecord.waitSeconds === 'number') restriction.waitSeconds = valueRecord.waitSeconds
-  if (valueRecord.type === 'wait') {
-    restriction.waitGrantMinutes =
-      typeof valueRecord.waitGrantMinutes === 'number' && valueRecord.waitGrantMinutes >= 1
-        ? valueRecord.waitGrantMinutes
-        : DEFAULT_WAIT_GRANT_MINUTES
-  }
-  if (typeof valueRecord.redirectUrl === 'string') restriction.redirectUrl = valueRecord.redirectUrl
-  return restriction
-}
-
-/**
- * unknown の値から旧フォーマットの制限配列を生成する。
- * 同種は厳格側（grace は最小・wait は最大）へ畳む。
- */
-function normalizeLegacyRestrictions(value: unknown): LegacyRestriction[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const restrictions = value.flatMap((item) => {
-    const restriction = normalizeLegacyRestriction(item)
-    return restriction ? [restriction] : []
-  })
-  const block = restrictions.find((restriction) => restriction.type === 'block')
-  const redirect = restrictions.find((restriction) => restriction.type === 'redirect')
-  const graceMinutes = restrictions
-    .filter((restriction) => restriction.type === 'grace')
-    .map((restriction) => restriction.graceMinutes)
-    .filter((minutes): minutes is number => minutes !== undefined)
-  const waitSeconds = restrictions
-    .filter((restriction) => restriction.type === 'wait')
-    .map((restriction) => restriction.waitSeconds)
-    .filter((seconds): seconds is number => seconds !== undefined)
-  const waitGrantMinutes = restrictions
-    .filter((restriction) => restriction.type === 'wait')
-    .map((restriction) => restriction.waitGrantMinutes ?? DEFAULT_WAIT_GRANT_MINUTES)
-    .filter(
-      (minutes): minutes is number =>
-        minutes !== undefined && Number.isInteger(minutes) && minutes >= 1,
-    )
-  const normalized: LegacyRestriction[] = []
-  if (block) normalized.push({ type: 'block' })
-  else if (redirect) normalized.push(redirect)
-  if (graceMinutes.length > 0)
-    normalized.push({ type: 'grace', graceMinutes: Math.min(...graceMinutes) })
-  if (waitSeconds.length > 0)
-    normalized.push({
-      type: 'wait',
-      waitSeconds: Math.max(...waitSeconds),
-      waitGrantMinutes:
-        waitGrantMinutes.length > 0 ? Math.max(...waitGrantMinutes) : DEFAULT_WAIT_GRANT_MINUTES,
-    })
-  return normalized
-}
-
-/** unknown の値から分離形式の時間ウィンドウを生成する。 */
-function normalizeTimeWindows(value: unknown): TimeWindow[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const windows: TimeWindow[] = []
-  value.forEach((item) => {
-    const window = asRecord(item)
-    if (window.type === 'always') {
-      windows.push({ type: 'always' })
-      return
-    }
-    if (window.type !== 'scheduled') return
-    const condition = normalizeScheduleRuleCondition(window.condition)
-    if (condition)
-      windows.push({
-        type: 'scheduled',
-        condition,
-        timeRanges: Array.isArray(window.timeRanges)
-          ? window.timeRanges.map(normalizeTimeRange)
-          : [],
-      })
-  })
-  return windows
-}
-
-/** スケジュール条件と時間帯の組を時間ウィンドウへ変換する。毎日かつ時間帯なしは常時ウィンドウにする。 */
-function toTimeWindow(condition: ScheduleRuleCondition, timeRanges: TimeRange[]): TimeWindow {
-  return condition.type === 'daily' && timeRanges.length === 0
-    ? { type: 'always' }
-    : { type: 'scheduled', condition, timeRanges }
-}
-
-/**
- * 旧フォーマット（v2〜v4）の曜日別ルール（`dailyRules`）を `timeWindows` / `restrictions` へ変換する。
- * 同一内容（ブロック時間帯・上限）の曜日をまとめて weekly 条件1件にし、全曜日同一なら daily 条件にする。
- * ブロック時間帯は block 制限、閲覧上限は grace 制限として block → grace の順に展開する。
- */
-function convertLegacyDailyRules(value: unknown): {
-  timeWindows: TimeWindow[]
-  restrictions: LegacyRestriction[]
-} {
-  const timeWindows: TimeWindow[] = []
-  const restrictions: LegacyRestriction[] = []
-  if (!Array.isArray(value)) return { timeWindows, restrictions }
-
-  const byContent = new Map<
-    string,
-    { daysOfWeek: Set<DayOfWeek>; blockedTimeRanges: TimeRange[]; dailyLimitMinutes?: number }
-  >()
-  for (const item of value) {
-    const rule = asRecord(item)
-    const dayOfWeek = rule.dayOfWeek
-    if (!Number.isInteger(dayOfWeek) || (dayOfWeek as number) < 0 || (dayOfWeek as number) > 6)
-      continue
-
-    const blockedTimeRanges = Array.isArray(rule.blockedTimeRanges)
-      ? rule.blockedTimeRanges.map(normalizeTimeRange)
-      : []
-    const dailyLimitMinutes =
-      typeof rule.dailyLimitMinutes === 'number' ? rule.dailyLimitMinutes : undefined
-    if (blockedTimeRanges.length === 0 && dailyLimitMinutes === undefined) continue
-
-    const key = JSON.stringify([blockedTimeRanges, dailyLimitMinutes ?? null])
-    const entry = byContent.get(key) ?? {
-      daysOfWeek: new Set<DayOfWeek>(),
-      blockedTimeRanges,
-      dailyLimitMinutes,
-    }
-    entry.daysOfWeek.add(dayOfWeek as DayOfWeek)
-    byContent.set(key, entry)
-  }
-
-  const entries = [...byContent.values()].map((entry) => ({
-    condition:
-      entry.daysOfWeek.size === 7
-        ? { type: 'daily' as const }
-        : { type: 'weekly' as const, daysOfWeek: [...entry.daysOfWeek].toSorted((a, b) => a - b) },
-    blockedTimeRanges: entry.blockedTimeRanges,
-    dailyLimitMinutes: entry.dailyLimitMinutes,
-  }))
-  for (const entry of entries) {
-    if (entry.blockedTimeRanges.length === 0) continue
-    timeWindows.push(toTimeWindow(entry.condition, entry.blockedTimeRanges))
-    restrictions.push({ type: 'block' })
-  }
-  for (const entry of entries) {
-    if (entry.dailyLimitMinutes === undefined) continue
-    timeWindows.push(toTimeWindow(entry.condition, []))
-    restrictions.push({ type: 'grace', graceMinutes: entry.dailyLimitMinutes })
-  }
-  return { timeWindows, restrictions }
-}
-
-/**
  * unknown の値から `Settings` を生成し、欠損フィールドを補完する。
  */
 function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Settings {
@@ -422,8 +197,10 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
     rawGlobal.blockAction === 'redirect' && typeof rawGlobal.redirectUrl === 'string'
       ? rawGlobal.redirectUrl
       : undefined
-  const notificationThresholdMinutes = normalizeNotificationThresholdMinutes(
+  const notificationThresholdMinutes = normalizeInteger(
     rawGlobal.notificationThresholdMinutes,
+    1,
+    DEFAULT_GLOBAL_SETTINGS.notificationThresholdMinutes,
   )
   return {
     global: {
@@ -480,17 +257,12 @@ export async function loadEffectiveSettingsState(
     effectiveSettings?: unknown
     effectiveSettingsLogicalDate?: unknown
   }
-  if (
-    !raw.effectiveSettings ||
-    typeof raw.effectiveSettings !== 'object' ||
-    Array.isArray(raw.effectiveSettings)
-  ) {
+  if (!isRecord(raw.effectiveSettings)) {
     return createEffectiveSettingsState(fallbackSettings, now)
   }
 
-  const settingsRecord = raw.effectiveSettings as Record<string, unknown>
   return {
-    effectiveSettings: normalizeSettings(settingsRecord),
+    effectiveSettings: normalizeSettings(raw.effectiveSettings),
     effectiveSettingsLogicalDate:
       typeof raw.effectiveSettingsLogicalDate === 'string'
         ? raw.effectiveSettingsLogicalDate
@@ -554,7 +326,7 @@ export function parseSettingsExportJson(json: string): Settings {
     throw new Error('Invalid JSON')
   }
 
-  const file = asRecord(parsed)
+  const file: Record<string, unknown> = asRecord(parsed)
   if (
     file.version !== 2 &&
     file.version !== 3 &&
@@ -564,16 +336,12 @@ export function parseSettingsExportJson(json: string): Settings {
   ) {
     throw new Error('Unsupported settings file version')
   }
-  if (!file.settings || typeof file.settings !== 'object' || Array.isArray(file.settings)) {
+  if (!isRecord(file.settings)) {
     throw new Error('Settings file is missing settings')
   }
 
-  const rawSettings = file.settings as Record<string, unknown>
-  if (
-    !rawSettings.global ||
-    typeof rawSettings.global !== 'object' ||
-    Array.isArray(rawSettings.global)
-  ) {
+  const rawSettings = file.settings
+  if (!isRecord(rawSettings.global)) {
     throw new Error('Settings file is missing global settings')
   }
   if (!Array.isArray(rawSettings.groups)) {
@@ -597,57 +365,48 @@ export function parseSettingsExportJson(json: string): Settings {
  * 不正な保存値は空のカウンタにフォールバックする。
  */
 export async function loadCounters(): Promise<UsageCountersState> {
-  const raw = (await browser.storage.local.get(['counters'])) as {
-    counters?: unknown
+  return {
+    counters: await readLocal('counters', (raw) =>
+      normalizeEntryMap(raw, undefined, (value) => {
+        const counter = asRecord(value)
+        if (typeof counter.logicalDate !== 'string') return undefined
+        if (!Number.isFinite(counter.consumedSec)) return undefined
+        return {
+          logicalDate: counter.logicalDate,
+          consumedSec: Math.max(0, Math.floor(counter.consumedSec as number)),
+        }
+      }),
+    ),
   }
-  if (!raw.counters || typeof raw.counters !== 'object' || Array.isArray(raw.counters)) {
-    return { counters: {} }
-  }
-
-  const counters: UsageCountersState['counters'] = {}
-  for (const [groupId, value] of Object.entries(raw.counters as Record<string, unknown>)) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
-    const counter = value as Record<string, unknown>
-    if (typeof counter.logicalDate !== 'string') continue
-    if (!Number.isFinite(counter.consumedSec)) continue
-    counters[groupId] = {
-      logicalDate: counter.logicalDate,
-      consumedSec: Math.max(0, Math.floor(counter.consumedSec as number)),
-    }
-  }
-  return { counters }
 }
 
 /**
  * browser.storage.local に閲覧秒数カウンタを書き込む。
  */
 export async function saveCounters(state: UsageCountersState): Promise<void> {
-  await browser.storage.local.set({
-    counters: state.counters,
-  })
+  await writeLocal('counters', state.counters)
 }
 
 /**
  * unknown の値から一時停止エントリを生成する。有効期限切れまたは空の値は undefined を返す。
  */
 function normalizeGroupPauseEntry(value: unknown, now: number): GroupPauseEntry | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  if (!isRecord(value)) return undefined
 
-  const entry = value as Record<string, unknown>
   const normalized: GroupPauseEntry = {}
   if (
-    typeof entry.waitingUntil === 'number' &&
-    Number.isFinite(entry.waitingUntil) &&
-    entry.waitingUntil > 0
+    typeof value.waitingUntil === 'number' &&
+    Number.isFinite(value.waitingUntil) &&
+    value.waitingUntil > 0
   ) {
-    normalized.waitingUntil = Math.floor(entry.waitingUntil)
+    normalized.waitingUntil = Math.floor(value.waitingUntil)
   }
   if (
-    typeof entry.pausedUntil === 'number' &&
-    Number.isFinite(entry.pausedUntil) &&
-    entry.pausedUntil > now
+    typeof value.pausedUntil === 'number' &&
+    Number.isFinite(value.pausedUntil) &&
+    value.pausedUntil > now
   ) {
-    normalized.pausedUntil = Math.floor(entry.pausedUntil)
+    normalized.pausedUntil = Math.floor(value.pausedUntil)
   }
 
   return normalized.waitingUntil || normalized.pausedUntil ? normalized : undefined
@@ -661,16 +420,11 @@ export function normalizeGroupPauseState(
   validGroupIds?: Iterable<string>,
   now = Date.now(),
 ): GroupPauseState {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { groupPauseState: {} }
-
-  const validIds = validGroupIds ? new Set(validGroupIds) : undefined
-  const groupPauseState: GroupPauseState['groupPauseState'] = {}
-  for (const [groupId, entryValue] of Object.entries(value as Record<string, unknown>)) {
-    if (validIds && !validIds.has(groupId)) continue
-    const entry = normalizeGroupPauseEntry(entryValue, now)
-    if (entry) groupPauseState[groupId] = entry
+  return {
+    groupPauseState: normalizeEntryMap(value, validGroupIds, (entryValue) =>
+      normalizeGroupPauseEntry(entryValue, now),
+    ),
   }
-  return { groupPauseState }
 }
 
 /**
@@ -681,19 +435,14 @@ export async function loadGroupPauseState(
   validGroupIds?: Iterable<string>,
   now = Date.now(),
 ): Promise<GroupPauseState> {
-  const raw = (await browser.storage.local.get(['groupPauseState'])) as {
-    groupPauseState?: unknown
-  }
-  return normalizeGroupPauseState(raw.groupPauseState, validGroupIds, now)
+  return readLocal('groupPauseState', (raw) => normalizeGroupPauseState(raw, validGroupIds, now))
 }
 
 /**
  * browser.storage.local にグループ一時停止状態を書き込む。
  */
 export async function saveGroupPauseState(state: GroupPauseState): Promise<void> {
-  await browser.storage.local.set({
-    groupPauseState: state.groupPauseState,
-  })
+  await writeLocal('groupPauseState', state.groupPauseState)
 }
 
 /**
@@ -704,19 +453,14 @@ export async function loadDelayGrantState(
   validGroupIds?: Iterable<string>,
   now = Date.now(),
 ): Promise<DelayGrantState> {
-  const raw = (await browser.storage.local.get(['delayGrantState'])) as {
-    delayGrantState?: unknown
-  }
-  return normalizeDelayGrantState(raw.delayGrantState, validGroupIds, now)
+  return readLocal('delayGrantState', (raw) => normalizeDelayGrantState(raw, validGroupIds, now))
 }
 
 /**
  * browser.storage.local に待機ゲートのアクセス許可状態を書き込む。
  */
 export async function saveDelayGrantState(state: DelayGrantState): Promise<void> {
-  await browser.storage.local.set({
-    delayGrantState: state.delayGrantState,
-  })
+  await writeLocal('delayGrantState', state.delayGrantState)
 }
 
 /**
@@ -732,26 +476,22 @@ export async function removeObsoleteLocalState(): Promise<void> {
  * 不正な保存値は空の履歴にフォールバックする。
  */
 export async function loadUsageNotificationHistory(): Promise<UsageNotificationHistoryState> {
-  const raw = (await browser.storage.local.get(['usageNotificationHistory'])) as {
-    usageNotificationHistory?: unknown
+  return {
+    usageNotificationHistory: await readLocal(
+      'usageNotificationHistory',
+      normalizeNotificationHistory,
+    ),
   }
-  return { usageNotificationHistory: normalizeNotificationHistory(raw.usageNotificationHistory) }
 }
 
 /**
  * unknown の値から通知履歴辞書を生成する。
  */
 function normalizeNotificationHistory(value: unknown): Record<string, UsageNotificationEntry> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
-
-  const history: Record<string, UsageNotificationEntry> = {}
-  for (const [groupId, entryValue] of Object.entries(value as Record<string, unknown>)) {
-    if (!entryValue || typeof entryValue !== 'object' || Array.isArray(entryValue)) continue
-    const entry = entryValue as Record<string, unknown>
-    if (typeof entry.logicalDate !== 'string') continue
-    history[groupId] = { logicalDate: entry.logicalDate }
-  }
-  return history
+  return normalizeEntryMap(value, undefined, (entryValue) => {
+    const entry = asRecord(entryValue)
+    return typeof entry.logicalDate === 'string' ? { logicalDate: entry.logicalDate } : undefined
+  })
 }
 
 /**
@@ -760,7 +500,5 @@ function normalizeNotificationHistory(value: unknown): Record<string, UsageNotif
 export async function saveUsageNotificationHistory(
   state: UsageNotificationHistoryState,
 ): Promise<void> {
-  await browser.storage.local.set({
-    usageNotificationHistory: state.usageNotificationHistory,
-  })
+  await writeLocal('usageNotificationHistory', state.usageNotificationHistory)
 }
