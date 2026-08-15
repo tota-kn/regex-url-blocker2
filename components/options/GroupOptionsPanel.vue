@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ChevronDownIcon, ClockIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 import { computed, ref } from 'vue'
-import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BooleanRadioGroup from '@/components/ui/BooleanRadioGroup.vue'
-import NumberInput from '@/components/ui/NumberInput.vue'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
 import type { Group } from '@/utils/types'
 import { useLockModePending } from '@/utils/useLockModePending'
 import PendingFieldNote from './PendingFieldNote.vue'
+import PauseDurationField from './PauseDurationField.vue'
 
 /** グループOptionsパネルのprops。 */
 interface Props {
@@ -156,50 +155,36 @@ function panelId(): string {
                 Still not allowed {{ pendingUntilLabel }}.
               </PendingFieldNote>
               <div class="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
-                <div class="min-w-0">
-                  <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                    <span class="shrink-0">Wait</span>
-                    <NumberInput
-                      v-model="draft.pauseWaitSeconds"
-                      min="0"
-                      step="1"
-                      aria-label="Wait seconds before pausing"
-                      class="w-20"
-                      :disabled="!draft.pauseAllowed"
-                      :invalid="Boolean(error('pauseWaitSeconds'))"
-                      @input="emit('touch', 'pauseWaitSeconds')"
-                    />
-                    <span class="shrink-0">sec</span>
-                  </label>
-                  <AlertMessage v-if="error('pauseWaitSeconds')" class="mt-2">
-                    {{ error('pauseWaitSeconds') }}
-                  </AlertMessage>
-                  <PendingFieldNote v-if="isFieldPending('pauseWaitSeconds')">
-                    Still {{ effectivePauseWaitSeconds }} sec {{ pendingUntilLabel }}.
-                  </PendingFieldNote>
-                </div>
-                <div class="min-w-0">
-                  <label class="flex items-center gap-2 text-label-md text-secondary-foreground">
-                    <span class="shrink-0">Pause for</span>
-                    <NumberInput
-                      v-model="draft.pauseDurationMinutes"
-                      min="1"
-                      step="1"
-                      aria-label="Pause duration minutes"
-                      class="w-20"
-                      :disabled="!draft.pauseAllowed"
-                      :invalid="Boolean(error('pauseDurationMinutes'))"
-                      @input="emit('touch', 'pauseDurationMinutes')"
-                    />
-                    <span class="shrink-0">min</span>
-                  </label>
-                  <AlertMessage v-if="error('pauseDurationMinutes')" class="mt-2">
-                    {{ error('pauseDurationMinutes') }}
-                  </AlertMessage>
-                  <PendingFieldNote v-if="isFieldPending('pauseDurationMinutes')">
-                    Still {{ effectivePauseDurationMinutes }} min {{ pendingUntilLabel }}.
-                  </PendingFieldNote>
-                </div>
+                <PauseDurationField
+                  v-model="draft.pauseWaitSeconds"
+                  label="Wait"
+                  unit="sec"
+                  input-aria-label="Wait seconds before pausing"
+                  :min="0"
+                  :disabled="!draft.pauseAllowed"
+                  :error="error('pauseWaitSeconds')"
+                  :pending="
+                    isFieldPending('pauseWaitSeconds')
+                      ? `Still ${effectivePauseWaitSeconds} sec ${pendingUntilLabel}.`
+                      : undefined
+                  "
+                  @touch="emit('touch', 'pauseWaitSeconds')"
+                />
+                <PauseDurationField
+                  v-model="draft.pauseDurationMinutes"
+                  label="Pause for"
+                  unit="min"
+                  input-aria-label="Pause duration minutes"
+                  :min="1"
+                  :disabled="!draft.pauseAllowed"
+                  :error="error('pauseDurationMinutes')"
+                  :pending="
+                    isFieldPending('pauseDurationMinutes')
+                      ? `Still ${effectivePauseDurationMinutes} min ${pendingUntilLabel}.`
+                      : undefined
+                  "
+                  @touch="emit('touch', 'pauseDurationMinutes')"
+                />
               </div>
             </div>
           </div>
