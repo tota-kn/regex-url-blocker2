@@ -1,5 +1,5 @@
 import { DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
-import { sortRulesByEvaluationOrder } from './blocking'
+import { sortRulesByEvaluationOrder } from './groupStatus'
 import { normalizeTimeRange, toTimeWindow } from './normalizeSchema'
 import { asRecord } from './record'
 import type {

@@ -1,4 +1,4 @@
-import { sortRulesByEvaluationOrder } from './blocking'
+import { sortRulesByEvaluationOrder } from './groupStatus'
 import {
   DEFAULT_GLOBAL_SETTINGS,
   DEFAULT_PAUSE_DURATION_MINUTES,

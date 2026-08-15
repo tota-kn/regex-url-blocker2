@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { migrateLegacyRules } from '../utils/migrateLegacy'
-import { sortRulesByEvaluationOrder } from '../utils/blocking'
+import { sortRulesByEvaluationOrder } from '../utils/groupStatus'
 import type { LegacyRestriction } from '../utils/migrateLegacy'
 import type { TimeWindow } from '../utils/types'
 

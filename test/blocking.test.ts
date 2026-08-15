@@ -4,6 +4,8 @@ import {
   applyGroupPauseState,
   evaluateEffectiveUrl,
   evaluateUrl,
+} from '../utils/blocking'
+import {
   getBlockDestination,
   getBlockReason,
   getDailyLimitReleaseAt,
@@ -11,7 +13,7 @@ import {
   getEffectiveGroupBlockStatus,
   getGroupBlockStatus,
   getTimeRangeUnblockAt,
-} from '../utils/blocking'
+} from '../utils/groupStatus'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import {
   getLogicalDate,

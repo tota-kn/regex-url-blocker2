@@ -2,13 +2,15 @@ import {
   applyDelayGrantState,
   applyGroupPauseState,
   evaluateEffectiveUrl,
+  type UrlEvaluation,
+} from '@/utils/blocking'
+import {
   getBlockDestination,
   getBlockReason,
   getEffectiveWait,
   strictestBlockReason,
   type BlockReason,
-  type UrlEvaluation,
-} from '@/utils/blocking'
+} from '@/utils/groupStatus'
 import { countersEqual, incrementEffectiveCounters, normalizeCounters } from '@/utils/usageCounters'
 import { ACTION_TITLE, buildActionState } from '@/utils/actionBadge'
 import { getChromeApi } from '@/utils/chromeApi'

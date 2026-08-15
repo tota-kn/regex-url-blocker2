@@ -9,7 +9,7 @@ import {
   getEffectiveGroupBlockStatus,
   getTimeRangeUnblockAt,
   type GroupBlockStatus,
-} from '@/utils/blocking'
+} from '@/utils/groupStatus'
 import { formatDateTime } from '@/utils/datetime'
 import { getNextDailyResetAt } from '@/utils/logicalDate'
 import { formatRuleSentence, RULE_KIND_LABELS } from '@/utils/rules'

@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  applyDelayGrantState,
-  applyGroupPauseState,
-  evaluateUrl,
-  getBlockDestination,
-  getBlockReason,
-  getEffectiveWait,
-} from '../utils/blocking'
+import { applyDelayGrantState, applyGroupPauseState, evaluateUrl } from '../utils/blocking'
+import { getBlockDestination, getBlockReason, getEffectiveWait } from '../utils/groupStatus'
 import { incrementEffectiveCounters } from '../utils/usageCounters'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { describeCurrentState } from '../utils/rules'
