@@ -45,21 +45,11 @@ export async function gotoAndWaitForUrl(
   url: string,
   expectedUrl: string | RegExp,
 ): Promise<void> {
-  await Promise.all([
-    page.waitForURL(expectedUrl),
-    page.goto(url, { waitUntil: 'commit' }).catch((error: unknown) => {
-      if (error instanceof Error && error.message.includes('net::ERR_ABORTED')) return null
-      throw error
-    }),
-  ])
-}
-
-/** @deprecated 遷移先を assertion できる gotoAndWaitForUrl を使用する。 */
-export async function gotoPossiblyRedirected(page: Page, url: string): Promise<void> {
   await page.goto(url, { waitUntil: 'commit' }).catch((error: unknown) => {
     if (error instanceof Error && error.message.includes('net::ERR_ABORTED')) return null
     throw error
   })
+  await expect(page).toHaveURL(expectedUrl)
 }
 
 /** Service Worker から extension storage の指定領域を読み取る。 */

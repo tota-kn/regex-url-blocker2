@@ -4,7 +4,7 @@ import type { HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 import {
   closeServer,
-  gotoPossiblyRedirected,
+  gotoAndWaitForUrl,
   savePreferredAndEffectiveSettings,
   savePreferredSettings,
   waitForEffectiveSettings,
@@ -346,8 +346,7 @@ test.describe('Background blocking', () => {
       await saveBlockingSettings(serviceWorker, server.origin)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
     } finally {
       await server.close()
     }
@@ -386,8 +385,11 @@ test.describe('Background blocking', () => {
       ])
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
       await expect(page.getByLabel('Blocked URL')).toHaveText(`${server.origin}/target`)
       await expect(page.getByText('Blocking groups')).not.toBeVisible()
       await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
@@ -415,8 +417,11 @@ test.describe('Background blocking', () => {
       ])
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
       const reason = page.getByLabel('Focus hours Block')
       await expect(reason).toContainText('Block')
       await expect(reason).toContainText(
@@ -451,8 +456,11 @@ test.describe('Background blocking', () => {
       ])
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
       const reason = page.getByLabel('Daily cap Daily limit')
       await expect(reason).toContainText('Daily limit')
       await expect(reason).toContainText('Allow 15 min per day')
@@ -485,8 +493,11 @@ test.describe('Background blocking', () => {
       })
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
       const reason = page.getByLabel('Windowed cap Daily limit')
       await expect(reason).toContainText('Allow 15 min per day')
       await expect(reason).toContainText('Unblocks at')
@@ -525,8 +536,11 @@ test.describe('Background blocking', () => {
       ])
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
       await expect(page.getByText('Blocking groups')).not.toBeVisible()
       await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Limited block' })).toBeVisible()
@@ -586,8 +600,11 @@ test.describe('Background blocking', () => {
       }, server.origin)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
       await expect(page.getByText('Blocking groups')).not.toBeVisible()
       await expect(page.getByRole('heading', { name: 'First' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Second' })).toBeVisible()
@@ -641,8 +658,7 @@ test.describe('Background blocking', () => {
       }, server.origin)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/first-blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/first-blocked`)
     } finally {
       await server.close()
     }
@@ -769,8 +785,7 @@ test.describe('Background blocking', () => {
       })
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/active-blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/active-blocked`)
     } finally {
       await server.close()
     }
@@ -811,8 +826,7 @@ test.describe('Background blocking', () => {
       )
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
     } finally {
       await server.close()
     }
@@ -862,8 +876,7 @@ test.describe('Effective settings behavior', () => {
           effectiveHasRestriction: true,
         })
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
     } finally {
       await server.close()
     }
@@ -908,8 +921,7 @@ test.describe('Effective settings behavior', () => {
       )
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
     } finally {
       await server.close()
     }
@@ -985,8 +997,7 @@ test.describe('Effective settings behavior', () => {
       )
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/blocked`)
+      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
     } finally {
       await server.close()
     }

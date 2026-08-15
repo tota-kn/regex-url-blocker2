@@ -1,6 +1,6 @@
 import type { Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { gotoPossiblyRedirected, startTestServer, waitForEffectiveSettings } from './helpers'
+import { gotoAndWaitForUrl, startTestServer, waitForEffectiveSettings } from './helpers'
 
 /**
  * テスト用 HTTP サーバーを起動する。
@@ -61,8 +61,11 @@ test.describe('Wait gate', () => {
       await saveWaitGateSettings(serviceWorker, server.origin, 1)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
+      )
       await expect(page.getByLabel('Remaining seconds')).toBeVisible()
 
       const continueButton = page.getByRole('button', { name: 'Continue' })
@@ -90,15 +93,21 @@ test.describe('Wait gate', () => {
       await saveWaitGateSettings(serviceWorker, server.origin, 30)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
+      )
 
       // カウントダウン未完了の Continue は無効なまま
       await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled()
 
       // 直接遷移し直しても待機ページへ戻される
-      await gotoPossiblyRedirected(page, `${server.origin}/target`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
+      )
     } finally {
       await server.close()
     }
@@ -116,8 +125,11 @@ test.describe('Wait gate', () => {
       await saveWaitGateSettings(serviceWorker, server.origin, 1, 1)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/gated`,
+        new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
+      )
 
       const continueButton = page.getByRole('button', { name: 'Continue' })
       await page.clock.fastForward(1_100)
@@ -126,8 +138,7 @@ test.describe('Wait gate', () => {
       await expect(page).toHaveURL(`${server.origin}/gated`)
 
       // 許可期間中は待機ページへ戻らない。
-      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
-      await expect(page).toHaveURL(`${server.origin}/gated`)
+      await gotoAndWaitForUrl(page, `${server.origin}/gated`, `${server.origin}/gated`)
 
       // 許可期間を過去にすると、次のアクセスで再び待機ページになる。
       await serviceWorker.evaluate(async () => {
@@ -139,8 +150,11 @@ test.describe('Wait gate', () => {
         })
       })
 
-      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/gated`,
+        new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
+      )
     } finally {
       await server.close()
     }
@@ -152,8 +166,11 @@ test.describe('Wait gate', () => {
       await saveWaitGateSettings(serviceWorker, server.origin, 30)
       await waitForEffectiveSettings(serviceWorker)
 
-      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
-      await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/gated`,
+        new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
+      )
 
       await serviceWorker.evaluate(async () => {
         const chromeApi = globalThis as unknown as {
@@ -165,8 +182,7 @@ test.describe('Wait gate', () => {
       })
 
       // Pause は Block だけでなく待機ゲートも解除する。
-      await gotoPossiblyRedirected(page, `${server.origin}/gated`)
-      await expect(page).toHaveURL(`${server.origin}/gated`)
+      await gotoAndWaitForUrl(page, `${server.origin}/gated`, `${server.origin}/gated`)
     } finally {
       await server.close()
     }
