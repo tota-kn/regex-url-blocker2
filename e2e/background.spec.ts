@@ -1,5 +1,12 @@
 import type { Worker } from '@playwright/test'
-import type { HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
+import type {
+  BlockDestination,
+  Group,
+  HHMM,
+  Settings,
+  TimeRange,
+  UsageCounter,
+} from '../utils/types'
 import { expect, test } from './fixtures'
 import {
   gotoAndWaitForUrl,
@@ -109,6 +116,45 @@ async function saveBlockingSettingsWithPattern(
       { dailyResetHour: '00:00' },
     ),
   )
+}
+
+/** 優先順位・Pause の E2E で使う常時ブロックグループを生成する。 */
+function blockingGroup(
+  id: string,
+  name: string,
+  origin: string,
+  destination: BlockDestination,
+): Group {
+  return buildGroupFixture({
+    id,
+    name,
+    patterns: [`^${origin.replaceAll('.', '\\.')}`],
+    rules: [
+      {
+        id: `${id}-rule`,
+        window: { type: 'always' },
+        restriction: { kind: 'block' },
+        destination,
+      },
+    ],
+  })
+}
+
+/** badge・通知 E2E で使う常時 Daily limit グループを生成する。 */
+function dailyLimitGroup(id: string, name: string, origin: string, minutes: number): Group {
+  return buildGroupFixture({
+    id,
+    name,
+    patterns: [`^${origin.replaceAll('.', '\\.')}`],
+    rules: [
+      {
+        id: `${id}-limit`,
+        window: { type: 'always' },
+        restriction: { kind: 'dailyLimit', minutes },
+        destination: { type: 'redirect', url: `${origin}/blocked` },
+      },
+    ],
+  })
 }
 
 /**
@@ -506,40 +552,20 @@ test.describe('Background blocking', () => {
   }) => {
     const server = await startServer()
     try {
-      await serviceWorker.evaluate(async (origin) => {
-        const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
-          dayOfWeek,
-          blockedTimeRanges: [],
-          dailyLimitMinutes: 0,
-        }))
-        await globalThis.chrome.storage.sync.set({
-          global: {
-            blockAction: 'redirect',
-            redirectUrl: `${origin}/legacy-blocked`,
-            dailyResetHour: '00:00',
-          },
-          groups: [
-            {
-              id: 'first',
-              name: 'First',
-              mode: 'blacklist',
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'blockedPage',
-              redirectUrl: `${origin}/first-blocked`,
-              dailyRules,
-            },
-            {
-              id: 'second',
-              name: 'Second',
-              mode: 'blacklist',
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'redirect',
-              redirectUrl: `${origin}/second-blocked`,
-              dailyRules,
-            },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            blockingGroup('first', 'First', server.origin, { type: 'blockedPage' }),
+            blockingGroup('second', 'Second', server.origin, {
+              type: 'redirect',
+              url: `${server.origin}/second-blocked`,
+            }),
           ],
-        })
-      }, server.origin)
+          { dailyResetHour: '00:00' },
+        ),
+      )
       await waitForEffectiveSettings(serviceWorker)
 
       await gotoAndWaitForUrl(
@@ -561,40 +587,20 @@ test.describe('Background blocking', () => {
   }) => {
     const server = await startServer()
     try {
-      await serviceWorker.evaluate(async (origin) => {
-        const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
-          dayOfWeek,
-          blockedTimeRanges: [],
-          dailyLimitMinutes: 0,
-        }))
-        await globalThis.chrome.storage.sync.set({
-          global: {
-            blockAction: 'blockedPage',
-            redirectUrl: `${origin}/legacy-blocked`,
-            dailyResetHour: '00:00',
-          },
-          groups: [
-            {
-              id: 'first',
-              name: 'First',
-              mode: 'blacklist',
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'redirect',
-              redirectUrl: `${origin}/first-blocked`,
-              dailyRules,
-            },
-            {
-              id: 'second',
-              name: 'Second',
-              mode: 'blacklist',
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'blockedPage',
-              redirectUrl: `${origin}/second-blocked`,
-              dailyRules,
-            },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            blockingGroup('first', 'First', server.origin, {
+              type: 'redirect',
+              url: `${server.origin}/first-blocked`,
+            }),
+            blockingGroup('second', 'Second', server.origin, { type: 'blockedPage' }),
           ],
-        })
-      }, server.origin)
+          { dailyResetHour: '00:00' },
+        ),
+      )
       await waitForEffectiveSettings(serviceWorker)
 
       await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/first-blocked`)
@@ -609,32 +615,19 @@ test.describe('Background blocking', () => {
   }) => {
     const server = await startServer()
     try {
-      await serviceWorker.evaluate(async (origin) => {
-        const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
-          dayOfWeek,
-          blockedTimeRanges: [],
-          dailyLimitMinutes: 0,
-        }))
-        await globalThis.chrome.storage.sync.set({
-          global: {
-            blockAction: 'redirect',
-            redirectUrl: `${origin}/blocked`,
-            dailyResetHour: '00:00',
-          },
-          groups: [
-            {
-              id: 'paused',
-              name: 'Paused',
-              mode: 'blacklist',
-              lockMode: false,
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'redirect',
-              redirectUrl: `${origin}/blocked`,
-              dailyRules,
-            },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            blockingGroup('paused', 'Paused', server.origin, {
+              type: 'redirect',
+              url: `${server.origin}/blocked`,
+            }),
           ],
-        })
-      }, server.origin)
+          { dailyResetHour: '00:00' },
+        ),
+      )
       await waitForEffectiveSettings(serviceWorker)
       await serviceWorker.evaluate(async () => {
         await globalThis.chrome.storage.local.set({
@@ -658,42 +651,23 @@ test.describe('Background blocking', () => {
   }) => {
     const server = await startServer()
     try {
-      await serviceWorker.evaluate(async (origin) => {
-        const dailyRules = Array.from({ length: 7 }, (_, dayOfWeek) => ({
-          dayOfWeek,
-          blockedTimeRanges: [],
-          dailyLimitMinutes: 0,
-        }))
-        await globalThis.chrome.storage.sync.set({
-          global: {
-            blockAction: 'redirect',
-            redirectUrl: `${origin}/legacy-blocked`,
-            dailyResetHour: '00:00',
-          },
-          groups: [
-            {
-              id: 'paused',
-              name: 'Paused',
-              mode: 'blacklist',
-              lockMode: false,
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'redirect',
-              redirectUrl: `${origin}/paused-blocked`,
-              dailyRules,
-            },
-            {
-              id: 'active',
-              name: 'Active',
-              mode: 'blacklist',
-              lockMode: false,
-              patterns: [`^${origin.replaceAll('.', '\\.')}`],
-              blockAction: 'redirect',
-              redirectUrl: `${origin}/active-blocked`,
-              dailyRules,
-            },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            blockingGroup('paused', 'Paused', server.origin, {
+              type: 'redirect',
+              url: `${server.origin}/paused-blocked`,
+            }),
+            blockingGroup('active', 'Active', server.origin, {
+              type: 'redirect',
+              url: `${server.origin}/active-blocked`,
+            }),
           ],
-        })
-      }, server.origin)
+          { dailyResetHour: '00:00' },
+        ),
+      )
       await waitForEffectiveSettings(serviceWorker)
       await serviceWorker.evaluate(async () => {
         await globalThis.chrome.storage.local.set({
@@ -713,30 +687,18 @@ test.describe('Background blocking', () => {
   test('redirect 制限は指定 URL へ遷移する', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
-      const origin = server.origin
-      await serviceWorker.evaluate(
-        async (settings) => {
-          await globalThis.chrome.storage.sync.set({
-            global: {
-              blockAction: 'blockedPage',
-              redirectUrl: `${settings.origin}/unused`,
-              dailyResetHour: '00:00',
-            },
-            groups: [
-              {
-                id: 'redirect-local',
-                name: 'Redirect local',
-                mode: 'blacklist',
-                patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],
-                blockAction: 'blockedPage',
-                redirectUrl: `${settings.origin}/unused`,
-                timeWindows: [{ type: 'always' }],
-                restrictions: [{ type: 'redirect', redirectUrl: `${settings.origin}/blocked` }],
-              },
-            ],
-          })
-        },
-        { origin },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            blockingGroup('redirect-local', 'Redirect local', server.origin, {
+              type: 'redirect',
+              url: `${server.origin}/blocked`,
+            }),
+          ],
+          { dailyResetHour: '00:00' },
+        ),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -917,30 +879,12 @@ test.describe('Badge display', () => {
   }) => {
     const server = await startServer()
     try {
-      await serviceWorker.evaluate(
-        async (settings) => {
-          await globalThis.chrome.storage.sync.set({
-            global: {
-              blockAction: 'redirect',
-              redirectUrl: `${settings.origin}/blocked`,
-              dailyResetHour: '00:00',
-            },
-            groups: [
-              {
-                id: 'timed-group',
-                name: 'Timed Group',
-                mode: 'blacklist',
-                patterns: [`^${settings.originEscaped}`],
-                dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-                  dayOfWeek,
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 60,
-                })),
-              },
-            ],
-          })
-        },
-        { origin: server.origin, originEscaped: server.origin.replaceAll('.', '\\.') },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture([dailyLimitGroup('timed-group', 'Timed Group', server.origin, 60)], {
+          dailyResetHour: '00:00',
+        }),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -959,30 +903,18 @@ test.describe('Badge display', () => {
   test('対象外の URL ではバッジが空になる', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
-      await serviceWorker.evaluate(
-        async (settings) => {
-          await globalThis.chrome.storage.sync.set({
-            global: {
-              blockAction: 'redirect',
-              redirectUrl: `${settings.origin}/blocked`,
-              dailyResetHour: '00:00',
-            },
-            groups: [
-              {
-                id: 'timed-group',
-                name: 'Timed Group',
-                mode: 'blacklist',
-                patterns: ['example\\.com'],
-                dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-                  dayOfWeek,
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 60,
-                })),
-              },
-            ],
-          })
-        },
-        { origin: server.origin },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            buildGroupFixture({
+              ...dailyLimitGroup('timed-group', 'Timed Group', server.origin, 60),
+              patterns: ['example\\.com'],
+            }),
+          ],
+          { dailyResetHour: '00:00' },
+        ),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -1001,39 +933,16 @@ test.describe('Badge display', () => {
     try {
       const dailyResetHour = '00:00'
       const logicalDate = logicalDateId(new Date(), dailyResetHour)
-      await serviceWorker.evaluate(
-        async (settings) => {
-          await globalThis.chrome.storage.sync.set({
-            global: {
-              blockAction: 'redirect',
-              redirectUrl: `${settings.origin}/blocked`,
-              dailyResetHour: settings.dailyResetHour,
-            },
-            groups: [
-              {
-                id: 'timed-group',
-                name: 'Timed Group',
-                mode: 'blacklist',
-                patterns: [`^${settings.originEscaped}`],
-                dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-                  dayOfWeek,
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 60,
-                })),
-              },
-            ],
-          })
-          await globalThis.chrome.storage.local.set({
-            counters: { 'timed-group': { logicalDate: settings.logicalDate, consumedSec: 600 } },
-          })
-        },
-        {
-          origin: server.origin,
-          originEscaped: server.origin.replaceAll('.', '\\.'),
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture([dailyLimitGroup('timed-group', 'Timed Group', server.origin, 60)], {
           dailyResetHour,
-          logicalDate,
-        },
+        }),
       )
+      await setExtensionStorage(serviceWorker, 'local', {
+        counters: { 'timed-group': { logicalDate, consumedSec: 600 } },
+      })
       await waitForEffectiveSettings(serviceWorker)
 
       await page.goto(`${server.origin}/target`)
@@ -1061,42 +970,18 @@ test.describe('Remaining time notifications', () => {
       const dailyResetHour = buildStableDailyResetHour(now)
       const logicalDate = logicalDateId(now, dailyResetHour)
 
-      await serviceWorker.evaluate(
-        async (settings) => {
-          await globalThis.chrome.storage.sync.set({
-            global: {
-              blockAction: 'redirect',
-              redirectUrl: `${settings.origin}/blocked`,
-              dailyResetHour: settings.dailyResetHour,
-              remainingTimeNotificationsEnabled: true,
-              notificationThresholdMinutes: 1,
-            },
-            groups: [
-              {
-                id: 'notify-group',
-                name: 'Notify Group',
-                mode: 'blacklist',
-                patterns: [`^${settings.originEscaped}`],
-                dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-                  dayOfWeek,
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 1,
-                })),
-              },
-            ],
-          })
-          await globalThis.chrome.storage.local.set({
-            counters: { 'notify-group': { logicalDate: settings.logicalDate, consumedSec: 54 } },
-            usageNotificationHistory: {},
-          })
-        },
-        {
-          origin: server.origin,
-          originEscaped: server.origin.replaceAll('.', '\\.'),
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture([dailyLimitGroup('notify-group', 'Notify Group', server.origin, 1)], {
           dailyResetHour,
-          logicalDate,
-        },
+          notificationThresholdMinutes: 1,
+        }),
       )
+      await setExtensionStorage(serviceWorker, 'local', {
+        counters: { 'notify-group': { logicalDate, consumedSec: 54 } },
+        usageNotificationHistory: {},
+      })
       await waitForEffectiveSettings(serviceWorker)
 
       await page.goto(`${server.origin}/target`)
@@ -1121,44 +1006,22 @@ test.describe('Remaining time notifications', () => {
       const dailyResetHour = buildStableDailyResetHour(now)
       const logicalDate = logicalDateId(now, dailyResetHour)
 
-      await serviceWorker.evaluate(
-        async (settings) => {
-          await globalThis.chrome.storage.sync.set({
-            global: {
-              blockAction: 'redirect',
-              redirectUrl: `${settings.origin}/blocked`,
-              dailyResetHour: settings.dailyResetHour,
-              remainingTimeNotificationsEnabled: false,
-              notificationThresholdMinutes: 1,
-            },
-            groups: [
-              {
-                id: 'notify-disabled-group',
-                name: 'Notify Disabled Group',
-                mode: 'blacklist',
-                patterns: [`^${settings.originEscaped}`],
-                dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-                  dayOfWeek,
-                  blockedTimeRanges: [],
-                  dailyLimitMinutes: 1,
-                })),
-              },
-            ],
-          })
-          await globalThis.chrome.storage.local.set({
-            counters: {
-              'notify-disabled-group': { logicalDate: settings.logicalDate, consumedSec: 54 },
-            },
-            usageNotificationHistory: {},
-          })
-        },
-        {
-          origin: server.origin,
-          originEscaped: server.origin.replaceAll('.', '\\.'),
-          dailyResetHour,
-          logicalDate,
-        },
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [dailyLimitGroup('notify-disabled-group', 'Notify Disabled Group', server.origin, 1)],
+          {
+            dailyResetHour,
+            remainingTimeNotificationsEnabled: false,
+            notificationThresholdMinutes: 1,
+          },
+        ),
       )
+      await setExtensionStorage(serviceWorker, 'local', {
+        counters: { 'notify-disabled-group': { logicalDate, consumedSec: 54 } },
+        usageNotificationHistory: {},
+      })
       await waitForEffectiveSettings(serviceWorker)
 
       await page.goto(`${server.origin}/target`)
