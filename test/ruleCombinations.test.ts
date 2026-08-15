@@ -2,44 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { applyDelayGrantState, applyGroupPauseState, evaluateUrl } from '../utils/blocking'
 import { getBlockDestination, getBlockReason, getEffectiveWait } from '../utils/groupStatus'
 import { incrementEffectiveCounters } from '../utils/usageCounters'
-import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { describeCurrentState } from '../utils/rules'
-import { buildRule } from '../utils/ruleFactory'
-import { at } from './helpers'
-import type { Group, Rule, RuleRestriction, Settings, UsageCountersState } from '../utils/types'
+import { at, buildRule, counters as buildCounters, group, settings } from './helpers'
+import type { Rule, RuleRestriction } from '../utils/types'
 
 const URL = 'https://example.com/'
 
 /** 常時ウィンドウのルールを1件作る。 */
 function rule(id: string, restriction: RuleRestriction, redirectUrl?: string): Rule {
-  return buildRule(
-    id,
-    { type: 'always' },
-    restriction,
-    redirectUrl ? { type: 'redirect', url: redirectUrl } : { type: 'blockedPage' },
-  )
+  return buildRule({ type: 'always' }, restriction, { id, redirectUrl })
 }
 
 /** 指定ルールを持つ設定を作る。 */
-function settingsWith(...rules: Rule[]): Settings {
-  const group: Group = {
-    id: 'g1',
-    name: 'Group',
-    mode: 'blacklist',
-    disabled: false,
-    lockMode: false,
-    patterns: ['example\\.com'],
-    pauseWaitSeconds: 60,
-    pauseDurationMinutes: 10,
-    pauseAllowed: true,
-    rules,
-  }
-  return { global: { ...DEFAULT_GLOBAL_SETTINGS, dailyResetHour: '00:00' }, groups: [group] }
+function settingsWith(...rules: Rule[]) {
+  return settings([group({ rules })])
 }
 
 /** 指定消費秒数のカウンタを作る。 */
-function counters(consumedSec: number): UsageCountersState {
-  return { counters: { g1: { logicalDate: '2026-05-06', consumedSec } } }
+function counters(consumedSec: number) {
+  return buildCounters({ g1: consumedSec }, '2026-05-06')
 }
 
 const BLOCK = rule('block', { kind: 'block' })
