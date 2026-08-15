@@ -14,12 +14,15 @@ import type {
   UsageCounter,
   UsageCountersState,
 } from './types'
-import { dateAtMinuteOfDay, formatDate, minuteOfDate, minuteOfDay } from './datetime'
+import { dateAtMinuteOfDay, minuteOfDate, minuteOfDay } from './datetime'
 import { jsonEqual, uniqueByJson } from './json'
+import { getLogicalDate } from './logicalDate'
 import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
 import { urlPatternMatches } from './urlPatterns'
 
 const SKIPPED_URL_PREFIXES = ['chrome://', 'chrome-extension://', 'about:', 'file://']
+
+export { getLogicalDate } from './logicalDate'
 
 /**
  * 制限が評価される順序。先に並ぶものほど強く、成立した時点でそれ以降は評価されない。
@@ -136,22 +139,6 @@ export function sortRulesByEvaluationOrder(rules: Rule[]): Rule[] {
   return rules.toSorted(
     (a, b) => RULE_KIND_PRIORITY[a.restriction.kind] - RULE_KIND_PRIORITY[b.restriction.kind],
   )
-}
-
-/**
- * グローバル設定のリセット時刻を起点にした論理日情報を返す。
- */
-export function getLogicalDate(now: Date, dailyResetHour: string): LogicalDateInfo {
-  const start = dateAtMinuteOfDay(now, minuteOfDay(dailyResetHour))
-  if (now.getTime() < start.getTime()) {
-    start.setDate(start.getDate() - 1)
-  }
-  return {
-    logicalDate: formatDate(start),
-    dayOfWeek: start.getDay() as DayOfWeek,
-    month: start.getMonth() + 1,
-    dayOfMonth: start.getDate(),
-  }
 }
 
 /**
