@@ -2,6 +2,7 @@
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import { computed, nextTick, ref, watch } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseDialog from '@/components/ui/BaseDialog.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import type { GroupTemplateId } from '@/utils/defaults'
@@ -68,7 +69,7 @@ const emit = defineEmits<Emits>()
 const groups = defineModel<Group[]>({ required: true })
 
 const sectionRef = ref<HTMLElement | null>(null)
-const createGroupDialogRef = ref<HTMLDialogElement | null>(null)
+const createGroupDialogRef = ref<InstanceType<typeof BaseDialog> | null>(null)
 const groupCount = computed(() => groups.value.length + props.newGroups.length)
 const groupCountLabel = computed(
   () => `${groupCount.value} ${groupCount.value === 1 ? 'group' : 'groups'}`,
@@ -127,7 +128,7 @@ function focusLastNewGroup(): void {
 
 /** 新規グループ作成ダイアログを開く。 */
 function openCreateGroupDialog(): void {
-  createGroupDialogRef.value?.showModal()
+  createGroupDialogRef.value?.open()
 }
 
 /** 新規グループ作成ダイアログを閉じる。 */
@@ -162,11 +163,11 @@ function createGroup(templateId: GroupTemplateId): void {
       </BaseButton>
     </div>
 
-    <dialog
+    <BaseDialog
       ref="createGroupDialogRef"
       aria-labelledby="create-group-title"
-      class="dialog-centered w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-scrim"
-      @cancel.prevent="closeCreateGroupDialog"
+      class="w-[min(28rem,calc(100vw-2rem))] p-0"
+      @cancel="closeCreateGroupDialog"
     >
       <div class="space-y-4 p-4">
         <h3 id="create-group-title" class="text-heading-md">Create group</h3>
@@ -193,7 +194,7 @@ function createGroup(templateId: GroupTemplateId): void {
           </BaseButton>
         </div>
       </div>
-    </dialog>
+    </BaseDialog>
 
     <EmptyState v-if="groupCount === 0" aria-label="No groups" spacious> No groups yet </EmptyState>
 

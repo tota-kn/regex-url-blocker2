@@ -2,8 +2,9 @@
 import { TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseDialog from '@/components/ui/BaseDialog.vue'
 
-const dialogRef = ref<HTMLDialogElement | null>(null)
+const dialogRef = ref<InstanceType<typeof BaseDialog> | null>(null)
 const message = ref('')
 let resolve: ((value: boolean) => void) | null = null
 
@@ -15,7 +16,7 @@ function open(msg: string): Promise<boolean> {
   message.value = msg
   return new Promise((res) => {
     resolve = res
-    dialogRef.value?.showModal()
+    dialogRef.value?.open()
   })
 }
 
@@ -37,10 +38,7 @@ defineExpose({ open })
 </script>
 
 <template>
-  <dialog
-    ref="dialogRef"
-    class="dialog-centered w-80 rounded-lg border border-border bg-background p-6 text-foreground shadow-lg backdrop:bg-scrim"
-  >
+  <BaseDialog ref="dialogRef" class="w-80 p-6" @cancel="onCancel">
     <p class="mb-4">
       {{ message }}
     </p>
@@ -59,5 +57,5 @@ defineExpose({ open })
         Delete
       </BaseButton>
     </div>
-  </dialog>
+  </BaseDialog>
 </template>

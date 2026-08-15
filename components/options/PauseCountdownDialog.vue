@@ -2,6 +2,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { CheckIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseDialog from '@/components/ui/BaseDialog.vue'
 import { PAUSE_COUNTDOWN_TICK_MS } from '@/utils/constants'
 import { useCountdown } from '@/utils/useCountdown'
 
@@ -24,7 +25,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const dialogRef = ref<HTMLDialogElement | null>(null)
+const dialogRef = ref<InstanceType<typeof BaseDialog> | null>(null)
 const waitMilliseconds = computed(() => props.waitSeconds * 1_000)
 const {
   now,
@@ -35,14 +36,14 @@ const {
 } = useCountdown(waitMilliseconds, PAUSE_COUNTDOWN_TICK_MS)
 
 watch(now, () => {
-  if (!dialogRef.value?.open) return
+  if (!dialogRef.value?.isOpen()) return
   if (shouldCancelForLostAttention()) close()
 })
 
 /** ダイアログを開いてカウントダウンを開始する。 */
 function open(): void {
   stopTimer()
-  dialogRef.value?.showModal()
+  dialogRef.value?.open()
   window.addEventListener('blur', cancelForFocusLoss, true)
   document.addEventListener('blur', cancelForFocusLoss, true)
   document.addEventListener('visibilitychange', cancelForVisibilityChange)
@@ -60,7 +61,7 @@ function removeFocusLossListeners(): void {
 function close(): void {
   stopTimer()
   removeFocusLossListeners()
-  if (dialogRef.value?.open) dialogRef.value.close()
+  dialogRef.value?.close()
 }
 
 /** ユーザーキャンセル時にカウントダウンを破棄する。 */
@@ -103,11 +104,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <dialog
+  <BaseDialog
     ref="dialogRef"
     aria-labelledby="pause-countdown-title"
-    class="dialog-centered w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-border bg-background p-0 text-foreground shadow-lg backdrop:bg-scrim"
-    @cancel.prevent="cancel"
+    class="w-[min(24rem,calc(100vw-2rem))] p-0"
+    @cancel="cancel"
   >
     <div class="space-y-5 p-5 text-center">
       <div
@@ -145,5 +146,5 @@ onUnmounted(() => {
         </BaseButton>
       </div>
     </div>
-  </dialog>
+  </BaseDialog>
 </template>
