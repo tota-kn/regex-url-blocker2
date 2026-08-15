@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { Worker } from '@playwright/test'
-import type { Group, HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
+import type { HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
 import {
   closeServer,
@@ -10,6 +10,7 @@ import {
   waitForEffectiveSettings,
 } from './helpers'
 import { logicalDateId } from './logicalDate'
+import { buildEffectiveSettingsFixture } from './settingsFixture'
 
 /**
  * Service Worker 経由で指定タブのアクション badge テキストを取得する。
@@ -307,26 +308,6 @@ async function saveWindowedDailyLimitSettings(
 }
 
 /**
- * 毎日同じ上限分数を使うテスト用の Daily limit ルールを作る。undefined はルールなし。
- */
-function buildRestrictionParts(
-  dailyLimitMinutes: number | undefined,
-  redirectUrl: string,
-): Pick<Group, 'rules'> {
-  if (dailyLimitMinutes === undefined) return { rules: [] }
-  return {
-    rules: [
-      {
-        id: 'effective-rule',
-        window: { type: 'always' },
-        restriction: { kind: 'dailyLimit', minutes: dailyLimitMinutes },
-        destination: { type: 'redirect', url: redirectUrl },
-      },
-    ],
-  }
-}
-
-/**
  * 次のリセットまで十分な猶予があるテスト用 dailyResetHour を返す。
  */
 function buildStableDailyResetHour(now: Date): HHMM {
@@ -352,39 +333,6 @@ function buildActiveTimeRange(now: Date): TimeRange {
   return {
     startMinute: (nowMinute + 1439) % 1440,
     endMinute: (nowMinute + 60) % 1440,
-  }
-}
-
-/**
- * background E2E 用の設定オブジェクトを作る。
- */
-function buildEffectiveSettingsFixture(
-  origin: string,
-  dailyResetHour: HHMM,
-  dailyLimitMinutes: number | undefined,
-  lockMode = false,
-  disabled = false,
-): Settings {
-  return {
-    global: {
-      dailyResetHour,
-      remainingTimeNotificationsEnabled: true,
-      notificationThresholdMinutes: 5,
-    },
-    groups: [
-      {
-        id: 'effective-group',
-        name: 'Effective group',
-        mode: 'blacklist',
-        disabled,
-        lockMode,
-        patterns: [`^${origin.replaceAll('.', '\\.')}`],
-        pauseWaitSeconds: 60,
-        pauseDurationMinutes: 10,
-        pauseAllowed: true,
-        ...buildRestrictionParts(dailyLimitMinutes, `${origin}/blocked`),
-      },
-    ],
   }
 }
 
