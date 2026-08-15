@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { ValidationError } from './validation'
 
 /**
  * フォームの検証メッセージを表示するタイミングを管理する。
@@ -36,5 +37,17 @@ export function useValidationFeedback() {
     saveAttempted.value = false
   }
 
-  return { touch, showAllErrors, shouldShow, reset }
+  /** 完全一致するフィールドの表示対象エラーメッセージを返す。 */
+  function messageFor(errors: ValidationError[], field: string): string | undefined {
+    const error = errors.find((candidate) => candidate.field === field)
+    return error && shouldShow(error.field) ? error.message : undefined
+  }
+
+  /** 指定prefix配下で最初の表示対象エラーメッセージを返す。 */
+  function messageForPrefix(errors: ValidationError[], prefix: string): string | undefined {
+    const error = errors.find((candidate) => candidate.field.startsWith(prefix))
+    return error && shouldShow(error.field) ? error.message : undefined
+  }
+
+  return { touch, showAllErrors, shouldShow, reset, messageFor, messageForPrefix }
 }

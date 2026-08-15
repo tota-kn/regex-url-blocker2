@@ -34,7 +34,7 @@ import {
   serializeSettingsExport,
 } from '@/utils/storage'
 import { useNowTimer } from '@/utils/useNowTimer'
-import { useStorageListener } from '@/utils/useStorageListener'
+import { useStorageWatch } from '@/utils/useStorageWatch'
 import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
@@ -134,8 +134,7 @@ function groupPauseValidIds(): string[] {
 
 /** 指定フィールドのグローバル設定エラーメッセージを返す。 */
 function globalError(field: string): string | undefined {
-  const error = globalErrors.value.find((e) => e.field === field)
-  return error && globalValidationFeedback.shouldShow(field) ? error.message : undefined
+  return globalValidationFeedback.messageFor(globalErrors.value, field)
 }
 
 /** General settings の入力フィールドを編集済みとして扱う。 */
@@ -324,22 +323,14 @@ watch(
   { deep: true },
 )
 
-const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (
-  changes,
-  areaName,
-) => {
-  if (areaName === 'local' && changes.counters) {
-    void refreshCounters()
-  }
-  if (areaName === 'local' && changes.groupPauseState) {
-    void refreshGroupPauseState()
-  }
-  if (areaName === 'local' && (changes.effectiveSettings || changes.effectiveSettingsLogicalDate)) {
-    void refreshEffectiveSettings()
-  }
-}
-
-useStorageListener(handleStorageChanged)
+useStorageWatch({
+  local: {
+    counters: refreshCounters,
+    groupPauseState: refreshGroupPauseState,
+    effectiveSettings: refreshEffectiveSettings,
+    effectiveSettingsLogicalDate: refreshEffectiveSettings,
+  },
+})
 
 onMounted(async () => {
   const {

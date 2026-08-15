@@ -209,8 +209,7 @@ function isFieldPending(key: keyof Group): boolean {
 
 /** 指定フィールドのドラフト検証エラーメッセージを返す。 */
 function draftError(field: string): string | undefined {
-  const error = draftErrors.value.find((e) => e.field === field)
-  return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
+  return validationFeedback.messageFor(draftErrors.value, field)
 }
 
 /** 指定パターン番号のドラフト検証エラーメッセージを返す。 */
@@ -226,8 +225,7 @@ function patternsSectionError(): string | undefined {
 /** 指定ルールのドラフト検証エラーメッセージを返す。 */
 function ruleError(index: number): string | undefined {
   const prefix = `rules[${index}]`
-  const error = draftErrors.value.find((e) => e.field.startsWith(`${prefix}.`))
-  return error && validationFeedback.shouldShow(error.field) ? error.message : undefined
+  return validationFeedback.messageForPrefix(draftErrors.value, `${prefix}.`)
 }
 
 /** ルール一覧全体のドラフト検証エラーを返す。 */

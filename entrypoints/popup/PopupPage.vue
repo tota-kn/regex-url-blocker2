@@ -12,7 +12,7 @@ import { describeCurrentState, type CurrentStateSummary } from '@/utils/rules'
 import { getGroupPauseDisplayState, type GroupPauseDisplayState } from '@/utils/groupPause'
 import { loadGroupPauseState, loadPageState } from '@/utils/storage'
 import { useNowTimer } from '@/utils/useNowTimer'
-import { useStorageListener } from '@/utils/useStorageListener'
+import { useStorageWatch } from '@/utils/useStorageWatch'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 
 interface DisplayGroup {
@@ -165,22 +165,15 @@ async function refreshState(): Promise<void> {
   counterLoadedAt.value = now.value
 }
 
-const handleStorageChanged: Parameters<typeof browser.storage.onChanged.addListener>[0] = (
-  changes,
-  areaName,
-) => {
-  if (areaName === 'local' && (changes.counters || changes.groupPauseState)) {
-    void refreshState()
-  }
-  if (areaName === 'local' && (changes.effectiveSettings || changes.effectiveSettingsLogicalDate)) {
-    void refreshState()
-  }
-  if (areaName === 'sync' && (changes.global || changes.groups)) {
-    void refreshState()
-  }
-}
-
-useStorageListener(handleStorageChanged)
+useStorageWatch({
+  local: {
+    counters: refreshState,
+    groupPauseState: refreshState,
+    effectiveSettings: refreshState,
+    effectiveSettingsLogicalDate: refreshState,
+  },
+  sync: { global: refreshState, groups: refreshState },
+})
 
 onMounted(async () => {
   await refreshState()

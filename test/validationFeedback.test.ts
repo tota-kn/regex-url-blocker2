@@ -13,4 +13,18 @@ describe('useValidationFeedback', () => {
     feedback.showAllErrors()
     expect(feedback.shouldShow('name')).toBe(true)
   })
+
+  it('returns visible exact and nested validation messages', () => {
+    const feedback = useValidationFeedback()
+    const errors = [
+      { field: 'name', message: 'Name required' },
+      { field: 'rules[0].window', message: 'Window required' },
+    ]
+
+    feedback.touch('rules[0]')
+    expect(feedback.messageFor(errors, 'name')).toBeUndefined()
+    expect(feedback.messageForPrefix(errors, 'rules[0].')).toBe('Window required')
+    feedback.showAllErrors()
+    expect(feedback.messageFor(errors, 'name')).toBe('Name required')
+  })
 })
