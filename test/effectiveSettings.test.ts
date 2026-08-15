@@ -26,6 +26,8 @@ function group(overrides: Partial<Group> = {}): Group {
     rules: [],
     pauseAllowed: true,
     ...overrides,
+    pauseWaitSeconds: overrides.pauseWaitSeconds ?? 60,
+    pauseDurationMinutes: overrides.pauseDurationMinutes ?? 10,
   }
 }
 

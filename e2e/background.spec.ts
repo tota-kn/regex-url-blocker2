@@ -387,6 +387,8 @@ function buildEffectiveSettingsFixture(
         disabled,
         lockMode,
         patterns: [`^${origin.replaceAll('.', '\\.')}`],
+        pauseWaitSeconds: 60,
+        pauseDurationMinutes: 10,
         pauseAllowed: true,
         ...buildRestrictionParts(dailyLimitMinutes, `${origin}/blocked`),
       },

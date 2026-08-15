@@ -21,6 +21,8 @@ function group(overrides: Partial<Group> = {}): Group {
     pauseAllowed: true,
     ...dailyRule({ kind: 'dailyLimit', minutes: 60 }),
     ...overrides,
+    pauseWaitSeconds: overrides.pauseWaitSeconds ?? 60,
+    pauseDurationMinutes: overrides.pauseDurationMinutes ?? 10,
   }
 }
 

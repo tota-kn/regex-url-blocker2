@@ -104,6 +104,8 @@ describe('validateGroup', () => {
       lockMode: false,
       patterns: ['['],
       rules: [],
+      pauseWaitSeconds: 60,
+      pauseDurationMinutes: 10,
       pauseAllowed: true,
     })
     expect(errors.some((e) => e.field === 'name')).toBe(true)

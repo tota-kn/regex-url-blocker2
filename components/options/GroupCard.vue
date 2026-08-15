@@ -108,13 +108,9 @@ const resolvedGroup = computed(() =>
     : comparedGroup.value,
 )
 /** いま実際に適用されている一時停止の待機秒数。 */
-const effectivePauseWaitSeconds = computed(
-  () => resolvedGroup.value.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS,
-)
+const effectivePauseWaitSeconds = computed(() => resolvedGroup.value.pauseWaitSeconds)
 /** いま実際に適用されている一時停止の継続分数。 */
-const effectivePauseDurationMinutes = computed(
-  () => resolvedGroup.value.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
-)
+const effectivePauseDurationMinutes = computed(() => resolvedGroup.value.pauseDurationMinutes)
 /** 保留中フィールドに添える適用時期の文言。 */
 const pendingUntilLabel = computed(() =>
   props.appliesAfterLabel ? `until ${props.appliesAfterLabel}` : 'until the next rule day',
@@ -144,8 +140,8 @@ const visibleOptionSummaries = computed(() => {
       pending: `Still on ${pendingUntilLabel.value}.`,
     })
   }
-  const pauseWaitSeconds = props.group.pauseWaitSeconds ?? DEFAULT_PAUSE_WAIT_SECONDS
-  const pauseDurationMinutes = props.group.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES
+  const pauseWaitSeconds = props.group.pauseWaitSeconds
+  const pauseDurationMinutes = props.group.pauseDurationMinutes
   if (props.group.pauseAllowed === false) {
     summaries.push({ label: 'Pause', value: 'Not allowed', pending: pendingPauseNote.value })
   } else if (

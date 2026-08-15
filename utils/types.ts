@@ -110,9 +110,9 @@ export interface Group {
   /** URL pattern の配列。裸ドメインまたは `new RegExp()` で構文チェックを通る正規表現を指定できる。 */
   patterns: string[]
   /** 一時停止を開始するまでの待機秒数。0以上の整数。 */
-  pauseWaitSeconds?: number
+  pauseWaitSeconds: number
   /** 一時停止を継続する分数。1以上の整数。 */
-  pauseDurationMinutes?: number
+  pauseDurationMinutes: number
   /** false の場合、このグループの一時停止（Pause）操作を禁止する。既定は true。 */
   pauseAllowed: boolean
   /**

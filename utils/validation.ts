@@ -244,20 +244,14 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
     errors.push({ field: 'name', message: VALIDATION_MESSAGES.required })
   }
 
-  if (
-    group.pauseWaitSeconds !== undefined &&
-    (!Number.isInteger(group.pauseWaitSeconds) || group.pauseWaitSeconds < 0)
-  ) {
+  if (!Number.isInteger(group.pauseWaitSeconds) || group.pauseWaitSeconds < 0) {
     errors.push({
       field: 'pauseWaitSeconds',
       message: VALIDATION_MESSAGES.wholeNumberZeroOrGreater,
     })
   }
 
-  if (
-    group.pauseDurationMinutes !== undefined &&
-    (!Number.isInteger(group.pauseDurationMinutes) || group.pauseDurationMinutes < 1)
-  ) {
+  if (!Number.isInteger(group.pauseDurationMinutes) || group.pauseDurationMinutes < 1) {
     errors.push({
       field: 'pauseDurationMinutes',
       message: VALIDATION_MESSAGES.wholeNumberOneOrGreater,

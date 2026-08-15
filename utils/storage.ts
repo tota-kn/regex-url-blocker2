@@ -37,13 +37,15 @@ import { validateGlobalSettings, validateGroup } from './validation'
  * v5〜v10 は未リリース開発中にのみ存在した形式のためサポートしない。
  */
 export const SETTINGS_EXPORT_VERSION = 12
+const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, SETTINGS_EXPORT_VERSION] as const
+type SupportedExportVersion = (typeof SUPPORTED_EXPORT_VERSIONS)[number]
 
 /**
  * エクスポートした設定ファイルの JSON 構造。
  */
 export interface SettingsExportFile {
   /** 設定ファイル形式のバージョン。 */
-  version: 2 | 3 | 4 | 11 | typeof SETTINGS_EXPORT_VERSION
+  version: SupportedExportVersion
   /** storage.sync に保存する設定本体。 */
   settings: Settings
 }
@@ -327,13 +329,7 @@ export function parseSettingsExportJson(json: string): Settings {
   }
 
   const file: Record<string, unknown> = asRecord(parsed)
-  if (
-    file.version !== 2 &&
-    file.version !== 3 &&
-    file.version !== 4 &&
-    file.version !== 11 &&
-    file.version !== SETTINGS_EXPORT_VERSION
-  ) {
+  if (!SUPPORTED_EXPORT_VERSIONS.some((version) => file.version === version)) {
     throw new Error('Unsupported settings file version')
   }
   if (!isRecord(file.settings)) {

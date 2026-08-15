@@ -41,6 +41,8 @@ function settingsWith(...rules: Rule[]): Settings {
     disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],
+    pauseWaitSeconds: 60,
+    pauseDurationMinutes: 10,
     pauseAllowed: true,
     rules,
   }
