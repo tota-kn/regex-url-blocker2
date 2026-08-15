@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import { expect, test } from './fixtures'
-import { waitForEffectiveSettings } from './helpers'
+import { setExtensionStorage, waitForEffectiveSettings } from './helpers'
 import {
   addRequiredGroupSections,
   createBlankGroup,
@@ -44,15 +44,9 @@ function dailyRules(override: Record<string, unknown> = {}): Array<Record<string
  * Lock Mode ON かつ Pause の待機 5 秒・停止 7 分のグループを、
  * 希望設定と当日の基準スナップショットの両方へ書き込む。Service Worker 内で実行する。
  */
-async function seedLockedPauseGroup(): Promise<void> {
-  const chromeApi = globalThis as unknown as {
-    chrome: {
-      storage: {
-        sync: { set: (items: Record<string, unknown>) => Promise<void> }
-        local: { set: (items: Record<string, unknown>) => Promise<void> }
-      }
-    }
-  }
+async function seedLockedPauseGroup(
+  serviceWorker: Parameters<typeof setExtensionStorage>[0],
+): Promise<void> {
   const settings = {
     global: {
       dailyResetHour: '03:00',
@@ -90,26 +84,20 @@ async function seedLockedPauseGroup(): Promise<void> {
     String(reset.getMonth() + 1).padStart(2, '0'),
     String(reset.getDate()).padStart(2, '0'),
   ].join('-')
-  await chromeApi.chrome.storage.local.set({
+  await setExtensionStorage(serviceWorker, 'local', {
     effectiveSettings: settings,
     effectiveSettingsLogicalDate: logicalDate,
   })
-  await chromeApi.chrome.storage.sync.set(settings)
+  await setExtensionStorage(serviceWorker, 'sync', settings)
 }
 
 /**
  * 希望設定からは削除済みだが、Lock Mode により当日の基準スナップショットには残っている
  * グループを書き込む。Service Worker 内で実行する。
  */
-async function seedDeletedActiveGroup(): Promise<void> {
-  const chromeApi = globalThis as unknown as {
-    chrome: {
-      storage: {
-        sync: { set: (items: Record<string, unknown>) => Promise<void> }
-        local: { set: (items: Record<string, unknown>) => Promise<void> }
-      }
-    }
-  }
+async function seedDeletedActiveGroup(
+  serviceWorker: Parameters<typeof setExtensionStorage>[0],
+): Promise<void> {
   const global = {
     dailyResetHour: '03:00',
     remainingTimeNotificationsEnabled: true,
@@ -141,11 +129,11 @@ async function seedDeletedActiveGroup(): Promise<void> {
     String(reset.getMonth() + 1).padStart(2, '0'),
     String(reset.getDate()).padStart(2, '0'),
   ].join('-')
-  await chromeApi.chrome.storage.local.set({
+  await setExtensionStorage(serviceWorker, 'local', {
     effectiveSettings: { global, groups: [deletedGroup] },
     effectiveSettingsLogicalDate: logicalDate,
   })
-  await chromeApi.chrome.storage.sync.set({ global, groups: [] })
+  await setExtensionStorage(serviceWorker, 'sync', { global, groups: [] })
 }
 
 test.describe('Options 画面', () => {
@@ -708,7 +696,7 @@ test.describe('Options 画面', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(seedLockedPauseGroup)
+    await seedLockedPauseGroup(serviceWorker)
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -736,7 +724,7 @@ test.describe('Options 画面', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(seedLockedPauseGroup)
+    await seedLockedPauseGroup(serviceWorker)
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -1244,7 +1232,7 @@ test.describe('Options 画面', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(seedDeletedActiveGroup)
+    await seedDeletedActiveGroup(serviceWorker)
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page

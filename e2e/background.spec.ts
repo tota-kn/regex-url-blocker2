@@ -2,7 +2,13 @@ import { createServer } from 'node:http'
 import type { Worker } from '@playwright/test'
 import type { Group, HHMM, Settings, TimeRange, UsageCounter } from '../utils/types'
 import { expect, test } from './fixtures'
-import { closeServer, gotoPossiblyRedirected, waitForEffectiveSettings } from './helpers'
+import {
+  closeServer,
+  gotoPossiblyRedirected,
+  savePreferredAndEffectiveSettings,
+  savePreferredSettings,
+  waitForEffectiveSettings,
+} from './helpers'
 
 /**
  * Service Worker 経由で指定タブのアクション badge テキストを取得する。
@@ -394,57 +400,6 @@ function buildEffectiveSettingsFixture(
       },
     ],
   }
-}
-
-/**
- * Service Worker 上で希望設定と有効設定を同時に保存する。
- */
-async function savePreferredAndEffectiveSettings(
-  serviceWorker: Worker,
-  preferred: Settings,
-  effective: Settings,
-  effectiveSettingsLogicalDate: string,
-): Promise<void> {
-  await serviceWorker.evaluate(
-    async (state) => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-          }
-        }
-      }
-      await chromeApi.chrome.storage.local.set({
-        effectiveSettings: state.effective,
-        effectiveSettingsLogicalDate: state.effectiveSettingsLogicalDate,
-      })
-      await chromeApi.chrome.storage.sync.set({
-        global: state.preferred.global,
-        groups: state.preferred.groups,
-      })
-    },
-    { preferred, effective, effectiveSettingsLogicalDate },
-  )
-}
-
-/**
- * Service Worker 上で希望設定だけを保存する。
- */
-async function savePreferredSettings(serviceWorker: Worker, preferred: Settings): Promise<void> {
-  await serviceWorker.evaluate(async (settings) => {
-    const chromeApi = globalThis as unknown as {
-      chrome: {
-        storage: {
-          sync: { set: (items: Record<string, unknown>) => Promise<void> }
-        }
-      }
-    }
-    await chromeApi.chrome.storage.sync.set({
-      global: settings.global,
-      groups: settings.groups,
-    })
-  }, preferred)
 }
 
 test.describe('Background blocking', () => {

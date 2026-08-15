@@ -1,5 +1,6 @@
 import { createServer, type RequestListener, type Server } from 'node:http'
 import { expect, type Page, type Worker } from '@playwright/test'
+import type { Settings } from '../utils/types'
 
 /** E2E 用 HTTP サーバーの参照。 */
 export interface TestServer {
@@ -81,6 +82,53 @@ export async function getExtensionStorage(
     },
     { area, keys },
   )
+}
+
+/** Service Worker から extension storage の指定領域へ値を書き込む。 */
+export async function setExtensionStorage(
+  serviceWorker: Worker,
+  area: 'local' | 'sync',
+  items: Record<string, unknown>,
+): Promise<void> {
+  await serviceWorker.evaluate(
+    async ({ area, items }) => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: { set: (items: Record<string, unknown>) => Promise<void> }
+            sync: { set: (items: Record<string, unknown>) => Promise<void> }
+          }
+        }
+      }
+      await chromeApi.chrome.storage[area].set(items)
+    },
+    { area, items },
+  )
+}
+
+/** 希望設定と当日の有効設定スナップショットを同時に保存する。 */
+export async function savePreferredAndEffectiveSettings(
+  serviceWorker: Worker,
+  preferred: Settings,
+  effective: Settings,
+  effectiveSettingsLogicalDate: string,
+): Promise<void> {
+  await setExtensionStorage(serviceWorker, 'local', {
+    effectiveSettings: effective,
+    effectiveSettingsLogicalDate,
+  })
+  await savePreferredSettings(serviceWorker, preferred)
+}
+
+/** 希望設定を storage.sync へ保存する。 */
+export async function savePreferredSettings(
+  serviceWorker: Worker,
+  preferred: Settings,
+): Promise<void> {
+  await setExtensionStorage(serviceWorker, 'sync', {
+    global: preferred.global,
+    groups: preferred.groups,
+  })
 }
 
 /** 現在の storage.sync 設定を background が有効設定へ反映するまで待つ。 */
