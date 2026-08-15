@@ -13,6 +13,7 @@ import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import StatusChip from '@/components/ui/StatusChip.vue'
 import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
 import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
@@ -345,23 +346,14 @@ function optionsPanelId(): string {
           </label>
 
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
-            <span
-              v-if="!isEditing && !isNew && group.disabled"
-              class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-label-md text-muted"
-              role="status"
-            >
+            <StatusChip v-if="!isEditing && !isNew && group.disabled" kind="muted">
               <NoSymbolIcon aria-hidden="true" class="size-4" />
               Disabled
-            </span>
-            <span
-              v-if="!isEditing && !isNew && pauseButtonState.paused"
-              class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-label-md text-secondary-foreground"
-              role="status"
-              aria-live="polite"
-            >
+            </StatusChip>
+            <StatusChip v-if="!isEditing && !isNew && pauseButtonState.paused" aria-live="polite">
               <ClockIcon aria-hidden="true" class="size-4" />
               {{ pauseButtonState.label }}
-            </span>
+            </StatusChip>
             <BaseButton
               v-if="restorable"
               type="button"
@@ -457,7 +449,7 @@ function optionsPanelId(): string {
       <template v-if="isEditing">
         <button
           type="button"
-          class="flex w-full items-center gap-3 bg-transparent py-2.5 text-left text-label-md text-secondary-foreground transition hover:bg-field-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          class="flex w-full items-center gap-3 bg-transparent py-2.5 text-left text-label-md text-secondary-foreground transition hover:bg-field-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           :aria-expanded="isOptionsOpen"
           :aria-controls="optionsPanelId()"
           @click="toggleOptions"
@@ -492,7 +484,7 @@ function optionsPanelId(): string {
                   <input
                     v-model="draft.lockMode"
                     type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
                     aria-label="Delay relaxed restrictions until next rule day Off"
                     :value="false"
                   />
@@ -504,7 +496,7 @@ function optionsPanelId(): string {
                   <input
                     v-model="draft.lockMode"
                     type="radio"
-                    class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                    class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
                     aria-label="Delay relaxed restrictions until next rule day On"
                     :value="true"
                   />
@@ -536,7 +528,7 @@ function optionsPanelId(): string {
                     <input
                       v-model="draft.pauseAllowed"
                       type="radio"
-                      class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                      class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
                       aria-label="Allow Pause On"
                       :value="true"
                     />
@@ -548,7 +540,7 @@ function optionsPanelId(): string {
                     <input
                       v-model="draft.pauseAllowed"
                       type="radio"
-                      class="size-4 border-border text-primary focus:ring-2 focus:ring-primary/30"
+                      class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
                       aria-label="Allow Pause Off"
                       :value="false"
                     />

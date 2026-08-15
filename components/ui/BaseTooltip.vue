@@ -65,7 +65,7 @@ useDismissOnOutsidePointer(root, isOpen, close)
       :aria-label="label"
       :aria-expanded="isOpen"
       :aria-describedby="isOpen ? panelId : undefined"
-      class="inline-flex size-5 items-center justify-center rounded-full text-muted transition hover:text-secondary-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      class="inline-flex size-5 items-center justify-center rounded-full text-muted transition hover:text-secondary-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       @click="toggle"
       @focus="open"
       @blur="close"

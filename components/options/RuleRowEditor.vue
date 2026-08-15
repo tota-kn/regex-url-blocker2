@@ -161,7 +161,7 @@ function preventNonDigitInput(event: InputEvent): void {
 
 /** 選択欄の共通クラス。 */
 const selectClass =
-  'h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring/50'
+  'h-8 min-w-0 rounded-lg border border-field-border bg-field px-2 text-body-md text-input-foreground outline-none transition hover:border-field-border-hover hover:bg-field-hover focus:border-primary focus:ring-2 focus:ring-ring'
 </script>
 
 <template>

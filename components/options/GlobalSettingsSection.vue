@@ -170,7 +170,7 @@ onUnmounted(() => {
                 id="remaining-time-notifications-enabled"
                 v-model="globalSettings.remainingTimeNotificationsEnabled"
                 type="checkbox"
-                class="-ml-7 size-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+                class="-ml-7 size-4 rounded border-border text-primary focus:ring-2 focus:ring-ring"
                 aria-label="Notify me before the daily limit is reached"
                 @change="emit('touch', 'remainingTimeNotificationsEnabled')"
               />

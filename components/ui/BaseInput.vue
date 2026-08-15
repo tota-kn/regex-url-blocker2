@@ -58,7 +58,7 @@ const stateClass = computed(() => {
   if (props.invalid) {
     return 'border-danger-border bg-field text-input-foreground focus:border-danger focus:ring-2 focus:ring-danger-border/70 hover:bg-field-hover'
   }
-  return 'border-field-border bg-field text-input-foreground focus:border-primary focus:ring-2 focus:ring-ring/50 hover:bg-field-hover hover:border-field-border-hover'
+  return 'border-field-border bg-field text-input-foreground focus:border-primary focus:ring-2 focus:ring-ring hover:bg-field-hover hover:border-field-border-hover'
 })
 
 /** input イベントの値を v-model に反映する。 */
