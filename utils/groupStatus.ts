@@ -12,6 +12,7 @@ import {
 } from './timeWindow'
 import type {
   BlockDestination,
+  BlockingRule,
   GlobalSettings,
   Group,
   Rule,
@@ -46,8 +47,8 @@ export const RULE_KIND_ORDER: RuleKind[] = ['block', 'dailyLimit', 'wait']
  * 遷移先はこのルールの `destination` から決まる。
  */
 export type BlockReason =
-  | { kind: 'block'; rule: Rule }
-  | { kind: 'dailyLimit'; rule: Rule; summary: TimeLimitUsageSummary }
+  | { kind: 'block'; rule: BlockingRule }
+  | { kind: 'dailyLimit'; rule: BlockingRule; summary: TimeLimitUsageSummary }
 
 /**
  * 1グループの現在時刻におけるブロック状態。
@@ -158,13 +159,14 @@ export function getBlockReason(
 ): BlockReason | undefined {
   const active = getActiveRules(group, now, global)
 
-  const blockRule = active.find((rule) => rule.restriction.kind === 'block')
+  const blockRule = active.find((rule): rule is BlockingRule => rule.restriction.kind === 'block')
   if (blockRule) return { kind: 'block', rule: blockRule }
 
   const limitMinutes = minDailyLimitMinutes(active)
   if (limitMinutes === undefined) return undefined
   const dailyRule = active.find(
-    (rule) => rule.restriction.kind === 'dailyLimit' && rule.restriction.minutes === limitMinutes,
+    (rule): rule is BlockingRule =>
+      rule.restriction.kind === 'dailyLimit' && rule.restriction.minutes === limitMinutes,
   )
   if (!dailyRule) return undefined
   const summary = buildUsageSummary(
@@ -175,9 +177,9 @@ export function getBlockReason(
   return summary.remainingSec <= 0 ? { kind: 'dailyLimit', rule: dailyRule, summary } : undefined
 }
 
-/** ブロック理由から遷移先を返す。ルールが遷移先を持たない場合はブロックページ。 */
+/** ブロック理由から遷移先を返す。 */
 export function getBlockDestination(reason: BlockReason): BlockDestination {
-  return reason.rule.destination ?? { type: 'blockedPage' }
+  return reason.rule.destination
 }
 
 /**

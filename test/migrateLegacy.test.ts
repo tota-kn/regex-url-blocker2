@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { migrateLegacyRules } from '../utils/migrateLegacy'
 import { sortRulesByEvaluationOrder } from '../utils/groupStatus'
+import { buildRule } from '../utils/ruleFactory'
 import type { LegacyRestriction } from '../utils/migrateLegacy'
 import type { TimeWindow } from '../utils/types'
 
@@ -129,16 +130,16 @@ describe('migrateLegacyRules', () => {
 })
 
 describe('sortRulesByEvaluationOrder', () => {
-  const rule = (kind: 'block' | 'dailyLimit' | 'wait', id: string) => ({
-    id,
-    window: always,
-    restriction:
+  const rule = (kind: 'block' | 'dailyLimit' | 'wait', id: string) =>
+    buildRule(
+      id,
+      always,
       kind === 'block'
         ? ({ kind } as const)
         : kind === 'dailyLimit'
           ? ({ kind, minutes: 30 } as const)
           : ({ kind, seconds: 60, grantMinutes: 10 } as const),
-  })
+    )
 
   it('Block → Daily limit → Wait の順へ並べ替える', () => {
     const sorted = sortRulesByEvaluationOrder([

@@ -4,6 +4,7 @@ import { getBlockDestination, getBlockReason, getEffectiveWait } from '../utils/
 import { incrementEffectiveCounters } from '../utils/usageCounters'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { describeCurrentState } from '../utils/rules'
+import { buildRule } from '../utils/ruleFactory'
 import type { Group, Rule, RuleRestriction, Settings, UsageCountersState } from '../utils/types'
 
 const URL = 'https://example.com/'
@@ -12,18 +13,12 @@ const at = (time: string): Date => new Date(`${DATE}T${time}+09:00`)
 
 /** 常時ウィンドウのルールを1件作る。 */
 function rule(id: string, restriction: RuleRestriction, redirectUrl?: string): Rule {
-  return {
+  return buildRule(
     id,
-    window: { type: 'always' },
+    { type: 'always' },
     restriction,
-    ...(restriction.kind === 'wait'
-      ? {}
-      : {
-          destination: redirectUrl
-            ? ({ type: 'redirect', url: redirectUrl } as const)
-            : ({ type: 'blockedPage' } as const),
-        }),
-  }
+    redirectUrl ? { type: 'redirect', url: redirectUrl } : { type: 'blockedPage' },
+  )
 }
 
 /** 指定ルールを持つ設定を作る。 */

@@ -4,6 +4,7 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import { createDefaultRule, DEFAULT_REDIRECT_URL } from '@/utils/defaults'
+import { buildRule } from '@/utils/ruleFactory'
 import type { Rule, RuleKind, ScheduleRuleCondition, TimeRange, TimeWindow } from '@/utils/types'
 import ScheduleWindowEditor from './ScheduleWindowEditor.vue'
 
@@ -58,7 +59,10 @@ function windowValue(window: TimeWindow): string {
 function setWindow(value: string): void {
   const existing = rule.value.window
   if (value === 'always') {
-    update({ ...rule.value, window: { type: 'always' } }, 'window')
+    update(
+      buildRule(rule.value.id, { type: 'always' }, rule.value.restriction, rule.value.destination),
+      'window',
+    )
     return
   }
   const conditions: Record<string, ScheduleRuleCondition> = {
@@ -70,14 +74,16 @@ function setWindow(value: string): void {
   const condition = conditions[value]
   if (!condition) return
   update(
-    {
-      ...rule.value,
-      window: {
+    buildRule(
+      rule.value.id,
+      {
         type: 'scheduled',
         condition,
         timeRanges: existing.type === 'scheduled' ? existing.timeRanges : [],
       },
-    },
+      rule.value.restriction,
+      rule.value.destination,
+    ),
     'window',
   )
 }
@@ -86,12 +92,12 @@ function setWindow(value: string): void {
 function setKind(value: string): void {
   const next = createDefaultRule(value as RuleKind)
   update(
-    {
-      id: rule.value.id,
-      window: rule.value.window,
-      restriction: next.restriction,
-      ...(next.destination ? { destination: rule.value.destination ?? next.destination } : {}),
-    },
+    buildRule(
+      rule.value.id,
+      rule.value.window,
+      next.restriction,
+      rule.value.destination ?? next.destination,
+    ),
     'restriction',
   )
 }
@@ -99,13 +105,14 @@ function setKind(value: string): void {
 /** 遷移先種別を切り替える。 */
 function setDestinationType(value: string): void {
   update(
-    {
-      ...rule.value,
-      destination:
-        value === 'redirect'
-          ? { type: 'redirect', url: destinationUrl() || DEFAULT_REDIRECT_URL }
-          : { type: 'blockedPage' },
-    },
+    buildRule(
+      rule.value.id,
+      rule.value.window,
+      rule.value.restriction,
+      value === 'redirect'
+        ? { type: 'redirect', url: destinationUrl() || DEFAULT_REDIRECT_URL }
+        : { type: 'blockedPage' },
+    ),
     'destination',
   )
 }
@@ -118,7 +125,10 @@ function destinationUrl(): string {
 /** 遷移先 URL を更新する。 */
 function setDestinationUrl(value: string | number | undefined): void {
   update(
-    { ...rule.value, destination: { type: 'redirect', url: String(value ?? '') } },
+    buildRule(rule.value.id, rule.value.window, rule.value.restriction, {
+      type: 'redirect',
+      url: String(value ?? ''),
+    }),
     'destination',
   )
 }
@@ -126,13 +136,29 @@ function setDestinationUrl(value: string | number | undefined): void {
 /** scheduled window の適用条件を更新する。 */
 function setCondition(condition: ScheduleRuleCondition): void {
   if (rule.value.window.type !== 'scheduled') return
-  update({ ...rule.value, window: { ...rule.value.window, condition } }, 'window')
+  update(
+    buildRule(
+      rule.value.id,
+      { ...rule.value.window, condition },
+      rule.value.restriction,
+      rule.value.destination,
+    ),
+    'window',
+  )
 }
 
 /** scheduled window の時刻ウィンドウを更新する。 */
 function setTimeRanges(timeRanges: TimeRange[]): void {
   if (rule.value.window.type !== 'scheduled') return
-  update({ ...rule.value, window: { ...rule.value.window, timeRanges } }, 'window')
+  update(
+    buildRule(
+      rule.value.id,
+      { ...rule.value.window, timeRanges },
+      rule.value.restriction,
+      rule.value.destination,
+    ),
+    'window',
+  )
 }
 
 /** 数値を入力欄の表示文字列へ変換する。未入力（NaN）は空文字にする。 */
@@ -145,10 +171,12 @@ function setNumber(field: string, value: string | number | undefined): void {
   const text = String(value ?? '').replace(/\D/g, '')
   const parsed = text === '' ? Number.NaN : Number(text)
   update(
-    {
-      ...rule.value,
-      restriction: { ...rule.value.restriction, [field]: parsed } as Rule['restriction'],
-    },
+    buildRule(
+      rule.value.id,
+      rule.value.window,
+      { ...rule.value.restriction, [field]: parsed } as Rule['restriction'],
+      rule.value.destination,
+    ),
     `restriction.${field}`,
   )
 }

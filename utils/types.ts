@@ -70,19 +70,32 @@ export type RuleRestriction =
   | { kind: 'dailyLimit'; minutes: number }
   | { kind: 'wait'; seconds: number; grantMinutes: number }
 
-/**
- * 「いつ」と「何を」を1対1で束ねた制限ルール。
- */
-export interface Rule {
+/** すべての制限ルールが共有するフィールド。 */
+interface RuleBase {
   /** ルールの一意識別子。 */
   id: string
   /** このルールを適用する時間条件。 */
   window: TimeWindow
-  /** このルールが課す制限内容。 */
-  restriction: RuleRestriction
-  /** アクセス禁止が発動したときの遷移先。`kind === 'wait'` では使わない。 */
-  destination?: BlockDestination
 }
+
+/** ブロックを発動し、遷移先を必ず持つルール。 */
+export interface BlockingRule extends RuleBase {
+  /** block または daily limit の制限内容。 */
+  restriction: Exclude<RuleRestriction, { kind: 'wait' }>
+  /** アクセス禁止が発動したときの遷移先。 */
+  destination: BlockDestination
+}
+
+/** 待機ゲートを課し、ブロック遷移先を持たないルール。 */
+export interface WaitRule extends RuleBase {
+  /** 待機秒数と通過後の許可期間。 */
+  restriction: Extract<RuleRestriction, { kind: 'wait' }>
+  /** wait ルールには遷移先を設定しない。 */
+  destination?: never
+}
+
+/** 「いつ」と「何を」を1対1で束ねた制限ルール。 */
+export type Rule = BlockingRule | WaitRule
 
 /**
  * グループの動作モード。

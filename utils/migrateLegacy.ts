@@ -1,5 +1,6 @@
 import { DEFAULT_WAIT_GRANT_MINUTES } from './defaults'
 import { sortRulesByEvaluationOrder } from './groupStatus'
+import { buildRule } from './ruleFactory'
 import { normalizeTimeRange, toTimeWindow } from './normalizeSchema'
 import { asRecord } from './record'
 import type {
@@ -98,12 +99,12 @@ export function migrateLegacyRules(input: LegacyGroupInput): Rule[] {
   const rules = input.timeWindows.flatMap((window, windowIndex) =>
     input.restrictions.map((restriction, restrictionIndex) => {
       const destination = toDestination(restriction, input)
-      return {
-        id: `${input.groupId}:w${windowIndex}:r${restrictionIndex}`,
+      return buildRule(
+        `${input.groupId}:w${windowIndex}:r${restrictionIndex}`,
         window,
-        restriction: toRuleRestriction(restriction),
-        ...(destination ? { destination } : {}),
-      } satisfies Rule
+        toRuleRestriction(restriction),
+        destination,
+      )
     }),
   )
   return sortRulesByEvaluationOrder(rules)

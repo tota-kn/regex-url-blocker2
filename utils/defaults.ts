@@ -1,4 +1,5 @@
 import type { GlobalSettings, Group, Rule, RuleKind, TimeWindow } from './types'
+import { buildRule } from './ruleFactory'
 
 /** Wait を通過した後の既定アクセス許可期間（分）。 */
 export const DEFAULT_WAIT_GRANT_MINUTES = 10
@@ -62,14 +63,12 @@ export function createDefaultRule(kind: RuleKind): Rule {
  */
 function createRulesFromTemplate(templateId: GroupTemplateId): Rule[] {
   if (templateId === 'core-sns-15min') {
-    return [
-      { ...createDefaultRule('dailyLimit'), restriction: { kind: 'dailyLimit', minutes: 15 } },
-    ]
+    const rule = createDefaultRule('dailyLimit')
+    return [buildRule(rule.id, rule.window, { kind: 'dailyLimit', minutes: 15 }, rule.destination)]
   }
   if (templateId === 'video-30min') {
-    return [
-      { ...createDefaultRule('dailyLimit'), restriction: { kind: 'dailyLimit', minutes: 30 } },
-    ]
+    const rule = createDefaultRule('dailyLimit')
+    return [buildRule(rule.id, rule.window, { kind: 'dailyLimit', minutes: 30 }, rule.destination)]
   }
   if (templateId === 'work-hours-focus') {
     return [

@@ -7,6 +7,7 @@ import {
 } from '../utils/validation'
 import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import { buildRule } from '../utils/ruleFactory'
 import type { RuleRestriction, ScheduleRuleCondition, TimeRange } from '../utils/types'
 import { createEmptyGroup, weeklyRule } from './helpers'
 
@@ -143,14 +144,11 @@ describe('validateRestriction (validateGroup 経由)', () => {
       ...createEmptyGroup(),
       name: 'X',
       rules: [
-        {
-          id: 'r0',
-          window: { type: 'scheduled', condition: r.condition, timeRanges: r.timeRanges },
-          restriction: r.restriction,
-          ...(r.restriction.kind === 'wait'
-            ? {}
-            : { destination: { type: 'blockedPage' as const } }),
-        },
+        buildRule(
+          'r0',
+          { type: 'scheduled', condition: r.condition, timeRanges: r.timeRanges },
+          r.restriction,
+        ),
       ],
     })
   }

@@ -29,6 +29,7 @@ import type {
   UsageNotificationEntry,
   UsageNotificationHistoryState,
 } from './types'
+import { buildRule } from './ruleFactory'
 import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
@@ -173,14 +174,12 @@ function normalizeRules(value: unknown, groupId: string): Rule[] | undefined {
     const window = normalizeTimeWindows([rule.window])?.[0]
     if (!restriction || !window) return []
     return [
-      {
-        id: typeof rule.id === 'string' && rule.id.length > 0 ? rule.id : `${groupId}:r${index}`,
+      buildRule(
+        typeof rule.id === 'string' && rule.id.length > 0 ? rule.id : `${groupId}:r${index}`,
         window,
         restriction,
-        ...(restriction.kind === 'wait'
-          ? {}
-          : { destination: normalizeBlockDestination(rule.destination) }),
-      } satisfies Rule,
+        normalizeBlockDestination(rule.destination),
+      ),
     ]
   })
 }

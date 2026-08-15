@@ -9,6 +9,7 @@ import type {
   UsageCountersState,
 } from '../utils/types'
 import { createGroupFromTemplate, DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+import { buildRule as createRule } from '../utils/ruleFactory'
 
 /** テスト用の標準グループを生成する。 */
 export function group(overrides: Partial<Group> = {}): Group {
@@ -72,18 +73,14 @@ export function buildRule(
   restriction: RuleRestriction,
   overrides: RuleOverrides,
 ): Rule {
-  return {
-    id: overrides.id ?? crypto.randomUUID(),
+  return createRule(
+    overrides.id ?? crypto.randomUUID(),
     window,
     restriction,
-    ...(restriction.kind === 'wait'
-      ? {}
-      : {
-          destination: overrides.redirectUrl
-            ? ({ type: 'redirect', url: overrides.redirectUrl } as const)
-            : ({ type: 'blockedPage' } as const),
-        }),
-  }
+    overrides.redirectUrl
+      ? { type: 'redirect', url: overrides.redirectUrl }
+      : { type: 'blockedPage' },
+  )
 }
 
 /**
