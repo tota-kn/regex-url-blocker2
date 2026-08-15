@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures'
+import { setExtensionStorage } from './helpers'
 import { openGeneralSettings } from './optionsPage'
+import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
 
 test.describe('Options generalSettings', () => {
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
@@ -130,21 +132,19 @@ test.describe('Options generalSettings', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        groups: Array.from({ length: 12 }, (_, index) => ({
-          id: `group-${index}`,
-          name: `Group ${index + 1}`,
-          mode: 'blacklist',
-          patterns: [`example-${index}\\.com`],
-          dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-            dayOfWeek,
-            blockedTimeRanges: [],
-            dailyLimitMinutes: undefined,
-          })),
-        })),
-      })
-    })
+    await setExtensionStorage(
+      serviceWorker,
+      'sync',
+      buildSettingsFixture(
+        Array.from({ length: 12 }, (_, index) =>
+          buildGroupFixture({
+            id: `group-${index}`,
+            name: `Group ${index + 1}`,
+            patterns: [`example-${index}\\.com`],
+          }),
+        ),
+      ),
+    )
     await page.setViewportSize({ width: 1100, height: 700 })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 

@@ -1,6 +1,35 @@
+import type { Worker } from '@playwright/test'
+import type { Group } from '../utils/types'
 import { expect, test } from './fixtures'
+import { setExtensionStorage } from './helpers'
 import { seedLockedPauseGroup } from './optionsFixtures'
 import { expectNoHorizontalOverflow, openGroupActions } from './optionsPage'
+import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
+
+/** Pause テスト用の現行スキーマグループを保存する。 */
+async function seedPauseGroup(serviceWorker: Worker, overrides: Partial<Group>): Promise<void> {
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      [
+        buildGroupFixture({
+          patterns: ['example\\.com'],
+          rules: [
+            {
+              id: `${overrides.id ?? 'pause'}-rule`,
+              window: { type: 'always' },
+              restriction: { kind: 'block' },
+              destination: { type: 'blockedPage' },
+            },
+          ],
+          ...overrides,
+        }),
+      ],
+      { dailyResetHour: '03:00' },
+    ),
+  )
+}
 
 test.describe('Options pause', () => {
   test('グループ一時停止は設定した待機時間と継続時間を反映する', async ({
@@ -8,32 +37,11 @@ test.describe('Options pause', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'pause-target',
-            name: 'Pause target',
-            mode: 'blacklist',
-            lockMode: false,
-            patterns: ['example\\.com'],
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://blocked.test',
-            pauseWaitSeconds: 5,
-            pauseDurationMinutes: 7,
-            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 0,
-            })),
-          },
-        ],
-      })
+    await seedPauseGroup(serviceWorker, {
+      id: 'pause-target',
+      name: 'Pause target',
+      pauseWaitSeconds: 5,
+      pauseDurationMinutes: 7,
     })
     const startTime = new Date('2026-05-06T12:00:00+09:00')
     await page.clock.install({ time: startTime })
@@ -91,30 +99,9 @@ test.describe('Options pause', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'pause-cancel-target',
-            name: 'Pause cancel target',
-            mode: 'blacklist',
-            lockMode: false,
-            patterns: ['example\\.com'],
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://blocked.test',
-            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 0,
-            })),
-          },
-        ],
-      })
+    await seedPauseGroup(serviceWorker, {
+      id: 'pause-cancel-target',
+      name: 'Pause cancel target',
     })
     await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -165,29 +152,11 @@ test.describe('Options pause', () => {
   }) => {
     /** Pause 禁止フラグを指定してテスト対象グループを保存する。 */
     const savePauseTargetGroup = async (pauseAllowed: boolean): Promise<void> =>
-      serviceWorker.evaluate(async (allowed) => {
-        await globalThis.chrome.storage.sync.set({
-          global: {
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://blocked.test',
-            dailyResetHour: '03:00',
-          },
-          groups: [
-            {
-              id: 'pause-forbidden',
-              name: 'Pause forbidden',
-              mode: 'blacklist',
-              lockMode: false,
-              patterns: ['example\\.com'],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://blocked.test',
-              pauseAllowed: allowed,
-              timeWindows: [{ type: 'always' }],
-              restrictions: [{ type: 'block' }],
-            },
-          ],
-        })
-      }, pauseAllowed)
+      seedPauseGroup(serviceWorker, {
+        id: 'pause-forbidden',
+        name: 'Pause forbidden',
+        pauseAllowed,
+      })
     /** storage.local に保存されている一時停止期限を返す。 */
     const storedPausedUntil = async (): Promise<number | null> =>
       serviceWorker.evaluate(async () => {
@@ -224,28 +193,7 @@ test.describe('Options pause', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'pause-toggle',
-            name: 'Pause toggle',
-            mode: 'blacklist',
-            lockMode: false,
-            patterns: ['example\\.com'],
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://blocked.test',
-            timeWindows: [{ type: 'always' }],
-            restrictions: [{ type: 'block' }],
-          },
-        ],
-      })
-    })
+    await seedPauseGroup(serviceWorker, { id: 'pause-toggle', name: 'Pause toggle' })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Edit group' }).click()
@@ -273,28 +221,7 @@ test.describe('Options pause', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'pause-invalid',
-            name: 'Pause invalid',
-            mode: 'blacklist',
-            lockMode: false,
-            patterns: ['example\\.com'],
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://blocked.test',
-            timeWindows: [{ type: 'always' }],
-            restrictions: [{ type: 'block' }],
-          },
-        ],
-      })
-    })
+    await seedPauseGroup(serviceWorker, { id: 'pause-invalid', name: 'Pause invalid' })
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await page.getByRole('button', { name: 'Edit group' }).click()

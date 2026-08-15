@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { waitForEffectiveSettings } from './helpers'
+import { setExtensionStorage, waitForEffectiveSettings } from './helpers'
 import { logicalDateId } from './logicalDate'
 import { seedDeletedActiveGroup } from './optionsFixtures'
 import {
@@ -10,6 +10,29 @@ import {
   openGroupActions,
   openGroupOptions,
 } from './optionsPage'
+import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
+
+/** Lock Mode テスト用の常時ブロックルールを生成する。 */
+function blockRule(id: string, destinationUrl?: string) {
+  return {
+    id,
+    window: { type: 'always' } as const,
+    restriction: { kind: 'block' } as const,
+    destination: destinationUrl
+      ? ({ type: 'redirect', url: destinationUrl } as const)
+      : ({ type: 'blockedPage' } as const),
+  }
+}
+
+/** Lock Mode テスト用の常時閲覧上限ルールを生成する。 */
+function dailyLimitRule(id: string, minutes: number, url: string) {
+  return {
+    id,
+    window: { type: 'always' } as const,
+    restriction: { kind: 'dailyLimit', minutes } as const,
+    destination: { type: 'redirect', url } as const,
+  }
+}
 
 test.describe('Options lockMode', () => {
   test('保留中は希望設定を表示し、保留フィールドを注記で示す', async ({
@@ -18,89 +41,42 @@ test.describe('Options lockMode', () => {
     extensionId,
   }) => {
     await waitForEffectiveSettings(serviceWorker)
-    await serviceWorker.evaluate(
-      async (logicalDate) => {
-        const activeSettings = {
-          global: {
-            blockAction: 'redirect',
-            redirectUrl: 'https://active-blocked.test',
-            dailyResetHour: '03:00',
-          },
-          groups: [
-            {
-              id: 'work',
-              name: 'Work',
-              mode: 'blacklist',
-              lockMode: true,
-              patterns: ['active\\.example'],
-              blockAction: 'redirect',
-              redirectUrl: 'https://active-blocked.test',
-              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-                dayOfWeek,
-                blockedTimeRanges: [{ startMinute: 540, endMinute: 1020 }],
-                dailyLimitMinutes: 10,
-              })),
-            },
-            {
-              id: 'allowlist',
-              name: 'Allowlist',
-              mode: 'whitelist',
-              lockMode: false,
-              patterns: [],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://unused-blocked.test',
-              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-                dayOfWeek,
-                blockedTimeRanges: [],
-                dailyLimitMinutes: undefined,
-              })),
-            },
-          ],
-        }
-        await globalThis.chrome.storage.local.set({
-          effectiveSettings: activeSettings,
-          effectiveSettingsLogicalDate: logicalDate,
-        })
-        await globalThis.chrome.storage.sync.set({
-          global: {
-            blockAction: 'redirect',
-            redirectUrl: 'https://preferred-blocked.test',
-            dailyResetHour: '05:00',
-          },
-          groups: [
-            {
-              id: 'work',
-              name: 'Work',
-              mode: 'blacklist',
-              lockMode: true,
-              patterns: ['active\\.example'],
-              blockAction: 'redirect',
-              redirectUrl: 'https://preferred-blocked.test',
-              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-                dayOfWeek,
-                blockedTimeRanges: [],
-                dailyLimitMinutes: 30,
-              })),
-            },
-            {
-              id: 'allowlist',
-              name: 'Allowlist',
-              mode: 'whitelist',
-              lockMode: false,
-              patterns: [],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://unused-blocked.test',
-              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-                dayOfWeek,
-                blockedTimeRanges: [],
-                dailyLimitMinutes: undefined,
-              })),
-            },
-          ],
-        })
-      },
-      logicalDateId(new Date(), '03:00'),
+    const allowlist = buildGroupFixture({
+      id: 'allowlist',
+      name: 'Allowlist',
+      mode: 'whitelist',
+    })
+    const activeSettings = buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: 'work',
+          name: 'Work',
+          lockMode: true,
+          patterns: ['active\\.example'],
+          rules: [dailyLimitRule('active-limit', 10, 'https://active-blocked.test')],
+        }),
+        allowlist,
+      ],
+      { dailyResetHour: '03:00' },
     )
+    const preferredSettings = buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: 'work',
+          name: 'Work',
+          lockMode: true,
+          patterns: ['active\\.example'],
+          rules: [dailyLimitRule('preferred-limit', 30, 'https://preferred-blocked.test')],
+        }),
+        allowlist,
+      ],
+      { dailyResetHour: '05:00' },
+    )
+    await setExtensionStorage(serviceWorker, 'local', {
+      effectiveSettings: activeSettings,
+      effectiveSettingsLogicalDate: logicalDateId(new Date(), '03:00'),
+    })
+    await setExtensionStorage(serviceWorker, 'sync', preferredSettings)
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -131,40 +107,23 @@ test.describe('Options lockMode', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(
-      async (logicalDate) => {
-        const settings = {
-          global: {
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://blocked.test',
-            dailyResetHour: '03:00',
-          },
-          groups: [
-            {
-              id: 'locked-disable',
-              name: 'Locked disable',
-              mode: 'blacklist',
-              disabled: false,
-              lockMode: true,
-              patterns: ['example\\.com'],
-              blockAction: 'blockedPage',
-              redirectUrl: 'https://blocked.test',
-              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-                dayOfWeek,
-                blockedTimeRanges: [],
-                dailyLimitMinutes: 0,
-              })),
-            },
-          ],
-        }
-        await globalThis.chrome.storage.local.set({
-          effectiveSettings: settings,
-          effectiveSettingsLogicalDate: logicalDate,
-        })
-        await globalThis.chrome.storage.sync.set(settings)
-      },
-      logicalDateId(new Date(), '03:00'),
+    const settings = buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: 'locked-disable',
+          name: 'Locked disable',
+          lockMode: true,
+          patterns: ['example\\.com'],
+          rules: [blockRule('locked-disable-rule')],
+        }),
+      ],
+      { dailyResetHour: '03:00' },
     )
+    await setExtensionStorage(serviceWorker, 'local', {
+      effectiveSettings: settings,
+      effectiveSettingsLogicalDate: logicalDateId(new Date(), '03:00'),
+    })
+    await setExtensionStorage(serviceWorker, 'sync', settings)
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGroupActions(page)
@@ -182,32 +141,19 @@ test.describe('Options lockMode', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      const activeSettings = {
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: 'https://active-blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'deleted-active',
-            name: 'Deleted active',
-            mode: 'blacklist',
-            lockMode: true,
-            patterns: ['deleted\\.example'],
-            blockAction: 'redirect',
-            redirectUrl: 'https://active-blocked.test',
-            dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 0,
-            })),
-          },
-        ],
-      }
-      await globalThis.chrome.storage.sync.set(activeSettings)
-    })
+    const activeSettings = buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: 'deleted-active',
+          name: 'Deleted active',
+          lockMode: true,
+          patterns: ['deleted\\.example'],
+          rules: [blockRule('deleted-active-rule', 'https://active-blocked.test')],
+        }),
+      ],
+      { dailyResetHour: '03:00' },
+    )
+    await setExtensionStorage(serviceWorker, 'sync', activeSettings)
     await waitForEffectiveSettings(serviceWorker)
     await serviceWorker.evaluate(async () => {
       await globalThis.chrome.storage.sync.set({ groups: [] })

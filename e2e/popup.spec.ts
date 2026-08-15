@@ -1,126 +1,126 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { startTestServer, waitForEffectiveSettings } from './helpers'
+import { setExtensionStorage, startTestServer, waitForEffectiveSettings } from './helpers'
 import { logicalDateId } from './logicalDate'
+import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
 
 /**
  * Service Worker 上の storage.sync に popup テスト用設定を書き込む。
  */
 async function savePopupSettings(serviceWorker: Worker, origin: string): Promise<void> {
-  await serviceWorker.evaluate(async (origin) => {
-    const dailyRules = (override: Record<string, unknown> = {}) =>
-      [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-        dayOfWeek,
-        blockedTimeRanges: [],
-        dailyLimitMinutes: undefined,
-        ...override,
-      }))
-    const now = new Date()
-    const nowMinute = now.getHours() * 60 + now.getMinutes()
-    const inactiveStart = (nowMinute + 60) % 1440
-    const inactiveRange =
-      inactiveStart + 30 <= 1440
-        ? { startMinute: inactiveStart, endMinute: inactiveStart + 30 }
-        : { startMinute: 0, endMinute: 30 }
-    await globalThis.chrome.storage.sync.set({
-      global: {
-        blockAction: 'redirect',
-        redirectUrl: 'https://example.com/blocked',
-        dailyResetHour: '00:00',
-      },
-      groups: [
-        {
+  const now = new Date()
+  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  const inactiveStart = (nowMinute + 60) % 1440
+  const inactiveRange =
+    inactiveStart + 30 <= 1440
+      ? { startMinute: inactiveStart, endMinute: inactiveStart + 30 }
+      : { startMinute: 0, endMinute: 30 }
+  const pattern = (path: string) => `^${origin.replaceAll('.', '\\.')}/${path}`
+  const dailyLimitRule = (id: string, minutes: number) => ({
+    id,
+    window: { type: 'always' } as const,
+    restriction: { kind: 'dailyLimit' as const, minutes },
+    destination: { type: 'redirect' as const, url: 'https://example.com/blocked' },
+  })
+  const blockRule = (
+    id: string,
+    timeRanges: Array<{ startMinute: number; endMinute: number }>,
+  ) => ({
+    id,
+    window: {
+      type: 'scheduled' as const,
+      condition: { type: 'daily' as const },
+      timeRanges,
+    },
+    restriction: { kind: 'block' as const },
+    destination: { type: 'redirect' as const, url: 'https://example.com/blocked' },
+  })
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      [
+        buildGroupFixture({
           id: 'limited-a',
           name: 'Limited A',
-          mode: 'blacklist',
-          patterns: [`^${origin.replaceAll('.', '\\.')}/target`],
-          dailyRules: dailyRules({ dailyLimitMinutes: 30 }),
-        },
-        {
+          patterns: [pattern('target')],
+          rules: [dailyLimitRule('limited-a-rule', 30)],
+        }),
+        buildGroupFixture({
           id: 'limited-b',
           name: 'Limited B',
-          mode: 'blacklist',
-          patterns: [`^${origin.replaceAll('.', '\\.')}/target`],
-          dailyRules: dailyRules({ dailyLimitMinutes: 10 }),
-        },
-        {
+          patterns: [pattern('target')],
+          rules: [dailyLimitRule('limited-b-rule', 10)],
+        }),
+        buildGroupFixture({
           id: 'slot-only',
           name: 'Slot Only',
-          mode: 'blacklist',
-          patterns: [`^${origin.replaceAll('.', '\\.')}/slot-active`],
-          dailyRules: dailyRules({ blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }] }),
-        },
-        {
+          patterns: [pattern('slot-active')],
+          rules: [blockRule('slot-only-rule', [{ startMinute: 0, endMinute: 0 }])],
+        }),
+        buildGroupFixture({
           id: 'slot-inactive',
           name: 'Slot Inactive',
-          mode: 'blacklist',
-          patterns: [`^${origin.replaceAll('.', '\\.')}/slot-inactive`],
-          dailyRules: dailyRules({ blockedTimeRanges: [inactiveRange] }),
-        },
-        {
+          patterns: [pattern('slot-inactive')],
+          rules: [blockRule('slot-inactive-rule', [inactiveRange])],
+        }),
+        buildGroupFixture({
           id: 'pause-target',
           name: 'Pause Target',
-          mode: 'blacklist',
-          patterns: [`^${origin.replaceAll('.', '\\.')}/pause`],
-          dailyRules: dailyRules({ dailyLimitMinutes: 30 }),
-        },
-        {
+          patterns: [pattern('pause')],
+          rules: [dailyLimitRule('pause-target-rule', 30)],
+        }),
+        buildGroupFixture({
           id: 'no-limits',
           name: 'No Limits',
-          mode: 'blacklist',
-          patterns: [`^${origin.replaceAll('.', '\\.')}/no-limits`],
-          dailyRules: dailyRules(),
-        },
-        {
+          patterns: [pattern('no-limits')],
+        }),
+        buildGroupFixture({
           id: 'disabled-match',
           name: 'Disabled Match',
-          mode: 'blacklist',
           disabled: true,
-          patterns: [`^${origin.replaceAll('.', '\\.')}/disabled`],
-          dailyRules: dailyRules({ dailyLimitMinutes: 0 }),
-        },
+          patterns: [pattern('disabled')],
+          rules: [blockRule('disabled-match-rule', [])],
+        }),
       ],
-    })
-  }, origin)
+      { dailyResetHour: '00:00' },
+    ),
+  )
 }
 
 /**
  * Service Worker 上の storage.local に popup テスト用カウンタを書き込む。
  */
 async function savePopupCounters(serviceWorker: Worker): Promise<void> {
-  await serviceWorker.evaluate(
-    async (logicalDate) => {
-      await globalThis.chrome.storage.local.set({
-        counters: {
-          'limited-a': {
-            logicalDate,
-            consumedSec: 25 * 60,
-          },
-          'limited-b': {
-            logicalDate,
-            consumedSec: 8 * 60,
-          },
-          'slot-only': {
-            logicalDate,
-            consumedSec: 0,
-          },
-          'slot-inactive': {
-            logicalDate,
-            consumedSec: 0,
-          },
-          'pause-target': {
-            logicalDate,
-            consumedSec: 0,
-          },
-          'no-limits': {
-            logicalDate,
-            consumedSec: 0,
-          },
-        },
-      })
+  const logicalDate = logicalDateId(new Date(), '00:00')
+  await setExtensionStorage(serviceWorker, 'local', {
+    counters: {
+      'limited-a': {
+        logicalDate,
+        consumedSec: 25 * 60,
+      },
+      'limited-b': {
+        logicalDate,
+        consumedSec: 8 * 60,
+      },
+      'slot-only': {
+        logicalDate,
+        consumedSec: 0,
+      },
+      'slot-inactive': {
+        logicalDate,
+        consumedSec: 0,
+      },
+      'pause-target': {
+        logicalDate,
+        consumedSec: 0,
+      },
+      'no-limits': {
+        logicalDate,
+        consumedSec: 0,
+      },
     },
-    logicalDateId(new Date(), '00:00'),
-  )
+  })
 }
 
 /**
@@ -130,13 +130,11 @@ async function savePopupPauseState(
   serviceWorker: Worker,
   entry: { waitingUntil?: number; pausedUntil?: number },
 ): Promise<void> {
-  await serviceWorker.evaluate(async (entry) => {
-    await globalThis.chrome.storage.local.set({
-      groupPauseState: {
-        'pause-target': entry,
-      },
-    })
-  }, entry)
+  await setExtensionStorage(serviceWorker, 'local', {
+    groupPauseState: {
+      'pause-target': entry,
+    },
+  })
 }
 
 /**

@@ -1,10 +1,48 @@
 import { expect, test } from './fixtures'
-import { waitForEffectiveSettings } from './helpers'
+import type { Worker } from '@playwright/test'
+import { setExtensionStorage, waitForEffectiveSettings } from './helpers'
+import { logicalDateId } from './logicalDate'
 import {
   expectGlobalSettingsStored,
   expectVisibleGroupsStored,
   openGeneralSettings,
 } from './optionsPage'
+import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
+
+/** 残り時間表示テスト用の現行スキーマ設定とカウンタを保存する。 */
+async function seedRemainingTime(serviceWorker: Worker, consumedSec: number): Promise<void> {
+  await setExtensionStorage(
+    serviceWorker,
+    'sync',
+    buildSettingsFixture(
+      [
+        buildGroupFixture({
+          id: 'limited',
+          name: 'Limited',
+          patterns: ['example\\.com'],
+          rules: [
+            {
+              id: 'limited-rule',
+              window: { type: 'always' },
+              restriction: { kind: 'dailyLimit', minutes: 30 },
+              destination: { type: 'redirect', url: 'https://example.com' },
+            },
+          ],
+        }),
+      ],
+      { dailyResetHour: '00:00' },
+    ),
+  )
+  await waitForEffectiveSettings(serviceWorker)
+  await setExtensionStorage(serviceWorker, 'local', {
+    counters: {
+      limited: {
+        logicalDate: logicalDateId(new Date(), '00:00'),
+        consumedSec,
+      },
+    },
+  })
+}
 
 test.describe('Options remainingTime', () => {
   test('残り時間通知の ON/OFF と分数設定を保存できる', async ({ page, extensionId }) => {
@@ -59,46 +97,7 @@ test.describe('Options remainingTime', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: 'https://example.com',
-          dailyResetHour: '00:00',
-        },
-        groups: [
-          {
-            id: 'limited',
-            name: 'Limited',
-            mode: 'blacklist',
-            patterns: ['example\\.com'],
-            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 30,
-            })),
-          },
-        ],
-      })
-    })
-    await waitForEffectiveSettings(serviceWorker)
-    await serviceWorker.evaluate(async () => {
-      const date = new Date()
-      const logicalDate = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-      ].join('-')
-
-      await globalThis.chrome.storage.local.set({
-        counters: {
-          limited: {
-            logicalDate,
-            consumedSec: 25 * 60,
-          },
-        },
-      })
-    })
+    await seedRemainingTime(serviceWorker, 25 * 60)
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -112,67 +111,19 @@ test.describe('Options remainingTime', () => {
   })
 
   test('カウンタ更新時に残り時間を更新する', async ({ page, serviceWorker, extensionId }) => {
-    await serviceWorker.evaluate(async () => {
-      await globalThis.chrome.storage.sync.set({
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: 'https://example.com',
-          dailyResetHour: '00:00',
-        },
-        groups: [
-          {
-            id: 'limited',
-            name: 'Limited',
-            mode: 'blacklist',
-            patterns: ['example\\.com'],
-            dailyRules: Array.from({ length: 7 }, (_, dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 30,
-            })),
-          },
-        ],
-      })
-    })
-    await waitForEffectiveSettings(serviceWorker)
-    await serviceWorker.evaluate(async () => {
-      const date = new Date()
-      const logicalDate = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-      ].join('-')
-
-      await globalThis.chrome.storage.local.set({
-        counters: {
-          limited: {
-            logicalDate,
-            consumedSec: 25 * 60,
-          },
-        },
-      })
-    })
+    await seedRemainingTime(serviceWorker, 25 * 60)
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
     await expect(page.getByLabel('Remaining time today summary')).toContainText('5:00 left')
     await expect(page.getByLabel('Remaining time today summary')).toContainText('25:00 / 30:00')
 
-    await page.evaluate(async () => {
-      const date = new Date()
-      const logicalDate = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-      ].join('-')
-
-      await globalThis.chrome.storage.local.set({
-        counters: {
-          limited: {
-            logicalDate,
-            consumedSec: 28 * 60,
-          },
+    await setExtensionStorage(serviceWorker, 'local', {
+      counters: {
+        limited: {
+          logicalDate: logicalDateId(new Date(), '00:00'),
+          consumedSec: 28 * 60,
         },
-      })
+      },
     })
 
     await expect(page.getByLabel('Remaining time today summary')).toContainText('2:00 left')
