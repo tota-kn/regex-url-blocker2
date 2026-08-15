@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import { expect, test } from './fixtures'
 import { setExtensionStorage, waitForEffectiveSettings } from './helpers'
+import { logicalDateId } from './logicalDate'
 import {
   addRequiredGroupSections,
   createBlankGroup,
@@ -75,15 +76,7 @@ async function seedLockedPauseGroup(
       },
     ],
   }
-  const now = new Date()
-  const reset = new Date(now)
-  reset.setHours(3, 0, 0, 0)
-  if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
-  const logicalDate = [
-    reset.getFullYear(),
-    String(reset.getMonth() + 1).padStart(2, '0'),
-    String(reset.getDate()).padStart(2, '0'),
-  ].join('-')
+  const logicalDate = logicalDateId(new Date(), '03:00')
   await setExtensionStorage(serviceWorker, 'local', {
     effectiveSettings: settings,
     effectiveSettingsLogicalDate: logicalDate,
@@ -120,15 +113,7 @@ async function seedDeletedActiveGroup(
       },
     ],
   }
-  const now = new Date()
-  const reset = new Date(now)
-  reset.setHours(3, 0, 0, 0)
-  if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
-  const logicalDate = [
-    reset.getFullYear(),
-    String(reset.getMonth() + 1).padStart(2, '0'),
-    String(reset.getDate()).padStart(2, '0'),
-  ].join('-')
+  const logicalDate = logicalDateId(new Date(), '03:00')
   await setExtensionStorage(serviceWorker, 'local', {
     effectiveSettings: { global, groups: [deletedGroup] },
     effectiveSettingsLogicalDate: logicalDate,
@@ -956,103 +941,97 @@ test.describe('Options 画面', () => {
     extensionId,
   }) => {
     await waitForEffectiveSettings(serviceWorker)
-    await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
+    await serviceWorker.evaluate(
+      async (logicalDate) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+              local: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
           }
         }
-      }
-      const activeSettings = {
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: 'https://active-blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'work',
-            name: 'Work',
-            mode: 'blacklist',
-            lockMode: true,
-            patterns: ['active\\.example'],
+        const activeSettings = {
+          global: {
             blockAction: 'redirect',
             redirectUrl: 'https://active-blocked.test',
-            dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [{ startMinute: 540, endMinute: 1020 }],
-              dailyLimitMinutes: 10,
-            })),
+            dailyResetHour: '03:00',
           },
-          {
-            id: 'allowlist',
-            name: 'Allowlist',
-            mode: 'whitelist',
-            lockMode: false,
-            patterns: [],
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://unused-blocked.test',
-            dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: undefined,
-            })),
-          },
-        ],
-      }
-      const now = new Date()
-      const reset = new Date(now)
-      reset.setHours(3, 0, 0, 0)
-      if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
-      const logicalDate = [
-        reset.getFullYear(),
-        String(reset.getMonth() + 1).padStart(2, '0'),
-        String(reset.getDate()).padStart(2, '0'),
-      ].join('-')
-      await chromeApi.chrome.storage.local.set({
-        effectiveSettings: activeSettings,
-        effectiveSettingsLogicalDate: logicalDate,
-      })
-      await chromeApi.chrome.storage.sync.set({
-        global: {
-          blockAction: 'redirect',
-          redirectUrl: 'https://preferred-blocked.test',
-          dailyResetHour: '05:00',
-        },
-        groups: [
-          {
-            id: 'work',
-            name: 'Work',
-            mode: 'blacklist',
-            lockMode: true,
-            patterns: ['active\\.example'],
+          groups: [
+            {
+              id: 'work',
+              name: 'Work',
+              mode: 'blacklist',
+              lockMode: true,
+              patterns: ['active\\.example'],
+              blockAction: 'redirect',
+              redirectUrl: 'https://active-blocked.test',
+              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+                dayOfWeek,
+                blockedTimeRanges: [{ startMinute: 540, endMinute: 1020 }],
+                dailyLimitMinutes: 10,
+              })),
+            },
+            {
+              id: 'allowlist',
+              name: 'Allowlist',
+              mode: 'whitelist',
+              lockMode: false,
+              patterns: [],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://unused-blocked.test',
+              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+                dayOfWeek,
+                blockedTimeRanges: [],
+                dailyLimitMinutes: undefined,
+              })),
+            },
+          ],
+        }
+        await chromeApi.chrome.storage.local.set({
+          effectiveSettings: activeSettings,
+          effectiveSettingsLogicalDate: logicalDate,
+        })
+        await chromeApi.chrome.storage.sync.set({
+          global: {
             blockAction: 'redirect',
             redirectUrl: 'https://preferred-blocked.test',
-            dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 30,
-            })),
+            dailyResetHour: '05:00',
           },
-          {
-            id: 'allowlist',
-            name: 'Allowlist',
-            mode: 'whitelist',
-            lockMode: false,
-            patterns: [],
-            blockAction: 'blockedPage',
-            redirectUrl: 'https://unused-blocked.test',
-            dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: undefined,
-            })),
-          },
-        ],
-      })
-    })
+          groups: [
+            {
+              id: 'work',
+              name: 'Work',
+              mode: 'blacklist',
+              lockMode: true,
+              patterns: ['active\\.example'],
+              blockAction: 'redirect',
+              redirectUrl: 'https://preferred-blocked.test',
+              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+                dayOfWeek,
+                blockedTimeRanges: [],
+                dailyLimitMinutes: 30,
+              })),
+            },
+            {
+              id: 'allowlist',
+              name: 'Allowlist',
+              mode: 'whitelist',
+              lockMode: false,
+              patterns: [],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://unused-blocked.test',
+              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+                dayOfWeek,
+                blockedTimeRanges: [],
+                dailyLimitMinutes: undefined,
+              })),
+            },
+          ],
+        })
+      },
+      logicalDateId(new Date(), '03:00'),
+    )
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -1083,54 +1062,48 @@ test.describe('Options 画面', () => {
     serviceWorker,
     extensionId,
   }) => {
-    await serviceWorker.evaluate(async () => {
-      const chromeApi = globalThis as unknown as {
-        chrome: {
-          storage: {
-            sync: { set: (items: Record<string, unknown>) => Promise<void> }
-            local: { set: (items: Record<string, unknown>) => Promise<void> }
+    await serviceWorker.evaluate(
+      async (logicalDate) => {
+        const chromeApi = globalThis as unknown as {
+          chrome: {
+            storage: {
+              sync: { set: (items: Record<string, unknown>) => Promise<void> }
+              local: { set: (items: Record<string, unknown>) => Promise<void> }
+            }
           }
         }
-      }
-      const settings = {
-        global: {
-          blockAction: 'blockedPage',
-          redirectUrl: 'https://blocked.test',
-          dailyResetHour: '03:00',
-        },
-        groups: [
-          {
-            id: 'locked-disable',
-            name: 'Locked disable',
-            mode: 'blacklist',
-            disabled: false,
-            lockMode: true,
-            patterns: ['example\\.com'],
+        const settings = {
+          global: {
             blockAction: 'blockedPage',
             redirectUrl: 'https://blocked.test',
-            dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-              dayOfWeek,
-              blockedTimeRanges: [],
-              dailyLimitMinutes: 0,
-            })),
+            dailyResetHour: '03:00',
           },
-        ],
-      }
-      const now = new Date()
-      const reset = new Date(now)
-      reset.setHours(3, 0, 0, 0)
-      if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
-      const logicalDate = [
-        reset.getFullYear(),
-        String(reset.getMonth() + 1).padStart(2, '0'),
-        String(reset.getDate()).padStart(2, '0'),
-      ].join('-')
-      await chromeApi.chrome.storage.local.set({
-        effectiveSettings: settings,
-        effectiveSettingsLogicalDate: logicalDate,
-      })
-      await chromeApi.chrome.storage.sync.set(settings)
-    })
+          groups: [
+            {
+              id: 'locked-disable',
+              name: 'Locked disable',
+              mode: 'blacklist',
+              disabled: false,
+              lockMode: true,
+              patterns: ['example\\.com'],
+              blockAction: 'blockedPage',
+              redirectUrl: 'https://blocked.test',
+              dailyRules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+                dayOfWeek,
+                blockedTimeRanges: [],
+                dailyLimitMinutes: 0,
+              })),
+            },
+          ],
+        }
+        await chromeApi.chrome.storage.local.set({
+          effectiveSettings: settings,
+          effectiveSettingsLogicalDate: logicalDate,
+        })
+        await chromeApi.chrome.storage.sync.set(settings)
+      },
+      logicalDateId(new Date(), '03:00'),
+    )
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
     await openGroupActions(page)

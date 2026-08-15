@@ -9,6 +9,7 @@ import {
   savePreferredSettings,
   waitForEffectiveSettings,
 } from './helpers'
+import { logicalDateId } from './logicalDate'
 
 /**
  * Service Worker 経由で指定タブのアクション badge テキストを取得する。
@@ -336,21 +337,6 @@ function buildStableDailyResetHour(now: Date): HHMM {
 }
 
 /**
- * 指定リセット時刻における現在の論理日 ID を返す。
- */
-function buildLogicalDate(now: Date, dailyResetHour: HHMM): string {
-  const [hour = '0', minute = '0'] = dailyResetHour.split(':')
-  const reset = new Date(now)
-  reset.setHours(Number(hour), Number(minute), 0, 0)
-  if (now.getTime() < reset.getTime()) reset.setDate(reset.getDate() - 1)
-  return [
-    reset.getFullYear(),
-    String(reset.getMonth() + 1).padStart(2, '0'),
-    String(reset.getDate()).padStart(2, '0'),
-  ].join('-')
-}
-
-/**
  * 分を "HH:MM" 表示に変換する。
  */
 function formatMinute(minute: number): string {
@@ -510,7 +496,7 @@ test.describe('Background blocking', () => {
           blockedTimeRanges: [],
           dailyLimitMinutes: 15,
           counter: {
-            logicalDate: buildLogicalDate(now, dailyResetHour),
+            logicalDate: logicalDateId(now, dailyResetHour),
             consumedSec: 15 * 60,
           },
         },
@@ -545,7 +531,7 @@ test.describe('Background blocking', () => {
         timeRange: range,
         minutes: 15,
         counter: {
-          logicalDate: buildLogicalDate(now, dailyResetHour),
+          logicalDate: logicalDateId(now, dailyResetHour),
           consumedSec: 15 * 60,
         },
       })
@@ -584,7 +570,7 @@ test.describe('Background blocking', () => {
           blockedTimeRanges: [],
           dailyLimitMinutes: 5,
           counter: {
-            logicalDate: buildLogicalDate(now, dailyResetHour),
+            logicalDate: logicalDateId(now, dailyResetHour),
             consumedSec: 5 * 60,
           },
         },
@@ -945,7 +931,7 @@ test.describe('Effective settings behavior', () => {
         serviceWorker,
         disabled,
         disabled,
-        buildLogicalDate(now, dailyResetHour),
+        logicalDateId(now, dailyResetHour),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -970,7 +956,7 @@ test.describe('Effective settings behavior', () => {
         serviceWorker,
         preferred,
         effective,
-        buildLogicalDate(now, dailyResetHour),
+        logicalDateId(now, dailyResetHour),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -994,7 +980,7 @@ test.describe('Effective settings behavior', () => {
         serviceWorker,
         relaxed,
         relaxed,
-        buildLogicalDate(now, dailyResetHour),
+        logicalDateId(now, dailyResetHour),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -1023,7 +1009,7 @@ test.describe('Effective settings behavior', () => {
         serviceWorker,
         { ...effective, groups: [] },
         effective,
-        buildLogicalDate(now, dailyResetHour),
+        logicalDateId(now, dailyResetHour),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -1047,7 +1033,7 @@ test.describe('Effective settings behavior', () => {
         serviceWorker,
         { ...effective, groups: [] },
         effective,
-        buildLogicalDate(now, dailyResetHour),
+        logicalDateId(now, dailyResetHour),
       )
       await waitForEffectiveSettings(serviceWorker)
 
@@ -1159,7 +1145,7 @@ test.describe('Badge display', () => {
     const server = await startServer()
     try {
       const dailyResetHour = '00:00'
-      const logicalDate = buildLogicalDate(new Date(), dailyResetHour)
+      const logicalDate = logicalDateId(new Date(), dailyResetHour)
       await serviceWorker.evaluate(
         async (settings) => {
           const chromeApi = globalThis as unknown as {
@@ -1226,7 +1212,7 @@ test.describe('Remaining time notifications', () => {
       await clearNotifications(serviceWorker)
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
-      const logicalDate = buildLogicalDate(now, dailyResetHour)
+      const logicalDate = logicalDateId(now, dailyResetHour)
 
       await serviceWorker.evaluate(
         async (settings) => {
@@ -1294,7 +1280,7 @@ test.describe('Remaining time notifications', () => {
       await clearNotifications(serviceWorker)
       const now = new Date()
       const dailyResetHour = buildStableDailyResetHour(now)
-      const logicalDate = buildLogicalDate(now, dailyResetHour)
+      const logicalDate = logicalDateId(now, dailyResetHour)
 
       await serviceWorker.evaluate(
         async (settings) => {

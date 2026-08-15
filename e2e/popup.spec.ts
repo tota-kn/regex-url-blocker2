@@ -1,18 +1,7 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { startTestServer, waitForEffectiveSettings } from './helpers'
-
-/**
- * 今日の論理日 ID を返す。
- */
-function todayId(): string {
-  const date = new Date()
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-')
-}
+import { logicalDateId } from './logicalDate'
 
 /**
  * Service Worker 上の storage.sync に popup テスト用設定を書き込む。
@@ -108,45 +97,48 @@ async function savePopupSettings(serviceWorker: Worker, origin: string): Promise
  * Service Worker 上の storage.local に popup テスト用カウンタを書き込む。
  */
 async function savePopupCounters(serviceWorker: Worker): Promise<void> {
-  await serviceWorker.evaluate(async (logicalDate) => {
-    const chromeApi = globalThis as unknown as {
-      chrome: {
-        storage: {
-          local: {
-            set: (items: Record<string, unknown>) => Promise<void>
+  await serviceWorker.evaluate(
+    async (logicalDate) => {
+      const chromeApi = globalThis as unknown as {
+        chrome: {
+          storage: {
+            local: {
+              set: (items: Record<string, unknown>) => Promise<void>
+            }
           }
         }
       }
-    }
-    await chromeApi.chrome.storage.local.set({
-      counters: {
-        'limited-a': {
-          logicalDate,
-          consumedSec: 25 * 60,
+      await chromeApi.chrome.storage.local.set({
+        counters: {
+          'limited-a': {
+            logicalDate,
+            consumedSec: 25 * 60,
+          },
+          'limited-b': {
+            logicalDate,
+            consumedSec: 8 * 60,
+          },
+          'slot-only': {
+            logicalDate,
+            consumedSec: 0,
+          },
+          'slot-inactive': {
+            logicalDate,
+            consumedSec: 0,
+          },
+          'pause-target': {
+            logicalDate,
+            consumedSec: 0,
+          },
+          'no-limits': {
+            logicalDate,
+            consumedSec: 0,
+          },
         },
-        'limited-b': {
-          logicalDate,
-          consumedSec: 8 * 60,
-        },
-        'slot-only': {
-          logicalDate,
-          consumedSec: 0,
-        },
-        'slot-inactive': {
-          logicalDate,
-          consumedSec: 0,
-        },
-        'pause-target': {
-          logicalDate,
-          consumedSec: 0,
-        },
-        'no-limits': {
-          logicalDate,
-          consumedSec: 0,
-        },
-      },
-    })
-  }, todayId())
+      })
+    },
+    logicalDateId(new Date(), '00:00'),
+  )
 }
 
 /**
@@ -270,29 +262,32 @@ test.describe('Popup 画面', () => {
       await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
         '5:00 left',
       )
-      await popup.evaluate(async (logicalDate) => {
-        const chromeApi = globalThis as unknown as {
-          chrome: {
-            storage: {
-              local: {
-                set: (items: Record<string, unknown>) => Promise<void>
+      await popup.evaluate(
+        async (logicalDate) => {
+          const chromeApi = globalThis as unknown as {
+            chrome: {
+              storage: {
+                local: {
+                  set: (items: Record<string, unknown>) => Promise<void>
+                }
               }
             }
           }
-        }
-        await chromeApi.chrome.storage.local.set({
-          counters: {
-            'limited-a': {
-              logicalDate,
-              consumedSec: 28 * 60,
+          await chromeApi.chrome.storage.local.set({
+            counters: {
+              'limited-a': {
+                logicalDate,
+                consumedSec: 28 * 60,
+              },
+              'limited-b': {
+                logicalDate,
+                consumedSec: 8 * 60,
+              },
             },
-            'limited-b': {
-              logicalDate,
-              consumedSec: 8 * 60,
-            },
-          },
-        })
-      }, todayId())
+          })
+        },
+        logicalDateId(new Date(), '00:00'),
+      )
 
       await expect(popup.getByLabel('Remaining time for Limited A summary')).toContainText(
         '2:00 left',
