@@ -47,3 +47,35 @@ export function getActiveRules(group: Group, now: Date, global: GlobalSettings):
 export function isRestrictionActiveNow(group: Group, now: Date, global: GlobalSettings): boolean {
   return getActiveRules(group, now, global).length > 0
 }
+
+/** 時間ウィンドウが終日有効なら true。 */
+export function isAllDayWindow(window: TimeWindow): boolean {
+  return window.type === 'always' || window.timeRanges.length === 0
+}
+
+/**
+ * ルールのウィンドウから、指定時刻を含む時間帯だけを返す。
+ * 終日ウィンドウは `0-0` の時間帯として返す。
+ */
+export function getRuleActiveTimeRanges(rule: Rule, at: Date): TimeRange[] {
+  const window = rule.window
+  if (window.type === 'always' || window.timeRanges.length === 0) {
+    return [{ startMinute: 0, endMinute: 0 }]
+  }
+  const atMinute = minuteOfDate(at)
+  return window.timeRanges.filter((range) =>
+    timeInRange(atMinute, range.startMinute, range.endMinute),
+  )
+}
+
+/** アクティブなルールから、block ルールに該当する時間帯だけを返す。 */
+export function getActiveBlockTimeRanges(activeRules: Rule[], at: Date): TimeRange[] {
+  return activeRules
+    .filter((rule) => rule.restriction.kind === 'block')
+    .flatMap((rule) => getRuleActiveTimeRanges(rule, at))
+}
+
+/** group の現在アクティブな block ルールに該当する時間帯を返す。 */
+export function getActiveTimeRanges(group: Group, now: Date, global: GlobalSettings): TimeRange[] {
+  return getActiveBlockTimeRanges(getActiveRules(group, now, global), now)
+}

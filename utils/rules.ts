@@ -1,7 +1,12 @@
 import { resolveDailyLimitRule, resolveEffectiveWait } from './blocking'
-import { minuteOfDate, minutesToTime } from './datetime'
+import { minutesToTime } from './datetime'
 import { formatTimeWindow } from './groups'
-import { filterActiveRules, isWindowActiveAt, timeInRange } from './timeWindow'
+import {
+  filterActiveRules,
+  getRuleActiveTimeRanges,
+  isAllDayWindow,
+  isWindowActiveAt,
+} from './timeWindow'
 import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction } from './types'
 
 /**
@@ -90,11 +95,8 @@ function formatDuration(totalSec: number): string {
  * ルールのウィンドウが現在の時間帯を抜ける時刻を "HH:MM" で返す。終日なら undefined。
  */
 function windowEndsAtLabel(rule: Rule, at: Date): string | undefined {
-  if (rule.window.type === 'always' || rule.window.timeRanges.length === 0) return undefined
-  const atMinute = minuteOfDate(at)
-  const active = rule.window.timeRanges.find((range) =>
-    timeInRange(atMinute, range.startMinute, range.endMinute),
-  )
+  if (isAllDayWindow(rule.window)) return undefined
+  const active = getRuleActiveTimeRanges(rule, at)[0]
   if (!active || active.startMinute === active.endMinute) return undefined
   return minutesToTime(active.endMinute % 1440)
 }
