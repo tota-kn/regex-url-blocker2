@@ -26,6 +26,9 @@ import GroupOptionsPanel from './GroupOptionsPanel.vue'
 import PatternListEditor from './PatternListEditor.vue'
 import PendingFieldNote from './PendingFieldNote.vue'
 import RuleListEditor from './RuleListEditor.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * グループカードの props。
@@ -236,7 +239,7 @@ function setTextFieldValidity(field: string, valid: boolean): void {
   >
     <div v-if="isNew" class="border-b border-primary/20 bg-accent px-4 py-2">
       <span class="inline-flex rounded-sm bg-surface px-1.5 py-1 text-label-sm text-primary">
-        New group
+        {{ t('New group') }}
       </span>
     </div>
 
@@ -244,10 +247,10 @@ function setTextFieldValidity(field: string, valid: boolean): void {
       <div class="space-y-2.5">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <label class="block min-w-0 flex-1">
-            <span class="sr-only">Name</span>
+            <span class="sr-only">{{ t('Name') }}</span>
             <BaseInput
               v-model="draft.name"
-              aria-label="Name"
+              :aria-label="t('Name')"
               :disabled="!isEditing"
               :display="isEditing ? 'editable' : 'readonly'"
               size="sm"
@@ -260,7 +263,7 @@ function setTextFieldValidity(field: string, valid: boolean): void {
           <div class="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
             <StatusChip v-if="!isEditing && !isNew && group.disabled" kind="muted">
               <NoSymbolIcon aria-hidden="true" class="size-4" />
-              Disabled
+              {{ t('Disabled') }}
             </StatusChip>
             <StatusChip v-if="!isEditing && !isNew && pauseButtonState.paused" aria-live="polite">
               <ClockIcon aria-hidden="true" class="size-4" />
@@ -269,22 +272,22 @@ function setTextFieldValidity(field: string, valid: boolean): void {
             <BaseButton
               v-if="restorable"
               type="button"
-              aria-label="Restore group"
+              :aria-label="t('Restore group')"
               variant="primary"
               @click="restoreGroup"
             >
               <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
-              Restore
+              {{ t('Restore') }}
             </BaseButton>
             <BaseButton
               v-if="!isEditing && !readOnly"
               type="button"
-              aria-label="Edit group"
+              :aria-label="t('Edit group')"
               variant="ghost"
               @click="startEditing"
             >
               <PencilSquareIcon aria-hidden="true" class="size-4" />
-              Edit
+              {{ t('Edit') }}
             </BaseButton>
             <GroupActionMenu
               v-if="showsActionMenu"
@@ -308,12 +311,12 @@ function setTextFieldValidity(field: string, valid: boolean): void {
         <TimeLimitMeter
           v-if="timeLimitUsageSummary"
           :summary="timeLimitUsageSummary"
-          aria-label="Remaining time today"
+          :aria-label="t('Remaining time today')"
           class="w-full"
         />
       </div>
       <PendingFieldNote v-if="isFieldPending('disabled')">
-        This group stays enforced {{ pendingUntilLabel }}.
+        {{ t('This group stays enforced {until}.', { until: pendingUntilLabel }) }}
       </PendingFieldNote>
       <AlertMessage v-if="isEditing && draftError('name')" class="mt-3">
         {{ draftError('name') }}
@@ -321,7 +324,7 @@ function setTextFieldValidity(field: string, valid: boolean): void {
     </div>
 
     <fieldset :disabled="!isEditing" class="min-w-0 space-y-4 p-4 disabled:cursor-default">
-      <legend class="sr-only">Group details</legend>
+      <legend class="sr-only">{{ t('Group details') }}</legend>
       <div>
         <PatternListEditor
           v-model="draft.patterns"
@@ -331,7 +334,7 @@ function setTextFieldValidity(field: string, valid: boolean): void {
           @touch="touchField"
         />
         <PendingFieldNote v-if="isFieldPending('patterns')">
-          Earlier URL patterns stay active {{ pendingUntilLabel }}.
+          {{ t('Earlier URL patterns stay active {until}.', { until: pendingUntilLabel }) }}
         </PendingFieldNote>
       </div>
 
@@ -347,7 +350,7 @@ function setTextFieldValidity(field: string, valid: boolean): void {
           @validity-change="setTextFieldValidity"
         />
         <PendingFieldNote v-if="isFieldPending('rules')">
-          Earlier rules stay active {{ pendingUntilLabel }}.
+          {{ t('Earlier rules stay active {until}.', { until: pendingUntilLabel }) }}
         </PendingFieldNote>
       </div>
     </fieldset>
@@ -367,13 +370,18 @@ function setTextFieldValidity(field: string, valid: boolean): void {
       class="flex items-center justify-end gap-2 border-t border-border bg-background p-4"
     >
       <div class="ml-auto flex items-center gap-2">
-        <BaseButton type="button" aria-label="Cancel group" @click="cancelEditing">
+        <BaseButton type="button" :aria-label="t('Cancel group')" @click="cancelEditing">
           <XMarkIcon aria-hidden="true" class="size-4" />
-          Cancel
+          {{ t('Cancel') }}
         </BaseButton>
-        <BaseButton type="button" aria-label="Save group" variant="primary" @click="saveEditing">
+        <BaseButton
+          type="button"
+          :aria-label="t('Save group')"
+          variant="primary"
+          @click="saveEditing"
+        >
           <CheckIcon aria-hidden="true" class="size-4" />
-          Save
+          {{ t('Save') }}
         </BaseButton>
       </div>
     </div>

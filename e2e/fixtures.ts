@@ -17,6 +17,7 @@ export const test = base.extend<{
     const pathToExtension = path.resolve(__dirname, '../.output/chrome-mv3')
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
+      locale: 'en-US',
       args: [
         '--disable-crash-reporter',
         '--disable-crashpad',

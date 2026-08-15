@@ -22,7 +22,8 @@
     "test:e2e:ui": "wxt build && playwright test --ui"
   },
   "dependencies": {
-    "@fontsource/roboto-mono": "^5.2.9"
+    "@fontsource/roboto-mono": "^5.2.9",
+    "vue-i18n": "^11.1.12"
   },
   "devDependencies": {
     "@heroicons/vue": "^2.2.0",

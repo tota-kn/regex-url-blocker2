@@ -11,6 +11,9 @@ import { ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import MenuItem from '@/components/ui/MenuItem.vue'
 import { useDismissOnOutsidePointer } from '@/utils/useDismissOnOutsidePointer'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /** グループアクションメニューのprops。 */
 interface Props {
@@ -83,7 +86,7 @@ useDismissOnOutsidePointer(root, isOpen, close)
   <div ref="root" class="relative" @keydown.escape.stop.prevent="close">
     <BaseButton
       type="button"
-      aria-label="Group actions"
+      :aria-label="t('Group actions')"
       aria-haspopup="menu"
       :aria-controls="menuId()"
       :aria-expanded="isOpen"
@@ -119,25 +122,29 @@ useDismissOnOutsidePointer(root, isOpen, close)
       </div>
       <MenuItem
         v-if="showDisabledToggle"
-        :aria-label="disabled ? 'Enable' : 'Disable'"
+        :aria-label="disabled ? t('Enable') : t('Disable')"
         @click="select('toggleDisabled')"
       >
         <CheckCircleIcon v-if="disabled" aria-hidden="true" class="size-4 shrink-0" />
         <NoSymbolIcon v-else aria-hidden="true" class="size-4 shrink-0" />
-        <span>{{ disabled ? 'Enable' : 'Disable' }}</span>
+        <span>{{ disabled ? t('Enable') : t('Disable') }}</span>
       </MenuItem>
-      <MenuItem v-if="showDuplicate" aria-label="Duplicate group" @click="select('duplicate')">
+      <MenuItem
+        v-if="showDuplicate"
+        :aria-label="t('Duplicate group')"
+        @click="select('duplicate')"
+      >
         <DocumentDuplicateIcon aria-hidden="true" class="size-4 shrink-0" />
-        <span>Duplicate</span>
+        <span>{{ t('Duplicate') }}</span>
       </MenuItem>
       <MenuItem
         v-if="showDelete"
-        aria-label="Delete group"
+        :aria-label="t('Delete group')"
         variant="danger"
         @click="select('remove')"
       >
         <TrashIcon aria-hidden="true" class="size-4 shrink-0" />
-        <span>Delete</span>
+        <span>{{ t('Delete') }}</span>
       </MenuItem>
     </div>
   </div>

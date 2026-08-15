@@ -5,6 +5,9 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import { PAUSE_COUNTDOWN_TICK_MS } from '@/utils/constants'
 import { useCountdown } from '@/utils/useCountdown'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * 一時停止前カウントダウンダイアログが親へ通知するイベント。
@@ -119,30 +122,34 @@ onUnmounted(() => {
       </div>
 
       <div>
-        <h2 id="pause-countdown-title" class="text-heading-md">Take a breath</h2>
+        <h2 id="pause-countdown-title" class="text-heading-md">{{ t('Take a breath') }}</h2>
         <p class="mt-1 text-body-sm text-muted-foreground">
-          Stay here for {{ waitSeconds }} seconds before pausing this group.
+          {{
+            t('Stay here for {seconds} seconds before pausing this group.', {
+              seconds: waitSeconds,
+            })
+          }}
         </p>
       </div>
 
       <p class="text-mono-md text-secondary-foreground" aria-live="polite">
-        {{ isReady ? 'Ready' : `${remainingSeconds}s remaining` }}
+        {{ isReady ? t('Ready') : t('{seconds}s remaining', { seconds: remainingSeconds }) }}
       </p>
 
       <div class="flex justify-end gap-2">
         <BaseButton type="button" @click="cancel">
           <XMarkIcon aria-hidden="true" class="size-4" />
-          Cancel
+          {{ t('Cancel') }}
         </BaseButton>
         <BaseButton
           type="button"
           variant="primary"
-          :aria-label="`Pause ${pauseDurationMinutes} min`"
+          :aria-label="t('Pause {minutes} min', { minutes: pauseDurationMinutes })"
           :disabled="!isReady"
           @click="confirmPause"
         >
           <CheckIcon aria-hidden="true" class="size-4" />
-          Pause {{ pauseDurationMinutes }} min
+          {{ t('Pause {minutes} min', { minutes: pauseDurationMinutes }) }}
         </BaseButton>
       </div>
     </div>

@@ -3,6 +3,9 @@ import { TrashIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const dialogRef = ref<InstanceType<typeof BaseDialog> | null>(null)
 const message = ref('')
@@ -45,16 +48,16 @@ defineExpose({ open })
     <div class="flex justify-end gap-2">
       <BaseButton type="button" @click="onCancel">
         <XMarkIcon aria-hidden="true" class="size-4" />
-        Cancel
+        {{ t('Cancel') }}
       </BaseButton>
       <BaseButton
         type="button"
-        aria-label="Confirm delete"
+        :aria-label="t('Confirm delete')"
         variant="danger-ghost"
         @click="onConfirm"
       >
         <TrashIcon aria-hidden="true" class="size-4" />
-        Delete
+        {{ t('Delete') }}
       </BaseButton>
     </div>
   </BaseDialog>

@@ -10,21 +10,46 @@ import type {
   TimeWindow,
 } from './types'
 import { isValidUrlPattern } from './urlPatterns'
+import { translate } from './i18n'
 
 /** UI と検証ロジックで共有する、入力要件を説明するエラーメッセージ。 */
 export const VALIDATION_MESSAGES = {
-  required: 'Enter a name.',
-  urlPattern: 'Enter a valid URL pattern or regular expression.',
-  url: 'Enter a valid URL, including http:// or https://.',
-  wholeNumberZeroOrGreater: 'Enter a whole number of 0 or greater.',
-  wholeNumberOneOrGreater: 'Enter a whole number of 1 or greater.',
-  time: 'Enter a time in HH:MM format (00:00–23:59).',
-  timeRange: 'Enter time ranges as HH:MM-HH:MM, separated by commas.',
-  daysOfWeek: 'Select at least one day of the week.',
-  daysOfMonth: 'Enter one or more days from 1 to 31, separated by commas.',
-  monthDay: 'Enter a valid date in MM/DD format.',
-  patterns: 'Add at least one URL pattern.',
-  rules: 'Add at least one rule.',
+  get required() {
+    return translate('Enter a name.')
+  },
+  get urlPattern() {
+    return translate('Enter a valid URL pattern or regular expression.')
+  },
+  get url() {
+    return translate('Enter a valid URL, including http:// or https://.')
+  },
+  get wholeNumberZeroOrGreater() {
+    return translate('Enter a whole number of 0 or greater.')
+  },
+  get wholeNumberOneOrGreater() {
+    return translate('Enter a whole number of 1 or greater.')
+  },
+  get time() {
+    return translate('Enter a time in HH:MM format (00:00–23:59).')
+  },
+  get timeRange() {
+    return translate('Enter time ranges as HH:MM-HH:MM, separated by commas.')
+  },
+  get daysOfWeek() {
+    return translate('Select at least one day of the week.')
+  },
+  get daysOfMonth() {
+    return translate('Enter one or more days from 1 to 31, separated by commas.')
+  },
+  get monthDay() {
+    return translate('Enter a valid date in MM/DD format.')
+  },
+  get patterns() {
+    return translate('Add at least one URL pattern.')
+  },
+  get rules() {
+    return translate('Add at least one rule.')
+  },
 } as const
 
 /**

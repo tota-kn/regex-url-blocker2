@@ -184,6 +184,7 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
   const lockModeExists = hasLockModeGroup(active) || hasLockModeGroup(preferred)
   return {
     global: {
+      language: preferred.global.language,
       dailyResetHour: lockModeExists
         ? active.global.dailyResetHour
         : preferred.global.dailyResetHour,

@@ -9,6 +9,9 @@ import SubtlePanel from '@/components/ui/SubtlePanel.vue'
 import { DEFAULT_WAIT_GRANT_MINUTES } from '@/utils/defaults'
 import { loadDelayGrantState, loadPageState, saveDelayGrantState } from '@/utils/storage'
 import { useCountdown } from '@/utils/useCountdown'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const targetUrl = ref('')
 const groupId = ref('')
@@ -80,21 +83,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <PageShell title="Take a moment">
+  <PageShell :title="t('Take a moment')">
     <template #description>
       <template v-if="groupName">
-        This page is gated by "{{ groupName }}". Wait before continuing.
+        {{ t('This page is gated by "{group}". Wait before continuing.', { group: groupName }) }}
       </template>
-      <template v-else> This page is gated by Regex URL Guard. Wait before continuing. </template>
+      <template v-else>{{
+        t('This page is gated by Regex URL Guard. Wait before continuing.')
+      }}</template>
     </template>
 
     <div class="mt-6 space-y-4">
-      <SubtlePanel class="p-4" aria-label="Wait countdown">
+      <SubtlePanel class="p-4" :aria-label="t('Wait countdown')">
         <div class="flex items-baseline justify-between gap-2">
-          <span class="text-label-md text-secondary-foreground">Time remaining</span>
+          <span class="text-label-md text-secondary-foreground">{{ t('Time remaining') }}</span>
           <span
             class="font-mono text-heading-lg tabular-nums"
-            aria-label="Remaining seconds"
+            :aria-label="t('Remaining seconds')"
             role="timer"
             >{{ remainingSeconds }}s</span
           >
@@ -106,30 +111,34 @@ onUnmounted(() => {
         />
       </SubtlePanel>
 
-      <InfoValue label="URL" aria-label="Waiting URL" break-all>
-        {{ targetUrl || 'Unknown' }}
+      <InfoValue label="URL" :aria-label="t('Waiting URL')" break-all>
+        {{ targetUrl || t('Unknown') }}
       </InfoValue>
 
       <p class="text-body-sm text-muted-foreground" aria-label="Wait grant explanation">
-        After the countdown you can browse for {{ grantMinutes }} min without waiting again. Any
-        daily limit on this group keeps counting down during that time.
+        {{
+          t(
+            'After the countdown you can browse for {minutes} min without waiting again. Any daily limit on this group keeps counting down during that time.',
+            { minutes: grantMinutes },
+          )
+        }}
       </p>
     </div>
 
     <div class="mt-6 flex flex-wrap justify-end gap-2">
       <BaseButton type="button" variant="secondary" size="lg" @click="goBack">
         <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
-        Back
+        {{ t('Back') }}
       </BaseButton>
       <BaseButton
         type="button"
         variant="primary"
         size="lg"
         :disabled="!canContinue"
-        aria-label="Continue"
+        :aria-label="t('Continue')"
         @click="proceed"
       >
-        Continue
+        {{ t('Continue') }}
         <ArrowRightIcon aria-hidden="true" class="size-4" />
       </BaseButton>
     </div>

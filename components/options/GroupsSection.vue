@@ -7,6 +7,9 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import type { GroupTemplateId } from '@/utils/defaults'
 import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * 新規グループ作成テンプレートの表示メタデータ。
@@ -57,9 +60,7 @@ const groups = defineModel<Group[]>({ required: true })
 const sectionRef = ref<HTMLElement | null>(null)
 const createGroupDialogRef = ref<InstanceType<typeof BaseDialog> | null>(null)
 const groupCount = computed(() => groups.value.length + props.newGroups.length)
-const groupCountLabel = computed(
-  () => `${groupCount.value} ${groupCount.value === 1 ? 'group' : 'groups'}`,
-)
+const groupCountLabel = computed(() => t('{count} group | {count} groups', groupCount.value))
 
 const groupTemplates: GroupTemplateOption[] = [
   {
@@ -104,7 +105,7 @@ function focusLastNewGroup(): void {
   if (!card) return
 
   card.scrollIntoView({ block: 'center' })
-  card.querySelector<HTMLInputElement>('input[aria-label="Name"]')?.focus({ preventScroll: true })
+  card.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true })
 }
 
 /** 新規グループ作成ダイアログを開く。 */
@@ -128,19 +129,19 @@ function createGroup(templateId: GroupTemplateId): void {
   <section ref="sectionRef" class="min-w-0 space-y-3">
     <div class="flex min-h-9 items-center justify-between gap-3">
       <div class="flex min-w-0 items-baseline gap-2">
-        <h2 class="text-heading-md text-foreground">Groups</h2>
+        <h2 class="text-heading-md text-foreground">{{ t('Groups') }}</h2>
         <p class="text-body-sm text-muted-foreground">
           {{ groupCountLabel }}
         </p>
       </div>
       <BaseButton
         type="button"
-        aria-label="Add group"
+        :aria-label="t('Add group')"
         variant="primary"
         @click="openCreateGroupDialog"
       >
         <PlusIcon aria-hidden="true" class="size-4" />
-        Add Group
+        {{ t('Add Group') }}
       </BaseButton>
     </div>
 
@@ -151,33 +152,37 @@ function createGroup(templateId: GroupTemplateId): void {
       @cancel="closeCreateGroupDialog"
     >
       <div class="space-y-4 p-4">
-        <h3 id="create-group-title" class="text-heading-md">Create group</h3>
+        <h3 id="create-group-title" class="text-heading-md">{{ t('Create group') }}</h3>
         <div class="space-y-2">
           <button
             v-for="template in groupTemplates"
             :key="template.id"
             type="button"
-            :aria-label="template.ariaLabel"
+            :aria-label="t(template.ariaLabel)"
             class="block w-full rounded-lg border border-border bg-surface p-3 text-left transition hover:bg-secondary-hover focus:outline-none focus:ring-2 focus:ring-ring"
             @click="createGroup(template.id)"
           >
-            <span class="block text-label-md text-secondary-foreground">{{ template.label }}</span>
-            <span class="mt-1 block text-body-sm text-muted">{{ template.description }}</span>
+            <span class="block text-label-md text-secondary-foreground">{{
+              t(template.label)
+            }}</span>
+            <span class="mt-1 block text-body-sm text-muted">{{ t(template.description) }}</span>
           </button>
         </div>
         <div class="flex justify-end">
           <BaseButton
             type="button"
-            aria-label="Cancel create group"
+            :aria-label="t('Cancel create group')"
             @click="closeCreateGroupDialog"
           >
-            Cancel
+            {{ t('Cancel') }}
           </BaseButton>
         </div>
       </div>
     </BaseDialog>
 
-    <EmptyState v-if="groupCount === 0" aria-label="No groups" spacious> No groups yet </EmptyState>
+    <EmptyState v-if="groupCount === 0" :aria-label="t('No groups')" spacious>{{
+      t('No groups yet')
+    }}</EmptyState>
 
     <div class="min-w-0 space-y-4">
       <GroupCard
@@ -202,14 +207,19 @@ function createGroup(templateId: GroupTemplateId): void {
       />
       <section
         v-if="retainedEffectiveGroups.length > 0"
-        aria-label="Earlier active groups"
+        :aria-label="t('Earlier active groups')"
         class="space-y-3"
       >
         <div>
-          <h3 class="text-label-md text-secondary-foreground">Earlier restrictions still active</h3>
+          <h3 class="text-label-md text-secondary-foreground">
+            {{ t('Earlier restrictions still active') }}
+          </h3>
           <p class="mt-1 text-body-sm text-muted">
-            These groups were removed from saved settings, but remain active until the next rule
-            day. Restore one to edit it again.
+            {{
+              t(
+                'These groups were removed from saved settings, but remain active until the next rule day. Restore one to edit it again.',
+              )
+            }}
           </p>
         </div>
         <GroupCard

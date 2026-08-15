@@ -1,4 +1,5 @@
 import type { DayOfWeek, MonthDay, TimeRange } from './types'
+import { translate } from './i18n'
 
 /**
  * 曜日表示に使う短縮名とアクセシブル名。
@@ -16,14 +17,22 @@ export interface DayOption {
  * UI と読み取り表示で共通利用する曜日表示定義。
  */
 export const DAYS: DayOption[] = [
-  { value: 0, label: 'Sun', ariaLabel: 'Sunday' },
-  { value: 1, label: 'Mon', ariaLabel: 'Monday' },
-  { value: 2, label: 'Tue', ariaLabel: 'Tuesday' },
-  { value: 3, label: 'Wed', ariaLabel: 'Wednesday' },
-  { value: 4, label: 'Thu', ariaLabel: 'Thursday' },
-  { value: 5, label: 'Fri', ariaLabel: 'Friday' },
-  { value: 6, label: 'Sat', ariaLabel: 'Saturday' },
-]
+  ['Sun', 'Sunday'],
+  ['Mon', 'Monday'],
+  ['Tue', 'Tuesday'],
+  ['Wed', 'Wednesday'],
+  ['Thu', 'Thursday'],
+  ['Fri', 'Friday'],
+  ['Sat', 'Saturday'],
+].map(([label, ariaLabel], value) => ({
+  value: value as DayOfWeek,
+  get label() {
+    return translate(label!)
+  },
+  get ariaLabel() {
+    return translate(ariaLabel!)
+  },
+}))
 
 /**
  * 曜日番号の短縮ラベルを返す。
@@ -102,7 +111,7 @@ export function dateAtMinuteOfDay(date: Date, minute: number): Date {
  * ブロック時間帯を読み取り表示用の文字列に変換する。
  */
 export function formatTimeRange(range: TimeRange): string {
-  if (range.startMinute === range.endMinute) return 'All day'
+  if (range.startMinute === range.endMinute) return translate('All day')
   return `${minutesToTime(range.startMinute)}-${minutesToTime(range.endMinute)}`
 }
 

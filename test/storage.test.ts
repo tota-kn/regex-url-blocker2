@@ -294,7 +294,7 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 12,
+      version: 13,
       settings,
     })
   })

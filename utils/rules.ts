@@ -9,14 +9,21 @@ import {
 } from './timeWindow'
 import type { BlockDestination, GlobalSettings, Rule, RuleKind, RuleRestriction } from './types'
 import { resolveDailyLimitRule } from './usageCounters'
+import { translate } from './i18n'
 
 /**
  * 制限種別の画面表示名。
  */
 export const RULE_KIND_LABELS: Record<RuleKind, string> = {
-  block: 'Block',
-  dailyLimit: 'Daily limit',
-  wait: 'Wait',
+  get block() {
+    return translate('Block')
+  },
+  get dailyLimit() {
+    return translate('Daily limit')
+  },
+  get wait() {
+    return translate('Wait')
+  },
 }
 
 /**
@@ -50,7 +57,7 @@ export interface CurrentStateSummary {
  * 遷移先を読み取り表示用の文言に変換する。
  */
 export function formatDestination(destination: BlockDestination | undefined): string {
-  if (!destination || destination.type === 'blockedPage') return 'blocked page'
+  if (!destination || destination.type === 'blockedPage') return translate('blocked page')
   return destination.url
 }
 
@@ -58,9 +65,13 @@ export function formatDestination(destination: BlockDestination | undefined): st
  * ルールの制限内容を読み取り表示用の文言に変換する。
  */
 export function formatRuleRestriction(restriction: RuleRestriction): string {
-  if (restriction.kind === 'block') return 'Block access'
-  if (restriction.kind === 'dailyLimit') return `Allow ${restriction.minutes} min per day`
-  return `Wait ${restriction.seconds} sec, then allow ${restriction.grantMinutes} min`
+  if (restriction.kind === 'block') return translate('Block access')
+  if (restriction.kind === 'dailyLimit')
+    return translate('Allow {minutes} min per day', { minutes: restriction.minutes })
+  return translate('Wait {seconds} sec, then allow {minutes} min', {
+    seconds: restriction.seconds,
+    minutes: restriction.grantMinutes,
+  })
 }
 
 /**

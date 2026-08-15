@@ -28,6 +28,7 @@ export type GroupTemplateId = 'blank' | 'core-sns-15min' | 'video-30min' | 'work
  * 未設定時に使用するグローバル設定の既定値。
  */
 export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
+  language: 'auto',
   dailyResetHour: '03:00',
   remainingTimeNotificationsEnabled: true,
   notificationThresholdMinutes: 5,

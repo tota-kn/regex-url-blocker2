@@ -1,4 +1,5 @@
 import type { GroupPauseEntry, Settings } from './types'
+import { translate } from './i18n'
 
 /**
  * グループ一時停止 UI の表示状態。
@@ -62,7 +63,7 @@ export function getGroupPauseDisplayState(
   const pausedUntil = entry?.pausedUntil
   if (pausedUntil && pausedUntil > nowMs) {
     return {
-      label: `Paused ${formatPauseDuration(pausedUntil - nowMs)}`,
+      label: translate('Paused {time}', { time: formatPauseDuration(pausedUntil - nowMs) }),
       kind: 'paused',
     }
   }
@@ -70,20 +71,20 @@ export function getGroupPauseDisplayState(
   const waitingUntil = entry?.waitingUntil
   if (waitingUntil && waitingUntil > nowMs) {
     return {
-      label: `Pause ${formatPauseDuration(waitingUntil - nowMs)} left`,
+      label: translate('Pause {time} left', { time: formatPauseDuration(waitingUntil - nowMs) }),
       kind: 'waiting',
     }
   }
 
   if (waitingUntil) {
     return {
-      label: 'Pause ready',
+      label: translate('Pause ready'),
       kind: 'ready',
     }
   }
 
   return {
-    label: 'Pause',
+    label: translate('Pause'),
     kind: 'none',
   }
 }
@@ -98,5 +99,5 @@ export function getGroupPauseButtonState(
   // ボタンは待機中／ready を区別せず「一時停止中かどうか」だけを見せる。
   const display = getGroupPauseDisplayState(entry, now)
   const paused = display.kind === 'paused'
-  return { label: paused ? display.label : 'Pause', paused }
+  return { label: paused ? display.label : translate('Pause'), paused }
 }

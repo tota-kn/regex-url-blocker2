@@ -1,6 +1,7 @@
 import { formatRemainingMinutesBadge, getMinimumEffectiveRemainingTimeLimit } from './usageCounters'
 import type { SettingsPair } from './settingsPair'
 import type { UsageCountersState } from './types'
+import { translate } from './i18n'
 
 export const ACTION_TITLE = 'Regex URL Guard'
 export const BADGE_COLOR_NORMAL = '#2563eb'
@@ -42,7 +43,7 @@ export function buildActionState(
   const text = formatRemainingMinutesBadge(minimum.summary.remainingSec)
   return {
     text,
-    title: `${ACTION_TITLE} - remaining ${text}`,
+    title: translate('Regex URL Guard - remaining {time}', { time: text }),
     color: badgeColor(minimum.summary.remainingSec),
   }
 }

@@ -1,6 +1,7 @@
 import { collectTargetCandidates } from './targetCandidates'
 import { getTimeLimitUsageSummary } from './usageCounters'
 import type { Settings, UsageCountersState, UsageNotificationEntry } from './types'
+import { translate } from './i18n'
 
 /**
  * Chrome notification を作成するための判定結果。
@@ -19,7 +20,7 @@ export interface NotificationPlan {
  */
 function formatRemainingNotificationMinutes(remainingSec: number): string {
   const minutes = Math.ceil(remainingSec / 60)
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+  return translate('{count} minute | {count} minutes', { count: minutes })
 }
 
 /**
@@ -66,7 +67,10 @@ export function buildEffectiveRemainingTimeNotificationPlans(
     return [
       {
         notificationId: `usage-time-limit-${group.id}-${summary.logicalDate}`,
-        message: `${group.name}: ${formatRemainingNotificationMinutes(summary.remainingSec)} remaining today.`,
+        message: translate('{group}: {minutes} remaining today.', {
+          group: group.name,
+          minutes: formatRemainingNotificationMinutes(summary.remainingSec),
+        }),
         historyEntries: [{ groupId: group.id, logicalDate: summary.logicalDate }],
       },
     ]

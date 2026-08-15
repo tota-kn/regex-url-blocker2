@@ -8,6 +8,9 @@ export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6
  */
 export type HHMM = string
 
+/** ユーザーが選択できる表示言語。`auto` はブラウザの UI 言語へ追従する。 */
+export type LanguagePreference = 'auto' | 'en' | 'ja'
+
 /**
  * 分単位のブロック時間帯。
  * `startMinute === endMinute` のときは24時間ブロックとして扱う。
@@ -139,6 +142,8 @@ export interface Group {
  * 拡張機能全体のグローバル設定。
  */
 export interface GlobalSettings {
+  /** 拡張機能内ページの表示言語。 */
+  language: LanguagePreference
   /** 論理日の境界となる時刻（"HH:MM"）。 */
   dailyResetHour: HHMM
   /** 残り閲覧時間通知を有効にするか。 */

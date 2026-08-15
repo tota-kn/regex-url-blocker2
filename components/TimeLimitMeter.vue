@@ -3,6 +3,9 @@ import { ClockIcon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * 残り時間メーターの props。
@@ -61,7 +64,7 @@ function formatMinutesSeconds(seconds: number): string {
 
 <template>
   <section
-    :aria-label="`${ariaLabel} summary`"
+    :aria-label="t('{label} summary', { label: ariaLabel })"
     :class="[
       'flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background',
       compact ? 'px-2.5 py-2' : 'px-3 py-2',
@@ -72,7 +75,7 @@ function formatMinutesSeconds(seconds: number): string {
       class="flex shrink-0 items-center gap-1.5 text-label-sm uppercase text-muted"
     >
       <ClockIcon aria-hidden="true" class="size-3.5 shrink-0" />
-      Daily limit
+      {{ t('Daily limit') }}
     </p>
 
     <p
@@ -82,7 +85,7 @@ function formatMinutesSeconds(seconds: number): string {
         remainingTextClass,
       ]"
     >
-      {{ formatMinutesSeconds(displayedRemainingSec) }} left
+      {{ t('{time} left', { time: formatMinutesSeconds(displayedRemainingSec) }) }}
     </p>
 
     <ProgressBar

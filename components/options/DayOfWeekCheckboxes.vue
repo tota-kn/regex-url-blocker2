@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { DAYS } from '@/utils/datetime'
 import type { DayOfWeek } from '@/utils/types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * 曜日チェックボックスの props。
@@ -31,7 +34,7 @@ function toggleDay(day: DayOfWeek): void {
 </script>
 
 <template>
-  <fieldset aria-label="Days" class="min-w-0">
+  <fieldset :aria-label="t('Days')" class="min-w-0">
     <div class="flex min-w-0 items-center gap-x-3">
       <span
         aria-hidden="true"

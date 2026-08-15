@@ -43,6 +43,7 @@ import type {
   UsageNotificationHistoryState,
 } from '@/utils/types'
 import type { Tabs, WebNavigation } from 'wxt/browser'
+import { setLanguage } from '@/utils/i18n'
 
 const HEARTBEAT_ALARM = 'heartbeat'
 const FLUSH_INTERVAL_MS = 7_000
@@ -75,6 +76,7 @@ interface ActionTargetTab {
  */
 async function applyLatestSettings(now: Date, mergeInMemoryCounters: boolean): Promise<Settings> {
   const preferred = await loadSettings()
+  setLanguage(preferred.global.language)
   const storedEffectiveState = await loadEffectiveSettingsState(preferred, now)
   const nextEffectiveState = reconcileEffectiveSettings(preferred, storedEffectiveState, now)
   await saveEffectiveSettingsState(nextEffectiveState)

@@ -14,7 +14,12 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import NumberInput from '@/components/ui/NumberInput.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import type { GlobalSettings } from '@/utils/types'
+import { setLanguage } from '@/utils/i18n'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * グローバル設定セクションの props。
@@ -49,10 +54,17 @@ const importInput = ref<HTMLInputElement | null>(null)
 const incognitoAccessAllowed = ref<boolean | undefined>()
 
 const incognitoStatusText = computed(() => {
-  if (incognitoAccessAllowed.value === true) return 'Enabled'
-  if (incognitoAccessAllowed.value === false) return 'Disabled'
-  return 'Unable to check'
+  if (incognitoAccessAllowed.value === true) return t('Enabled')
+  if (incognitoAccessAllowed.value === false) return t('Disabled')
+  return t('Unable to check')
 })
+
+/** 選択された言語を即座に適用し、Lock Modeとは独立して保存を要求する。 */
+function changeLanguage(): void {
+  setLanguage(globalSettings.value.language)
+  emit('touch', 'language')
+  emit('saveNow')
+}
 
 /**
  * Chrome の拡張機能詳細ページ URL を生成する。
@@ -121,13 +133,25 @@ onUnmounted(() => {
   <section class="space-y-3 lg:sticky lg:top-6">
     <div class="flex min-h-9 items-center justify-between gap-3">
       <div class="flex min-w-0 items-baseline gap-2">
-        <h2 class="text-heading-md text-foreground">General settings</h2>
+        <h2 class="text-heading-md text-foreground">{{ t('General settings') }}</h2>
       </div>
     </div>
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
+      <BaseField :label="t('Language')" emphasis>
+        <BaseSelect
+          v-model="globalSettings.language"
+          :aria-label="t('Language')"
+          class="w-full"
+          @change="changeLanguage"
+        >
+          <option value="auto">{{ t('Automatic (browser language)') }}</option>
+          <option value="en">{{ t('English') }}</option>
+          <option value="ja">{{ t('Japanese') }}</option>
+        </BaseSelect>
+      </BaseField>
       <BaseField
-        label="Start a new rule day at this time"
+        :label="t('Start a new rule day at this time')"
         emphasis
         :error="error('dailyResetHour')"
       >
@@ -137,18 +161,24 @@ onUnmounted(() => {
         <BaseInput
           v-model="globalSettings.dailyResetHour"
           type="time"
-          aria-label="Start a new rule day at this time"
+          :aria-label="t('Start a new rule day at this time')"
           :disabled="dailyResetTimeLocked"
           class="w-full"
           :invalid="Boolean(error('dailyResetHour'))"
           @input="emit('touch', 'dailyResetHour')"
         />
         <p v-if="dailyResetTimeLocked" class="mt-1.5 text-body-sm text-muted">
-          Cannot change while any group has Lock Mode enabled or pending.
+          {{ t('Cannot change while any group has Lock Mode enabled or pending.') }}
         </p>
       </BaseField>
 
-      <BaseField as="div" label="Notification" emphasis class="space-y-2" aria-label="Notification">
+      <BaseField
+        as="div"
+        :label="t('Notification')"
+        emphasis
+        class="space-y-2"
+        :aria-label="t('Notification')"
+      >
         <template #icon>
           <BellAlertIcon aria-hidden="true" class="size-4 text-muted" />
         </template>
@@ -160,30 +190,30 @@ onUnmounted(() => {
                 v-model="globalSettings.remainingTimeNotificationsEnabled"
                 type="checkbox"
                 class="-ml-7 size-4 rounded border-border text-primary focus:ring-2 focus:ring-ring"
-                aria-label="Notify me before the daily limit is reached"
+                :aria-label="t('Notify me before the daily limit is reached')"
                 @change="emit('touch', 'remainingTimeNotificationsEnabled')"
               />
               <label
                 for="remaining-time-notifications-enabled"
                 class="text-label-md text-secondary-foreground"
               >
-                Notify me
+                {{ t('Notify me') }}
               </label>
               <BaseField class="min-w-0" :error="error('notificationThresholdMinutes')">
                 <NumberInput
                   v-model="globalSettings.notificationThresholdMinutes"
                   min="1"
                   step="1"
-                  aria-label="Minutes before daily limit warning"
+                  :aria-label="t('Minutes before daily limit warning')"
                   class="w-24"
                   :disabled="!globalSettings.remainingTimeNotificationsEnabled"
                   :invalid="Boolean(error('notificationThresholdMinutes'))"
                   @input="emit('touch', 'notificationThresholdMinutes')"
                 />
               </BaseField>
-              <span class="text-label-md text-secondary-foreground"
-                >min before the daily limit is reached</span
-              >
+              <span class="text-label-md text-secondary-foreground">{{
+                t('min before the daily limit is reached')
+              }}</span>
             </div>
           </div>
         </div>
@@ -191,60 +221,62 @@ onUnmounted(() => {
 
       <BaseField
         as="div"
-        label="Allow this extension in Incognito"
+        :label="t('Allow this extension in Incognito')"
         emphasis
-        aria-label="Allow this extension in Incognito"
+        :aria-label="t('Allow this extension in Incognito')"
       >
         <template #icon>
           <EyeSlashIcon aria-hidden="true" class="size-4 text-muted" />
         </template>
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <p class="text-body-sm text-secondary-foreground">
-            Incognito access:
+            {{ t('Incognito access:') }}
             <span class="font-medium text-foreground">{{ incognitoStatusText }}</span>
           </p>
           <BaseButton
             variant="secondary"
-            aria-label="Open Chrome extension settings"
+            :aria-label="t('Open Chrome extension settings')"
             @click="openChromeExtensionSettings"
           >
             <ArrowTopRightOnSquareIcon aria-hidden="true" class="size-4" />
-            Open Chrome extension settings
+            {{ t('Open Chrome extension settings') }}
           </BaseButton>
         </div>
       </BaseField>
 
-      <BaseField as="div" label="Settings file" emphasis>
+      <BaseField as="div" :label="t('Settings file')" emphasis>
         <template #icon>
           <DocumentTextIcon aria-hidden="true" class="size-4 text-muted" />
         </template>
         <div class="flex flex-wrap gap-2">
           <BaseButton
             variant="secondary"
-            aria-label="Export settings"
+            :aria-label="t('Export settings')"
             @click="emit('exportSettings')"
           >
             <ArrowDownTrayIcon aria-hidden="true" class="size-4" />
-            Export settings
+            {{ t('Export settings') }}
           </BaseButton>
           <BaseButton
             variant="secondary"
-            aria-label="Import settings"
+            :aria-label="t('Import settings')"
             @click="openImportFilePicker"
           >
             <ArrowUpTrayIcon aria-hidden="true" class="size-4" />
-            Import settings
+            {{ t('Import settings') }}
           </BaseButton>
           <input
             ref="importInput"
             type="file"
             accept="application/json,.json"
             class="sr-only"
-            aria-label="Settings JSON file"
+            :aria-label="t('Settings JSON file')"
             @change="handleImportFile"
           />
         </div>
-        <p class="mt-2 text-body-sm text-muted">Import replaces all groups and general settings.</p>
+        <p class="mt-2 text-body-sm text-muted">
+          {{ t('Import replaces all groups and general settings.') }}
+        </p>
         <AlertMessage v-if="importError" class="mt-2">
           {{ importError }}
         </AlertMessage>

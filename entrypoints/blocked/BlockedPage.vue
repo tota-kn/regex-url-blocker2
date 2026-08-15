@@ -17,6 +17,9 @@ import { getNextDailyResetAt } from '@/utils/logicalDate'
 import { formatRuleSentence, RULE_KIND_LABELS } from '@/utils/rules'
 import { loadPageState } from '@/utils/storage'
 import type { GlobalSettings, Group } from '@/utils/types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface BlockedReason {
   /** 画面に表示する理由 badge。ブロックを起こしたルールの種別名。 */
@@ -60,7 +63,7 @@ function buildReason(
     return {
       label: RULE_KIND_LABELS.block,
       summary,
-      releaseLabel: 'Unblocks at',
+      releaseLabel: t('Unblocks at'),
       ...(releaseAt ? { releaseAt } : {}),
     }
   }
@@ -71,7 +74,7 @@ function buildReason(
   return {
     label: RULE_KIND_LABELS.dailyLimit,
     summary,
-    releaseLabel: releaseAt.getTime() < resetAt.getTime() ? 'Unblocks at' : 'Resets at',
+    releaseLabel: releaseAt.getTime() < resetAt.getTime() ? t('Unblocks at') : t('Resets at'),
     releaseAt,
   }
 }
@@ -122,21 +125,21 @@ onMounted(async () => {
 </script>
 
 <template>
-  <PageShell title="Page blocked">
-    <template #description>This page was blocked by Regex URL Guard.</template>
+  <PageShell :title="t('Page blocked')">
+    <template #description>{{ t('This page was blocked by Regex URL Guard.') }}</template>
 
     <div class="mt-6 space-y-4">
       <div>
-        <InfoValue label="URL" aria-label="Blocked URL" break-all>
-          {{ blockedUrl || 'Unknown' }}
+        <InfoValue label="URL" :aria-label="t('Blocked URL')" break-all>
+          {{ blockedUrl || t('Unknown') }}
         </InfoValue>
       </div>
 
-      <p v-if="!isLoaded" class="text-body-sm text-muted-foreground">Loading...</p>
-      <InfoValue v-else-if="blockedGroupDisplays.length === 0" aria-label="Blocking details">
-        Unknown setting
+      <p v-if="!isLoaded" class="text-body-sm text-muted-foreground">{{ t('Loading...') }}</p>
+      <InfoValue v-else-if="blockedGroupDisplays.length === 0" :aria-label="t('Blocking details')">
+        {{ t('Unknown setting') }}
       </InfoValue>
-      <div v-else class="space-y-3" aria-label="Blocking details">
+      <div v-else class="space-y-3" :aria-label="t('Blocking details')">
         <SubtlePanel
           v-for="display in blockedGroupDisplays"
           :key="display.group.id"
@@ -168,13 +171,15 @@ onMounted(async () => {
                 {{
                   display.reason.releaseAt
                     ? formatDateTime(display.reason.releaseAt)
-                    : 'Not scheduled'
+                    : t('Not scheduled')
                 }}
               </dd>
             </dl>
           </div>
 
-          <p v-else class="mt-2 text-body-sm text-muted-foreground">No active reason found.</p>
+          <p v-else class="mt-2 text-body-sm text-muted-foreground">
+            {{ t('No active reason found.') }}
+          </p>
         </SubtlePanel>
       </div>
     </div>
@@ -182,7 +187,7 @@ onMounted(async () => {
     <div class="mt-6 flex justify-end">
       <BaseButton type="button" variant="primary" class="h-10 px-4" @click="goBack">
         <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
-        Back
+        {{ t('Back') }}
       </BaseButton>
     </div>
   </PageShell>

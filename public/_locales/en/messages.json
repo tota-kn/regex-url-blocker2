@@ -1,0 +1,6 @@
+{
+  "extensionName": { "message": "Regex URL Guard" },
+  "extensionDescription": {
+    "message": "Block distracting websites with customizable regular expression URL rules."
+  }
+}

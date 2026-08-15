@@ -21,6 +21,9 @@ import {
 import type { GlobalSettings, Rule } from '@/utils/types'
 import RuleRowEditor from './RuleRowEditor.vue'
 import RuleSectionHeader from './RuleSectionHeader.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * Rule 一覧を編集するコンポーネントの props。
@@ -68,11 +71,11 @@ function removeRule(index: number): void {
 
 <template>
   <section class="min-w-0 space-y-3">
-    <RuleSectionHeader title="Rules">
+    <RuleSectionHeader :title="t('Rules')">
       <template #icon>
         <ShieldExclamationIcon aria-hidden="true" class="size-4 text-muted" />
       </template>
-      <BaseTooltip label="How overlapping rules are applied">
+      <BaseTooltip :label="t('How overlapping rules are applied')">
         <span class="block text-label-sm text-muted-foreground">
           WHEN SEVERAL RULES ARE ACTIVE AT ONCE
         </span>
@@ -89,10 +92,10 @@ function removeRule(index: number): void {
     </RuleSectionHeader>
 
     <EmptyState v-if="rules.length === 0">
-      No rules yet. This group does nothing until you add one.
+      {{ t('No rules yet. This group does nothing until you add one.') }}
     </EmptyState>
 
-    <ol v-else class="space-y-2" aria-label="Rules">
+    <ol v-else class="space-y-2" :aria-label="t('Rules')">
       <li
         v-for="(rule, index) in rules"
         :key="rule.id"
@@ -113,7 +116,7 @@ function removeRule(index: number): void {
             type="button"
             variant="danger-ghost"
             size="icon-sm"
-            :aria-label="`Remove rule ${index + 1}`"
+            :aria-label="t('Remove rule {number}', { number: index + 1 })"
             @click="removeRule(index)"
           >
             <TrashIcon aria-hidden="true" class="size-4" />
@@ -122,7 +125,7 @@ function removeRule(index: number): void {
 
         <p
           v-else
-          :aria-label="`Rule ${index + 1}`"
+          :aria-label="t('Rule {number}', { number: index + 1 })"
           class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-body-md text-input-foreground"
         >
           <span class="font-mono text-secondary-foreground">{{ formatRule(rule).when }}</span>
@@ -140,7 +143,7 @@ function removeRule(index: number): void {
       type="button"
       size="sm"
       variant="ghost"
-      aria-label="Add rule"
+      :aria-label="t('Add rule')"
       @click="addRule"
     >
       <PlusIcon aria-hidden="true" class="size-4" />

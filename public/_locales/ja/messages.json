@@ -1,0 +1,6 @@
+{
+  "extensionName": { "message": "Regex URL Guard" },
+  "extensionDescription": {
+    "message": "正規表現のURLルールを使って、気が散るウェブサイトをブロックします。"
+  }
+}

@@ -7,6 +7,9 @@ import { createDefaultRule, DEFAULT_REDIRECT_URL } from '@/utils/defaults'
 import { buildRule } from '@/utils/ruleFactory'
 import type { Rule, RuleKind, ScheduleRuleCondition, TimeRange, TimeWindow } from '@/utils/types'
 import ScheduleWindowEditor from './ScheduleWindowEditor.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * 1件の Rule を編集するコンポーネントの props。
@@ -193,15 +196,15 @@ function preventNonDigitInput(event: InputEvent): void {
   <div class="min-w-0 space-y-3">
     <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
       <label class="min-w-0">
-        <span class="sr-only">Rule {{ props.index + 1 }} when</span>
+        <span class="sr-only">{{ t('Rule {number} when', { number: props.index + 1 }) }}</span>
         <BaseSelect
-          :aria-label="`Rule ${props.index + 1} when`"
+          :aria-label="t('Rule {number} when', { number: props.index + 1 })"
           size="sm"
           :model-value="windowValue(rule.window)"
           @update:model-value="setWindow(String($event ?? ''))"
         >
           <option v-for="option in whenOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
+            {{ t(option.label) }}
           </option>
         </BaseSelect>
       </label>
@@ -209,15 +212,17 @@ function preventNonDigitInput(event: InputEvent): void {
       <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
 
       <label class="min-w-0">
-        <span class="sr-only">Rule {{ props.index + 1 }} restriction</span>
+        <span class="sr-only">{{
+          t('Rule {number} restriction', { number: props.index + 1 })
+        }}</span>
         <BaseSelect
-          :aria-label="`Rule ${props.index + 1} restriction`"
+          :aria-label="t('Rule {number} restriction', { number: props.index + 1 })"
           size="sm"
           :model-value="rule.restriction.kind"
           @update:model-value="setKind(String($event ?? ''))"
         >
           <option v-for="option in kindOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
+            {{ t(option.label) }}
           </option>
         </BaseSelect>
       </label>
@@ -226,39 +231,39 @@ function preventNonDigitInput(event: InputEvent): void {
         <BaseInput
           type="text"
           inputmode="numeric"
-          :aria-label="`Rule ${props.index + 1} daily limit minutes`"
+          :aria-label="t('Rule {number} daily limit minutes', { number: props.index + 1 })"
           class="w-20"
           size="sm"
           :model-value="numberText(rule.restriction.minutes)"
           @beforeinput="preventNonDigitInput"
           @update:model-value="setNumber('minutes', $event)"
         />
-        <span class="shrink-0 text-label-sm text-muted-foreground">min per day</span>
+        <span class="shrink-0 text-label-sm text-muted-foreground">{{ t('min per day') }}</span>
       </template>
 
       <template v-if="rule.restriction.kind === 'wait'">
         <BaseInput
           type="text"
           inputmode="numeric"
-          :aria-label="`Rule ${props.index + 1} wait seconds`"
+          :aria-label="t('Rule {number} wait seconds', { number: props.index + 1 })"
           class="w-16"
           size="sm"
           :model-value="numberText(rule.restriction.seconds)"
           @beforeinput="preventNonDigitInput"
           @update:model-value="setNumber('seconds', $event)"
         />
-        <span class="shrink-0 text-label-sm text-muted-foreground">sec, then allow</span>
+        <span class="shrink-0 text-label-sm text-muted-foreground">{{ t('sec, then allow') }}</span>
         <BaseInput
           type="text"
           inputmode="numeric"
-          :aria-label="`Rule ${props.index + 1} grant minutes`"
+          :aria-label="t('Rule {number} grant minutes', { number: props.index + 1 })"
           class="w-16"
           size="sm"
           :model-value="numberText(rule.restriction.grantMinutes)"
           @beforeinput="preventNonDigitInput"
           @update:model-value="setNumber('grantMinutes', $event)"
         />
-        <span class="shrink-0 text-label-sm text-muted-foreground">min</span>
+        <span class="shrink-0 text-label-sm text-muted-foreground">{{ t('min') }}</span>
       </template>
     </div>
 
@@ -266,23 +271,27 @@ function preventNonDigitInput(event: InputEvent): void {
       v-if="rule.restriction.kind !== 'wait'"
       class="flex min-w-0 flex-wrap items-center gap-2 pl-1"
     >
-      <span class="shrink-0 text-label-sm text-muted-foreground">When blocked, go to</span>
+      <span class="shrink-0 text-label-sm text-muted-foreground">{{
+        t('When blocked, go to')
+      }}</span>
       <label class="min-w-0">
-        <span class="sr-only">Rule {{ props.index + 1 }} destination</span>
+        <span class="sr-only">{{
+          t('Rule {number} destination', { number: props.index + 1 })
+        }}</span>
         <BaseSelect
-          :aria-label="`Rule ${props.index + 1} destination`"
+          :aria-label="t('Rule {number} destination', { number: props.index + 1 })"
           size="sm"
           :model-value="rule.destination?.type ?? 'blockedPage'"
           @update:model-value="setDestinationType(String($event ?? ''))"
         >
-          <option value="blockedPage">Blocked page</option>
-          <option value="redirect">Another URL</option>
+          <option value="blockedPage">{{ t('Blocked page') }}</option>
+          <option value="redirect">{{ t('Another URL') }}</option>
         </BaseSelect>
       </label>
       <BaseInput
         v-if="rule.destination?.type === 'redirect'"
         type="url"
-        :aria-label="`Rule ${props.index + 1} destination URL`"
+        :aria-label="t('Rule {number} destination URL', { number: props.index + 1 })"
         placeholder="https://example.com"
         class="min-w-0 flex-1"
         size="sm"

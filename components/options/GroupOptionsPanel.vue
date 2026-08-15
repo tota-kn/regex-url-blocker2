@@ -7,6 +7,9 @@ import type { Group } from '@/utils/types'
 import { useLockModePending } from '@/utils/useLockModePending'
 import PendingFieldNote from './PendingFieldNote.vue'
 import PauseDurationField from './PauseDurationField.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /** グループOptionsパネルのprops。 */
 interface Props {
@@ -58,21 +61,28 @@ const pendingPauseNote = computed(() => {
 /** 読み取り表示する既定値以外のOptions要約。 */
 const summaries = computed(() => {
   const result: Array<{ label: string; value: string; pending?: string }> = []
-  const lockLabel = 'Delay relaxed restrictions until next rule day'
-  if (props.group.lockMode) result.push({ label: lockLabel, value: 'On' })
+  const lockLabel = t('Delay relaxed restrictions until next rule day')
+  if (props.group.lockMode) result.push({ label: lockLabel, value: t('On') })
   else if (isFieldPending('lockMode')) {
-    result.push({ label: lockLabel, value: 'Off', pending: `Still on ${pendingUntilLabel.value}.` })
+    result.push({
+      label: lockLabel,
+      value: t('Off'),
+      pending: t('Still on {until}.', { until: pendingUntilLabel.value }),
+    })
   }
   if (props.group.pauseAllowed === false) {
-    result.push({ label: 'Pause', value: 'Not allowed', pending: pendingPauseNote.value })
+    result.push({ label: t('Pause'), value: t('Not allowed'), pending: pendingPauseNote.value })
   } else if (
     props.group.pauseWaitSeconds !== DEFAULT_PAUSE_WAIT_SECONDS ||
     props.group.pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES ||
     pendingPauseNote.value
   ) {
     result.push({
-      label: 'Pause',
-      value: `Wait ${props.group.pauseWaitSeconds} sec, pause for ${props.group.pauseDurationMinutes} min`,
+      label: t('Pause'),
+      value: t('Wait {seconds} sec, pause for {minutes} min', {
+        seconds: props.group.pauseWaitSeconds,
+        minutes: props.group.pauseDurationMinutes,
+      }),
       pending: pendingPauseNote.value,
     })
   }
@@ -91,7 +101,7 @@ function panelId(): string {
   <section v-if="visible" class="space-y-3 px-4 pb-4">
     <h3 v-if="!isEditing" class="flex items-center gap-1.5 text-label-md">
       <LockClosedIcon aria-hidden="true" class="size-4 text-muted" />
-      Options
+      {{ t('Options') }}
     </h3>
 
     <template v-if="isEditing">
@@ -108,79 +118,94 @@ function panelId(): string {
             class="size-4 shrink-0 text-muted transition-transform"
             :class="isOpen ? 'rotate-0' : '-rotate-90'"
           />
-          <span>Options</span>
+          <span>{{ t('Options') }}</span>
         </span>
       </button>
 
       <div v-if="isOpen" :id="panelId()" class="divide-y divide-border">
-        <fieldset aria-label="Delay relaxed restrictions until next rule day" class="py-3">
+        <fieldset :aria-label="t('Delay relaxed restrictions until next rule day')" class="py-3">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
               <LockClosedIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
               <div>
-                <span class="text-label-md">Delay relaxed restrictions until next rule day</span>
+                <span class="text-label-md">{{
+                  t('Delay relaxed restrictions until next rule day')
+                }}</span>
                 <p class="mt-1 text-body-sm text-muted">
-                  Stricter changes apply immediately. Relaxed restrictions take effect on the next
-                  rule day.
+                  {{
+                    t(
+                      'Stricter changes apply immediately. Relaxed restrictions take effect on the next rule day.',
+                    )
+                  }}
                 </p>
               </div>
             </div>
             <BooleanRadioGroup
               v-model="draft.lockMode"
-              label="Delay relaxed restrictions until next rule day"
+              :label="t('Delay relaxed restrictions until next rule day')"
             />
           </div>
           <PendingFieldNote v-if="isFieldPending('lockMode')">
-            Still on {{ pendingUntilLabel }}.
+            {{ t('Still on {until}.', { until: pendingUntilLabel }) }}
           </PendingFieldNote>
         </fieldset>
 
-        <fieldset aria-label="Pause settings" class="py-3">
+        <fieldset :aria-label="t('Pause settings')" class="py-3">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
               <ClockIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
               <div>
-                <span class="text-label-md">Pause</span>
+                <span class="text-label-md">{{ t('Pause') }}</span>
                 <p class="mt-1 text-body-sm text-muted">
-                  Take a short break before temporarily disabling this group.
+                  {{ t('Take a short break before temporarily disabling this group.') }}
                 </p>
               </div>
             </div>
             <div class="flex flex-col gap-2 sm:items-end">
               <div class="flex flex-wrap items-center gap-4">
-                <span class="text-label-md text-secondary-foreground">Allow Pause</span>
-                <BooleanRadioGroup v-model="draft.pauseAllowed" label="Allow Pause" on-first />
+                <span class="text-label-md text-secondary-foreground">{{ t('Allow Pause') }}</span>
+                <BooleanRadioGroup
+                  v-model="draft.pauseAllowed"
+                  :label="t('Allow Pause')"
+                  on-first
+                />
               </div>
               <PendingFieldNote v-if="isFieldPending('pauseAllowed')" class="sm:text-right">
-                Still not allowed {{ pendingUntilLabel }}.
+                {{ t('Still not allowed {until}.', { until: pendingUntilLabel }) }}
               </PendingFieldNote>
               <div class="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2 sm:justify-end">
                 <PauseDurationField
                   v-model="draft.pauseWaitSeconds"
-                  label="Wait"
-                  unit="sec"
-                  input-aria-label="Wait seconds before pausing"
+                  :label="t('Wait')"
+                  :unit="t('sec')"
+                  :input-aria-label="t('Wait seconds before pausing')"
                   :min="0"
                   :disabled="!draft.pauseAllowed"
                   :error="error('pauseWaitSeconds')"
                   :pending="
                     isFieldPending('pauseWaitSeconds')
-                      ? `Still ${effectivePauseWaitSeconds} sec ${pendingUntilLabel}.`
+                      ? t('Still {value} sec {until}.', {
+                          value: effectivePauseWaitSeconds,
+                          until: pendingUntilLabel,
+                        })
                       : undefined
                   "
                   @touch="emit('touch', 'pauseWaitSeconds')"
                 />
                 <PauseDurationField
                   v-model="draft.pauseDurationMinutes"
-                  label="Pause for"
-                  unit="min"
-                  input-aria-label="Pause duration minutes"
+                  :label="t('Pause for')"
+                  :unit="t('min')"
+                  :input-aria-label="t('Pause duration minutes')"
                   :min="1"
                   :disabled="!draft.pauseAllowed"
                   :error="error('pauseDurationMinutes')"
                   :pending="
                     isFieldPending('pauseDurationMinutes')
-                      ? `Still ${effectivePauseDurationMinutes} min ${pendingUntilLabel}.`
+                      ? t('Still {value} min {until}.', {
+                          value: effectivePauseDurationMinutes,
+                          until: pendingUntilLabel,
+                        })
                       : undefined
                   "
                   @touch="emit('touch', 'pauseDurationMinutes')"

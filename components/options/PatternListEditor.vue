@@ -4,6 +4,9 @@ import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import RuleSectionHeader from './RuleSectionHeader.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * URL pattern 編集コンポーネントの props。
@@ -52,7 +55,7 @@ function deletePattern(index: number): void {
 
 <template>
   <section class="space-y-3">
-    <RuleSectionHeader title="URL patterns">
+    <RuleSectionHeader :title="t('URL patterns')">
       <template #icon>
         <CodeBracketIcon aria-hidden="true" class="size-4 text-muted" />
       </template>
@@ -63,7 +66,7 @@ function deletePattern(index: number): void {
         <div v-if="isEditing" class="flex min-w-0 gap-2">
           <BaseInput
             v-model="patterns[i]"
-            aria-label="URL pattern"
+            :aria-label="t('URL pattern')"
             placeholder="example.com or ^https?://(www\.)?example\.com/private"
             class="flex-1"
             size="md"
@@ -73,8 +76,8 @@ function deletePattern(index: number): void {
           />
           <BaseButton
             type="button"
-            aria-label="Delete pattern"
-            title="Delete"
+            :aria-label="t('Delete pattern')"
+            :title="t('Delete')"
             size="icon-md"
             variant="danger-ghost"
             @click="deletePattern(i)"
@@ -92,13 +95,13 @@ function deletePattern(index: number): void {
       <BaseButton
         v-if="isEditing"
         type="button"
-        aria-label="Add URL pattern"
+        :aria-label="t('Add URL pattern')"
         size="sm"
         variant="ghost"
         @click="() => patterns.push('')"
       >
         <PlusIcon aria-hidden="true" class="size-4" />
-        URL pattern
+        {{ t('URL pattern') }}
       </BaseButton>
       <AlertMessage v-if="sectionError">
         {{ sectionError }}

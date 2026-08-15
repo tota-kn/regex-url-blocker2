@@ -37,8 +37,8 @@ import { validateGlobalSettings, validateGroup } from './validation'
  * リリース済みの旧バージョンは v2（1.0.0）・v3（1.1.0/1.2.0）・v4（1.3.0）・v11（1.4.0）のみ。
  * v5〜v10 は未リリース開発中にのみ存在した形式のためサポートしない。
  */
-export const SETTINGS_EXPORT_VERSION = 12
-const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, SETTINGS_EXPORT_VERSION] as const
+export const SETTINGS_EXPORT_VERSION = 13
+const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, 12, SETTINGS_EXPORT_VERSION] as const
 type SupportedExportVersion = (typeof SUPPORTED_EXPORT_VERSIONS)[number]
 
 /**
@@ -207,6 +207,10 @@ function normalizeSettings(raw: { global?: unknown; groups?: unknown }): Setting
     global: {
       ...DEFAULT_GLOBAL_SETTINGS,
       ...normalizedRawGlobal,
+      language:
+        rawGlobal.language === 'en' || rawGlobal.language === 'ja' || rawGlobal.language === 'auto'
+          ? rawGlobal.language
+          : 'auto',
       notificationThresholdMinutes,
       remainingTimeNotificationsEnabled: normalizeRemainingTimeNotificationsEnabled(
         rawGlobal.remainingTimeNotificationsEnabled,

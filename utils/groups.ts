@@ -1,6 +1,7 @@
 import { dayLabel, formatMonthDay, formatTimeRange } from './datetime'
 import { deepClone } from './json'
 import type { Group, ScheduleRuleCondition, Settings, TimeRange, TimeWindow } from './types'
+import { translate } from './i18n'
 
 /**
  * グループを JSON 互換の deep clone として複製する。
@@ -18,7 +19,7 @@ export function duplicateGroup(group: Group): Group {
   return {
     ...cloned,
     id: crypto.randomUUID(),
-    name: `${group.name} copy`,
+    name: translate('{name} copy', { name: group.name }),
     rules: cloned.rules.map((rule) => ({ ...rule, id: crypto.randomUUID() })),
   }
 }
@@ -44,26 +45,26 @@ export function cloneSettings(settings: Settings): Settings {
  */
 export function formatScheduleRuleCondition(condition: ScheduleRuleCondition): string {
   if (condition.type === 'weekly') {
-    return `Weekly ${condition.daysOfWeek.map(dayLabel).join(', ')}`
+    return translate('Weekly {days}', { days: condition.daysOfWeek.map(dayLabel).join(', ') })
   }
   if (condition.type === 'monthly') {
-    return `Monthly ${condition.daysOfMonth.join(', ')}`
+    return translate('Monthly {days}', { days: condition.daysOfMonth.join(', ') })
   }
   if (condition.type === 'period') {
     return `${formatMonthDay(condition.start)}-${formatMonthDay(condition.end)}`
   }
-  return 'Every day'
+  return translate('Every day')
 }
 
 /**
  * ルールが有効な時刻ウィンドウを読み取り表示用の文言に変換する。
  */
 function formatRestrictionWindow(timeRanges: TimeRange[]): string {
-  return timeRanges.length > 0 ? timeRanges.map(formatTimeRange).join(', ') : 'All day'
+  return timeRanges.length > 0 ? timeRanges.map(formatTimeRange).join(', ') : translate('All day')
 }
 
 /** 時間ウィンドウを読み取り表示用の文言に変換する。 */
 export function formatTimeWindow(window: TimeWindow): string {
-  if (window.type === 'always') return 'Always'
+  if (window.type === 'always') return translate('Always')
   return `${formatScheduleRuleCondition(window.condition)} ${formatRestrictionWindow(window.timeRanges)}`
 }

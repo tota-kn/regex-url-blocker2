@@ -14,6 +14,9 @@ import { loadGroupPauseState, loadPageState } from '@/utils/storage'
 import { useNowTimer } from '@/utils/useNowTimer'
 import { useStorageWatch } from '@/utils/useStorageWatch'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 interface DisplayGroup {
   group: Group
@@ -187,26 +190,26 @@ onMounted(async () => {
   <main class="w-80 space-y-4 bg-background p-4 text-foreground">
     <header class="flex items-center justify-between gap-3">
       <h1 class="min-w-0 truncate text-heading-lg">Regex URL Guard</h1>
-      <BaseButton size="sm" aria-label="Open options" @click="openOptionsPage">
+      <BaseButton size="sm" :aria-label="t('Open options')" @click="openOptionsPage">
         <Cog6ToothIcon class="size-4" aria-hidden="true" />
-        Options
+        {{ t('Options') }}
       </BaseButton>
     </header>
 
-    <p v-if="!isLoaded" class="text-body-md text-muted-foreground">Loading...</p>
+    <p v-if="!isLoaded" class="text-body-md text-muted-foreground">{{ t('Loading...') }}</p>
 
     <template v-else>
-      <EmptyState v-if="isSkippedPage"> This page is excluded from blocking. </EmptyState>
+      <EmptyState v-if="isSkippedPage">{{ t('This page is excluded from blocking.') }}</EmptyState>
 
       <EmptyState v-else-if="targetGroups.length === 0">
-        No matching groups for this page.
+        {{ t('No matching groups for this page.') }}
       </EmptyState>
 
       <EmptyState v-else-if="displayGroups.length === 0">
-        No active limits apply to this page.
+        {{ t('No active limits apply to this page.') }}
       </EmptyState>
 
-      <ul v-else aria-label="Active limits for this page" class="space-y-2">
+      <ul v-else :aria-label="t('Active limits for this page')" class="space-y-2">
         <li
           v-for="{ group, status, pauseState, current } in displayGroups"
           :key="group.id"
@@ -217,7 +220,7 @@ onMounted(async () => {
               {{ group.name }}
             </p>
             <StatusBadge v-if="isBlockedNow(status, pauseState)" kind="danger" class="shrink-0">
-              Blocked now
+              {{ t('Blocked now') }}
             </StatusBadge>
           </div>
 
@@ -247,7 +250,7 @@ onMounted(async () => {
             v-if="status.timeLimitSummary && pauseState.kind !== 'paused'"
             :summary="status.timeLimitSummary"
             :remaining-sec="realtimeRemainingSeconds(status.timeLimitSummary)"
-            :aria-label="`Remaining time for ${group.name}`"
+            :aria-label="t('Remaining time for {group}', { group: group.name })"
             :show-label="false"
             compact
           />

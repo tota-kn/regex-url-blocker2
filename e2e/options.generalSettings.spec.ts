@@ -1,9 +1,51 @@
 import { expect, test } from './fixtures'
 import { setExtensionStorage } from './helpers'
-import { openGeneralSettings } from './optionsPage'
+import { expectGlobalSettingsStored, openGeneralSettings } from './optionsPage'
 import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
 
 test.describe('Options generalSettings', () => {
+  test('日本語へ即時切替し、再読み込み後も保持する', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await openGeneralSettings(page)
+
+    await page.getByLabel('Language').selectOption('ja')
+    await expect(page.getByRole('heading', { name: '一般設定' })).toBeVisible()
+    await expect(page.getByLabel('言語')).toHaveValue('ja')
+    await expect(page.getByLabel('新しいルール日を開始する時刻')).toBeVisible()
+    await expectGlobalSettingsStored(page, { language: 'ja' })
+
+    await page.reload()
+    await page.getByRole('button', { name: '一般設定' }).click()
+    await expect(page.getByLabel('言語')).toHaveValue('ja')
+  })
+
+  test('日本語でグループ作成・ルール編集UIを表示する', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await openGeneralSettings(page)
+    await page.getByLabel('Language').selectOption('ja')
+    await page.getByRole('button', { name: 'グループ', exact: true }).click()
+
+    await page.getByRole('button', { name: 'グループを追加' }).click()
+    await expect(page.getByRole('heading', { name: 'グループを作成' })).toBeVisible()
+    await page.getByRole('button', { name: '空のグループを作成' }).click()
+    await expect(page.getByLabel('名前')).toHaveValue('グループ 1')
+
+    await page.getByRole('button', { name: 'URLパターンを追加' }).click()
+    await expect(page.getByRole('textbox', { name: 'URLパターン', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'ルールを追加' }).click()
+    await expect(page.getByLabel('ルール1の適用日時')).toHaveValue('always')
+    await expect(page.getByLabel('ルール1の制限')).toHaveValue('block')
+    await expect(page.getByLabel('ルール1の遷移先')).toHaveValue('blockedPage')
+    await expect(page.getByText('ブロック時の遷移先')).toBeVisible()
+
+    await page.getByRole('button', { name: 'オプション' }).click()
+    await expect(
+      page.getByRole('group', { name: '制限の緩和を次のルール日まで延期' }),
+    ).toBeVisible()
+    await expect(page.getByRole('group', { name: '一時停止設定' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'グループを保存' })).toBeVisible()
+  })
+
   test('初期表示は Groups で General settings は非表示', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 

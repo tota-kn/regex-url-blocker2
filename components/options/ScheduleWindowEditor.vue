@@ -12,6 +12,9 @@ import {
 import type { DayOfWeek, ScheduleRuleCondition, TimeRange } from '@/utils/types'
 import { VALIDATION_MESSAGES } from '@/utils/validation'
 import DayOfWeekCheckboxes from './DayOfWeekCheckboxes.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 /**
  * 時間帯設定欄（グループの単一制限が有効になる「有効ウィンドウ」）の props。
@@ -155,10 +158,10 @@ function isTimeRangeTextInvalid(): boolean {
         class="flex min-w-0 flex-wrap items-center gap-2"
       >
         <label v-if="condition.type === 'monthly'" class="flex min-w-0 items-center gap-1.5">
-          <span class="sr-only">Time window days of month</span>
+          <span class="sr-only">{{ t('Time window days of month') }}</span>
           <BaseInput
             type="text"
-            aria-label="Time window days of month"
+            :aria-label="t('Time window days of month')"
             placeholder="1, 15"
             class="w-28"
             size="sm"
@@ -167,9 +170,9 @@ function isTimeRangeTextInvalid(): boolean {
             :invalid="isDaysOfMonthTextInvalid()"
             @update:model-value="setDaysOfMonthText"
           />
-          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
-            >of every month</span
-          >
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">{{
+            t('of every month')
+          }}</span>
         </label>
         <AlertMessage v-if="isDaysOfMonthTextInvalid()">
           {{ VALIDATION_MESSAGES.daysOfMonth }}
@@ -177,10 +180,10 @@ function isTimeRangeTextInvalid(): boolean {
 
         <template v-if="condition.type === 'period'">
           <label class="min-w-0">
-            <span class="sr-only">Time window period start</span>
+            <span class="sr-only">{{ t('Time window period start') }}</span>
             <BaseInput
               type="text"
-              aria-label="Time window period start"
+              :aria-label="t('Time window period start')"
               placeholder="12/28"
               class="w-20"
               size="sm"
@@ -192,10 +195,10 @@ function isTimeRangeTextInvalid(): boolean {
           </label>
           <span aria-hidden="true" class="shrink-0 text-label-sm text-muted-foreground">-</span>
           <label class="min-w-0">
-            <span class="sr-only">Time window period end</span>
+            <span class="sr-only">{{ t('Time window period end') }}</span>
             <BaseInput
               type="text"
-              aria-label="Time window period end"
+              :aria-label="t('Time window period end')"
               placeholder="01/03"
               class="w-20"
               size="sm"
@@ -205,9 +208,9 @@ function isTimeRangeTextInvalid(): boolean {
               @update:model-value="setPeriodText('end', $event)"
             />
           </label>
-          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground"
-            >every year</span
-          >
+          <span class="shrink-0 whitespace-nowrap text-label-sm text-muted-foreground">{{
+            t('every year')
+          }}</span>
         </template>
         <AlertMessage
           v-if="
@@ -230,12 +233,12 @@ function isTimeRangeTextInvalid(): boolean {
       </AlertMessage>
 
       <label class="flex min-w-0 flex-1 items-center gap-1.5">
-        <span class="w-36 shrink-0 whitespace-nowrap text-label-md text-secondary-foreground"
-          >Active during</span
-        >
+        <span class="w-36 shrink-0 whitespace-nowrap text-label-md text-secondary-foreground">{{
+          t('Active during')
+        }}</span>
         <BaseInput
           type="text"
-          aria-label="Active time ranges"
+          :aria-label="t('Active time ranges')"
           placeholder="09:00-12:30, 22:00-01:30"
           class="min-w-0 flex-1"
           size="sm"

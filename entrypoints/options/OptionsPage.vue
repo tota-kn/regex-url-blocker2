@@ -43,6 +43,9 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
 import PauseCountdownDialog from '@/components/options/PauseCountdownDialog.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const settings = ref<Settings>({
   global: { ...DEFAULT_GLOBAL_SETTINGS },
@@ -187,7 +190,7 @@ const confirmDialogRef = ref<InstanceType<typeof ConfirmDialog> | null>(null)
 /** 指定テンプレートの新規グループドラフトを追加する。 */
 function addGroup(templateId: GroupTemplateId): void {
   const n = settings.value.groups.length + newGroupDrafts.value.length + 1
-  newGroupDrafts.value.push(createGroupFromTemplate(templateId, `Group ${n}`))
+  newGroupDrafts.value.push(createGroupFromTemplate(templateId, t('Group {number}', { number: n })))
 }
 
 /** 既存グループの保存済み値を、同じ id の編集ドラフトで置き換える。 */
@@ -226,7 +229,7 @@ function duplicateGroup(id: string): void {
 
 /** グループ削除の確認ダイアログを表示し、承認された場合にグループを削除する。 */
 async function removeGroup(id: string): Promise<void> {
-  if (!(await confirmDialogRef.value?.open('Delete group?'))) return
+  if (!(await confirmDialogRef.value?.open(t('Delete group?')))) return
   settings.value.groups = settings.value.groups.filter((g) => g.id !== id)
 }
 
@@ -374,13 +377,13 @@ onMounted(async () => {
         v-if="!isLoaded"
         class="rounded-lg border border-border bg-background p-5 text-body-md text-muted shadow-sm"
       >
-        Loading...
+        {{ t('Loading...') }}
       </p>
 
       <template v-else>
         <div class="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
           <aside
-            aria-label="Options sections"
+            :aria-label="t('Options sections')"
             class="border-b border-border pb-3 lg:sticky lg:top-6 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
           >
             <h1 class="mb-4 flex items-center gap-2 text-heading-md text-foreground">
@@ -390,7 +393,7 @@ onMounted(async () => {
             <nav class="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
               <button
                 type="button"
-                aria-label="Groups"
+                :aria-label="t('Groups')"
                 class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
                 :class="
                   activeSection === 'groups'
@@ -402,7 +405,7 @@ onMounted(async () => {
               >
                 <span class="flex items-center gap-2">
                   <QueueListIcon aria-hidden="true" class="size-4" />
-                  Groups
+                  {{ t('Groups') }}
                 </span>
                 <span
                   class="rounded-sm border border-border bg-background px-1.5 py-0.5 text-label-sm text-muted"
@@ -413,7 +416,7 @@ onMounted(async () => {
 
               <button
                 type="button"
-                aria-label="General settings"
+                :aria-label="t('General settings')"
                 class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
                 :class="
                   activeSection === 'general'
@@ -425,11 +428,11 @@ onMounted(async () => {
               >
                 <span class="flex items-center gap-2">
                   <Cog6ToothIcon aria-hidden="true" class="size-4" />
-                  General settings
+                  {{ t('General settings') }}
                 </span>
                 <ExclamationCircleIcon
                   v-if="hasGlobalErrors"
-                  aria-label="General settings has errors"
+                  :aria-label="t('General settings has errors')"
                   class="size-4 text-danger"
                 />
               </button>

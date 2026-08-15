@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 /** 真偽ラジオグループのprops。 */
 interface Props {
   /** 各radioのaria-label先頭部分。 */
@@ -19,10 +22,10 @@ const model = defineModel<boolean>({ required: true })
           v-model="model"
           type="radio"
           class="size-4 border-border text-primary focus:ring-2 focus:ring-ring"
-          :aria-label="`${label} ${value ? 'On' : 'Off'}`"
+          :aria-label="`${label} ${value ? t('On') : t('Off')}`"
           :value="value"
         />
-        <span>{{ value ? 'On' : 'Off' }}</span>
+        <span>{{ value ? t('On') : t('Off') }}</span>
       </label>
     </template>
   </div>
