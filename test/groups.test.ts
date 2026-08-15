@@ -8,41 +8,7 @@ import {
   restoreGroupToList,
 } from '../utils/groups'
 import { formatRuleRestriction, formatRuleSentence } from '../utils/rules'
-import type { Group, Settings } from '../utils/types'
-import { dailyRule } from './helpers'
-
-/**
- * テスト用グループを生成する。
- */
-function group(overrides: Partial<Group> = {}): Group {
-  return {
-    id: 'g1',
-    name: 'Group',
-    mode: 'blacklist',
-    disabled: false,
-    lockMode: false,
-    patterns: ['example\\.com'],
-    pauseAllowed: true,
-    rules: [],
-    ...overrides,
-    pauseWaitSeconds: overrides.pauseWaitSeconds ?? 60,
-    pauseDurationMinutes: overrides.pauseDurationMinutes ?? 10,
-  }
-}
-
-/**
- * テスト用設定を生成する。
- */
-function settings(groups: Group[]): Settings {
-  return {
-    global: {
-      dailyResetHour: '03:00',
-      remainingTimeNotificationsEnabled: true,
-      notificationThresholdMinutes: 5,
-    },
-    groups,
-  }
-}
+import { dailyRule, group, settings } from './helpers'
 
 describe('group utilities', () => {
   it('スケジュールルールの条件を読み取り表示用の文言にする', () => {
@@ -174,7 +140,7 @@ describe('group utilities', () => {
   })
 
   it('設定を独立した deep clone として複製する', () => {
-    const original = settings([group()])
+    const original = settings([group()], { dailyResetHour: '03:00' })
     const cloned = cloneSettings(original)
 
     cloned.global.dailyResetHour = '05:00'

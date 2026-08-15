@@ -8,41 +8,8 @@ import {
   reconcileEffectiveSettings,
   resolveEffectiveGroup,
 } from '../utils/effectiveSettings'
-import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
-import type { Group, Settings } from '../utils/types'
-import { createEmptyGroup, dailyRule, weeklyRule } from './helpers'
-
-/**
- * テスト用グループを生成する。
- */
-function group(overrides: Partial<Group> = {}): Group {
-  return {
-    id: 'g1',
-    name: 'Group',
-    mode: 'blacklist',
-    disabled: false,
-    lockMode: false,
-    patterns: ['example\\.com'],
-    rules: [],
-    pauseAllowed: true,
-    ...overrides,
-    pauseWaitSeconds: overrides.pauseWaitSeconds ?? 60,
-    pauseDurationMinutes: overrides.pauseDurationMinutes ?? 10,
-  }
-}
-
-/**
- * テスト用設定を生成する。
- */
-function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
-  return {
-    global: {
-      ...DEFAULT_GLOBAL_SETTINGS,
-      dailyResetHour,
-    },
-    groups,
-  }
-}
+import type { Group } from '../utils/types'
+import { createEmptyGroup, dailyRule, group, settings, weeklyRule } from './helpers'
 
 describe('effective settings', () => {
   it('Lock Mode OFF の group は編集が即時に有効設定へ反映される', () => {

@@ -14,7 +14,6 @@ import {
   getGroupBlockStatus,
   getTimeRangeUnblockAt,
 } from '../utils/groupStatus'
-import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import {
   getLogicalDate,
   getNextDailyResetAt,
@@ -30,34 +29,8 @@ import {
   normalizeCounters,
 } from '../utils/usageCounters'
 import { getRedirectUrls, getTargetGroupIds, shouldSkipUrl } from '../utils/urlTargeting'
-import type {
-  Group,
-  Rule,
-  ScheduleRuleCondition,
-  Settings,
-  TimeRange,
-  UsageCountersState,
-} from '../utils/types'
-import { dailyRule, weeklyRule } from './helpers'
-
-/**
- * テスト用のグループを生成する。
- */
-function group(overrides: Partial<Group>): Group {
-  return {
-    id: 'g1',
-    name: 'Group',
-    mode: 'blacklist',
-    disabled: false,
-    lockMode: false,
-    patterns: ['example\\.com'],
-    pauseAllowed: true,
-    rules: [],
-    ...overrides,
-    pauseWaitSeconds: overrides.pauseWaitSeconds ?? 60,
-    pauseDurationMinutes: overrides.pauseDurationMinutes ?? 10,
-  }
-}
+import type { Rule, ScheduleRuleCondition, TimeRange, UsageCountersState } from '../utils/types'
+import { dailyRule, group, settings, weeklyRule } from './helpers'
 
 /**
  * テスト用の block ルールを1件生成する。
@@ -86,19 +59,6 @@ function blockRestriction(
           : { type: 'blockedPage' },
       },
     ],
-  }
-}
-
-/**
- * テスト用の設定を生成する。
- */
-function settings(groups: Group[], dailyResetHour = '00:00'): Settings {
-  return {
-    global: {
-      ...DEFAULT_GLOBAL_SETTINGS,
-      dailyResetHour,
-    },
-    groups,
   }
 }
 

@@ -1,5 +1,52 @@
-import type { DayOfWeek, Group, Rule, RuleRestriction, TimeRange } from '../utils/types'
-import { createGroupFromTemplate } from '../utils/defaults'
+import type {
+  DayOfWeek,
+  GlobalSettings,
+  Group,
+  Rule,
+  RuleRestriction,
+  Settings,
+  TimeRange,
+  UsageCountersState,
+} from '../utils/types'
+import { createGroupFromTemplate, DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
+
+/** テスト用の標準グループを生成する。 */
+export function group(overrides: Partial<Group> = {}): Group {
+  return {
+    id: 'g1',
+    name: 'Group',
+    mode: 'blacklist',
+    disabled: false,
+    lockMode: false,
+    patterns: ['example\\.com'],
+    pauseAllowed: true,
+    rules: [],
+    ...overrides,
+    pauseWaitSeconds: overrides.pauseWaitSeconds ?? 60,
+    pauseDurationMinutes: overrides.pauseDurationMinutes ?? 10,
+  }
+}
+
+/** テスト用の標準設定を生成する。 */
+export function settings(groups: Group[], global: Partial<GlobalSettings> | string = {}): Settings {
+  const overrides = typeof global === 'string' ? { dailyResetHour: global } : global
+  return { global: { ...DEFAULT_GLOBAL_SETTINGS, dailyResetHour: '00:00', ...overrides }, groups }
+}
+
+/** グループ別消費秒からテスト用カウンタ状態を生成する。 */
+export function counters(
+  consumedSecByGroupId: Record<string, number>,
+  logicalDate: string,
+): UsageCountersState {
+  return {
+    counters: Object.fromEntries(
+      Object.entries(consumedSecByGroupId).map(([groupId, consumedSec]) => [
+        groupId,
+        { logicalDate, consumedSec },
+      ]),
+    ),
+  }
+}
 
 /**
  * テスト用に空の新規グループを生成する。`id` は crypto.randomUUID() で採番。
@@ -20,7 +67,7 @@ interface RuleOverrides {
 }
 
 /** 制限内容と条件から1件のルールを組み立てる。 */
-function buildRule(
+export function buildRule(
   window: Rule['window'],
   restriction: RuleRestriction,
   overrides: RuleOverrides,
