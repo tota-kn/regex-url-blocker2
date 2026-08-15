@@ -8,16 +8,24 @@ interface Props {
   label?: string
   error?: string
   description?: string
+  /** 見出しとしてラベルを強調するか。 */
+  emphasis?: boolean
+  /** 外枠に使う HTML 要素。 */
+  as?: 'label' | 'div'
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), {
+  emphasis: false,
+  as: 'label',
+})
 </script>
 
 <template>
-  <label class="block min-w-0">
+  <component :is="as" class="block min-w-0">
     <span
       v-if="label"
       class="mb-1.5 flex items-center gap-1.5 text-label-md text-secondary-foreground"
+      :class="emphasis ? 'font-semibold' : ''"
     >
       <slot name="icon" />
       {{ label }}
@@ -27,5 +35,5 @@ defineProps<Props>()
       {{ description }}
     </span>
     <AlertMessage v-if="error" class="mt-2" :message="error" />
-  </label>
+  </component>
 </template>

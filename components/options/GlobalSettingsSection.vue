@@ -14,7 +14,6 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseField from '@/components/ui/BaseField.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import NumberInput from '@/components/ui/NumberInput.vue'
-import GlobalSettingsItemTitle from '@/components/options/GlobalSettingsItemTitle.vue'
 import type { GlobalSettings } from '@/utils/types'
 
 /**
@@ -127,12 +126,14 @@ onUnmounted(() => {
     </div>
 
     <div class="space-y-4 rounded-lg border border-border bg-background p-4 shadow-sm">
-      <BaseField :error="error('dailyResetHour')">
-        <GlobalSettingsItemTitle label="Start a new rule day at this time">
-          <template #icon>
-            <ArrowPathIcon aria-hidden="true" class="size-4 text-muted" />
-          </template>
-        </GlobalSettingsItemTitle>
+      <BaseField
+        label="Start a new rule day at this time"
+        emphasis
+        :error="error('dailyResetHour')"
+      >
+        <template #icon>
+          <ArrowPathIcon aria-hidden="true" class="size-4 text-muted" />
+        </template>
         <BaseInput
           v-model="globalSettings.dailyResetHour"
           type="time"
@@ -147,12 +148,10 @@ onUnmounted(() => {
         </p>
       </BaseField>
 
-      <div class="space-y-2" aria-label="Notification">
-        <GlobalSettingsItemTitle label="Notification">
-          <template #icon>
-            <BellAlertIcon aria-hidden="true" class="size-4 text-muted" />
-          </template>
-        </GlobalSettingsItemTitle>
+      <BaseField as="div" label="Notification" emphasis class="space-y-2" aria-label="Notification">
+        <template #icon>
+          <BellAlertIcon aria-hidden="true" class="size-4 text-muted" />
+        </template>
         <div class="space-y-3">
           <div class="space-y-2">
             <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 pl-7">
@@ -188,14 +187,17 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-      </div>
+      </BaseField>
 
-      <div aria-label="Allow this extension in Incognito">
-        <GlobalSettingsItemTitle label="Allow this extension in Incognito">
-          <template #icon>
-            <EyeSlashIcon aria-hidden="true" class="size-4 text-muted" />
-          </template>
-        </GlobalSettingsItemTitle>
+      <BaseField
+        as="div"
+        label="Allow this extension in Incognito"
+        emphasis
+        aria-label="Allow this extension in Incognito"
+      >
+        <template #icon>
+          <EyeSlashIcon aria-hidden="true" class="size-4 text-muted" />
+        </template>
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <p class="text-body-sm text-secondary-foreground">
             Incognito access:
@@ -210,14 +212,12 @@ onUnmounted(() => {
             Open Chrome extension settings
           </BaseButton>
         </div>
-      </div>
+      </BaseField>
 
-      <div>
-        <GlobalSettingsItemTitle label="Settings file">
-          <template #icon>
-            <DocumentTextIcon aria-hidden="true" class="size-4 text-muted" />
-          </template>
-        </GlobalSettingsItemTitle>
+      <BaseField as="div" label="Settings file" emphasis>
+        <template #icon>
+          <DocumentTextIcon aria-hidden="true" class="size-4 text-muted" />
+        </template>
         <div class="flex flex-wrap gap-2">
           <BaseButton
             variant="secondary"
@@ -248,7 +248,7 @@ onUnmounted(() => {
         <AlertMessage v-if="importError" class="mt-2">
           {{ importError }}
         </AlertMessage>
-      </div>
+      </BaseField>
     </div>
   </section>
 </template>
