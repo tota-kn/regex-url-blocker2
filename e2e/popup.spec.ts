@@ -191,9 +191,11 @@ async function openPopupPage(
   page: Page,
   extensionId: string,
   url: string,
+  prepare?: (popup: Page) => Promise<void>,
 ): Promise<Page> {
   await page.goto(url)
   const popup = await context.newPage()
+  await prepare?.(popup)
   await popup.goto(`chrome-extension://${extensionId}/popup.html`)
   return popup
 }
@@ -413,9 +415,16 @@ test.describe('Popup 画面', () => {
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 1_000 })
 
-      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
+      const popup = await openPopupPage(
+        context,
+        page,
+        extensionId,
+        `${server.origin}/pause`,
+        async (popupPage) => popupPage.clock.install(),
+      )
+      await popup.clock.fastForward(1_100)
 
-      await expect(popup.getByText('Pause ready')).toBeVisible({ timeout: 4_000 })
+      await expect(popup.getByText('Pause ready')).toBeVisible()
     } finally {
       await server.close()
     }

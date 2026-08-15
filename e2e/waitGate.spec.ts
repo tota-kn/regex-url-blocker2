@@ -57,6 +57,7 @@ test.describe('Wait gate', () => {
   }) => {
     const server = await startTestServer()
     try {
+      await page.clock.install()
       await saveWaitGateSettings(serviceWorker, server.origin, 1)
       await waitForEffectiveSettings(serviceWorker)
 
@@ -66,7 +67,8 @@ test.describe('Wait gate', () => {
 
       const continueButton = page.getByRole('button', { name: 'Continue' })
       await expect(continueButton).toBeDisabled()
-      await expect(continueButton).toBeEnabled({ timeout: 5000 })
+      await page.clock.fastForward(1_100)
+      await expect(continueButton).toBeEnabled()
 
       await continueButton.click()
       await expect(page).toHaveURL(`${server.origin}/target`)
@@ -109,6 +111,7 @@ test.describe('Wait gate', () => {
   }) => {
     const server = await startTestServer()
     try {
+      await page.clock.install()
       // 許可期間を 1 分にして、期限切れを storage 側で早送りする。
       await saveWaitGateSettings(serviceWorker, server.origin, 1, 1)
       await waitForEffectiveSettings(serviceWorker)
@@ -117,7 +120,8 @@ test.describe('Wait gate', () => {
       await expect(page).toHaveURL(new RegExp(`^chrome-extension://${extensionId}/wait\\.html`))
 
       const continueButton = page.getByRole('button', { name: 'Continue' })
-      await expect(continueButton).toBeEnabled({ timeout: 5000 })
+      await page.clock.fastForward(1_100)
+      await expect(continueButton).toBeEnabled()
       await continueButton.click()
       await expect(page).toHaveURL(`${server.origin}/gated`)
 
