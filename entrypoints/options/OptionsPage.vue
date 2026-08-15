@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, provide, ref, watch } from 'vue'
 import { Cog6ToothIcon, ExclamationCircleIcon, QueueListIcon } from '@heroicons/vue/24/outline'
 import {
   getNextEffectiveSettingsResetAt,
@@ -18,6 +18,7 @@ import {
 import { debounce } from '@/utils/debounce'
 import { formatDateTime } from '@/utils/datetime'
 import { isGroupPauseAllowed } from '@/utils/groupPause'
+import { GroupContextKey } from '@/utils/groupContext'
 import {
   cloneSettings,
   duplicateGroup as createGroupDuplicate,
@@ -151,6 +152,16 @@ function timeLimitUsageSummary(g: Group): TimeLimitUsageSummary | undefined {
     settings.value.global,
   )
 }
+
+provide(GroupContextKey, {
+  globalSettings: computed(() => settings.value.global),
+  now,
+  appliesAfterLabel,
+  pauseEntry: (groupId) => groupPauseState.value.groupPauseState[groupId],
+  pauseDisabledReason,
+  effectiveGroup,
+  timeLimitUsageSummary,
+})
 
 /** storage.local のカウンタを再読み込みする。 */
 async function refreshCounters(): Promise<void> {
@@ -427,17 +438,10 @@ onMounted(async () => {
 
           <div class="min-w-0">
             <GroupsSection
-              :global-settings="settings.global"
               v-if="activeSection === 'groups'"
               v-model="settings.groups"
               :new-groups="newGroupDrafts"
-              :group-pause-state="groupPauseState"
-              :now="now"
               :retained-effective-groups="retainedEffectiveGroups"
-              :applies-after-label="appliesAfterLabel"
-              :time-limit-usage-summary="timeLimitUsageSummary"
-              :pause-disabled-reason="pauseDisabledReason"
-              :effective-group="effectiveGroup"
               @add-group="addGroup"
               @save-group="saveGroup"
               @save-new-group="saveNewGroup"

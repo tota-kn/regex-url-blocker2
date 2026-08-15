@@ -13,10 +13,10 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
-import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
+import { useGroupContext } from '@/utils/groupContext'
 import { cloneGroup } from '@/utils/groups'
-import type { GlobalSettings, Group, GroupPauseEntry } from '@/utils/types'
+import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import { useLockModePending } from '@/utils/useLockModePending'
@@ -37,23 +37,10 @@ interface Props {
   startInEdit?: boolean
   /** 新規作成中の未保存グループかどうか。 */
   isNew?: boolean
-  pauseEntry?: GroupPauseEntry
-  /** 一時停止表示の残り時間計算に使う現在時刻。 */
-  now?: Date
-  /** ルールの現在状態プレビューに使うグローバル設定。 */
-  globalSettings: GlobalSettings
-  /** 一時停止操作を無効化するときに表示する理由。 */
-  pauseDisabledReason?: string
-  /** 今日の上限利用状況。今日有効な上限がなければ undefined。 */
-  timeLimitUsageSummary?: TimeLimitUsageSummary
   /** 読み取り専用表示にして編集・削除・Pause を含む操作を無効化するかどうか。 */
   readOnly?: boolean
   /** 保存設定へ戻す Restore 操作を表示するかどうか。 */
   restorable?: boolean
-  /** このグループの基準スナップショット。Lock Mode の保留状況の算出に使う。 */
-  effectiveGroup?: Group
-  /** 保留中の制限が反映される日時。 */
-  appliesAfterLabel?: string
 }
 
 /**
@@ -70,6 +57,7 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const groupContext = useGroupContext()
 
 /**
  * 編集フォームに反映するグループの作業コピー。
@@ -89,17 +77,22 @@ const draftRules = computed({
 })
 /** 保留状況の比較対象。編集中は入力中のドラフト、それ以外は保存済みの値を使う。 */
 const comparedGroup = computed(() => (isEditing.value ? draft.value : props.group))
+const effectiveGroup = computed(() => groupContext.effectiveGroup(props.group.id))
+const pauseEntry = computed(() => groupContext.pauseEntry(props.group.id))
+const pauseDisabledReason = computed(() => groupContext.pauseDisabledReason(props.group.id))
+const timeLimitUsageSummary = computed(() => groupContext.timeLimitUsageSummary(props.group))
+const globalSettings = computed(() => groupContext.globalSettings.value)
+const now = computed(() => groupContext.now.value)
+const appliesAfterLabel = computed(() => groupContext.appliesAfterLabel.value)
 const { resolvedGroup, pendingUntilLabel, isFieldPending } = useLockModePending(
-  () => props.effectiveGroup,
+  () => effectiveGroup.value,
   comparedGroup,
-  () => props.appliesAfterLabel,
+  () => appliesAfterLabel.value,
 )
-const pauseButtonState = computed(() =>
-  getGroupPauseButtonState(props.pauseEntry, props.now ?? new Date()),
-)
+const pauseButtonState = computed(() => getGroupPauseButtonState(pauseEntry.value, now.value))
 const pauseButtonLabel = computed(() => pauseButtonState.value.label)
 const effectivePauseDisabledReason = computed(() => {
-  if (props.pauseDisabledReason) return props.pauseDisabledReason
+  if (pauseDisabledReason.value) return pauseDisabledReason.value
   if (props.group.pauseAllowed === false) return 'Pause is turned off for this group.'
   return props.group.disabled ? 'Enable this group to use Pause.' : undefined
 })

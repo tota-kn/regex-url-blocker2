@@ -4,9 +4,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import type { TimeLimitUsageSummary } from '@/utils/usageCounters'
 import type { GroupTemplateId } from '@/utils/defaults'
-import type { GlobalSettings, Group, GroupPauseEntry, GroupPauseState } from '@/utils/types'
+import type { Group } from '@/utils/types'
 import GroupCard from './GroupCard.vue'
 
 /**
@@ -29,21 +28,8 @@ interface GroupTemplateOption {
 interface Props {
   /** 保存前の新規グループドラフト配列。 */
   newGroups: Group[]
-  groupPauseState: GroupPauseState
-  /** 一時停止表示の残り時間計算に使う現在時刻。 */
-  now: Date
-  /** ルールの現在状態プレビューに使うグローバル設定。 */
-  globalSettings: GlobalSettings
   /** 保存設定から削除済みだが、以前の制限が有効なグループ。 */
   retainedEffectiveGroups: Group[]
-  /** 保留中の制限が反映される日時。 */
-  appliesAfterLabel: string
-  /** 指定グループの今日の上限利用状況を返す関数。 */
-  timeLimitUsageSummary: (group: Group) => TimeLimitUsageSummary | undefined
-  /** 指定グループで Pause 操作を無効化する理由を返す関数。許可されていれば undefined。 */
-  pauseDisabledReason: (groupId: string) => string | undefined
-  /** 指定グループの基準スナップショットを返す関数。基準設定に無ければ undefined。 */
-  effectiveGroup: (groupId: string) => Group | undefined
 }
 
 /**
@@ -101,11 +87,6 @@ const groupTemplates: GroupTemplateOption[] = [
     ariaLabel: 'Create group from work hours focus template',
   },
 ]
-
-/** 指定グループの一時停止状態を返す。 */
-function groupPauseEntry(groupId: string): GroupPauseEntry | undefined {
-  return props.groupPauseState.groupPauseState[groupId]
-}
 
 watch(
   () => props.newGroups.length,
@@ -201,15 +182,8 @@ function createGroup(templateId: GroupTemplateId): void {
     <div class="min-w-0 space-y-4">
       <GroupCard
         v-for="(_, i) in groups"
-        :global-settings="globalSettings"
         :key="groups[i].id"
         :group="groups[i]"
-        :pause-entry="groupPauseEntry(groups[i].id)"
-        :pause-disabled-reason="pauseDisabledReason(groups[i].id)"
-        :effective-group="effectiveGroup(groups[i].id)"
-        :now="now"
-        :applies-after-label="appliesAfterLabel"
-        :time-limit-usage-summary="timeLimitUsageSummary(groups[i])"
         @save="emit('saveGroup', $event)"
         @remove="emit('removeGroup', groups[i].id)"
         @duplicate="emit('duplicateGroup', groups[i].id)"
@@ -217,7 +191,6 @@ function createGroup(templateId: GroupTemplateId): void {
       />
       <GroupCard
         v-for="group in newGroups"
-        :global-settings="globalSettings"
         :key="group.id"
         :group="group"
         :start-in-edit="true"
@@ -241,13 +214,8 @@ function createGroup(templateId: GroupTemplateId): void {
         </div>
         <GroupCard
           v-for="group in retainedEffectiveGroups"
-          :global-settings="globalSettings"
           :key="`retained-${group.id}`"
           :group="group"
-          :pause-entry="groupPauseEntry(group.id)"
-          :pause-disabled-reason="pauseDisabledReason(group.id)"
-          :now="now"
-          :applies-after-label="appliesAfterLabel"
           read-only
           restorable
           @request-pause="emit('requestGroupPause', group.id)"
