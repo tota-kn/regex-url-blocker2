@@ -19,7 +19,8 @@
     "lint:design": "pnpx @google/design.md lint DESIGN.md",
     "test:unit": "vitest",
     "test:e2e": "wxt build && playwright test",
-    "test:e2e:ui": "wxt build && playwright test --ui"
+    "test:e2e:ui": "wxt build && playwright test --ui",
+    "store:screenshots": "wxt build && node scripts/capture-store-screenshots.mjs"
   },
   "dependencies": {
     "@fontsource/roboto-mono": "^5.2.9",
