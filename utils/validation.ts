@@ -96,7 +96,10 @@ export function validateGlobalSettings(settings: GlobalSettings): ValidationErro
   }
 
   if (typeof settings.remainingTimeNotificationsEnabled !== 'boolean') {
-    errors.push({ field: 'remainingTimeNotificationsEnabled', message: 'Use true or false' })
+    errors.push({
+      field: 'remainingTimeNotificationsEnabled',
+      message: translate('Use true or false'),
+    })
   }
 
   return errors
@@ -262,7 +265,7 @@ export function validateGroup(group: Group, options: ValidateGroupOptions = {}):
   const errors: ValidationError[] = []
 
   if (group.mode !== 'blacklist' && group.mode !== 'whitelist') {
-    errors.push({ field: 'mode', message: 'Invalid mode' })
+    errors.push({ field: 'mode', message: translate('Invalid mode') })
   }
 
   if (group.name.trim().length === 0) {

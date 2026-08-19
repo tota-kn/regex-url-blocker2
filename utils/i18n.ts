@@ -52,6 +52,7 @@ export const jaMessages = {
   'Delete pattern': 'パターンを削除',
   'Add URL pattern': 'URLパターンを追加',
   Rules: 'ルール',
+  Rule: 'ルール',
   'Add rule': 'ルールを追加',
   'Remove rule {number}': 'ルール{number}を削除',
   'Rule {number}': 'ルール{number}',
@@ -103,6 +104,11 @@ export const jaMessages = {
   'This group stays enforced {until}.': 'このグループは{until}まで引き続き適用されます。',
   'Earlier URL patterns stay active {until}.': '以前のURLパターンは{until}まで有効です。',
   'Earlier rules stay active {until}.': '以前のルールは{until}まで有効です。',
+  'Earlier URL patterns currently active': '現在も適用中の以前のURLパターン',
+  'Earlier rules currently active': '現在も適用中の以前のルール',
+  'Earlier rule {number}': '以前のルール{number}',
+  'No earlier URL patterns.': '以前のURLパターンはありません。',
+  'No earlier rules.': '以前のルールはありません。',
   'Stricter changes apply immediately. Relaxed restrictions take effect on the next rule day.':
     '制限を強める変更はすぐに適用されます。制限の緩和は次のルール日に反映されます。',
   'Still on {until}.': '{until}までオンのままです。',
@@ -146,6 +152,57 @@ export const jaMessages = {
   'Delete group?': 'グループを削除しますか？',
   'Confirm delete': '削除を確認',
   'How overlapping rules are applied': '重複するルールの適用方法',
+  'When several rules are active at once': '複数のルールが同時に有効な場合',
+  'Always sends you to the destination.': '常に指定した遷移先へ移動します。',
+  "Blocks once today's minutes run out.": '今日の利用可能時間を使い切るとブロックします。',
+  'Shows the gate page, then lets you through.': '待機ページを表示した後、アクセスを許可します。',
+  'The first rule that applies wins. Wait only gates access — the daily limit keeps counting down while you browse, including during the minutes granted after a wait.':
+    '最初に適用されるルールが優先されます。待機はアクセス前にのみ適用され、待機後に許可された時間を含め、閲覧中は日次上限の残り時間が減り続けます。',
+  'No rules configured': 'ルールが設定されていません',
+  'Not restricted right now': '現在は制限されていません',
+  'The only rule applies at another time — nothing is active at the moment.':
+    'このルールは別の時間に適用されるため、現在有効なルールはありません。',
+  'All {count} rules apply at other times — nothing is active at the moment.':
+    '{count}件のルールはすべて別の時間に適用されるため、現在有効なルールはありません。',
+  '{count} other rule applies at different times. | {count} other rules apply at different times.':
+    'ほかの{count}件のルールは別の時間に適用されます。',
+  'Block is active ({window}) → {destination}.': 'ブロックが有効です（{window}）→ {destination}。',
+  'Access returns at {time}.': '{time}にアクセスできるようになります。',
+  'Active all day.': '終日有効です。',
+  '{rules} is not applied while Block is active. | {rules} are not applied while Block is active.':
+    'ブロックが有効な間、{rules}は適用されません。',
+  'Daily limit of {minutes} min is used up → {destination}.':
+    '{minutes}分の日次上限を使い切りました → {destination}。',
+  'Access returns when the window ends at {time}, or at the next daily reset — whichever is first.':
+    '時間帯が終了する{time}、または次の日次リセットのうち、早い時点でアクセスできるようになります。',
+  'Resets at the start of the next rule day.': '次のルール日の開始時にリセットされます。',
+  '{step}. Wait {seconds} sec on the gate page, then browse for {minutes} min without waiting again.':
+    '{step}. 待機ページで{seconds}秒待つと、その後{minutes}分間は再待機せずに閲覧できます。',
+  '{step}. Daily limit: {remaining} left of {minutes} min. It keeps counting down while you browse.':
+    '{step}. 日次上限：{minutes}分のうち残り{remaining}。閲覧中は残り時間が減り続けます。',
+  '{step}. Daily limit: {remaining} left of {minutes} min. It keeps counting down while you browse, including the {grantMinutes} min after a wait.':
+    '{step}. 日次上限：{minutes}分のうち残り{remaining}。待機後に許可された{grantMinutes}分を含め、閲覧中は残り時間が減り続けます。',
+  '{step}. When it reaches 0 → {destination}.':
+    '{step}. 残り時間が0になるとブロックします → {destination}。',
+  'Wait required before access': 'アクセス前に待機が必要です',
+  'Allowed, with limits': '制限付きでアクセスできます',
+  'Block overlaps with {rule}. While Block is active, {rule} has no effect.':
+    'ブロックと{rule}が重複しています。ブロックが有効な間、{rule}は適用されません。',
+  'Two Daily limit rules overlap. The shorter one ({minutes} min) is used.':
+    '2つの日次上限ルールが重複しています。短い方（{minutes}分）が適用されます。',
+  'Two Wait rules overlap. The longer wait ({seconds} sec) and the longer allowance ({minutes} min) are used, even if they come from different rules.':
+    '2つの待機ルールが重複しています。別々のルールの値であっても、長い方の待機時間（{seconds}秒）と許可時間（{minutes}分）が適用されます。',
+  'Pause is turned off for this group.': 'このグループでは一時停止がオフになっています。',
+  'Enable this group to use Pause.': '一時停止を使用するには、このグループを有効にしてください。',
+  'Pause stays off until {until} (rule day starts at {resetTime}).':
+    '一時停止は{until}までオフのままです（ルール日の開始時刻：{resetTime}）。',
+  'Invalid JSON': 'JSONが不正です',
+  'Unsupported settings file version': '設定ファイルのバージョンに対応していません',
+  'Settings file is missing settings': '設定ファイルに設定がありません',
+  'Settings file is missing global settings': '設定ファイルに一般設定がありません',
+  'Settings file is missing groups': '設定ファイルにグループがありません',
+  'Settings file contains invalid settings': '設定ファイルに不正な設定が含まれています',
+  'Failed to import settings': '設定をインポートできませんでした',
   'Earlier active groups': '以前から有効なグループ',
   'Earlier restrictions still active': '以前の制限がまだ有効です',
   'These groups were removed from saved settings, but remain active until the next rule day. Restore one to edit it again.':
@@ -240,6 +297,8 @@ export const jaMessages = {
   'Enter a valid date in MM/DD format.': 'MM/DD形式で有効な日付を入力してください。',
   'Add at least one URL pattern.': 'URLパターンを1つ以上追加してください。',
   'Add at least one rule.': 'ルールを1つ以上追加してください。',
+  'Use true or false': 'オンまたはオフを指定してください。',
+  'Invalid mode': 'モードが不正です',
   '{group}: {minutes} remaining today.': '{group}：今日の残り時間は{minutes}です。',
   '{count} minute | {count} minutes': '{count}分',
   'Regex URL Guard - remaining {time}': 'Regex URL Guard - 残り {time}',

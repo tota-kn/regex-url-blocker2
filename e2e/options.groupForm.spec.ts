@@ -106,6 +106,20 @@ test.describe('Options groupForm', () => {
       ),
     ).not.toBeVisible()
     await expect(page.locator('main').getByText('On', { exact: true })).toBeVisible()
+    const viewOptions = page
+      .locator('main section')
+      .filter({ has: page.getByRole('heading', { name: 'Options' }) })
+    const optionRows = viewOptions.locator('dl > div')
+    await expect(optionRows).toHaveCount(2)
+    await expect(optionRows.nth(0)).toContainText(
+      'Delay relaxed restrictions until next rule dayOn',
+    )
+    await expect(optionRows.nth(1)).toContainText('PauseWait 60 sec, pause for 10 min')
+    const [lockRowBox, pauseRowBox] = await Promise.all([
+      optionRows.nth(0).boundingBox(),
+      optionRows.nth(1).boundingBox(),
+    ])
+    expect(pauseRowBox!.y).toBeGreaterThan(lockRowBox!.y)
     await expect(
       page.locator('main').getByText('Page shown when blocked', { exact: true }),
     ).not.toBeVisible()

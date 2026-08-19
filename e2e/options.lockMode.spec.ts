@@ -35,7 +35,7 @@ function dailyLimitRule(id: string, minutes: number, url: string) {
 }
 
 test.describe('Options lockMode', () => {
-  test('保留中は希望設定を表示し、保留フィールドを注記で示す', async ({
+  test('保留中は希望設定と以前から適用中の内容をフィールドごとに示す', async ({
     page,
     serviceWorker,
     extensionId,
@@ -65,7 +65,7 @@ test.describe('Options lockMode', () => {
           id: 'work',
           name: 'Work',
           lockMode: true,
-          patterns: ['active\\.example'],
+          patterns: ['preferred\\.example'],
           rules: [dailyLimitRule('preferred-limit', 30, 'https://preferred-blocked.test')],
         }),
         allowlist,
@@ -89,12 +89,20 @@ test.describe('Options lockMode', () => {
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Rule 1').first()).toContainText('Always')
     await expect(page.getByLabel('Rule 1').first()).toContainText('Allow 30 min per day')
-    // 保留状況はグループ全体のバナーではなく、フィールド単位の注記だけで示す。
+    await expect(page.getByText(/Earlier URL patterns stay active until /)).toBeVisible()
+    const earlierPatterns = page.getByLabel('Earlier URL patterns currently active')
+    await expect(earlierPatterns).toContainText('active\\.example')
+    await expect(earlierPatterns).not.toContainText('preferred\\.example')
+    await expect(page.getByText(/Earlier rules stay active until /)).toBeVisible()
+    const earlierRules = page.getByLabel('Earlier rules currently active')
+    await expect(earlierRules.getByLabel('Earlier rule 1')).toContainText('Allow 10 min per day')
+    await expect(earlierRules.getByLabel('Earlier rule 1')).toContainText(
+      'https://active-blocked.test',
+    )
+    await expect(earlierRules).not.toContainText('Allow 30 min per day')
+    // 保留状況はグループ全体のバナーや別ダイアログに重複表示しない。
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)
-    await expect(page.getByText(/Earlier rules stay active until /)).toBeVisible()
-    // patterns は希望設定と基準設定で同じなので保留にはならない。
-    await expect(page.getByText(/Earlier URL patterns stay active until /)).toHaveCount(0)
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' }).first()).toBeEnabled()
     await expect(page.getByRole('menuitem', { name: 'Active settings only' })).toHaveCount(0)

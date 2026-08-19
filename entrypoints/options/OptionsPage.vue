@@ -118,10 +118,13 @@ const pauseTargetGroup = computed(() => {
  */
 function pauseDisabledReason(groupId: string): string | undefined {
   if (!isGroupPauseAllowed(groupId, [settings.value])) {
-    return 'Pause is turned off for this group.'
+    return t('Pause is turned off for this group.')
   }
   if (!isGroupPauseAllowed(groupId, [effectiveSettings.value])) {
-    return `Pause stays off until ${appliesAfterLabel.value} (rule day starts at ${resetTimeLabel.value}).`
+    return t('Pause stays off until {until} (rule day starts at {resetTime}).', {
+      until: appliesAfterLabel.value,
+      resetTime: resetTimeLabel.value,
+    })
   }
   return undefined
 }
@@ -319,7 +322,7 @@ async function importSettings(file: File): Promise<void> {
     newGroupDrafts.value = []
     await saveSettings(next)
   } catch (error) {
-    importError.value = error instanceof Error ? error.message : 'Failed to import settings'
+    importError.value = t(error instanceof Error ? error.message : 'Failed to import settings')
   }
 }
 

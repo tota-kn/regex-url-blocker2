@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { applyDelayGrantState, applyGroupPauseState, evaluateUrl } from '../utils/blocking'
 import { getBlockDestination, getBlockReason, getEffectiveWait } from '../utils/groupStatus'
 import { incrementEffectiveCounters } from '../utils/usageCounters'
-import { describeCurrentState } from '../utils/rules'
+import { describeCurrentState, describeRuleConflicts } from '../utils/rules'
 import { at, buildRule, counters as buildCounters, group, settings } from './helpers'
 import type { Rule, RuleRestriction } from '../utils/types'
+import { setLanguage } from '../utils/i18n'
 
 const URL = 'https://example.com/'
 
@@ -26,6 +27,8 @@ function counters(consumedSec: number) {
 const BLOCK = rule('block', { kind: 'block' })
 const DAILY = rule('daily', { kind: 'dailyLimit', minutes: 30 })
 const WAIT = rule('wait', { kind: 'wait', seconds: 60, grantMinutes: 10 })
+
+afterEach(() => setLanguage('en'))
 
 describe('ルールの組み合わせ表', () => {
   it('Block × Wait — Block が勝ち、Wait ページには到達しない', () => {
@@ -96,6 +99,20 @@ describe('ルールの組み合わせ表', () => {
 })
 
 describe('画面表示は実際に課される制限と一致する', () => {
+  it('日本語では現在状態と競合警告を日本語で返す', () => {
+    setLanguage('ja')
+    const s = settingsWith(BLOCK, DAILY)
+    const now = at('12:00')
+
+    const summary = describeCurrentState(s.groups[0]!.rules, now, s.global)
+    expect(summary.headline).toBe('現在ブロック中')
+    expect(summary.lines).toContain('ブロックが有効です（常時）→ ブロックページ。')
+    expect(summary.lines).toContain('ブロックが有効な間、日次上限は適用されません。')
+    expect(describeRuleConflicts(s.groups[0]!.rules, now, s.global)).toContain(
+      'ブロックと日次上限が重複しています。ブロックが有効な間、日次上限は適用されません。',
+    )
+  })
+
   it('Wait ルールが2件重なるとき、説明文は秒数・許可分数とも最長を示す', () => {
     // seconds は A が長く、grantMinutes は B が長い。実際に課されるのは 60 秒 / 20 分。
     const a = rule('wait-a', { kind: 'wait', seconds: 60, grantMinutes: 5 })

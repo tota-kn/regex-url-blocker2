@@ -77,17 +77,17 @@ function removeRule(index: number): void {
       </template>
       <BaseTooltip :label="t('How overlapping rules are applied')">
         <span class="block text-label-sm text-muted-foreground">
-          WHEN SEVERAL RULES ARE ACTIVE AT ONCE
+          {{ t('When several rules are active at once') }}
         </span>
         <ol class="mt-1.5 space-y-1">
           <li v-for="(step, index) in EVALUATION_ORDER_STEPS" :key="step.kind">
             <span class="text-label-md text-secondary-foreground">
-              {{ index + 1 }}. {{ step.label }}
+              {{ index + 1 }}. {{ t(step.label) }}
             </span>
-            <span class="text-muted-foreground"> — {{ step.detail }}</span>
+            <span class="text-muted-foreground"> — {{ t(step.detail) }}</span>
           </li>
         </ol>
-        <span class="mt-2 block text-muted-foreground">{{ EVALUATION_ORDER_NOTE }}</span>
+        <span class="mt-2 block text-muted-foreground">{{ t(EVALUATION_ORDER_NOTE) }}</span>
       </BaseTooltip>
     </RuleSectionHeader>
 
@@ -147,7 +147,7 @@ function removeRule(index: number): void {
       @click="addRule"
     >
       <PlusIcon aria-hidden="true" class="size-4" />
-      Rule
+      {{ t('Rule') }}
     </BaseButton>
 
     <AlertMessage v-if="sectionError">{{ sectionError }}</AlertMessage>

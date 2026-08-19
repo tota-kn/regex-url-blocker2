@@ -5,11 +5,16 @@ import { i18n, initializeLanguage, installI18n, setLanguage } from '@/utils/i18n
 import { initializeTheme, normalizeTheme, setTheme } from '@/utils/theme'
 
 Promise.all([initializeLanguage(), initializeTheme()]).then(() => {
-  document.title = i18n.global.t('Page blocked')
+  updateDocumentTitle()
   const app = createApp(App)
   installI18n(app)
   app.mount('#app')
 })
+
+/** 現在の言語でページタイトルを更新する。 */
+function updateDocumentTitle(): void {
+  document.title = i18n.global.t('Page blocked')
+}
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === 'sync' && changes.global?.newValue) {
     const global = changes.global.newValue as {
@@ -17,6 +22,7 @@ browser.storage.onChanged.addListener((changes, area) => {
       theme?: unknown
     }
     setLanguage(global.language ?? 'auto')
+    updateDocumentTitle()
     setTheme(normalizeTheme(global.theme))
   }
 })

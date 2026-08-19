@@ -131,7 +131,10 @@ export function describeCurrentState(
     ...summary,
     lines: [
       ...summary.lines,
-      `${inactive} other rule${inactive === 1 ? '' : 's'} applies at different times.`,
+      translate(
+        '{count} other rule applies at different times. | {count} other rules apply at different times.',
+        { count: inactive },
+      ),
     ],
   }
 }
@@ -146,18 +149,20 @@ function buildCurrentState(
   consumedSec: number,
 ): CurrentStateSummary {
   if (rules.length === 0) {
-    return { kind: 'free', headline: 'No rules configured', lines: [] }
+    return { kind: 'free', headline: translate('No rules configured'), lines: [] }
   }
 
   const active = filterActiveRules(rules, now, global)
   if (active.length === 0) {
     return {
       kind: 'free',
-      headline: 'Not restricted right now',
+      headline: translate('Not restricted right now'),
       lines: [
         rules.length === 1
-          ? 'The only rule applies at another time — nothing is active at the moment.'
-          : `All ${rules.length} rules apply at other times — nothing is active at the moment.`,
+          ? translate('The only rule applies at another time — nothing is active at the moment.')
+          : translate('All {count} rules apply at other times — nothing is active at the moment.', {
+              count: rules.length,
+            }),
       ],
     }
   }
@@ -170,8 +175,13 @@ function buildCurrentState(
   if (blockRule) {
     const endsAt = windowEndsAtLabel(blockRule, now)
     const lines = [
-      `Block is active (${formatTimeWindow(blockRule.window)}) → ${formatDestination(blockRule.destination)}.`,
-      endsAt ? `Access returns at ${endsAt}.` : 'Active all day.',
+      translate('Block is active ({window}) → {destination}.', {
+        window: formatTimeWindow(blockRule.window),
+        destination: formatDestination(blockRule.destination),
+      }),
+      endsAt
+        ? translate('Access returns at {time}.', { time: endsAt })
+        : translate('Active all day.'),
     ]
     const shadowed = [
       daily ? RULE_KIND_LABELS.dailyLimit : undefined,
@@ -179,10 +189,13 @@ function buildCurrentState(
     ].filter((label): label is string => label !== undefined)
     if (shadowed.length > 0) {
       lines.push(
-        `${shadowed.join(', ')} ${shadowed.length === 1 ? 'is' : 'are'} not applied while Block is active.`,
+        translate(
+          '{rules} is not applied while Block is active. | {rules} are not applied while Block is active.',
+          { rules: shadowed.join(', '), count: shadowed.length },
+        ),
       )
     }
-    return { kind: 'blocked', headline: 'Blocked now', lines }
+    return { kind: 'blocked', headline: translate('Blocked now'), lines }
   }
 
   const destination = formatDestination(daily?.rule?.destination)
@@ -193,12 +206,18 @@ function buildCurrentState(
     const endsAt = windowEndsAtLabel(daily.rule, now)
     return {
       kind: 'blocked',
-      headline: 'Blocked now',
+      headline: translate('Blocked now'),
       lines: [
-        `Daily limit of ${daily.minutes} min is used up → ${destination}.`,
+        translate('Daily limit of {minutes} min is used up → {destination}.', {
+          minutes: daily.minutes,
+          destination,
+        }),
         endsAt
-          ? `Access returns when the window ends at ${endsAt}, or at the next daily reset — whichever is first.`
-          : 'Resets at the start of the next rule day.',
+          ? translate(
+              'Access returns when the window ends at {time}, or at the next daily reset — whichever is first.',
+              { time: endsAt },
+            )
+          : translate('Resets at the start of the next rule day.'),
       ],
     }
   }
@@ -207,20 +226,36 @@ function buildCurrentState(
   let step = 1
   if (wait) {
     lines.push(
-      `${step}. Wait ${wait.seconds} sec on the gate page, then browse for ${wait.grantMinutes} min without waiting again.`,
+      translate(
+        '{step}. Wait {seconds} sec on the gate page, then browse for {minutes} min without waiting again.',
+        { step, seconds: wait.seconds, minutes: wait.grantMinutes },
+      ),
     )
     step += 1
   }
   if (daily && remainingSec !== undefined) {
     lines.push(
-      `${step}. Daily limit: ${formatDuration(remainingSec)} left of ${daily.minutes} min. It keeps counting down while you browse${wait ? `, including the ${wait.grantMinutes} min after a wait` : ''}.`,
+      wait
+        ? translate(
+            '{step}. Daily limit: {remaining} left of {minutes} min. It keeps counting down while you browse, including the {grantMinutes} min after a wait.',
+            {
+              step,
+              remaining: formatDuration(remainingSec),
+              minutes: daily.minutes,
+              grantMinutes: wait.grantMinutes,
+            },
+          )
+        : translate(
+            '{step}. Daily limit: {remaining} left of {minutes} min. It keeps counting down while you browse.',
+            { step, remaining: formatDuration(remainingSec), minutes: daily.minutes },
+          ),
     )
     step += 1
-    lines.push(`${step}. When it reaches 0 → ${destination}.`)
+    lines.push(translate('{step}. When it reaches 0 → {destination}.', { step, destination }))
   }
 
-  if (wait) return { kind: 'gated', headline: 'Wait required before access', lines }
-  return { kind: 'limited', headline: 'Allowed, with limits', lines }
+  if (wait) return { kind: 'gated', headline: translate('Wait required before access'), lines }
+  return { kind: 'limited', headline: translate('Allowed, with limits'), lines }
 }
 
 /**
@@ -259,7 +294,9 @@ export function describeRuleConflicts(rules: Rule[], now: Date, global: GlobalSe
       const other = first.kind === 'block' ? second : first
       if (other.kind !== 'block') {
         messages.add(
-          `Block overlaps with ${RULE_KIND_LABELS[other.kind]}. While Block is active, ${RULE_KIND_LABELS[other.kind]} has no effect.`,
+          translate('Block overlaps with {rule}. While Block is active, {rule} has no effect.', {
+            rule: RULE_KIND_LABELS[other.kind],
+          }),
         )
       }
       continue
@@ -269,13 +306,21 @@ export function describeRuleConflicts(rules: Rule[], now: Date, global: GlobalSe
 
     if (first.kind === 'dailyLimit' && second.kind === 'dailyLimit') {
       messages.add(
-        `Two Daily limit rules overlap. The shorter one (${Math.min(first.minutes, second.minutes)} min) is used.`,
+        translate('Two Daily limit rules overlap. The shorter one ({minutes} min) is used.', {
+          minutes: Math.min(first.minutes, second.minutes),
+        }),
       )
     }
     if (first.kind === 'wait' && second.kind === 'wait') {
       // 秒数と許可分数は別々に最長を採るため、片方のルールがまるごと採用されるわけではない。
       messages.add(
-        `Two Wait rules overlap. The longer wait (${Math.max(first.seconds, second.seconds)} sec) and the longer allowance (${Math.max(first.grantMinutes, second.grantMinutes)} min) are used, even if they come from different rules.`,
+        translate(
+          'Two Wait rules overlap. The longer wait ({seconds} sec) and the longer allowance ({minutes} min) are used, even if they come from different rules.',
+          {
+            seconds: Math.max(first.seconds, second.seconds),
+            minutes: Math.max(first.grantMinutes, second.grantMinutes),
+          },
+        ),
       )
     }
   }

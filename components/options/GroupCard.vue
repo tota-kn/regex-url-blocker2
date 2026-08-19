@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowRightIcon,
   ArrowUturnLeftIcon,
   CheckIcon,
   ClockIcon,
@@ -16,6 +17,7 @@ import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
 import { getGroupPauseButtonState } from '@/utils/groupPause'
 import { useGroupContext } from '@/utils/groupContext'
 import { cloneGroup } from '@/utils/groups'
+import { formatRule } from '@/utils/rules'
 import type { Group } from '@/utils/types'
 import { validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
@@ -96,8 +98,8 @@ const pauseButtonState = computed(() => getGroupPauseButtonState(pauseEntry.valu
 const pauseButtonLabel = computed(() => pauseButtonState.value.label)
 const effectivePauseDisabledReason = computed(() => {
   if (pauseDisabledReason.value) return pauseDisabledReason.value
-  if (props.group.pauseAllowed === false) return 'Pause is turned off for this group.'
-  return props.group.disabled ? 'Enable this group to use Pause.' : undefined
+  if (props.group.pauseAllowed === false) return t('Pause is turned off for this group.')
+  return props.group.disabled ? t('Enable this group to use Pause.') : undefined
 })
 const canRequestPause = computed(() => {
   if (effectivePauseDisabledReason.value) return false
@@ -336,6 +338,27 @@ function setTextFieldValidity(field: string, valid: boolean): void {
         <PendingFieldNote v-if="isFieldPending('patterns')">
           {{ t('Earlier URL patterns stay active {until}.', { until: pendingUntilLabel }) }}
         </PendingFieldNote>
+        <section
+          v-if="isFieldPending('patterns') && effectiveGroup"
+          :aria-label="t('Earlier URL patterns currently active')"
+          class="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-3"
+        >
+          <h4 class="text-label-sm text-warning-text">
+            {{ t('Earlier URL patterns currently active') }}
+          </h4>
+          <div v-if="effectiveGroup.patterns.length > 0" class="mt-2 space-y-1">
+            <p
+              v-for="(pattern, index) in effectiveGroup.patterns"
+              :key="`${index}-${pattern}`"
+              class="text-mono-md break-all text-input-foreground"
+            >
+              {{ pattern }}
+            </p>
+          </div>
+          <p v-else class="mt-2 text-body-sm text-muted">
+            {{ t('No earlier URL patterns.') }}
+          </p>
+        </section>
       </div>
 
       <div>
@@ -352,6 +375,35 @@ function setTextFieldValidity(field: string, valid: boolean): void {
         <PendingFieldNote v-if="isFieldPending('rules')">
           {{ t('Earlier rules stay active {until}.', { until: pendingUntilLabel }) }}
         </PendingFieldNote>
+        <section
+          v-if="isFieldPending('rules') && effectiveGroup"
+          :aria-label="t('Earlier rules currently active')"
+          class="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-3"
+        >
+          <h4 class="text-label-sm text-warning-text">
+            {{ t('Earlier rules currently active') }}
+          </h4>
+          <ol v-if="effectiveGroup.rules.length > 0" class="mt-2 space-y-2">
+            <li
+              v-for="(rule, index) in effectiveGroup.rules"
+              :key="rule.id"
+              :aria-label="t('Earlier rule {number}', { number: index + 1 })"
+              class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-surface p-3 text-body-md text-input-foreground"
+            >
+              <span class="font-mono text-secondary-foreground">
+                {{ formatRule(rule).when }}
+              </span>
+              <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
+              <span>{{ formatRule(rule).what }}</span>
+              <span v-if="formatRule(rule).destination" class="text-body-sm text-muted-foreground">
+                → {{ formatRule(rule).destination }}
+              </span>
+            </li>
+          </ol>
+          <p v-else class="mt-2 text-body-sm text-muted">
+            {{ t('No earlier rules.') }}
+          </p>
+        </section>
       </div>
     </fieldset>
 

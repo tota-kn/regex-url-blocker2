@@ -28,6 +28,20 @@ describe('i18n', () => {
     )
   })
 
+  it('日本語のルール説明とエラー文言を処理する', () => {
+    setLanguage('ja')
+    expect(
+      translate('Block overlaps with {rule}. While Block is active, {rule} has no effect.', {
+        rule: translate('Daily limit'),
+      }),
+    ).toBe('ブロックと日次上限が重複しています。ブロックが有効な間、日次上限は適用されません。')
+    expect(translate('Pause is turned off for this group.')).toBe(
+      'このグループでは一時停止がオフになっています。',
+    )
+    expect(translate('Earlier rules currently active')).toBe('現在も適用中の以前のルール')
+    expect(translate('Invalid JSON')).toBe('JSONが不正です')
+  })
+
   it('未知のキーは英語原文へフォールバックする', () => {
     setLanguage('ja')
     expect(translate('Uncatalogued English text')).toBe('Uncatalogued English text')

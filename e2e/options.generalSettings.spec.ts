@@ -10,6 +10,7 @@ test.describe('Options generalSettings', () => {
 
     await page.getByLabel('Language').selectOption('ja')
     await expect(page.getByRole('heading', { name: '一般設定' })).toBeVisible()
+    await expect(page).toHaveTitle('Regex URL Guard - 設定')
     await expect(page.getByLabel('言語')).toHaveValue('ja')
     await expect(page.getByLabel('新しいルール日を開始する時刻')).toBeVisible()
     await expectGlobalSettingsStored(page, { language: 'ja' })
@@ -33,10 +34,16 @@ test.describe('Options generalSettings', () => {
     await page.getByRole('button', { name: 'URLパターンを追加' }).click()
     await expect(page.getByRole('textbox', { name: 'URLパターン', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'ルールを追加' }).click()
+    await expect(page.getByRole('button', { name: 'ルールを追加' })).toContainText('ルール')
     await expect(page.getByLabel('ルール1の適用日時')).toHaveValue('always')
     await expect(page.getByLabel('ルール1の制限')).toHaveValue('block')
     await expect(page.getByLabel('ルール1の遷移先')).toHaveValue('blockedPage')
     await expect(page.getByText('ブロック時の遷移先')).toBeVisible()
+
+    const overlapHelp = page.getByRole('button', { name: '重複するルールの適用方法' })
+    await overlapHelp.hover()
+    await expect(page.getByRole('tooltip')).toContainText('複数のルールが同時に有効な場合')
+    await expect(page.getByRole('tooltip')).toContainText('1. ブロック')
 
     await page.getByRole('button', { name: 'オプション' }).click()
     await expect(

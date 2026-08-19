@@ -74,7 +74,7 @@ test.describe('Options importExport', () => {
     ).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
-    await expect(page.locator('main').getByText('Options')).not.toBeVisible()
+    await expect(page.locator('main').getByText('Options')).toBeVisible()
     const urlPatternsSection = page
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: 'URL patterns' }) })
@@ -107,5 +107,15 @@ test.describe('Options importExport', () => {
     await expect(page.getByText('Invalid JSON')).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('StillHere')
+  })
+
+  test('不正な設定ファイルのエラーを日本語で表示する', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await openGeneralSettings(page)
+    await page.getByLabel('Language').selectOption('ja')
+
+    await page.getByLabel('設定JSONファイル').setInputFiles(jsonUploadFile('bad.json', '{'))
+
+    await expect(page.getByText('JSONが不正です')).toBeVisible()
   })
 })

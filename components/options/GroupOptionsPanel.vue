@@ -2,7 +2,6 @@
 import { ChevronDownIcon, ClockIcon, LockClosedIcon } from '@heroicons/vue/24/outline'
 import { computed, ref } from 'vue'
 import BooleanRadioGroup from '@/components/ui/BooleanRadioGroup.vue'
-import { DEFAULT_PAUSE_DURATION_MINUTES, DEFAULT_PAUSE_WAIT_SECONDS } from '@/utils/defaults'
 import type { Group } from '@/utils/types'
 import { useLockModePending } from '@/utils/useLockModePending'
 import PendingFieldNote from './PendingFieldNote.vue'
@@ -58,25 +57,20 @@ const pendingPauseNote = computed(() => {
   }
   return parts.length > 0 ? `Still ${parts.join(', ')} ${pendingUntilLabel.value}.` : undefined
 })
-/** 読み取り表示する既定値以外のOptions要約。 */
+/** View Modeで常に読み取り表示するOptions設定。 */
 const summaries = computed(() => {
   const result: Array<{ label: string; value: string; pending?: string }> = []
   const lockLabel = t('Delay relaxed restrictions until next rule day')
-  if (props.group.lockMode) result.push({ label: lockLabel, value: t('On') })
-  else if (isFieldPending('lockMode')) {
-    result.push({
-      label: lockLabel,
-      value: t('Off'),
-      pending: t('Still on {until}.', { until: pendingUntilLabel.value }),
-    })
-  }
+  result.push({
+    label: lockLabel,
+    value: props.group.lockMode ? t('On') : t('Off'),
+    pending: isFieldPending('lockMode')
+      ? t('Still on {until}.', { until: pendingUntilLabel.value })
+      : undefined,
+  })
   if (props.group.pauseAllowed === false) {
     result.push({ label: t('Pause'), value: t('Not allowed'), pending: pendingPauseNote.value })
-  } else if (
-    props.group.pauseWaitSeconds !== DEFAULT_PAUSE_WAIT_SECONDS ||
-    props.group.pauseDurationMinutes !== DEFAULT_PAUSE_DURATION_MINUTES ||
-    pendingPauseNote.value
-  ) {
+  } else {
     result.push({
       label: t('Pause'),
       value: t('Wait {seconds} sec, pause for {minutes} min', {
@@ -88,8 +82,6 @@ const summaries = computed(() => {
   }
   return result
 })
-/** パネルを表示する必要があるならtrue。 */
-const visible = computed(() => props.isEditing || summaries.value.length > 0)
 
 /** disclosure panelのDOM id。 */
 function panelId(): string {
@@ -98,7 +90,7 @@ function panelId(): string {
 </script>
 
 <template>
-  <section v-if="visible" class="space-y-3 px-4 pb-4">
+  <section class="space-y-3 px-4 pb-4">
     <h3 v-if="!isEditing" class="flex items-center gap-1.5 text-label-md">
       <LockClosedIcon aria-hidden="true" class="size-4 text-muted" />
       {{ t('Options') }}
@@ -217,7 +209,7 @@ function panelId(): string {
       </div>
     </template>
 
-    <dl v-else class="grid gap-3 text-body-sm sm:grid-cols-2">
+    <dl v-else class="grid gap-3 text-body-sm">
       <div v-for="summary in summaries" :key="summary.label">
         <dt class="text-label-sm text-muted">{{ summary.label }}</dt>
         <dd class="mt-1 break-all text-secondary-foreground">
