@@ -366,6 +366,38 @@ test.describe('Background blocking', () => {
     }
   })
 
+  test('blockedPage から Options 画面を開ける', async ({
+    page,
+    context,
+    serviceWorker,
+    extensionId,
+  }) => {
+    const server = await startServer()
+    try {
+      await saveBlockedPageDetailSettings(serviceWorker, server.origin, '00:00', [
+        {
+          id: 'options-link',
+          name: 'Options link',
+          blockedTimeRanges: [{ startMinute: 0, endMinute: 0 }],
+        },
+      ])
+      await waitForEffectiveSettings(serviceWorker)
+
+      await gotoAndWaitForUrl(
+        page,
+        `${server.origin}/target`,
+        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
+      )
+
+      const optionsPagePromise = context.waitForEvent('page')
+      await page.getByRole('button', { name: 'Open options' }).click()
+      const optionsPage = await optionsPagePromise
+      await expect(optionsPage).toHaveURL(`chrome-extension://${extensionId}/options.html`)
+    } finally {
+      await server.close()
+    }
+  })
+
   test('blockedPage 設定では daily limit 理由と次回リセット時刻を表示する', async ({
     page,
     serviceWorker,

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ArrowUturnLeftIcon } from '@heroicons/vue/24/outline'
+import { ArrowUturnLeftIcon, Cog6ToothIcon } from '@heroicons/vue/24/outline'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
 import PageShell from '@/components/ui/PageShell.vue'
@@ -100,6 +100,13 @@ function goBack(): void {
   history.back()
 }
 
+/**
+ * 拡張機能のオプション画面を開く。
+ */
+async function openOptionsPage(): Promise<void> {
+  await browser.runtime.openOptionsPage()
+}
+
 onMounted(async () => {
   const params = new URLSearchParams(location.search)
   const groupIds = new Set(parseGroupIds(params))
@@ -184,7 +191,16 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="mt-6 flex justify-end">
+    <div class="mt-6 flex justify-end gap-2">
+      <BaseButton
+        type="button"
+        :aria-label="t('Open options')"
+        class="h-10 px-4"
+        @click="openOptionsPage"
+      >
+        <Cog6ToothIcon aria-hidden="true" class="size-4" />
+        {{ t('Options') }}
+      </BaseButton>
       <BaseButton type="button" variant="primary" class="h-10 px-4" @click="goBack">
         <ArrowUturnLeftIcon aria-hidden="true" class="size-4" />
         {{ t('Back') }}
