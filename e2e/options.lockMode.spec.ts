@@ -96,6 +96,12 @@ test.describe('Options lockMode', () => {
       'https://active-blocked.test',
     )
     await expect(earlierRules).not.toContainText('Allow 30 min per day')
+    const earlierRule = earlierRules.getByLabel('Earlier rule 1')
+    const [earlierScheduleBox, earlierActionBox] = await Promise.all([
+      earlierRule.locator('[data-rule-part="schedule"]').boundingBox(),
+      earlierRule.locator('[data-rule-part="action"]').boundingBox(),
+    ])
+    expect(earlierActionBox!.y).toBeGreaterThan(earlierScheduleBox!.y)
     // 保留状況はグループ全体のバナーや別ダイアログに重複表示しない。
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)

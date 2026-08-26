@@ -388,16 +388,24 @@ function setTextFieldValidity(field: string, valid: boolean): void {
               v-for="(rule, index) in effectiveGroup.rules"
               :key="rule.id"
               :aria-label="t('Earlier rule {number}', { number: index + 1 })"
-              class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-surface p-3 text-body-md text-input-foreground"
+              class="min-w-0 space-y-1 rounded-lg border border-border bg-surface p-3 text-body-md text-input-foreground"
             >
-              <span class="font-mono text-secondary-foreground">
+              <div data-rule-part="schedule" class="font-mono text-secondary-foreground">
                 {{ formatRule(rule).when }}
-              </span>
-              <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
-              <span>{{ formatRule(rule).what }}</span>
-              <span v-if="formatRule(rule).destination" class="text-body-sm text-muted-foreground">
-                → {{ formatRule(rule).destination }}
-              </span>
+              </div>
+              <div
+                data-rule-part="action"
+                class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+              >
+                <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
+                <span>{{ formatRule(rule).what }}</span>
+                <span
+                  v-if="formatRule(rule).destination"
+                  class="text-body-sm text-muted-foreground"
+                >
+                  → {{ formatRule(rule).destination }}
+                </span>
+              </div>
             </li>
           </ol>
           <p v-else class="mt-2 text-body-sm text-muted">

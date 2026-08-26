@@ -123,18 +123,22 @@ function removeRule(index: number): void {
           </BaseButton>
         </div>
 
-        <p
+        <div
           v-else
           :aria-label="t('Rule {number}', { number: index + 1 })"
-          class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-body-md text-input-foreground"
+          class="min-w-0 space-y-1 text-body-md text-input-foreground"
         >
-          <span class="font-mono text-secondary-foreground">{{ formatRule(rule).when }}</span>
-          <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
-          <span>{{ formatRule(rule).what }}</span>
-          <span v-if="formatRule(rule).destination" class="text-body-sm text-muted-foreground">
-            → {{ formatRule(rule).destination }}
-          </span>
-        </p>
+          <div data-rule-part="schedule" class="font-mono text-secondary-foreground">
+            {{ formatRule(rule).when }}
+          </div>
+          <div data-rule-part="action" class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
+            <span>{{ formatRule(rule).what }}</span>
+            <span v-if="formatRule(rule).destination" class="text-body-sm text-muted-foreground">
+              → {{ formatRule(rule).destination }}
+            </span>
+          </div>
+        </div>
       </li>
     </ol>
 

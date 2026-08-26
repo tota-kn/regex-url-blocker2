@@ -720,6 +720,12 @@ test.describe('Options groupForm', () => {
     await expect(urlPatternsSection.getByText('example\\.com', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Rule 1')).toContainText('09:00-17:00')
     await expect(page.getByLabel('Rule 1')).toContainText('Allow 45 min per day')
+    const displayedRule = page.getByLabel('Rule 1')
+    const [scheduleBox, actionBox] = await Promise.all([
+      displayedRule.locator('[data-rule-part="schedule"]').boundingBox(),
+      displayedRule.locator('[data-rule-part="action"]').boundingBox(),
+    ])
+    expect(actionBox!.y).toBeGreaterThan(scheduleBox!.y)
     await expect(page.getByLabel('Active time ranges')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Add rule' })).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Add rule' })).not.toBeVisible()
@@ -755,5 +761,10 @@ test.describe('Options groupForm', () => {
 
     await page.getByRole('button', { name: 'Edit group' }).click()
     await expect(page.getByLabel('Active time ranges')).toHaveValue('09:00-17:00')
+    const [whenBox, restrictionBox] = await Promise.all([
+      page.getByLabel('Rule 1 when').boundingBox(),
+      page.getByLabel('Rule 1 restriction').boundingBox(),
+    ])
+    expect(restrictionBox!.y).toBeGreaterThan(whenBox!.y)
   })
 })

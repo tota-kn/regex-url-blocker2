@@ -341,10 +341,10 @@ Bar and remaining-time text color shift through three states:
 
 ### Rule Row
 
-The core of the group editor. One row is one rule, and reads left to right as **when → what → where**:
+The core of the group editor. One card is one rule, and reads top to bottom as **when → what and where**:
 
-- **Read mode:** a single line — the time window in monospace (`Weekly Mon, Tue 09:00-18:00`), a muted arrow, the restriction in body text (`Allow 30 min per day`), and the destination in muted small text (`→ blocked page`). No row wraps to a second concept; if it does not fit, it wraps within the same sentence.
-- **Edit mode:** two selects (`when`, `what`) on one line followed by that restriction's own inputs, then a second line for the destination. `Wait` rows have no destination line because they never block.
+- **Read mode:** two conceptual lines. The first contains only the time window in monospace (`Weekly Mon, Tue 09:00-18:00`). The second starts with a muted arrow and contains the restriction in body text (`Allow 30 min per day`) followed by the destination in muted small text (`→ blocked page`). Content may wrap within either line on narrow screens, but schedule and action never share a line.
+- **Edit mode:** the `when` select and its schedule inputs form the first section. The restriction select, that restriction's own inputs, and its destination form the second section. `Wait` rules omit destination controls because they never block.
 - Rows sit in a bordered `surface` card at `rounded-lg` with 12 px padding, stacked with 8 px gaps.
 
 Rules are stored and displayed in evaluation order (Block → Daily limit → Wait). The list is re-sorted on save, so **row order always equals the order the engine applies them**.

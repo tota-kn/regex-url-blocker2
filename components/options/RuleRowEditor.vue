@@ -194,21 +194,36 @@ function preventNonDigitInput(event: InputEvent): void {
 
 <template>
   <div class="min-w-0 space-y-3">
-    <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
-      <label class="min-w-0">
-        <span class="sr-only">{{ t('Rule {number} when', { number: props.index + 1 }) }}</span>
-        <BaseSelect
-          :aria-label="t('Rule {number} when', { number: props.index + 1 })"
-          size="sm"
-          :model-value="windowValue(rule.window)"
-          @update:model-value="setWindow(String($event ?? ''))"
-        >
-          <option v-for="option in whenOptions" :key="option.value" :value="option.value">
-            {{ t(option.label) }}
-          </option>
-        </BaseSelect>
-      </label>
+    <div class="min-w-0 space-y-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-2">
+        <label class="min-w-0">
+          <span class="sr-only">{{ t('Rule {number} when', { number: props.index + 1 }) }}</span>
+          <BaseSelect
+            :aria-label="t('Rule {number} when', { number: props.index + 1 })"
+            size="sm"
+            :model-value="windowValue(rule.window)"
+            @update:model-value="setWindow(String($event ?? ''))"
+          >
+            <option v-for="option in whenOptions" :key="option.value" :value="option.value">
+              {{ t(option.label) }}
+            </option>
+          </BaseSelect>
+        </label>
+      </div>
 
+      <ScheduleWindowEditor
+        v-if="rule.window.type === 'scheduled'"
+        :condition="rule.window.condition"
+        :time-ranges="rule.window.timeRanges"
+        :error="() => props.error"
+        @update:condition="setCondition"
+        @update:time-ranges="setTimeRanges"
+        @touch="(field) => emit('touch', `window.${field}`)"
+        @validity-change="(field, valid) => emit('validity-change', `window.${field}`, valid)"
+      />
+    </div>
+
+    <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
       <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
 
       <label class="min-w-0">
@@ -265,52 +280,38 @@ function preventNonDigitInput(event: InputEvent): void {
         />
         <span class="shrink-0 text-label-sm text-muted-foreground">{{ t('min') }}</span>
       </template>
-    </div>
 
-    <div
-      v-if="rule.restriction.kind !== 'wait'"
-      class="flex min-w-0 flex-wrap items-center gap-2 pl-1"
-    >
-      <span class="shrink-0 text-label-sm text-muted-foreground">{{
-        t('When blocked, go to')
-      }}</span>
-      <label class="min-w-0">
-        <span class="sr-only">{{
-          t('Rule {number} destination', { number: props.index + 1 })
+      <template v-if="rule.restriction.kind !== 'wait'">
+        <span class="shrink-0 text-label-sm text-muted-foreground">{{
+          t('When blocked, go to')
         }}</span>
-        <BaseSelect
-          :aria-label="t('Rule {number} destination', { number: props.index + 1 })"
+        <label class="min-w-0">
+          <span class="sr-only">{{
+            t('Rule {number} destination', { number: props.index + 1 })
+          }}</span>
+          <BaseSelect
+            :aria-label="t('Rule {number} destination', { number: props.index + 1 })"
+            size="sm"
+            :model-value="rule.destination?.type ?? 'blockedPage'"
+            @update:model-value="setDestinationType(String($event ?? ''))"
+          >
+            <option value="blockedPage">{{ t('Blocked page') }}</option>
+            <option value="redirect">{{ t('Another URL') }}</option>
+          </BaseSelect>
+        </label>
+        <BaseInput
+          v-if="rule.destination?.type === 'redirect'"
+          type="url"
+          :aria-label="t('Rule {number} destination URL', { number: props.index + 1 })"
+          placeholder="https://example.com"
+          class="min-w-0 flex-1"
           size="sm"
-          :model-value="rule.destination?.type ?? 'blockedPage'"
-          @update:model-value="setDestinationType(String($event ?? ''))"
-        >
-          <option value="blockedPage">{{ t('Blocked page') }}</option>
-          <option value="redirect">{{ t('Another URL') }}</option>
-        </BaseSelect>
-      </label>
-      <BaseInput
-        v-if="rule.destination?.type === 'redirect'"
-        type="url"
-        :aria-label="t('Rule {number} destination URL', { number: props.index + 1 })"
-        placeholder="https://example.com"
-        class="min-w-0 flex-1"
-        size="sm"
-        :model-value="destinationUrl()"
-        @update:model-value="setDestinationUrl"
-      />
+          :model-value="destinationUrl()"
+          @update:model-value="setDestinationUrl"
+        />
+      </template>
     </div>
 
     <AlertMessage v-if="props.error">{{ props.error }}</AlertMessage>
-
-    <ScheduleWindowEditor
-      v-if="rule.window.type === 'scheduled'"
-      :condition="rule.window.condition"
-      :time-ranges="rule.window.timeRanges"
-      :error="() => props.error"
-      @update:condition="setCondition"
-      @update:time-ranges="setTimeRanges"
-      @touch="(field) => emit('touch', `window.${field}`)"
-      @validity-change="(field, valid) => emit('validity-change', `window.${field}`, valid)"
-    />
   </div>
 </template>
