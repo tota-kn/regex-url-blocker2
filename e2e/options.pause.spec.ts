@@ -182,7 +182,7 @@ test.describe('Options pause', () => {
     await expect(page.getByText(/Paused \d/)).toHaveCount(0)
 
     await page.reload()
-    await expect(page.getByText('Not allowed')).toBeVisible()
+    await expect(page.getByText('Not allowed')).toHaveCount(0)
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
     await expect(page.getByText('Pause is turned off for this group.')).toBeVisible()
@@ -202,7 +202,7 @@ test.describe('Options pause', () => {
     await expect(page.getByRole('spinbutton', { name: 'Pause duration minutes' })).toBeDisabled()
     await page.getByRole('button', { name: 'Save group' }).click()
 
-    await expect(page.getByText('Not allowed')).toBeVisible()
+    await expect(page.getByText('Not allowed')).toHaveCount(0)
     await expect
       .poll(async () =>
         serviceWorker.evaluate(async () => {

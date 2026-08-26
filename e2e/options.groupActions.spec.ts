@@ -21,24 +21,23 @@ test.describe('Options groupActions', () => {
     await page.getByRole('textbox', { name: 'URL pattern' }).fill('example\\.com')
     await page.getByRole('button', { name: 'Add rule' }).click()
     await page.getByRole('button', { name: 'Save group' }).click()
-    await expect(page.getByText('Pause', { exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Options' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Options' })).toHaveCount(0)
 
     await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Disable' }).click()
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
     await expect(page.getByText('Group status')).not.toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Options' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Options' })).toHaveCount(0)
     await expectVisibleGroupsStored(page)
     await page.reload()
 
     await expect(page.getByLabel('Name')).toHaveValue('Disabled target')
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
     await expect(page.getByText('Group status')).not.toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Options' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Options' })).toHaveCount(0)
     await openGroupActions(page)
     await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
-    await expect(page.getByText('Enable this group to use Pause.')).toBeVisible()
+    await expect(page.getByText('Pause is turned off for this group.')).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Enable' })).toBeEnabled()
     const stored = await serviceWorker.evaluate(async () => {
       return globalThis.chrome.storage.sync.get(['groups'])
@@ -49,14 +48,8 @@ test.describe('Options groupActions', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).not.toBeVisible()
     await expect(page.getByText('Enable this group to use Pause.')).not.toBeVisible()
     await openGroupActions(page)
-    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeEnabled()
-    await page.getByRole('menuitem', { name: 'Pause' }).click()
-    await expect(
-      page
-        .locator('dialog')
-        .filter({ hasText: 'Take a breath' })
-        .getByRole('heading', { name: 'Take a breath' }),
-    ).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeDisabled()
+    await expect(page.getByText('Pause is turned off for this group.')).toBeVisible()
   })
 
   test('ケバブメニューからグループを編集可能な新規ドラフトとして複製する', async ({

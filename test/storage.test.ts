@@ -369,7 +369,7 @@ describe('settings export file', () => {
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
-  it('pauseAllowed 欠損は true で補完し、false はそのまま保持する', () => {
+  it('pauseAllowed 欠損は false で補完し、明示値はそのまま保持する', () => {
     const build = (pauseAllowed?: boolean) =>
       JSON.stringify({
         version: 11,
@@ -386,7 +386,7 @@ describe('settings export file', () => {
         },
       })
 
-    expect(parseSettingsExportJson(build()).groups[0].pauseAllowed).toBe(true)
+    expect(parseSettingsExportJson(build()).groups[0].pauseAllowed).toBe(false)
     expect(parseSettingsExportJson(build(true)).groups[0].pauseAllowed).toBe(true)
     expect(parseSettingsExportJson(build(false)).groups[0].pauseAllowed).toBe(false)
   })

@@ -117,7 +117,7 @@ function normalizeGroup(value: unknown, globalRedirectUrl?: string): Group {
       1,
       DEFAULT_PAUSE_DURATION_MINUTES,
     ),
-    pauseAllowed: g.pauseAllowed !== false,
+    pauseAllowed: g.pauseAllowed === true,
     rules: sortRulesByEvaluationOrder(rules),
   }
 }

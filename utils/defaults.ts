@@ -130,7 +130,7 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
     patterns: createPatternsFromTemplate(templateId),
     pauseWaitSeconds: DEFAULT_PAUSE_WAIT_SECONDS,
     pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
-    pauseAllowed: true,
+    pauseAllowed: false,
     rules: createRulesFromTemplate(templateId),
   }
 }

@@ -56,7 +56,7 @@ describe('createEmptyGroup', () => {
     expect(g.disabled).toBe(false)
     expect(g.lockMode).toBe(false)
     expect(g.patterns).toEqual([])
-    expect(g.pauseAllowed).toBe(true)
+    expect(g.pauseAllowed).toBe(false)
     expect(g.rules).toEqual([])
   })
 
@@ -76,6 +76,16 @@ describe('createEmptyGroup', () => {
 })
 
 describe('createGroupFromTemplate', () => {
+  it.each(['blank', 'core-sns-15min', 'video-30min', 'work-hours-focus'] as const)(
+    '%s は Options をオフで作成する',
+    (templateId) => {
+      const group = createGroupFromTemplate(templateId)
+
+      expect(group.lockMode).toBe(false)
+      expect(group.pauseAllowed).toBe(false)
+    },
+  )
+
   it('blank は空のURLパターンとルールなしを返す', () => {
     const group = createGroupFromTemplate('blank')
 

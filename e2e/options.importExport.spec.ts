@@ -74,7 +74,7 @@ test.describe('Options importExport', () => {
     ).toHaveValue('9')
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Name')).toHaveValue('Imported')
-    await expect(page.locator('main').getByText('Options')).toBeVisible()
+    await expect(page.locator('main').getByRole('heading', { name: 'Options' })).toHaveCount(0)
     const urlPatternsSection = page
       .locator('section')
       .filter({ has: page.getByRole('heading', { name: 'URL patterns' }) })

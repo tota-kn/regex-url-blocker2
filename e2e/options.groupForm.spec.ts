@@ -79,6 +79,12 @@ test.describe('Options groupForm', () => {
         name: 'Delay relaxed restrictions until next rule day On',
       }),
     ).toBeVisible()
+    const pauseRadios = optionsPanel
+      .locator('fieldset[aria-label="Pause settings"]')
+      .getByRole('radio')
+    await expect(pauseRadios.nth(0)).toHaveAttribute('aria-label', 'Allow Pause Off')
+    await expect(pauseRadios.nth(1)).toHaveAttribute('aria-label', 'Allow Pause On')
+    await expect(pauseRadios.nth(0)).toBeChecked()
     await expect(
       optionsPanel.getByText(
         'Stricter changes apply immediately. Relaxed restrictions take effect on the next rule day.',
@@ -110,16 +116,11 @@ test.describe('Options groupForm', () => {
       .locator('main section')
       .filter({ has: page.getByRole('heading', { name: 'Options' }) })
     const optionRows = viewOptions.locator('dl > div')
-    await expect(optionRows).toHaveCount(2)
+    await expect(optionRows).toHaveCount(1)
     await expect(optionRows.nth(0)).toContainText(
       'Delay relaxed restrictions until next rule dayOn',
     )
-    await expect(optionRows.nth(1)).toContainText('PauseWait 60 sec, pause for 10 min')
-    const [lockRowBox, pauseRowBox] = await Promise.all([
-      optionRows.nth(0).boundingBox(),
-      optionRows.nth(1).boundingBox(),
-    ])
-    expect(pauseRowBox!.y).toBeGreaterThan(lockRowBox!.y)
+    await expect(viewOptions.getByText('Pause', { exact: true })).toHaveCount(0)
     await expect(
       page.locator('main').getByText('Page shown when blocked', { exact: true }),
     ).not.toBeVisible()
@@ -137,6 +138,22 @@ test.describe('Options groupForm', () => {
     await expect(
       page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day Off' }),
     ).toBeChecked()
+  })
+
+  test('オフの Options は View Mode に表示しない', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+
+    await createBlankGroup(page)
+    await page.getByLabel('Name').fill('Options off')
+    await addRequiredGroupSections(page)
+    await openGroupOptions(page)
+    await expect(
+      page.getByRole('radio', { name: 'Delay relaxed restrictions until next rule day Off' }),
+    ).toBeChecked()
+    await expect(page.getByRole('radio', { name: 'Allow Pause Off' })).toBeChecked()
+    await page.getByRole('button', { name: 'Save group' }).click()
+
+    await expect(page.locator('main').getByRole('heading', { name: 'Options' })).toHaveCount(0)
   })
 
   test('パターン追加時に空の URL pattern 入力が追加される', async ({ page, extensionId }) => {

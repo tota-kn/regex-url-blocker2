@@ -57,20 +57,19 @@ const pendingPauseNote = computed(() => {
   }
   return parts.length > 0 ? `Still ${parts.join(', ')} ${pendingUntilLabel.value}.` : undefined
 })
-/** View Modeで常に読み取り表示するOptions設定。 */
+/** View ModeでオンになっているOptions設定。 */
 const summaries = computed(() => {
   const result: Array<{ label: string; value: string; pending?: string }> = []
-  const lockLabel = t('Delay relaxed restrictions until next rule day')
-  result.push({
-    label: lockLabel,
-    value: props.group.lockMode ? t('On') : t('Off'),
-    pending: isFieldPending('lockMode')
-      ? t('Still on {until}.', { until: pendingUntilLabel.value })
-      : undefined,
-  })
-  if (props.group.pauseAllowed === false) {
-    result.push({ label: t('Pause'), value: t('Not allowed'), pending: pendingPauseNote.value })
-  } else {
+  if (props.group.lockMode) {
+    result.push({
+      label: t('Delay relaxed restrictions until next rule day'),
+      value: t('On'),
+      pending: isFieldPending('lockMode')
+        ? t('Still on {until}.', { until: pendingUntilLabel.value })
+        : undefined,
+    })
+  }
+  if (props.group.pauseAllowed) {
     result.push({
       label: t('Pause'),
       value: t('Wait {seconds} sec, pause for {minutes} min', {
@@ -90,7 +89,7 @@ function panelId(): string {
 </script>
 
 <template>
-  <section class="space-y-3 px-4 pb-4">
+  <section v-if="isEditing || summaries.length > 0" class="space-y-3 px-4 pb-4">
     <h3 v-if="!isEditing" class="flex items-center gap-1.5 text-label-md">
       <LockClosedIcon aria-hidden="true" class="size-4 text-muted" />
       {{ t('Options') }}
@@ -156,11 +155,7 @@ function panelId(): string {
             <div class="flex flex-col gap-2 sm:items-end">
               <div class="flex flex-wrap items-center gap-4">
                 <span class="text-label-md text-secondary-foreground">{{ t('Allow Pause') }}</span>
-                <BooleanRadioGroup
-                  v-model="draft.pauseAllowed"
-                  :label="t('Allow Pause')"
-                  on-first
-                />
+                <BooleanRadioGroup v-model="draft.pauseAllowed" :label="t('Allow Pause')" />
               </div>
               <PendingFieldNote v-if="isFieldPending('pauseAllowed')" class="sm:text-right">
                 {{ t('Still not allowed {until}.', { until: pendingUntilLabel }) }}
