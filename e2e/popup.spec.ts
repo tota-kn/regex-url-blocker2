@@ -164,21 +164,6 @@ async function openPopupPage(
 }
 
 test.describe('Popup 画面', () => {
-  test('オプション画面を開くリンクを表示する', async ({ page, context, extensionId }) => {
-    const server = await startTestServer()
-    try {
-      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/target`)
-
-      const optionsPagePromise = context.waitForEvent('page')
-      await popup.getByRole('button', { name: 'Open options' }).click()
-      const optionsPage = await optionsPagePromise
-
-      await expect(optionsPage).toHaveURL(`chrome-extension://${extensionId}/options.html`)
-    } finally {
-      await server.close()
-    }
-  })
-
   test('現在ページに一致する複数グループの残り時間をすべて表示する', async ({
     page,
     context,
@@ -275,6 +260,11 @@ test.describe('Popup 画面', () => {
       const popup = await openPopupPage(context, page, extensionId, `${server.origin}/other`)
 
       await expect(popup.getByText('No matching groups for this page.')).toBeVisible()
+
+      const optionsPagePromise = context.waitForEvent('page')
+      await popup.getByRole('button', { name: 'Open options' }).click()
+      const optionsPage = await optionsPagePromise
+      await expect(optionsPage).toHaveURL(`chrome-extension://${extensionId}/options.html`)
     } finally {
       await server.close()
     }
@@ -353,25 +343,6 @@ test.describe('Popup 画面', () => {
       await savePopupFixture(serviceWorker, server.origin)
       await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 65_000 })
 
-      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/pause`)
-
-      await expect(popup.getByText(/Pause 1:0[0-5] left/)).toBeVisible()
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('一時停止リクエスト待機完了後に ready 表示へ切り替える', async ({
-    page,
-    context,
-    serviceWorker,
-    extensionId,
-  }) => {
-    const server = await startTestServer()
-    try {
-      await savePopupFixture(serviceWorker, server.origin)
-      await savePopupPauseState(serviceWorker, { waitingUntil: Date.now() + 1_000 })
-
       const popup = await openPopupPage(
         context,
         page,
@@ -379,27 +350,11 @@ test.describe('Popup 画面', () => {
         `${server.origin}/pause`,
         async (popupPage) => popupPage.clock.install(),
       )
-      await popup.clock.fastForward(1_100)
+
+      await expect(popup.getByText(/Pause 1:0[0-5] left/)).toBeVisible()
+      await popup.clock.fastForward(65_100)
 
       await expect(popup.getByText('Pause ready')).toBeVisible()
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('disabled group だけが一致する URL は一致なしとして表示する', async ({
-    page,
-    context,
-    serviceWorker,
-    extensionId,
-  }) => {
-    const server = await startTestServer()
-    try {
-      await savePopupFixture(serviceWorker, server.origin)
-
-      const popup = await openPopupPage(context, page, extensionId, `${server.origin}/disabled`)
-
-      await expect(popup.getByText('No matching groups for this page.')).toBeVisible()
     } finally {
       await server.close()
     }

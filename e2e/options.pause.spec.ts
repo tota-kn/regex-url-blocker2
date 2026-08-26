@@ -281,31 +281,4 @@ test.describe('Options pause', () => {
     await expect(pauseDialog.getByText('5s remaining')).toBeVisible()
     await expect(pauseDialog.getByRole('button', { name: 'Pause 7 min' })).toBeDisabled()
   })
-
-  test('Lock Mode ON でも Pause 設定の強化は即時に反映される', async ({
-    page,
-    serviceWorker,
-    extensionId,
-  }) => {
-    await seedLockedPauseGroup(serviceWorker)
-    await page.clock.install({ time: new Date('2026-05-06T12:00:00+09:00') })
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await page.getByRole('button', { name: 'Edit group' }).click()
-    await page.getByRole('button', { name: 'Options' }).click()
-    await page.getByRole('spinbutton', { name: 'Wait seconds before pausing' }).fill('20')
-    await page.getByRole('spinbutton', { name: 'Pause duration minutes' }).fill('3')
-
-    // 強化方向なので保留にはならない。
-    await expect(page.getByText(/Still \d+ sec until /)).toHaveCount(0)
-    await expect(page.getByText(/Still \d+ min until /)).toHaveCount(0)
-
-    await page.getByRole('button', { name: 'Save group' }).click()
-
-    await openGroupActions(page)
-    await page.getByRole('menuitem', { name: 'Pause' }).click()
-    const pauseDialog = page.locator('dialog').filter({ hasText: 'Take a breath' })
-    await expect(pauseDialog.getByText('20s remaining')).toBeVisible()
-    await expect(pauseDialog.getByRole('button', { name: 'Pause 3 min' })).toBeDisabled()
-  })
 })

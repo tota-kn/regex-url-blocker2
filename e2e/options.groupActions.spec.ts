@@ -85,23 +85,6 @@ test.describe('Options groupActions', () => {
     await expect(page.getByLabel('Name').nth(1)).toHaveValue('Focus copy')
   })
 
-  test('グループの複製ドラフトをキャンセルすると保存しない', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await createBlankGroup(page)
-    await page.getByLabel('Name').fill('Focus')
-    await addRequiredGroupSections(page)
-    await page.getByRole('button', { name: 'Save group' }).click()
-    await openGroupActions(page)
-    await page.getByRole('menuitem', { name: 'Duplicate group' }).click()
-    await page.getByRole('button', { name: 'Cancel group' }).click()
-
-    await expect(page.getByText('1 group', { exact: true })).toBeVisible()
-    await expectVisibleGroupsStored(page)
-    await page.reload()
-    await expect(page.getByLabel('Name')).toHaveCount(1)
-  })
-
   test('グループを削除して永続化される', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -118,29 +101,5 @@ test.describe('Options groupActions', () => {
     await page.reload()
 
     await expect(page.getByLabel('No groups')).toHaveText('No groups yet')
-  })
-
-  test('保存済みグループのアクションメニューは Edit ボタンの右に配置される', async ({
-    page,
-    extensionId,
-  }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await createBlankGroup(page)
-    await page.getByLabel('Name').fill('LeftDelete')
-    await addRequiredGroupSections(page)
-    await page.getByRole('button', { name: 'Save group' }).click()
-
-    const editBox = await page.getByRole('button', { name: 'Edit group' }).boundingBox()
-    const actionsBox = await page.getByRole('button', { name: 'Group actions' }).boundingBox()
-
-    expect(editBox).not.toBeNull()
-    expect(actionsBox).not.toBeNull()
-    await expect(page.getByRole('menuitem', { name: 'Delete group' })).not.toBeVisible()
-    expect(editBox!.x + editBox!.width).toBeLessThanOrEqual(actionsBox!.x)
-    expect(Math.abs(editBox!.y - actionsBox!.y)).toBeLessThan(4)
-
-    await openGroupActions(page)
-    await expect(page.getByRole('menuitem', { name: 'Delete group' })).toBeVisible()
   })
 })

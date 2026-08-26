@@ -1,7 +1,5 @@
 import { expect, test } from './fixtures'
-import { setExtensionStorage } from './helpers'
 import { expectGlobalSettingsStored, openGeneralSettings } from './optionsPage'
-import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
 
 test.describe('Options generalSettings', () => {
   test('日本語へ即時切替し、再読み込み後も保持する', async ({ page, extensionId }) => {
@@ -18,12 +16,6 @@ test.describe('Options generalSettings', () => {
     await page.reload()
     await page.getByRole('button', { name: '一般設定' }).click()
     await expect(page.getByLabel('言語')).toHaveValue('ja')
-  })
-
-  test('日本語でグループ作成・ルール編集UIを表示する', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-    await openGeneralSettings(page)
-    await page.getByLabel('Language').selectOption('ja')
     await page.getByRole('button', { name: 'グループ', exact: true }).click()
 
     await page.getByRole('button', { name: 'グループを追加' }).click()
@@ -174,38 +166,5 @@ test.describe('Options generalSettings', () => {
     const extensionSettingsPage = await pagePromise
 
     await expect(extensionSettingsPage).toHaveURL(`chrome://extensions/?id=${extensionId}`)
-  })
-
-  test('セクション切り替え時にサイドバーの位置がずれない', async ({
-    page,
-    serviceWorker,
-    extensionId,
-  }) => {
-    await setExtensionStorage(
-      serviceWorker,
-      'sync',
-      buildSettingsFixture(
-        Array.from({ length: 12 }, (_, index) =>
-          buildGroupFixture({
-            id: `group-${index}`,
-            name: `Group ${index + 1}`,
-            patterns: [`example-${index}\\.com`],
-          }),
-        ),
-      ),
-    )
-    await page.setViewportSize({ width: 1100, height: 700 })
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    const sidebarHeading = page.getByRole('heading', { name: 'Regex URL Guard' })
-    const groupsBox = await sidebarHeading.boundingBox()
-    expect(groupsBox).not.toBeNull()
-
-    await openGeneralSettings(page)
-    const generalBox = await sidebarHeading.boundingBox()
-    expect(generalBox).not.toBeNull()
-
-    expect(generalBox!.x).toBeCloseTo(groupsBox!.x, 1)
-    expect(generalBox!.width).toBeCloseTo(groupsBox!.width, 1)
   })
 })

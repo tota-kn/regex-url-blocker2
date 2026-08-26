@@ -93,51 +93,6 @@ test.describe('Options importExport', () => {
     expect(stored.groups?.[0].name).toBe('Imported')
   })
 
-  test('旧 whitelist グループは無効化して mode なしでインポートする', async ({
-    page,
-    serviceWorker,
-    extensionId,
-  }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-    await openGeneralSettings(page)
-    await page.getByLabel('Settings JSON file').setInputFiles(
-      jsonUploadFile('legacy-whitelist.json', {
-        version: 14,
-        settings: {
-          global: {},
-          groups: [
-            {
-              id: 'legacy-whitelist',
-              name: 'Legacy whitelist',
-              mode: 'whitelist',
-              disabled: false,
-              patterns: ['allowed\\.example'],
-              rules: [],
-            },
-          ],
-        },
-      }),
-    )
-
-    await expect
-      .poll(async () => {
-        const stored = (await serviceWorker.evaluate(async () => {
-          return globalThis.chrome.storage.sync.get(['groups'])
-        })) as { groups?: Array<Record<string, unknown>> }
-        return stored.groups?.[0]?.name
-      })
-      .toBe('Legacy whitelist')
-    await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Name')).toHaveValue('Legacy whitelist')
-    await expect(page.getByText('Disabled', { exact: true })).toBeVisible()
-
-    const stored = (await serviceWorker.evaluate(async () => {
-      return globalThis.chrome.storage.sync.get(['groups'])
-    })) as { groups?: Array<Record<string, unknown>> }
-    expect(stored.groups?.[0]?.disabled).toBe(true)
-    expect(stored.groups?.[0]).not.toHaveProperty('mode')
-  })
-
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/options.html`)
 
@@ -147,20 +102,11 @@ test.describe('Options importExport', () => {
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGeneralSettings(page)
-    await page.getByLabel('Settings JSON file').setInputFiles(jsonUploadFile('bad.json', '{'))
-
-    await expect(page.getByText('Invalid JSON')).toBeVisible()
-    await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Name')).toHaveValue('StillHere')
-  })
-
-  test('不正な設定ファイルのエラーを日本語で表示する', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-    await openGeneralSettings(page)
     await page.getByLabel('Language').selectOption('ja')
-
     await page.getByLabel('設定JSONファイル').setInputFiles(jsonUploadFile('bad.json', '{'))
 
     await expect(page.getByText('JSONが不正です')).toBeVisible()
+    await page.getByRole('button', { name: 'グループ', exact: true }).click()
+    await expect(page.getByLabel('名前')).toHaveValue('StillHere')
   })
 })

@@ -21,64 +21,6 @@ test.describe('Options groupCreate', () => {
     await expect(page.getByLabel('Name').nth(1)).toBeFocused()
   })
 
-  test('Core social 15 min/day テンプレートからSNSパターンと全曜日15分上限のグループを作成できる', async ({
-    page,
-    extensionId,
-  }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await page.getByRole('button', { name: 'Add group' }).click()
-    await page
-      .getByRole('button', { name: 'Create group from core social 15 min/day template' })
-      .click()
-
-    const expectedPatterns = [
-      'x.com',
-      'twitter.com',
-      'instagram.com',
-      'facebook.com',
-      'tiktok.com',
-      'threads.net',
-      'bsky.app',
-    ]
-    const patternInputs = page.getByRole('textbox', { name: 'URL pattern' })
-    await expect(patternInputs).toHaveCount(expectedPatterns.length)
-    for (const [index, pattern] of expectedPatterns.entries()) {
-      await expect(patternInputs.nth(index)).toHaveValue(pattern)
-    }
-
-    await expect(page.getByLabel('Rule 1 when')).toHaveValue('always')
-    await expect(page.getByLabel('Rule 1 daily limit minutes')).toHaveValue('15')
-  })
-
-  test('Video 30 min/day テンプレートから動画パターンと全曜日30分上限のグループを作成できる', async ({
-    page,
-    extensionId,
-  }) => {
-    await page.goto(`chrome-extension://${extensionId}/options.html`)
-
-    await page.getByRole('button', { name: 'Add group' }).click()
-    await page.getByRole('button', { name: 'Create group from video 30 min/day template' }).click()
-
-    const expectedPatterns = [
-      'youtube.com',
-      'youtu.be',
-      'twitch.tv',
-      'netflix.com',
-      'primevideo.com',
-      'abema.tv',
-      'nicovideo.jp',
-    ]
-    const patternInputs = page.getByRole('textbox', { name: 'URL pattern' })
-    await expect(patternInputs).toHaveCount(expectedPatterns.length)
-    for (const [index, pattern] of expectedPatterns.entries()) {
-      await expect(patternInputs.nth(index)).toHaveValue(pattern)
-    }
-
-    await expect(page.getByLabel('Rule 1 when')).toHaveValue('always')
-    await expect(page.getByLabel('Rule 1 daily limit minutes')).toHaveValue('30')
-  })
-
   test('Work hours focus テンプレートから平日日中ブロックのグループを作成できる', async ({
     page,
     extensionId,

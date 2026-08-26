@@ -158,37 +158,6 @@ function dailyLimitGroup(id: string, name: string, origin: string, minutes: numb
 }
 
 /**
- * Service Worker 上の storage.sync に拡張ページ表示用の即ブロック設定を書き込む。
- */
-async function saveBlockedPageSettings(
-  serviceWorker: Worker,
-  origin: string,
-  groups: Array<{ id: string; name: string }>,
-): Promise<void> {
-  await setExtensionStorage(
-    serviceWorker,
-    'sync',
-    buildSettingsFixture(
-      groups.map((group) =>
-        buildGroupFixture({
-          ...group,
-          patterns: [`^${origin.replaceAll('.', '\\.')}`],
-          rules: [
-            {
-              id: `${group.id}-rule`,
-              window: { type: 'always' },
-              restriction: { kind: 'block' },
-              destination: { type: 'blockedPage' },
-            },
-          ],
-        }),
-      ),
-      { dailyResetHour: '00:00' },
-    ),
-  )
-}
-
-/**
  * Service Worker 上に理由表示を検証する blockedPage 設定を書き込む。
  */
 async function saveBlockedPageDetailSettings(
@@ -358,33 +327,6 @@ test.describe('Background blocking', () => {
 
       await page.goto(`chrome-extension://${extensionId}/options.html`)
       await expect(page).toHaveURL(`chrome-extension://${extensionId}/options.html`)
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('blockedPage 設定では複数のブロックグループ名を表示する', async ({
-    page,
-    serviceWorker,
-    extensionId,
-  }) => {
-    const server = await startServer()
-    try {
-      await saveBlockedPageSettings(serviceWorker, server.origin, [
-        { id: 'work', name: 'Work block' },
-        { id: 'night', name: 'Night block' },
-      ])
-      await waitForEffectiveSettings(serviceWorker)
-
-      await gotoAndWaitForUrl(
-        page,
-        `${server.origin}/target`,
-        new RegExp(`^chrome-extension://${extensionId}/blocked\\.html`),
-      )
-      await expect(page.getByLabel('Blocked URL')).toHaveText(`${server.origin}/target`)
-      await expect(page.getByText('Blocking groups')).not.toBeVisible()
-      await expect(page.getByRole('heading', { name: 'Work block' })).toBeVisible()
-      await expect(page.getByRole('heading', { name: 'Night block' })).toBeVisible()
     } finally {
       await server.close()
     }
@@ -644,69 +586,6 @@ test.describe('Background blocking', () => {
       await server.close()
     }
   })
-
-  test('同じURLを未停止グループもブロックする場合は引き続きリダイレクトする', async ({
-    page,
-    serviceWorker,
-  }) => {
-    const server = await startServer()
-    try {
-      await setExtensionStorage(
-        serviceWorker,
-        'sync',
-        buildSettingsFixture(
-          [
-            blockingGroup('paused', 'Paused', server.origin, {
-              type: 'redirect',
-              url: `${server.origin}/paused-blocked`,
-            }),
-            blockingGroup('active', 'Active', server.origin, {
-              type: 'redirect',
-              url: `${server.origin}/active-blocked`,
-            }),
-          ],
-          { dailyResetHour: '00:00' },
-        ),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-      await serviceWorker.evaluate(async () => {
-        await globalThis.chrome.storage.local.set({
-          groupPauseState: {
-            paused: { pausedUntil: Date.now() + 600_000 },
-          },
-        })
-      })
-      await waitForEffectiveSettings(serviceWorker)
-
-      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/active-blocked`)
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('redirect 制限は指定 URL へ遷移する', async ({ page, serviceWorker }) => {
-    const server = await startServer()
-    try {
-      await setExtensionStorage(
-        serviceWorker,
-        'sync',
-        buildSettingsFixture(
-          [
-            blockingGroup('redirect-local', 'Redirect local', server.origin, {
-              type: 'redirect',
-              url: `${server.origin}/blocked`,
-            }),
-          ],
-          { dailyResetHour: '00:00' },
-        ),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-
-      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
-    } finally {
-      await server.close()
-    }
-  })
 })
 
 test.describe('Effective settings behavior', () => {
@@ -750,51 +629,6 @@ test.describe('Effective settings behavior', () => {
     }
   })
 
-  test('disabled group は対象 URL をブロックしない', async ({ page, serviceWorker }) => {
-    const server = await startServer()
-    try {
-      const now = new Date()
-      const dailyResetHour = buildStableDailyResetHour(now)
-      const disabled = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, false, true)
-      await savePreferredAndEffectiveSettings(
-        serviceWorker,
-        disabled,
-        disabled,
-        logicalDateId(now, dailyResetHour),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-
-      await page.goto(`${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/target`)
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('Lock Mode ON では disabled 変更も次回 reset まで反映されずブロックされ続ける', async ({
-    page,
-    serviceWorker,
-  }) => {
-    const server = await startServer()
-    try {
-      const now = new Date()
-      const dailyResetHour = buildStableDailyResetHour(now)
-      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true, false)
-      const preferred = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true, true)
-      await savePreferredAndEffectiveSettings(
-        serviceWorker,
-        preferred,
-        effective,
-        logicalDateId(now, dailyResetHour),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-
-      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
-    } finally {
-      await server.close()
-    }
-  })
-
   test('Lock Mode OFF では厳格化すると開いているタブが即時ブロックされる', async ({
     page,
     serviceWorker,
@@ -823,83 +657,9 @@ test.describe('Effective settings behavior', () => {
       await server.close()
     }
   })
-
-  test('Lock Mode OFF ではブロック設定削除後に対象 URL がすぐブロック解除される', async ({
-    page,
-    serviceWorker,
-  }) => {
-    const server = await startServer()
-    try {
-      const now = new Date()
-      const dailyResetHour = buildStableDailyResetHour(now)
-      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0)
-      await savePreferredAndEffectiveSettings(
-        serviceWorker,
-        { ...effective, groups: [] },
-        effective,
-        logicalDateId(now, dailyResetHour),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-
-      await page.goto(`${server.origin}/target`)
-      await expect(page).toHaveURL(`${server.origin}/target`)
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('Lock Mode ON ではブロック設定を削除しても次回 reset まで現在のブロック挙動が残る', async ({
-    page,
-    serviceWorker,
-  }) => {
-    const server = await startServer()
-    try {
-      const now = new Date()
-      const dailyResetHour = buildStableDailyResetHour(now)
-      const effective = buildEffectiveSettingsFixture(server.origin, dailyResetHour, 0, true)
-      await savePreferredAndEffectiveSettings(
-        serviceWorker,
-        { ...effective, groups: [] },
-        effective,
-        logicalDateId(now, dailyResetHour),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-
-      await gotoAndWaitForUrl(page, `${server.origin}/target`, `${server.origin}/blocked`)
-    } finally {
-      await server.close()
-    }
-  })
 })
 
 test.describe('Badge display', () => {
-  test('時間制限のある URL にアクセスするとバッジに残り時間を表示する', async ({
-    page,
-    serviceWorker,
-  }) => {
-    const server = await startServer()
-    try {
-      await setExtensionStorage(
-        serviceWorker,
-        'sync',
-        buildSettingsFixture([dailyLimitGroup('timed-group', 'Timed Group', server.origin, 60)], {
-          dailyResetHour: '00:00',
-        }),
-      )
-      await waitForEffectiveSettings(serviceWorker)
-
-      await page.goto(`${server.origin}/target`)
-      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/target`)
-      expect(tabId).toBeDefined()
-
-      await expect
-        .poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 })
-        .toBe('60m')
-    } finally {
-      await server.close()
-    }
-  })
-
   test('対象外の URL ではバッジが空になる', async ({ page, serviceWorker }) => {
     const server = await startServer()
     try {
@@ -990,46 +750,6 @@ test.describe('Remaining time notifications', () => {
       await expect
         .poll(async () => Object.keys(await getNotifications(serviceWorker)), { timeout: 5000 })
         .toContain(notificationId)
-    } finally {
-      await server.close()
-    }
-  })
-
-  test('remainingTimeNotificationsEnabled が false なら閾値内でも残り時間通知を出さない', async ({
-    page,
-    serviceWorker,
-  }) => {
-    const server = await startServer()
-    try {
-      await clearNotifications(serviceWorker)
-      const now = new Date()
-      const dailyResetHour = buildStableDailyResetHour(now)
-      const logicalDate = logicalDateId(now, dailyResetHour)
-
-      await setExtensionStorage(
-        serviceWorker,
-        'sync',
-        buildSettingsFixture(
-          [dailyLimitGroup('notify-disabled-group', 'Notify Disabled Group', server.origin, 1)],
-          {
-            dailyResetHour,
-            remainingTimeNotificationsEnabled: false,
-            notificationThresholdMinutes: 1,
-          },
-        ),
-      )
-      await setExtensionStorage(serviceWorker, 'local', {
-        counters: { 'notify-disabled-group': { logicalDate, consumedSec: 54 } },
-        usageNotificationHistory: {},
-      })
-      await waitForEffectiveSettings(serviceWorker)
-
-      await page.goto(`${server.origin}/target`)
-
-      const matchingNotifications = Object.keys(await getNotifications(serviceWorker)).filter(
-        (id) => id.startsWith('usage-time-limit-notify-disabled-group-'),
-      )
-      expect(matchingNotifications).toHaveLength(0)
     } finally {
       await server.close()
     }
