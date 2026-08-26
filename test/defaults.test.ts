@@ -53,7 +53,6 @@ describe('createEmptyGroup', () => {
   it('仕様書準拠の空グループを返す', () => {
     const g = createEmptyGroup()
     expect(g.name).toBe('')
-    expect(g.mode).toBe('blacklist')
     expect(g.disabled).toBe(false)
     expect(g.lockMode).toBe(false)
     expect(g.patterns).toEqual([])

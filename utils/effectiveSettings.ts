@@ -39,7 +39,6 @@ const GROUP_FIELD_POLICIES: Record<keyof Group, FieldPolicy> = {
       target.name = preferred.name
     },
   },
-  mode: { kind: 'baseline' },
   disabled: { kind: 'baseline' },
   lockMode: { kind: 'baseline' },
   patterns: { kind: 'baseline' },

@@ -19,6 +19,14 @@ test.describe('Theme', () => {
     await theme.selectOption('dark')
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
     await expect(page.locator('main')).toHaveCSS('background-color', 'rgb(17, 24, 39)')
+    await page.getByRole('button', { name: 'Groups' }).click()
+    const addGroupButton = page.getByRole('button', { name: 'Add group' })
+    await expect(addGroupButton).toHaveCSS('background-color', 'rgb(147, 197, 253)')
+    await expect(addGroupButton).toHaveCSS('color', 'rgb(15, 23, 42)')
+    const groupsNavigation = page.getByRole('button', { name: 'Groups' })
+    await expect(groupsNavigation).toHaveCSS('color', 'rgb(147, 197, 253)')
+    await expect(groupsNavigation).toHaveCSS('background-color', 'rgb(30, 58, 95)')
+    await expect(groupsNavigation.locator('span').last()).toHaveCSS('color', 'rgb(148, 163, 184)')
     await expectGlobalSettingsStored(page, { theme: 'dark' })
 
     await page.reload()
@@ -50,7 +58,7 @@ test.describe('Theme', () => {
       await page.goto(`chrome-extension://${extensionId}/${path}`)
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
       await expect(page.locator('main')).toHaveCSS('background-color', 'rgb(17, 24, 39)')
-      await expect(page.locator('main')).toHaveCSS('color', 'rgb(243, 244, 246)')
+      await expect(page.locator('main')).toHaveCSS('color', 'rgb(248, 250, 252)')
     }
   })
 })

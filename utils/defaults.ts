@@ -125,7 +125,6 @@ export function createGroupFromTemplate(templateId: GroupTemplateId, name = ''):
   return {
     id: crypto.randomUUID(),
     name,
-    mode: 'blacklist',
     disabled: false,
     lockMode: false,
     patterns: createPatternsFromTemplate(templateId),

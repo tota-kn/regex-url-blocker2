@@ -100,7 +100,6 @@ describe('validateGroup', () => {
     const errors = validateGroup({
       id: 'x',
       name: '   ',
-      mode: 'blacklist',
       disabled: false,
       lockMode: false,
       patterns: ['['],
@@ -124,16 +123,6 @@ describe('validateGroup', () => {
         { field: 'rules', message: VALIDATION_MESSAGES.rules },
       ]),
     )
-  })
-
-  it('mode が whitelist も valid', () => {
-    const g = { ...createEmptyGroup(), name: 'X', mode: 'whitelist' as const }
-    expect(validateGroup(g)).toEqual([])
-  })
-
-  it('mode が不正値だとエラー', () => {
-    const g = { ...createEmptyGroup(), name: 'X', mode: 'invalid' as 'blacklist' }
-    expect(validateGroup(g).some((e) => e.field === 'mode')).toBe(true)
   })
 })
 

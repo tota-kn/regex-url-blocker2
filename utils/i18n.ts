@@ -298,7 +298,6 @@ export const jaMessages = {
   'Add at least one URL pattern.': 'URLパターンを1つ以上追加してください。',
   'Add at least one rule.': 'ルールを1つ以上追加してください。',
   'Use true or false': 'オンまたはオフを指定してください。',
-  'Invalid mode': 'モードが不正です',
   '{group}: {minutes} remaining today.': '{group}：今日の残り時間は{minutes}です。',
   '{count} minute | {count} minutes': '{count}分',
   'Regex URL Guard - remaining {time}': 'Regex URL Guard - 残り {time}',

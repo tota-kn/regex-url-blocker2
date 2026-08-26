@@ -19,7 +19,6 @@ import type {
   DelayGrantState,
   EffectiveSettingsState,
   Group,
-  GroupMode,
   GroupPauseEntry,
   GroupPauseState,
   Rule,
@@ -34,11 +33,11 @@ import { validateGlobalSettings, validateGroup } from './validation'
 
 /**
  * 設定エクスポートファイルの現行スキーマバージョン。
- * 対応する旧バージョンは v2・v3・v4・v11・v12・v13。
+ * 対応する旧バージョンは v2・v3・v4・v11・v12・v13・v14。
  * v5〜v10 は未リリース開発中にのみ存在した形式のためサポートしない。
  */
-export const SETTINGS_EXPORT_VERSION = 14
-const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, 12, 13, SETTINGS_EXPORT_VERSION] as const
+export const SETTINGS_EXPORT_VERSION = 15
+const SUPPORTED_EXPORT_VERSIONS = [2, 3, 4, 11, 12, 13, 14, SETTINGS_EXPORT_VERSION] as const
 type SupportedExportVersion = (typeof SUPPORTED_EXPORT_VERSIONS)[number]
 
 /**
@@ -108,8 +107,8 @@ function normalizeGroup(value: unknown, globalRedirectUrl?: string): Group {
   return {
     id,
     name: typeof g.name === 'string' ? g.name : '',
-    mode: (g.mode === 'blacklist' || g.mode === 'whitelist' ? g.mode : 'blacklist') as GroupMode,
-    disabled: g.disabled === true,
+    // whitelist を通常の一致判定に読み替えると対象が反転するため、旧グループは安全側に無効化する。
+    disabled: g.disabled === true || g.mode === 'whitelist',
     lockMode: g.lockMode === true,
     patterns: Array.isArray(g.patterns) ? g.patterns.filter((p) => typeof p === 'string') : [],
     pauseWaitSeconds: normalizeInteger(g.pauseWaitSeconds, 0, DEFAULT_PAUSE_WAIT_SECONDS),
@@ -238,7 +237,14 @@ export async function loadSettings(): Promise<Settings> {
     global?: unknown
     groups?: unknown
   }
-  return normalizeSettings(raw)
+  const settings = normalizeSettings(raw)
+  const hasLegacyMode = Array.isArray(raw.groups)
+    ? raw.groups.some((group) => isRecord(group) && 'mode' in group)
+    : false
+  if (hasLegacyMode) {
+    await browser.storage.sync.set({ groups: settings.groups })
+  }
+  return settings
 }
 
 /**

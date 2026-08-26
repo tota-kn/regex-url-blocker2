@@ -104,13 +104,6 @@ export interface WaitRule extends RuleBase {
 export type Rule = BlockingRule | WaitRule
 
 /**
- * グループの動作モード。
- * - `'blacklist'`: patterns にマッチした URL を制限対象とする（既定）。
- * - `'whitelist'`: patterns にマッチしない URL を制限対象とする。
- */
-export type GroupMode = 'blacklist' | 'whitelist'
-
-/**
  * ブロック対象グループ。
  */
 export interface Group {
@@ -118,10 +111,6 @@ export interface Group {
   id: string
   /** ユーザー入力の表示名（必須・非空）。 */
   name: string
-  /**
-   * グループの動作モード。省略時は `'blacklist'`（既存データとの互換のため loadSettings で補完）。
-   */
-  mode: GroupMode
   /** true の場合、このグループは URL 判定・counter・通知の対象から除外する。 */
   disabled: boolean
   /** true の場合、制限を緩和する変更は次回 daily reset まで基準設定と併用する。 */

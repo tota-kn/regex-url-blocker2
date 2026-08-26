@@ -70,7 +70,7 @@ function emptyCounters(): UsageCountersState {
 }
 
 describe('URL target matching', () => {
-  it('blacklist は正規表現に部分一致した URL を対象にする', () => {
+  it('正規表現に部分一致した URL を対象にする', () => {
     const s = settings([group({ id: 'black' })])
     expect(getTargetGroupIds(s, 'https://www.example.com/path')).toEqual(['black'])
     expect(getTargetGroupIds(s, 'https://other.test/')).toEqual([])
@@ -96,12 +96,6 @@ describe('URL target matching', () => {
     ])
     expect(getTargetGroupIds(s, 'https://twitter.com/home')).toEqual(['scheme-regex'])
     expect(getTargetGroupIds(s, 'https://www.example.com/')).toEqual(['escaped-regex'])
-  })
-
-  it('whitelist は正規表現に一致しない URL を対象にする', () => {
-    const s = settings([group({ id: 'white', mode: 'whitelist' })])
-    expect(getTargetGroupIds(s, 'https://www.example.com/path')).toEqual([])
-    expect(getTargetGroupIds(s, 'https://other.test/')).toEqual(['white'])
   })
 
   it('無効な正規表現は例外にせず無視する', () => {

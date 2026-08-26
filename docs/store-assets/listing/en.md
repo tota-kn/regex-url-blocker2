@@ -23,7 +23,7 @@ Use Lock Mode when you want relaxed restrictions to wait until the next rule day
 
 Additional features:
 
-- Blacklist and whitelist matching
+- Domain and regular expression matching
 - Schedules by day, date, or recurring period
 - Clear handling of overlapping rules
 - English and Japanese interfaces

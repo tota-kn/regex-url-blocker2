@@ -47,7 +47,6 @@ function buildSettings(locale, theme = 'light') {
       {
         id: 'store-social',
         name: socialName,
-        mode: 'blacklist',
         disabled: false,
         lockMode: true,
         patterns: ['youtube.com', 'instagram.com', '^https://x\\.com/'],
@@ -71,7 +70,6 @@ function buildSettings(locale, theme = 'light') {
       {
         id: 'store-work',
         name: workName,
-        mode: 'blacklist',
         disabled: false,
         lockMode: false,
         patterns: ['reddit.com', 'news.ycombinator.com'],

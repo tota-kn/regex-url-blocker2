@@ -264,10 +264,6 @@ function validateRule(rule: Rule, prefix: string): ValidationError[] {
 export function validateGroup(group: Group, options: ValidateGroupOptions = {}): ValidationError[] {
   const errors: ValidationError[] = []
 
-  if (group.mode !== 'blacklist' && group.mode !== 'whitelist') {
-    errors.push({ field: 'mode', message: translate('Invalid mode') })
-  }
-
   if (group.name.trim().length === 0) {
     errors.push({ field: 'name', message: VALIDATION_MESSAGES.required })
   }

@@ -26,8 +26,7 @@ export function getRedirectUrls(settings: Settings): string[] {
 
 /** URL が group の制限対象に該当するなら true。 */
 export function isTargetGroup(group: Group, url: string): boolean {
-  const matched = group.patterns.some((pattern) => urlPatternMatches(pattern, url))
-  return group.mode === 'whitelist' ? !matched : matched
+  return group.patterns.some((pattern) => urlPatternMatches(pattern, url))
 }
 
 /** URL が制限対象として該当する group id を返す。 */

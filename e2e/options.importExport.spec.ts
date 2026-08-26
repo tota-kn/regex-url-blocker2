@@ -24,10 +24,11 @@ test.describe('Options importExport', () => {
     expect(path).not.toBeNull()
 
     const exported = JSON.parse(await fs.readFile(path!, 'utf8')) as Record<string, unknown>
-    expect(exported.version).toBe(14)
+    expect(exported.version).toBe(15)
     expect(exported.settings).toMatchObject({
       groups: [{ name: 'Exported', patterns: ['example\\.com'] }],
     })
+    expect(JSON.stringify(exported)).not.toContain('"mode"')
   })
 
   test('設定ファイルをインポートすると既存設定が全置換される', async ({
@@ -56,7 +57,6 @@ test.describe('Options importExport', () => {
             {
               id: 'imported-group',
               name: 'Imported',
-              mode: 'blacklist',
               patterns: ['imported\\.example'],
               dailyRules: dailyRules({ dailyLimitMinutes: 15 }),
             },
@@ -91,6 +91,51 @@ test.describe('Options importExport', () => {
     expect(stored.global?.notificationThresholdMinutes).toBe(9)
     expect(stored.groups).toHaveLength(1)
     expect(stored.groups?.[0].name).toBe('Imported')
+  })
+
+  test('旧 whitelist グループは無効化して mode なしでインポートする', async ({
+    page,
+    serviceWorker,
+    extensionId,
+  }) => {
+    await page.goto(`chrome-extension://${extensionId}/options.html`)
+    await openGeneralSettings(page)
+    await page.getByLabel('Settings JSON file').setInputFiles(
+      jsonUploadFile('legacy-whitelist.json', {
+        version: 14,
+        settings: {
+          global: {},
+          groups: [
+            {
+              id: 'legacy-whitelist',
+              name: 'Legacy whitelist',
+              mode: 'whitelist',
+              disabled: false,
+              patterns: ['allowed\\.example'],
+              rules: [],
+            },
+          ],
+        },
+      }),
+    )
+
+    await expect
+      .poll(async () => {
+        const stored = (await serviceWorker.evaluate(async () => {
+          return globalThis.chrome.storage.sync.get(['groups'])
+        })) as { groups?: Array<Record<string, unknown>> }
+        return stored.groups?.[0]?.name
+      })
+      .toBe('Legacy whitelist')
+    await page.getByRole('button', { name: 'Groups' }).click()
+    await expect(page.getByLabel('Name')).toHaveValue('Legacy whitelist')
+    await expect(page.getByText('Disabled', { exact: true })).toBeVisible()
+
+    const stored = (await serviceWorker.evaluate(async () => {
+      return globalThis.chrome.storage.sync.get(['groups'])
+    })) as { groups?: Array<Record<string, unknown>> }
+    expect(stored.groups?.[0]?.disabled).toBe(true)
+    expect(stored.groups?.[0]).not.toHaveProperty('mode')
   })
 
   test('不正な設定ファイルはインポートせず既存設定を残す', async ({ page, extensionId }) => {

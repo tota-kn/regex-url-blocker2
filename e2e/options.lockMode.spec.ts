@@ -41,11 +41,7 @@ test.describe('Options lockMode', () => {
     extensionId,
   }) => {
     await waitForEffectiveSettings(serviceWorker)
-    const allowlist = buildGroupFixture({
-      id: 'allowlist',
-      name: 'Allowlist',
-      mode: 'whitelist',
-    })
+    const otherGroup = buildGroupFixture({ id: 'other', name: 'Other' })
     const activeSettings = buildSettingsFixture(
       [
         buildGroupFixture({
@@ -55,7 +51,7 @@ test.describe('Options lockMode', () => {
           patterns: ['active\\.example'],
           rules: [dailyLimitRule('active-limit', 10, 'https://active-blocked.test')],
         }),
-        allowlist,
+        otherGroup,
       ],
       { dailyResetHour: '03:00' },
     )
@@ -68,7 +64,7 @@ test.describe('Options lockMode', () => {
           patterns: ['preferred\\.example'],
           rules: [dailyLimitRule('preferred-limit', 30, 'https://preferred-blocked.test')],
         }),
-        allowlist,
+        otherGroup,
       ],
       { dailyResetHour: '05:00' },
     )

@@ -35,7 +35,6 @@ export function group(overrides: Partial<Group> = {}): Group {
   return {
     id: 'g1',
     name: 'Group',
-    mode: 'blacklist',
     disabled: false,
     lockMode: false,
     patterns: ['example\\.com'],

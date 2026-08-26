@@ -22,7 +22,6 @@ async function saveWaitGateSettings(
           {
             id: 'wait-local',
             name: 'Wait local',
-            mode: 'blacklist',
             disabled: false,
             lockMode: false,
             patterns: [`^${settings.origin.replaceAll('.', '\\.')}`],

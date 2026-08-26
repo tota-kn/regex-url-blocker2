@@ -6,7 +6,6 @@ export function buildGroupFixture(overrides: Partial<Group> = {}): Group {
   return {
     id: 'fixture-group',
     name: 'Fixture group',
-    mode: 'blacklist',
     disabled: false,
     lockMode: false,
     patterns: [],
@@ -57,7 +56,6 @@ export function buildEffectiveSettingsFixture(
       buildGroupFixture({
         id: 'effective-group',
         name: 'Effective group',
-        mode: 'blacklist',
         disabled,
         lockMode,
         patterns: [`^${origin.replaceAll('.', '\\.')}`],

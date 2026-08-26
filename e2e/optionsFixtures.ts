@@ -37,7 +37,6 @@ export async function seedLockedPauseGroup(serviceWorker: Worker): Promise<void>
       {
         id: 'locked-pause',
         name: 'Locked pause',
-        mode: 'blacklist',
         disabled: false,
         lockMode: true,
         patterns: ['example\\.com'],
@@ -72,7 +71,6 @@ export async function seedDeletedActiveGroup(serviceWorker: Worker): Promise<voi
   const deletedGroup = {
     id: 'deleted-active',
     name: 'Deleted active',
-    mode: 'blacklist',
     disabled: false,
     lockMode: true,
     patterns: ['deleted\\.example'],

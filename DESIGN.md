@@ -42,44 +42,44 @@ colors:
   warning: '#f59e0b'
   warning-text: '#b45309'
 darkColors:
-  primary: '#60a5fa'
-  primary-hover: '#3b82f6'
-  primary-foreground: '#111827'
-  secondary: '#374151'
-  secondary-hover: '#4b5563'
-  secondary-foreground: '#d1d5db'
-  foreground: '#f3f4f6'
+  primary: '#93c5fd'
+  primary-hover: '#60a5fa'
+  primary-foreground: '#0f172a'
+  secondary: '#334155'
+  secondary-hover: '#475569'
+  secondary-foreground: '#e2e8f0'
+  foreground: '#f8fafc'
   background: '#111827'
-  surface: '#1f2937'
+  surface: '#1e293b'
   surface-muted: '#111827'
-  surface-subtle: '#374151'
-  border: '#374151'
-  border-hover: '#4b5563'
-  field: '#1f2937'
-  field-hover: '#374151'
+  surface-subtle: '#334155'
+  border: '#475569'
+  border-hover: '#64748b'
+  field: '#1e293b'
+  field-hover: '#334155'
   field-readonly: 'transparent'
-  field-disabled: '#374151'
-  field-border: '#4b5563'
-  field-border-hover: '#6b7280'
-  input-foreground: '#f3f4f6'
+  field-disabled: '#334155'
+  field-border: '#64748b'
+  field-border-hover: '#94a3b8'
+  input-foreground: '#f8fafc'
   tag-selected-bg: '#1e3a5f'
-  tag-selected-text: '#bfdbfe'
-  tag-selected-border: '#3b82f6'
-  tag-default-bg: '#374151'
-  tag-default-text: '#d1d5db'
-  tag-default-border: '#4b5563'
-  muted: '#6b7280'
-  muted-foreground: '#9ca3af'
-  accent: '#172554'
-  ring: '#60a5fa'
+  tag-selected-text: '#dbeafe'
+  tag-selected-border: '#60a5fa'
+  tag-default-bg: '#334155'
+  tag-default-text: '#e2e8f0'
+  tag-default-border: '#64748b'
+  muted: '#94a3b8'
+  muted-foreground: '#cbd5e1'
+  accent: '#1e3a5f'
+  ring: '#93c5fd'
   scrim: 'rgb(0 0 0 / 60%)'
-  danger: '#f87171'
-  danger-hover: '#ef4444'
-  danger-foreground: '#111827'
-  danger-subtle: '#450a0a'
-  danger-border: '#991b1b'
-  warning: '#f59e0b'
-  warning-text: '#fbbf24'
+  danger: '#fca5a5'
+  danger-hover: '#f87171'
+  danger-foreground: '#0f172a'
+  danger-subtle: '#451a1a'
+  danger-border: '#f87171'
+  warning: '#fbbf24'
+  warning-text: '#fde68a'
 typography:
   heading-lg:
     fontFamily: system-ui, sans-serif
@@ -248,7 +248,7 @@ The palette is a high-contrast, accessibility-conscious combination of cool gray
 
 All extension-owned pages support `auto`, `light`, and `dark` themes. `auto` is the default and follows the browser's `prefers-color-scheme`; explicit choices override it. Theme changes apply immediately and independently of Lock Mode.
 
-Dark mode preserves the same semantic token names rather than adding component-specific overrides. Gray 900 (`#111827`) is the base background, Gray 800 (`#1f2937`) is the raised surface and field color, and Gray 100 (`#f3f4f6`) is the primary foreground. Blue 400 (`#60a5fa`) provides a brighter primary and focus color on dark surfaces. Danger and warning surfaces use deep red and amber combinations so status meaning remains distinct without relying on brightness alone. Native controls use `color-scheme: dark`.
+Dark mode preserves the same semantic token names rather than adding component-specific overrides. Gray 900 (`#111827`) is the base background, Slate 800 (`#1e293b`) is the raised surface and field color, and Slate 50 (`#f8fafc`) is the primary foreground. Blue 300 (`#93c5fd`) provides a high-contrast primary and focus color on dark surfaces. Slate 400 (`#94a3b8`) is the faintest text color so supplementary labels remain readable, while Slate 600 (`#475569`) keeps borders visible without overpowering content. Danger and warning colors use lighter red and amber values with dark foregrounds or surfaces so status meaning remains distinct without relying on brightness alone. Native controls use `color-scheme: dark`.
 
 ## Typography
 
@@ -322,7 +322,7 @@ Monospace mode (`font-mono`) is applied to regex pattern fields and HH:MM time i
 
 ### Segmented Control
 
-A pill-style tab bar for binary or ternary choices (e.g. "Blacklist / Whitelist"). The active segment lifts to a white pill with a subtle shadow; inactive segments are transparent with gray text. In read-only mode, only the selected segment is shown with a bordered, non-interactive style.
+A pill-style tab bar for binary or ternary choices. The active segment lifts to a white pill with a subtle shadow; inactive segments are transparent with gray text. In read-only mode, only the selected segment is shown with a bordered, non-interactive style.
 
 ### Time Limit Meter
 

@@ -303,9 +303,10 @@ describe('settings export file', () => {
     }
 
     expect(JSON.parse(serializeSettingsExport(settings))).toEqual({
-      version: 14,
+      version: 15,
       settings,
     })
+    expect(serializeSettingsExport(settings)).not.toContain('"mode"')
   })
 
   it('valid JSON import を Settings に変換する', () => {
@@ -464,7 +465,7 @@ describe('settings export file', () => {
     expect(parseSettingsExportJson(serializeSettingsExport(settings))).toEqual(settings)
   })
 
-  it('mode 欠損の互換データは blacklist で補完する', () => {
+  it('mode 欠損の互換データを通常グループとして読み込む', () => {
     const imported = parseSettingsExportJson(
       JSON.stringify({
         version: 2,
@@ -475,9 +476,30 @@ describe('settings export file', () => {
       }),
     )
 
-    expect(imported.groups[0].mode).toBe('blacklist')
+    expect(imported.groups[0]).not.toHaveProperty('mode')
     expect(imported.groups[0].disabled).toBe(false)
     expect(imported.groups[0].lockMode).toBe(false)
+  })
+
+  it('旧 whitelist グループの import は安全のため無効化する', () => {
+    const imported = parseSettingsExportJson(
+      JSON.stringify({
+        version: 14,
+        settings: {
+          global: DEFAULT_GLOBAL_SETTINGS,
+          groups: [
+            {
+              ...createEmptyGroup('Legacy whitelist'),
+              mode: 'whitelist',
+              disabled: false,
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(imported.groups[0]).not.toHaveProperty('mode')
+    expect(imported.groups[0].disabled).toBe(true)
   })
 
   it('不正 JSON は reject する', () => {
@@ -532,12 +554,12 @@ describe('settings export file', () => {
 })
 
 describe('loadSettings のマイグレーション', () => {
-  it('groups の mode 欠損は blacklist で補完される', async () => {
+  it('groups の mode 欠損は通常グループとして読み込まれる', async () => {
     await browser.storage.sync.set({
       groups: [{ id: 'x', name: 'old', patterns: [], dailyRules: [] }],
     })
     const s = await loadSettings()
-    expect(s.groups[0].mode).toBe('blacklist')
+    expect(s.groups[0]).not.toHaveProperty('mode')
     expect(s.groups[0].disabled).toBe(false)
     expect(s.groups[0].lockMode).toBe(false)
   })
@@ -619,12 +641,18 @@ describe('loadSettings のマイグレーション', () => {
     expect(s.groups[0].rules[0]?.destination).toEqual({ type: 'blockedPage' })
   })
 
-  it('whitelist は保持される', async () => {
+  it('旧 whitelist グループは無効化し、mode を storage から除去する', async () => {
     await browser.storage.sync.set({
       groups: [{ id: 'y', name: 'wl', mode: 'whitelist', patterns: [], dailyRules: [] }],
     })
     const s = await loadSettings()
-    expect(s.groups[0].mode).toBe('whitelist')
+    expect(s.groups[0]).not.toHaveProperty('mode')
+    expect(s.groups[0].disabled).toBe(true)
+
+    const stored = await browser.storage.sync.get(['groups'])
+    const storedGroups = stored.groups as Array<Record<string, unknown>>
+    expect(storedGroups[0]).not.toHaveProperty('mode')
+    expect(storedGroups[0]?.disabled).toBe(true)
   })
 
   it('旧 dailyRules は同一内容の曜日をまとめ、block 候補があれば block 制限へ変換する', async () => {
