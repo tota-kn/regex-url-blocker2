@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { CodeBracketIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { BeakerIcon, CodeBracketIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { ref } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import PatternTesterDialog from './PatternTesterDialog.vue'
 import RuleSectionHeader from './RuleSectionHeader.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -32,6 +34,7 @@ const props = withDefaults(defineProps<Props>(), {
  * グループに属する URL pattern 配列。
  */
 const patterns = defineModel<string[]>({ required: true })
+const testerDialogRef = ref<InstanceType<typeof PatternTesterDialog> | null>(null)
 
 function markPatternTouched(index: number): void {
   emit('touch', `patterns[${index}]`)
@@ -42,6 +45,14 @@ function markPatternTouched(index: number): void {
  */
 function visibleError(index: number): string | undefined {
   return props.error(index)
+}
+
+/** 指定パターンを tester で開き、適用された値を編集行へ反映する。 */
+async function testPattern(index: number): Promise<void> {
+  const nextPattern = await testerDialogRef.value?.open(patterns.value[index] ?? '')
+  if (nextPattern === undefined) return
+  patterns.value[index] = nextPattern
+  markPatternTouched(index)
 }
 
 /**
@@ -55,6 +66,7 @@ function deletePattern(index: number): void {
 
 <template>
   <section class="space-y-3">
+    <PatternTesterDialog v-if="isEditing" ref="testerDialogRef" />
     <RuleSectionHeader :title="t('URL patterns')">
       <template #icon>
         <CodeBracketIcon aria-hidden="true" class="size-4 text-muted" />
@@ -74,6 +86,16 @@ function deletePattern(index: number): void {
             :invalid="Boolean(visibleError(i))"
             @input="markPatternTouched(i)"
           />
+          <BaseButton
+            type="button"
+            :aria-label="t('Test pattern {number}', { number: i + 1 })"
+            :title="t('Test pattern')"
+            size="icon-md"
+            variant="ghost"
+            @click="testPattern(i)"
+          >
+            <BeakerIcon aria-hidden="true" class="size-4" />
+          </BaseButton>
           <BaseButton
             type="button"
             :aria-label="t('Delete pattern')"

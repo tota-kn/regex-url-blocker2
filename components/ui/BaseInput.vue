@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { fieldStateClasses, type FieldDisplay } from '@/utils/fieldClasses'
 
 defineOptions({
@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const modelValue = defineModel<string | number>()
+const inputRef = ref<HTMLInputElement | null>(null)
 
 const sizeClass = computed(
   () =>
@@ -50,10 +51,18 @@ const stateClass = computed(() => fieldStateClasses(props))
 function onInput(event: Event): void {
   modelValue.value = (event.target as HTMLInputElement).value
 }
+
+/** 入力要素へプログラムからフォーカスする。 */
+function focus(): void {
+  inputRef.value?.focus()
+}
+
+defineExpose({ focus })
 </script>
 
 <template>
   <input
+    ref="inputRef"
     v-bind="$attrs"
     :type="type"
     :value="modelValue"

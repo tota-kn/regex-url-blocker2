@@ -5,7 +5,7 @@ import {
   validateGlobalSettings,
   validateGroup,
 } from '../utils/validation'
-import { isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
+import { isDomainPattern, isValidRegex, isValidUrlPattern } from '../utils/urlPatterns'
 import { DEFAULT_GLOBAL_SETTINGS } from '../utils/defaults'
 import { buildRule } from '../utils/ruleFactory'
 import type { RuleRestriction, ScheduleRuleCondition, TimeRange } from '../utils/types'
@@ -62,6 +62,16 @@ describe('isValidUrlPattern', () => {
   it('裸ドメインとしても正規表現としても不正な値は invalid にする', () => {
     expect(isValidUrlPattern('')).toBe(false)
     expect(isValidUrlPattern('[invalid')).toBe(false)
+  })
+})
+
+describe('isDomainPattern', () => {
+  it('裸ドメインだけを domain として分類する', () => {
+    expect(isDomainPattern('example.com')).toBe(true)
+    expect(isDomainPattern('sub.example.com.')).toBe(true)
+    expect(isDomainPattern('example\\.com')).toBe(false)
+    expect(isDomainPattern('^https?://example.com')).toBe(false)
+    expect(isDomainPattern('example.com/private')).toBe(false)
   })
 })
 
