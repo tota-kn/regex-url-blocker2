@@ -25,7 +25,7 @@ export function dailyRules(override: Record<string, unknown> = {}): Array<Record
   }))
 }
 
-/** Lock Mode ON の Pause グループを希望設定と当日の基準設定へ保存する。 */
+/** 制限維持 ON の Pause グループを希望設定と当日の基準設定へ保存する。 */
 export async function seedLockedPauseGroup(serviceWorker: Worker): Promise<void> {
   const settings = {
     global: {
@@ -61,7 +61,7 @@ export async function seedLockedPauseGroup(serviceWorker: Worker): Promise<void>
   await setExtensionStorage(serviceWorker, 'sync', settings)
 }
 
-/** 希望設定から削除済みだが当日の基準設定に残る Lock Mode グループを保存する。 */
+/** 希望設定から削除済みだが当日の基準設定に残る 制限維持 グループを保存する。 */
 export async function seedDeletedActiveGroup(serviceWorker: Worker): Promise<void> {
   const global = {
     dailyResetHour: '03:00',

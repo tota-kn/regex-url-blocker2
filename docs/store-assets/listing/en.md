@@ -19,7 +19,7 @@ For each group, combine rules that:
 - Add a wait before access is granted
 - Show the built-in blocked page or redirect to another URL
 
-Use Lock Mode when you want relaxed restrictions to wait until the next rule day. You can also pause an eligible group after a configurable countdown, check current limits from the toolbar popup, and receive a notification before daily time runs out.
+Use Keep restrictions when you want relaxed restrictions to wait until the next rule day. You can also pause an eligible group after a configurable countdown, check current limits from the toolbar popup, and receive a notification before daily time runs out.
 
 Additional features:
 

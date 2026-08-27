@@ -621,7 +621,7 @@ test.describe('Background blocking', () => {
 })
 
 test.describe('Effective settings behavior', () => {
-  test('Lock Mode ON では緩和しても同じ論理日中は有効設定によりブロックされ続ける', async ({
+  test('制限維持 ON では緩和しても同じ論理日中は有効設定によりブロックされ続ける', async ({
     page,
     serviceWorker,
   }) => {
@@ -661,7 +661,7 @@ test.describe('Effective settings behavior', () => {
     }
   })
 
-  test('Lock Mode OFF では厳格化すると開いているタブが即時ブロックされる', async ({
+  test('制限維持 OFF では厳格化すると開いているタブが即時ブロックされる', async ({
     page,
     serviceWorker,
   }) => {

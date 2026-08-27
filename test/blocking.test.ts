@@ -1091,7 +1091,7 @@ describe('wait gate', () => {
     expect(getEffectiveWait(g, now, settings([]).global)?.grantMinutes).toBe(10)
   })
 
-  it('Lock Mode の基準設定と最新版が併存するときは最長の許可期間を採用する', () => {
+  it('制限維持 の基準設定と最新版が併存するときは最長の許可期間を採用する', () => {
     const now = at('12:00:00')
     const baseline = settings([
       group({

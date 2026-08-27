@@ -38,9 +38,7 @@ test.describe('Options generalSettings', () => {
     await expect(page.getByRole('tooltip')).toContainText('1. ブロック')
 
     await page.getByRole('button', { name: 'オプション' }).click()
-    await expect(
-      page.getByRole('group', { name: '制限の緩和を次のルール日まで延期' }),
-    ).toBeVisible()
+    await expect(page.getByRole('group', { name: '制限維持' })).toBeVisible()
     await expect(page.getByRole('group', { name: '一時停止設定' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'グループを保存' })).toBeVisible()
   })

@@ -16,7 +16,7 @@ interface Props {
   group: Group
   /** 編集中ならtrue。 */
   isEditing: boolean
-  /** Lock Modeの基準group。 */
+  /** 制限維持の基準group。 */
   effectiveGroup?: Group
   /** 保留値が適用される日時。 */
   appliesAfterLabel?: string
@@ -62,7 +62,7 @@ const summaries = computed(() => {
   const result: Array<{ label: string; value: string; pending?: string }> = []
   if (props.group.lockMode) {
     result.push({
-      label: t('Delay relaxed restrictions until next rule day'),
+      label: t('Keep restrictions'),
       value: t('On'),
       pending: isFieldPending('lockMode')
         ? t('Still on {until}.', { until: pendingUntilLabel.value })
@@ -114,14 +114,12 @@ function panelId(): string {
       </button>
 
       <div v-if="isOpen" :id="panelId()" class="divide-y divide-border">
-        <fieldset :aria-label="t('Delay relaxed restrictions until next rule day')" class="py-3">
+        <fieldset :aria-label="t('Keep restrictions')" class="py-3">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
               <LockClosedIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
               <div>
-                <span class="text-label-md">{{
-                  t('Delay relaxed restrictions until next rule day')
-                }}</span>
+                <span class="text-label-md">{{ t('Keep restrictions') }}</span>
                 <p class="mt-1 text-body-sm text-muted">
                   {{
                     t(
@@ -131,10 +129,7 @@ function panelId(): string {
                 </p>
               </div>
             </div>
-            <BooleanRadioGroup
-              v-model="draft.lockMode"
-              :label="t('Delay relaxed restrictions until next rule day')"
-            />
+            <BooleanRadioGroup v-model="draft.lockMode" :label="t('Keep restrictions')" />
           </div>
           <PendingFieldNote v-if="isFieldPending('lockMode')">
             {{ t('Still on {until}.', { until: pendingUntilLabel }) }}

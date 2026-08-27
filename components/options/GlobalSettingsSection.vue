@@ -30,7 +30,7 @@ interface Props {
   error: (field: string) => string | undefined
   /** インポートに失敗したときのエラーメッセージ。 */
   importError?: string
-  /** Lock Mode group により rule day の開始時刻を変更できないかどうか。 */
+  /** 制限維持 group により rule day の開始時刻を変更できないかどうか。 */
   dailyResetTimeLocked?: boolean
 }
 
@@ -60,14 +60,14 @@ const incognitoStatusText = computed(() => {
   return t('Unable to check')
 })
 
-/** 選択された言語を即座に適用し、Lock Modeとは独立して保存を要求する。 */
+/** 選択された言語を即座に適用し、制限維持とは独立して保存を要求する。 */
 function changeLanguage(): void {
   setLanguage(globalSettings.value.language)
   emit('touch', 'language')
   emit('saveNow')
 }
 
-/** 選択されたテーマを即座に適用し、Lock Modeとは独立して保存を要求する。 */
+/** 選択されたテーマを即座に適用し、制限維持とは独立して保存を要求する。 */
 function changeTheme(): void {
   setTheme(globalSettings.value.theme)
   emit('touch', 'theme')
@@ -188,7 +188,7 @@ onUnmounted(() => {
           @input="emit('touch', 'dailyResetHour')"
         />
         <p v-if="dailyResetTimeLocked" class="mt-1.5 text-body-sm text-muted">
-          {{ t('Cannot change while any group has Lock Mode enabled or pending.') }}
+          {{ t('Cannot change while Keep restrictions is enabled or pending for any group.') }}
         </p>
       </BaseField>
 

@@ -102,7 +102,7 @@ function effectiveGroup(groupId: string): Group | undefined {
 
 /**
  * 一時停止の対象グループを、いま実際に適用される値へ解決して返す。
- * Lock Mode 中は待機秒数・停止分数も基準設定と希望設定の厳しい方を採る。
+ * 制限維持 中は待機秒数・停止分数も基準設定と希望設定の厳しい方を採る。
  */
 const pauseTargetGroup = computed(() => {
   const id = pauseTargetGroupId.value
@@ -203,7 +203,7 @@ function saveGroup(group: Group): void {
   )
 }
 
-/** Lock Mode group がある間は保存値の daily reset time を現在有効な値に固定する。 */
+/** 制限維持 group がある間は保存値の daily reset time を現在有効な値に固定する。 */
 function protectDailyResetTime(s: Settings): Settings {
   const next = cloneSettings(s)
   if (hasLockModeGroup(next) || hasLockModeGroup(effectiveSettings.value)) {

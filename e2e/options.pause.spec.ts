@@ -254,7 +254,7 @@ test.describe('Options pause', () => {
     await expectNoHorizontalOverflow(groupCard)
   })
 
-  test('Lock Mode ON では Pause 設定の緩和が次の rule day まで保留される', async ({
+  test('制限維持 ON では Pause 設定の緩和が次の rule day まで保留される', async ({
     page,
     serviceWorker,
     extensionId,

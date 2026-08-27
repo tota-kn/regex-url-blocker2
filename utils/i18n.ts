@@ -111,7 +111,7 @@ export const jaMessages = {
     'ルールはまだありません。追加するまで、このグループは何もしません。',
   Options: 'オプション',
   'Advanced settings': '詳細設定',
-  'Delay relaxed restrictions until next rule day': '制限の緩和を次のルール日まで延期',
+  'Keep restrictions': '制限維持',
   'Pause settings': '一時停止設定',
   Pause: '一時停止',
   'Allow Pause': '一時停止を許可',
@@ -262,8 +262,8 @@ export const jaMessages = {
   'Blocked now': '現在ブロック中',
   'Remaining time for {group}': '{group}の残り時間',
   'Start a new rule day at this time': '新しいルール日を開始する時刻',
-  'Cannot change while any group has Lock Mode enabled or pending.':
-    'Lock Mode が有効または保留中のグループがある間は変更できません。',
+  'Cannot change while Keep restrictions is enabled or pending for any group.':
+    '「制限維持」が有効または保留中のグループがある間は変更できません。',
   Notification: '通知',
   'Notify me before the daily limit is reached': '日次上限に達する前に通知する',
   'Notify me': '通知する',

@@ -12,7 +12,7 @@ import {
 } from './optionsPage'
 import { buildGroupFixture, buildSettingsFixture } from './settingsFixture'
 
-/** Lock Mode テスト用の常時ブロックルールを生成する。 */
+/** 制限維持 テスト用の常時ブロックルールを生成する。 */
 function blockRule(id: string, destinationUrl?: string) {
   return {
     id,
@@ -24,7 +24,7 @@ function blockRule(id: string, destinationUrl?: string) {
   }
 }
 
-/** Lock Mode テスト用の常時閲覧上限ルールを生成する。 */
+/** 制限維持 テスト用の常時閲覧上限ルールを生成する。 */
 function dailyLimitRule(id: string, minutes: number, url: string) {
   return {
     id,
@@ -80,7 +80,7 @@ test.describe('Options lockMode', () => {
     await expect(page.getByLabel('Start a new rule day at this time')).toHaveValue('03:00')
     await expect(page.getByLabel('Start a new rule day at this time')).toBeDisabled()
     await expect(
-      page.getByText('Cannot change while any group has Lock Mode enabled or pending.'),
+      page.getByText('Cannot change while Keep restrictions is enabled or pending for any group.'),
     ).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
     await expect(page.getByLabel('Rule 1').first()).toContainText('Always')
@@ -112,7 +112,7 @@ test.describe('Options lockMode', () => {
     await expect(page.locator('dialog').filter({ hasText: 'Take a breath' })).not.toBeVisible()
   })
 
-  test('Lock Mode ON のグループを Disable しても同じ論理日中は有効のままだと注記で示す', async ({
+  test('制限維持 ON のグループを Disable しても同じ論理日中は有効のままだと注記で示す', async ({
     page,
     serviceWorker,
     extensionId,
@@ -139,7 +139,7 @@ test.describe('Options lockMode', () => {
     await openGroupActions(page)
     await page.getByRole('menuitem', { name: 'Disable' }).click()
 
-    // 希望設定は Disabled になるが、Lock Mode により同じ論理日中は制限が効き続ける。
+    // 希望設定は Disabled になるが、制限維持 により同じ論理日中は制限が効き続ける。
     await expect(page.getByRole('status').filter({ hasText: 'Disabled' })).toBeVisible()
     await expect(page.getByText(/This group stays enforced until /)).toBeVisible()
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
@@ -222,7 +222,7 @@ test.describe('Options lockMode', () => {
     await expect(page.getByText('1 group')).toBeVisible()
   })
 
-  test('Lock Mode group がある間、rule day 開始時刻入力が無効化される', async ({
+  test('制限維持 group がある間、rule day 開始時刻入力が無効化される', async ({
     page,
     extensionId,
   }) => {
@@ -232,15 +232,13 @@ test.describe('Options lockMode', () => {
     await page.getByLabel('Name').fill('LockedReset')
     await addRequiredGroupSections(page)
     await openGroupOptions(page)
-    await page
-      .getByRole('radio', { name: 'Delay relaxed restrictions until next rule day On' })
-      .check()
+    await page.getByRole('radio', { name: 'Keep restrictions On' }).check()
     await page.getByRole('button', { name: 'Save group' }).click()
 
     await openGeneralSettings(page)
     await expect(page.getByLabel('Start a new rule day at this time')).toBeDisabled()
     await expect(
-      page.getByText('Cannot change while any group has Lock Mode enabled or pending.'),
+      page.getByText('Cannot change while Keep restrictions is enabled or pending for any group.'),
     ).toBeVisible()
   })
 })

@@ -2,7 +2,7 @@ import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { getPendingGroupFieldKeys, resolveEffectiveGroup } from './effectiveSettings'
 import type { Group } from './types'
 
-/** Lock Modeの保留状態と実効groupをリアクティブに算出する。 */
+/** 制限維持の保留状態と実効groupをリアクティブに算出する。 */
 export function useLockModePending(
   effectiveGroup: MaybeRefOrGetter<Group | undefined>,
   preferredGroup: MaybeRefOrGetter<Group>,
@@ -22,7 +22,7 @@ export function useLockModePending(
     return label ? `until ${label}` : 'until the next rule day'
   })
 
-  /** 指定フィールドがLock Modeにより保留中ならtrue。 */
+  /** 指定フィールドが制限維持により保留中ならtrue。 */
   function isFieldPending(key: keyof Group): boolean {
     return pendingFieldKeys.value.includes(key)
   }

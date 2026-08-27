@@ -246,7 +246,7 @@ The palette is a high-contrast, accessibility-conscious combination of cool gray
 
 ### Dark mode
 
-All extension-owned pages support `auto`, `light`, and `dark` themes. `auto` is the default and follows the browser's `prefers-color-scheme`; explicit choices override it. Theme changes apply immediately and independently of Lock Mode.
+All extension-owned pages support `auto`, `light`, and `dark` themes. `auto` is the default and follows the browser's `prefers-color-scheme`; explicit choices override it. Theme changes apply immediately and independently of Keep restrictions.
 
 Dark mode preserves the same semantic token names rather than adding component-specific overrides. Gray 900 (`#111827`) is the base background, Slate 800 (`#1e293b`) is the raised surface and field color, and Slate 50 (`#f8fafc`) is the primary foreground. Blue 300 (`#93c5fd`) provides a high-contrast primary and focus color on dark surfaces. Slate 400 (`#94a3b8`) is the faintest text color so supplementary labels remain readable, while Slate 600 (`#475569`) keeps borders visible without overpowering content. Danger and warning colors use lighter red and amber values with dark foregrounds or surfaces so status meaning remains distinct without relying on brightness alone. Native controls use `color-scheme: dark`.
 

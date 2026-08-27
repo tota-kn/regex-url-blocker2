@@ -5,7 +5,7 @@ import { jsonEqual } from './json'
 import type { EffectiveSettingsState, Group, Settings } from './types'
 
 /**
- * Lock Mode 中に、基準グループと希望グループから実効値を決める方針。
+ * 制限維持 中に、基準グループと希望グループから実効値を決める方針。
  * - `identity`: グループの同一性を担う値。解決の対象にしない。
  * - `immediate`: 制限の強さに関わらないため希望値を即時採用する。
  * - `baseline`: 基準値を次の rule day まで凍結する。強化方向の反映は `blocking.ts` が
@@ -107,7 +107,7 @@ function withPauseDefaults(group: Group): Group {
 }
 
 /**
- * Lock Mode ON のグループを次の rule day まで凍結した基準スナップショットを作る。
+ * 制限維持 ON のグループを次の rule day まで凍結した基準スナップショットを作る。
  * `immediate` なフィールドだけを希望値で上書きし、`strictest` は保存側では解決しない。
  * ここで解決すると強化した値が基準へ蓄積し、同じ rule day 内で元の値へ戻せなくなるため。
  */
@@ -119,8 +119,8 @@ function freezeBaselineGroup(baseline: Group, preferred: Group | undefined): Gro
 }
 
 /**
- * Lock Mode 中の基準グループと希望グループから、いま実際に適用される値のグループを返す。
- * 基準側が Lock Mode でなければ希望グループを、希望グループが無ければ基準グループを返す。
+ * 制限維持 中の基準グループと希望グループから、いま実際に適用される値のグループを返す。
+ * 基準側が 制限維持 でなければ希望グループを、希望グループが無ければ基準グループを返す。
  */
 export function resolveEffectiveGroup(baseline: Group, preferred: Group | undefined): Group {
   if (!preferred) return cloneGroup(baseline)
@@ -132,7 +132,7 @@ export function resolveEffectiveGroup(baseline: Group, preferred: Group | undefi
 }
 
 /**
- * Lock Mode により希望値がまだ適用されていないフィールドのキーを返す。
+ * 制限維持 により希望値がまだ適用されていないフィールドのキーを返す。
  * `identity` と `immediate` のフィールドは常に即時反映されるため対象外。
  */
 export function getPendingGroupFieldKeys(baseline: Group, preferred: Group): Array<keyof Group> {
@@ -147,14 +147,14 @@ export function getPendingGroupFieldKeys(baseline: Group, preferred: Group): Arr
 }
 
 /**
- * いずれかのグループが Lock Mode ON なら true を返す。
+ * いずれかのグループが 制限維持 ON なら true を返す。
  */
 export function hasLockModeGroup(settings: Settings): boolean {
   return settings.groups.some((group) => group.lockMode)
 }
 
 /**
- * 希望設定から、Lock Mode ON の有効 group snapshot だけを次回 reset まで維持して合成する。
+ * 希望設定から、制限維持 ON の有効 group snapshot だけを次回 reset まで維持して合成する。
  */
 export function mergeImmediateRestrictions(active: Settings, preferred: Settings): Settings {
   const preferredById = new Map(preferred.groups.map((group) => [group.id, group]))
@@ -196,7 +196,7 @@ export function mergeImmediateRestrictions(active: Settings, preferred: Settings
 }
 
 /**
- * Lock Mode の有効スナップショットと希望設定に差分があり、次の rule day まで以前の制限が
+ * 制限維持 の有効スナップショットと希望設定に差分があり、次の rule day まで以前の制限が
  * 残るグループ ID を返す。
  */
 export function getPendingEffectiveGroupIds(preferred: Settings, effective: Settings): string[] {
@@ -223,7 +223,7 @@ export function createEffectiveSettingsState(
 }
 
 /**
- * 論理日切替時は希望設定を丸ごと昇格し、それ以外は Lock Mode ON group だけを維持して反映する。
+ * 論理日切替時は希望設定を丸ごと昇格し、それ以外は 制限維持 ON group だけを維持して反映する。
  */
 export function reconcileEffectiveSettings(
   preferred: Settings,
