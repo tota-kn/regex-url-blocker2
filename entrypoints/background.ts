@@ -349,6 +349,7 @@ async function redirectToWaitIfNeeded(
       url,
       groupId,
       seconds: wait.seconds,
+      challenges: wait.challenges,
       grantMinutes: wait.grantMinutes,
     }),
   })

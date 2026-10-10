@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import type { Worker } from '@playwright/test'
-import { setExtensionStorage } from './helpers'
+import { setExtensionStorage, waitForEffectiveSettings } from './helpers'
 import { logicalDateId } from './logicalDate'
 
 /** Playwright の file input に渡す JSON ファイル指定を生成する。 */
@@ -84,9 +84,7 @@ export async function seedDeletedActiveGroup(serviceWorker: Worker): Promise<voi
       },
     ],
   }
-  await setExtensionStorage(serviceWorker, 'local', {
-    effectiveSettings: { global, groups: [deletedGroup] },
-    effectiveSettingsLogicalDate: logicalDateId(new Date(), '03:00'),
-  })
-  await setExtensionStorage(serviceWorker, 'sync', { global, groups: [] })
+  await setExtensionStorage(serviceWorker, 'sync', { global, groups: [deletedGroup] })
+  await waitForEffectiveSettings(serviceWorker)
+  await setExtensionStorage(serviceWorker, 'sync', { groups: [] })
 }

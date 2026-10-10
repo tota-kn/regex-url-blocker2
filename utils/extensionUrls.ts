@@ -1,3 +1,4 @@
+import type { AccessChallenge } from './types'
 import type { UrlEvaluation } from './blocking'
 
 /** ブロックページ URL の生成に必要な入力。 */
@@ -21,6 +22,8 @@ export function buildBlockedPageUrl(input: BlockedPageUrlInput): string {
 
 /** 待機ページ URL の生成に必要な入力。 */
 export interface WaitPageUrlInput {
+  /** 完了が必要な操作課題。 */
+  challenges?: AccessChallenge[]
   /** 拡張機能 ID。 */
   extensionId: string
   /** 待機後に戻る URL。 */
@@ -38,6 +41,8 @@ export function buildWaitPageUrl(input: WaitPageUrlInput): string {
   const target = new URL(`chrome-extension://${input.extensionId}/wait.html`)
   target.searchParams.set('url', input.url)
   target.searchParams.set('group', input.groupId)
+  if (input.challenges?.length)
+    target.searchParams.set('challenges', JSON.stringify(input.challenges))
   target.searchParams.set('seconds', String(input.seconds))
   target.searchParams.set('grantMinutes', String(input.grantMinutes))
   return target.toString()

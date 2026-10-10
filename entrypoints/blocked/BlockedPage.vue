@@ -133,8 +133,6 @@ onMounted(async () => {
 
 <template>
   <PageShell :title="t('Page blocked')">
-    <template #description>{{ t('This page was blocked by Regex URL Guard.') }}</template>
-
     <div class="mt-6 space-y-4">
       <div>
         <InfoValue label="URL" :aria-label="t('Blocked URL')" break-all>

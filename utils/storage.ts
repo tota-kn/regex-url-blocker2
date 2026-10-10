@@ -1,3 +1,4 @@
+import { normalizeChallenge } from './accessChallenge'
 import { sortRulesByEvaluationOrder } from './groupStatus'
 import {
   DEFAULT_GLOBAL_SETTINGS,
@@ -150,6 +151,9 @@ function normalizeRuleRestriction(value: unknown): RuleRestriction | undefined {
   if (restriction.kind === 'wait') {
     return {
       kind: 'wait',
+      ...(normalizeChallenge(restriction.challenge)
+        ? { challenge: normalizeChallenge(restriction.challenge) }
+        : {}),
       seconds: typeof restriction.seconds === 'number' ? restriction.seconds : -1,
       grantMinutes:
         typeof restriction.grantMinutes === 'number' && restriction.grantMinutes >= 1

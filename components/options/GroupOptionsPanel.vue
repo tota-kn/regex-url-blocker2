@@ -140,12 +140,7 @@ function panelId(): string {
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-start gap-2 text-secondary-foreground">
               <ClockIcon aria-hidden="true" class="mt-0.5 size-4 shrink-0 text-muted" />
-              <div>
-                <span class="text-label-md">{{ t('Pause') }}</span>
-                <p class="mt-1 text-body-sm text-muted">
-                  {{ t('Take a short break before temporarily disabling this group.') }}
-                </p>
-              </div>
+              <span class="text-label-md">{{ t('Pause') }}</span>
             </div>
             <div class="flex flex-col gap-2 sm:items-end">
               <div class="flex flex-wrap items-center gap-4">

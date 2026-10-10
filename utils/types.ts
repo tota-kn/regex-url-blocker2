@@ -68,13 +68,16 @@ export type BlockDestination = { type: 'blockedPage' } | { type: 'redirect'; url
  */
 export type RuleKind = 'block' | 'dailyLimit' | 'wait'
 
+/** アクセス前に完了する操作課題。 */
+export type AccessChallenge = { type: 'typing'; length: number; count: number }
+
 /**
  * Rule が課す制限内容。遷移先は含まず、種別ごとに必要な値だけを持つ。
  */
 export type RuleRestriction =
   | { kind: 'block' }
   | { kind: 'dailyLimit'; minutes: number }
-  | { kind: 'wait'; seconds: number; grantMinutes: number }
+  | { kind: 'wait'; seconds: number; grantMinutes: number; challenge?: AccessChallenge }
 
 /** すべての制限ルールが共有するフィールド。 */
 interface RuleBase {

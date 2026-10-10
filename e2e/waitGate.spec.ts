@@ -54,7 +54,7 @@ test.describe('Wait gate', () => {
     const server = await startTestServer()
     try {
       await page.clock.install()
-      await saveWaitGateSettings(serviceWorker, server.origin, 1)
+      await saveWaitGateSettings(serviceWorker, server.origin, 60)
       await waitForEffectiveSettings(serviceWorker)
 
       await gotoAndWaitForUrl(
@@ -62,11 +62,22 @@ test.describe('Wait gate', () => {
         `${server.origin}/target`,
         new RegExp(`^chrome-extension://${extensionId}/wait\\.html`),
       )
-      await expect(page.getByLabel('Remaining seconds')).toBeVisible()
+      const urlLabel = await page.getByRole('heading', { name: 'URL', exact: true }).boundingBox()
+      const urlValue = await page.getByLabel('Waiting URL').boundingBox()
+      expect(urlValue!.y - (urlLabel!.y + urlLabel!.height)).toBeLessThanOrEqual(8)
+      await expect(page.getByRole('progressbar')).toHaveCount(0)
+      await expect(page.getByLabel('Wait countdown')).toHaveCount(0)
+      await expect(page.getByLabel('Wait grant explanation')).toHaveCount(0)
+      await expect(page.getByText(/This page is gated by/)).toHaveCount(0)
 
       const continueButton = page.getByRole('button', { name: 'Continue' })
       await expect(continueButton).toBeDisabled()
-      await page.clock.fastForward(1_100)
+      await expect(continueButton).toHaveText('Continue(60)')
+      await page.clock.fastForward(1_000)
+      await expect(continueButton).toHaveText('Continue(59)')
+      await expect(continueButton).toBeDisabled()
+      await page.clock.fastForward(59_100)
+      await expect(continueButton).toHaveText('Continue')
       await expect(continueButton).toBeEnabled()
 
       await continueButton.click()

@@ -239,6 +239,20 @@ function validateRule(rule: Rule, prefix: string): ValidationError[] {
     }
   }
   if (restriction.kind === 'wait') {
+    const challenge = restriction.challenge
+    if (challenge?.type === 'typing') {
+      if (!Number.isInteger(challenge.length) || challenge.length < 12 || challenge.length > 128)
+        errors.push({
+          field: `${prefix}.restriction.challenge.length`,
+          message: 'String length must be an integer from 12 to 128.',
+        })
+      if (!Number.isInteger(challenge.count) || challenge.count < 1 || challenge.count > 100)
+        errors.push({
+          field: `${prefix}.restriction.challenge.count`,
+          message: 'String count must be an integer from 1 to 100.',
+        })
+    }
+
     if (!Number.isInteger(restriction.seconds) || restriction.seconds < 0) {
       errors.push({
         field: `${prefix}.restriction.seconds`,

@@ -121,16 +121,7 @@ onUnmounted(() => {
         <div class="size-14 rounded-full bg-primary/45 pause-breathe" />
       </div>
 
-      <div>
-        <h2 id="pause-countdown-title" class="text-heading-md">{{ t('Take a breath') }}</h2>
-        <p class="mt-1 text-body-sm text-muted-foreground">
-          {{
-            t('Stay here for {seconds} seconds before pausing this group.', {
-              seconds: waitSeconds,
-            })
-          }}
-        </p>
-      </div>
+      <h2 id="pause-countdown-title" class="text-heading-md">{{ t('Take a breath') }}</h2>
 
       <p class="text-mono-md text-secondary-foreground" aria-live="polite">
         {{ isReady ? t('Ready') : t('{seconds}s remaining', { seconds: remainingSeconds }) }}

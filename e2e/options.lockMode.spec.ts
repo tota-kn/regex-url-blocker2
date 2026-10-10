@@ -35,7 +35,7 @@ function dailyLimitRule(id: string, minutes: number, url: string) {
 }
 
 test.describe('Options lockMode', () => {
-  test('保留中は希望設定と以前から適用中の内容をフィールドごとに示す', async ({
+  test('保留中は概要だけを表示し詳細ダイアログで以前の内容を確認できる', async ({
     page,
     serviceWorker,
     extensionId,
@@ -83,13 +83,20 @@ test.describe('Options lockMode', () => {
       page.getByText('Cannot change while Keep restrictions is enabled or pending for any group.'),
     ).toBeVisible()
     await page.getByRole('button', { name: 'Groups' }).click()
-    await expect(page.getByLabel('Rule 1').first()).toContainText('Always')
-    await expect(page.getByLabel('Rule 1').first()).toContainText('Allow 30 min per day')
-    await expect(page.getByText(/Earlier URL patterns stay active until /)).toBeVisible()
+    await expect(page.getByLabel('Rule 1', { exact: true }).first()).toContainText('Always')
+    await expect(page.getByLabel('Rule 1', { exact: true }).first()).toContainText(
+      'Allow 30 min per day',
+    )
+    await expect(page.getByText('Earlier rules also remain active.')).toBeVisible()
+    const details = page.getByRole('dialog', { name: 'Earlier active restrictions' })
+    await expect(details).not.toBeVisible()
+    const detailsButton = page.getByRole('button', { name: 'View details' })
+    await detailsButton.click()
+    await expect(details).toBeVisible()
+    await expect(details).toContainText('03:00')
     const earlierPatterns = page.getByLabel('Earlier URL patterns currently active')
     await expect(earlierPatterns).toContainText('active\\.example')
     await expect(earlierPatterns).not.toContainText('preferred\\.example')
-    await expect(page.getByText(/Earlier rules stay active until /)).toBeVisible()
     const earlierRules = page.getByLabel('Earlier rules currently active')
     await expect(earlierRules.getByLabel('Earlier rule 1')).toContainText('Allow 10 min per day')
     await expect(earlierRules.getByLabel('Earlier rule 1')).toContainText(
@@ -102,7 +109,14 @@ test.describe('Options lockMode', () => {
       earlierRule.locator('[data-rule-part="action"]').boundingBox(),
     ])
     expect(earlierActionBox!.y).toBeGreaterThan(earlierScheduleBox!.y)
-    // 保留状況はグループ全体のバナーや別ダイアログに重複表示しない。
+    await page.keyboard.press('Escape')
+    await expect(details).not.toBeVisible()
+    await expect(detailsButton).toBeFocused()
+    await page.getByRole('button', { name: 'Edit group' }).first().click()
+    await detailsButton.click()
+    await details.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(details).not.toBeVisible()
+    await page.getByRole('button', { name: 'Cancel group' }).click()
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)
     await openGroupActions(page)
@@ -186,7 +200,14 @@ test.describe('Options lockMode', () => {
     await expect(retainedSection.getByRole('button', { name: 'Edit group' })).not.toBeVisible()
     await expect(retainedSection.getByRole('button', { name: 'Delete group' })).not.toBeVisible()
     await expect(retainedSection.getByRole('button', { name: 'Group actions' })).toHaveCount(0)
-    // 編集へ復帰する手段として Restore だけを残す。
+    await expect(retainedSection).toContainText('Deleted — restrictions remain active')
+    await expect(retainedSection).toContainText('03:00')
+    await expect(retainedSection.getByText('deleted\\.example', { exact: true })).not.toBeVisible()
+    await retainedSection.getByRole('button', { name: 'View details' }).click()
+    const details = page.getByRole('dialog', { name: 'Earlier active restrictions' })
+    await expect(details).toContainText('deleted\\.example')
+    await expect(details).toContainText('https://active-blocked.test')
+    await details.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(retainedSection.getByRole('button', { name: 'Restore group' })).toBeVisible()
     await expect(page.getByText('Earlier restrictions are still active.')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'View active settings' })).toHaveCount(0)

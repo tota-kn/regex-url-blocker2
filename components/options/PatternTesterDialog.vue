@@ -132,14 +132,8 @@ defineExpose({ open })
         </BaseField>
       </div>
 
-      <p
-        v-if="draftPattern.length === 0 || testUrl.length === 0"
-        class="rounded-lg border border-border bg-surface-muted p-3 text-body-md text-muted-foreground"
-      >
-        {{ t('Enter a URL pattern and URL to see whether they match.') }}
-      </p>
       <div
-        v-else-if="isReady"
+        v-if="isReady"
         role="status"
         aria-live="polite"
         class="flex items-center gap-2 rounded-lg border p-3 text-label-md"

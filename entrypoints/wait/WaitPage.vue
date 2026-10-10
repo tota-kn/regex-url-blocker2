@@ -4,18 +4,21 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import InfoValue from '@/components/ui/InfoValue.vue'
 import PageShell from '@/components/ui/PageShell.vue'
-import ProgressBar from '@/components/ui/ProgressBar.vue'
-import SubtlePanel from '@/components/ui/SubtlePanel.vue'
+import AccessChallenge from '@/components/wait/AccessChallenge.vue'
+import { normalizeChallenge, mergeChallenges } from '@/utils/accessChallenge'
+import type { AccessChallenge as Challenge } from '@/utils/types'
 import { DEFAULT_WAIT_GRANT_MINUTES } from '@/utils/defaults'
-import { loadDelayGrantState, loadPageState, saveDelayGrantState } from '@/utils/storage'
+import { loadDelayGrantState, saveDelayGrantState } from '@/utils/storage'
 import { useCountdown } from '@/utils/useCountdown'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
+const challenges = ref<Challenge[]>([])
+const challengeIndex = ref(0)
+const currentChallenge = computed(() => challenges.value[challengeIndex.value])
 const targetUrl = ref('')
 const groupId = ref('')
-const groupName = ref('')
 const totalSeconds = ref(0)
 const grantMinutes = ref(DEFAULT_WAIT_GRANT_MINUTES)
 const totalMilliseconds = computed(() => totalSeconds.value * 1_000)
@@ -27,14 +30,9 @@ const {
 } = useCountdown(totalMilliseconds, 250)
 
 /** カウントダウンが完了しアクセス可能なら true。 */
-const canContinue = computed(() => isReady.value && targetUrl.value !== '')
-
-/** 進捗バーの充填率（0-100）。 */
-const progressPercent = computed(() => {
-  if (totalSeconds.value <= 0) return 100
-  const elapsed = totalSeconds.value - remainingSeconds.value
-  return Math.min(100, Math.max(0, Math.round((elapsed / totalSeconds.value) * 100)))
-})
+const canContinue = computed(
+  () => isReady.value && !currentChallenge.value && targetUrl.value !== '',
+)
 
 /** query から待機秒数を取り出す。数値でなければ 0。 */
 function parseSeconds(params: URLSearchParams): number {
@@ -64,16 +62,26 @@ function goBack(): void {
   history.back()
 }
 
-onMounted(async () => {
+onMounted(() => {
   const params = new URLSearchParams(location.search)
   targetUrl.value = params.get('url') ?? ''
   groupId.value = params.get('group') ?? ''
   totalSeconds.value = parseSeconds(params)
   grantMinutes.value = parseGrantMinutes(params)
 
-  const { effectiveSettings } = await loadPageState()
-  groupName.value = effectiveSettings.groups.find((group) => group.id === groupId.value)?.name ?? ''
-
+  try {
+    const raw: unknown = JSON.parse(params.get('challenges') ?? '[]')
+    if (Array.isArray(raw))
+      challenges.value = mergeChallenges(
+        raw.slice(0, 100).flatMap((item) => {
+          const challenge = normalizeChallenge(item)
+          return challenge ? [challenge] : []
+        }),
+      )
+  } catch {
+    // 不正なクエリでも既存の時間待機は維持する。
+    challenges.value = []
+  }
   startCountdown()
 })
 
@@ -84,46 +92,18 @@ onUnmounted(() => {
 
 <template>
   <PageShell :title="t('Take a moment')">
-    <template #description>
-      <template v-if="groupName">
-        {{ t('This page is gated by "{group}". Wait before continuing.', { group: groupName }) }}
-      </template>
-      <template v-else>{{
-        t('This page is gated by Regex URL Guard. Wait before continuing.')
-      }}</template>
-    </template>
-
-    <div class="mt-6 space-y-4">
-      <SubtlePanel class="p-4" :aria-label="t('Wait countdown')">
-        <div class="flex items-baseline justify-between gap-2">
-          <span class="text-label-md text-secondary-foreground">{{ t('Time remaining') }}</span>
-          <span
-            class="font-mono text-heading-lg tabular-nums"
-            :aria-label="t('Remaining seconds')"
-            role="timer"
-            >{{ remainingSeconds }}s</span
-          >
-        </div>
-        <ProgressBar
-          :value="progressPercent"
-          indicator-class="bg-primary transition-[width] duration-1000 ease-linear"
-          class="mt-3"
-        />
-      </SubtlePanel>
-
+    <div class="mt-6">
       <InfoValue label="URL" :aria-label="t('Waiting URL')" break-all>
         {{ targetUrl || t('Unknown') }}
       </InfoValue>
-
-      <p class="text-body-sm text-muted-foreground" aria-label="Wait grant explanation">
-        {{
-          t(
-            'After the countdown you can browse for {minutes} min without waiting again. Any daily limit on this group keeps counting down during that time.',
-            { minutes: grantMinutes },
-          )
-        }}
-      </p>
     </div>
+
+    <AccessChallenge
+      v-if="currentChallenge"
+      :key="challengeIndex"
+      :challenge="currentChallenge"
+      @complete="challengeIndex++"
+    />
 
     <div class="mt-6 flex flex-wrap justify-end gap-2">
       <BaseButton type="button" variant="secondary" size="lg" @click="goBack">
@@ -135,10 +115,11 @@ onUnmounted(() => {
         variant="primary"
         size="lg"
         :disabled="!canContinue"
-        :aria-label="t('Continue')"
         @click="proceed"
       >
-        {{ t('Continue') }}
+        <span class="tabular-nums"
+          >{{ t('Continue') }}{{ isReady ? '' : `(${remainingSeconds})` }}</span
+        >
         <ArrowRightIcon aria-hidden="true" class="size-4" />
       </BaseButton>
     </div>

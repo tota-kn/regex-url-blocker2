@@ -15,7 +15,7 @@ defineProps<Props>()
         <img src="/icon/48.png" alt="" aria-hidden="true" class="mt-0.5 size-8 shrink-0" />
         <div class="min-w-0">
           <h1 class="text-heading-lg">{{ title }}</h1>
-          <div class="mt-1 text-body-md text-secondary-foreground">
+          <div v-if="$slots.description" class="mt-1 text-body-md text-secondary-foreground">
             <slot name="description" />
           </div>
         </div>

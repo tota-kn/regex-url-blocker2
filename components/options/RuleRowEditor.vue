@@ -4,6 +4,7 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import { createDefaultRule, DEFAULT_REDIRECT_URL } from '@/utils/defaults'
+import { normalizeChallenge } from '@/utils/accessChallenge'
 import { buildRule } from '@/utils/ruleFactory'
 import type { Rule, RuleKind, ScheduleRuleCondition, TimeRange, TimeWindow } from '@/utils/types'
 import ScheduleWindowEditor from './ScheduleWindowEditor.vue'
@@ -102,6 +103,36 @@ function setKind(value: string): void {
       rule.value.destination ?? next.destination,
     ),
     'restriction',
+  )
+}
+
+/** アクセス前の操作方式を切り替え、許可期間は維持する。 */
+function setTask(value: string): void {
+  if (rule.value.restriction.kind !== 'wait') return
+  const { challenge: _challenge, ...restriction } = rule.value.restriction
+  const challenge = normalizeChallenge({ type: value })
+  update(
+    buildRule(rule.value.id, rule.value.window, {
+      ...restriction,
+      ...(challenge ? { challenge } : {}),
+    }),
+    'restriction',
+  )
+}
+
+/** 操作課題の設定値を更新する。 */
+function setChallengeField(field: string, value: string | number | undefined): void {
+  if (rule.value.restriction.kind !== 'wait' || !rule.value.restriction.challenge) return
+  const challenge = {
+    ...rule.value.restriction.challenge,
+    [field]: String(value ?? '').trim() === '' ? Number.NaN : Number(value),
+  }
+  update(
+    buildRule(rule.value.id, rule.value.window, {
+      ...rule.value.restriction,
+      challenge,
+    } as Rule['restriction']),
+    `restriction.challenge.${field}`,
   )
 }
 
@@ -257,7 +288,45 @@ function preventNonDigitInput(event: InputEvent): void {
       </template>
 
       <template v-if="rule.restriction.kind === 'wait'">
+        <BaseSelect
+          :aria-label="t('Access task')"
+          size="sm"
+          :model-value="rule.restriction.challenge?.type ?? 'timer'"
+          @update:model-value="setTask(String($event))"
+        >
+          <option value="timer">{{ t('Wait') }}</option>
+          <option value="typing">{{ t('Type strings') }}</option>
+        </BaseSelect>
+        <template v-if="rule.restriction.challenge?.type === 'typing'">
+          <label class="text-body-sm"
+            >{{ t('String length') }}
+            <BaseInput
+              type="number"
+              min="12"
+              max="128"
+              :aria-label="t('String length')"
+              class="w-20"
+              size="sm"
+              :model-value="numberText(rule.restriction.challenge.length)"
+              @update:model-value="setChallengeField('length', $event)"
+            />
+          </label>
+          <label class="text-body-sm"
+            >{{ t('String count') }}
+            <BaseInput
+              type="number"
+              min="1"
+              max="100"
+              :aria-label="t('String count')"
+              class="w-20"
+              size="sm"
+              :model-value="numberText(rule.restriction.challenge.count)"
+              @update:model-value="setChallengeField('count', $event)"
+            />
+          </label>
+        </template>
         <BaseInput
+          v-if="!rule.restriction.challenge"
           type="text"
           inputmode="numeric"
           :aria-label="t('Rule {number} wait seconds', { number: props.index + 1 })"
@@ -267,7 +336,9 @@ function preventNonDigitInput(event: InputEvent): void {
           @beforeinput="preventNonDigitInput"
           @update:model-value="setNumber('seconds', $event)"
         />
-        <span class="shrink-0 text-label-sm text-muted-foreground">{{ t('sec, then allow') }}</span>
+        <span class="shrink-0 text-label-sm text-muted-foreground">{{
+          t(rule.restriction.challenge ? 'then allow' : 'sec, then allow')
+        }}</span>
         <BaseInput
           type="text"
           inputmode="numeric"

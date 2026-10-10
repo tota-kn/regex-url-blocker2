@@ -20,7 +20,7 @@ interface GroupTemplateOption {
   /** ボタン表示ラベル。 */
   label: string
   /** 説明文。 */
-  description: string
+  description?: string
   /** 作成ボタンの aria-label。 */
   ariaLabel: string
 }
@@ -66,19 +66,16 @@ const groupTemplates: GroupTemplateOption[] = [
   {
     id: 'blank',
     label: 'Blank group',
-    description: 'Start with no URL patterns or blocking rules.',
     ariaLabel: 'Create blank group',
   },
   {
     id: 'core-sns-15min',
     label: 'Core social 15 min/day',
-    description: 'Start with core social networks and a 15-minute daily limit.',
     ariaLabel: 'Create group from core social 15 min/day template',
   },
   {
     id: 'video-30min',
     label: 'Video 30 min/day',
-    description: 'Start with video sites and a 30-minute daily limit.',
     ariaLabel: 'Create group from video 30 min/day template',
   },
   {
@@ -165,7 +162,9 @@ function createGroup(templateId: GroupTemplateId): void {
             <span class="block text-label-md text-secondary-foreground">{{
               t(template.label)
             }}</span>
-            <span class="mt-1 block text-body-sm text-muted">{{ t(template.description) }}</span>
+            <span v-if="template.description" class="mt-1 block text-body-sm text-muted">{{
+              t(template.description)
+            }}</span>
           </button>
         </div>
         <div class="flex justify-end">

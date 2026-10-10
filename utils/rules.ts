@@ -68,6 +68,11 @@ export function formatRuleRestriction(restriction: RuleRestriction): string {
   if (restriction.kind === 'block') return translate('Block access')
   if (restriction.kind === 'dailyLimit')
     return translate('Allow {minutes} min per day', { minutes: restriction.minutes })
+  if (restriction.challenge?.type === 'typing')
+    return translate('Enter {length} characters × {count}, then allow {minutes} min', {
+      ...restriction.challenge,
+      minutes: restriction.grantMinutes,
+    })
   return translate('Wait {seconds} sec, then allow {minutes} min', {
     seconds: restriction.seconds,
     minutes: restriction.grantMinutes,
@@ -225,13 +230,21 @@ function buildCurrentState(
   const lines: string[] = []
   let step = 1
   if (wait) {
-    lines.push(
-      translate(
-        '{step}. Wait {seconds} sec on the gate page, then browse for {minutes} min without waiting again.',
-        { step, seconds: wait.seconds, minutes: wait.grantMinutes },
-      ),
-    )
-    step += 1
+    for (const challenge of wait.challenges ?? []) {
+      lines.push(
+        `${step}. ${formatRuleRestriction({ kind: 'wait', seconds: 0, grantMinutes: wait.grantMinutes, challenge })}`,
+      )
+      step++
+    }
+    if (wait.seconds > 0) {
+      lines.push(
+        translate(
+          '{step}. Wait {seconds} sec on the gate page, then browse for {minutes} min without waiting again.',
+          { step, seconds: wait.seconds, minutes: wait.grantMinutes },
+        ),
+      )
+      step += 1
+    }
   }
   if (daily && remainingSec !== undefined) {
     lines.push(
@@ -254,7 +267,14 @@ function buildCurrentState(
     lines.push(translate('{step}. When it reaches 0 → {destination}.', { step, destination }))
   }
 
-  if (wait) return { kind: 'gated', headline: translate('Wait required before access'), lines }
+  if (wait)
+    return {
+      kind: 'gated',
+      headline: translate(
+        wait.challenges?.length ? 'Task required before access' : 'Wait required before access',
+      ),
+      lines,
+    }
   return { kind: 'limited', headline: translate('Allowed, with limits'), lines }
 }
 
@@ -312,6 +332,14 @@ export function describeRuleConflicts(rules: Rule[], now: Date, global: GlobalSe
       )
     }
     if (first.kind === 'wait' && second.kind === 'wait') {
+      if (first.challenge || second.challenge) {
+        messages.add(
+          translate(
+            'Overlapping access tasks must all be completed. For the same task, the larger requirements apply.',
+          ),
+        )
+        continue
+      }
       // 秒数と許可分数は別々に最長を採るため、片方のルールがまるごと採用されるわけではない。
       messages.add(
         translate(

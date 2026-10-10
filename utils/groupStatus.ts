@@ -1,3 +1,5 @@
+import { mergeChallenges } from './accessChallenge'
+import type { AccessChallenge } from './types'
 import { jsonEqual, uniqueByJson } from './json'
 import { getLogicalDate, getNextDailyResetAt } from './logicalDate'
 import { bothSettings, strictestBy, type SettingsPair } from './settingsPair'
@@ -103,6 +105,8 @@ function minDailyLimitMinutes(rules: Rule[]): number | undefined {
  * group に現在課される待機ゲートの設定。
  */
 export interface EffectiveWait {
+  /** 時間待機に加えて完了する課題。 */
+  challenges?: AccessChallenge[]
   /** 待機ゲートで待たせる秒数。アクティブな wait ルールのうち最長。 */
   seconds: number
   /** 通過後にアクセスを許可する分数。アクティブな wait ルールのうち最長。 */
@@ -122,16 +126,25 @@ export interface EffectiveWait {
 export function resolveEffectiveWait(rules: Rule[]): EffectiveWait | undefined {
   const waits = rules.flatMap((rule) =>
     rule.restriction.kind === 'wait' &&
-    rule.restriction.seconds > 0 &&
+    (rule.restriction.seconds > 0 || rule.restriction.challenge !== undefined) &&
     Number.isInteger(rule.restriction.grantMinutes) &&
     rule.restriction.grantMinutes >= 1
-      ? [{ seconds: rule.restriction.seconds, grantMinutes: rule.restriction.grantMinutes }]
+      ? [
+          {
+            seconds: rule.restriction.challenge ? 0 : rule.restriction.seconds,
+            grantMinutes: rule.restriction.grantMinutes,
+            challenges: rule.restriction.challenge ? [rule.restriction.challenge] : [],
+          },
+        ]
       : [],
   )
   if (waits.length === 0) return undefined
   return {
     seconds: Math.max(...waits.map((wait) => wait.seconds)),
     grantMinutes: Math.max(...waits.map((wait) => wait.grantMinutes)),
+    ...(waits.some((wait) => wait.challenges?.length)
+      ? { challenges: mergeChallenges(waits.flatMap((wait) => wait.challenges ?? [])) }
+      : {}),
   }
 }
 
@@ -226,6 +239,9 @@ export function getEffectiveWaitForPair(
   return {
     seconds: Math.max(...waits.map((wait) => wait.seconds)),
     grantMinutes: Math.max(...waits.map((wait) => wait.grantMinutes)),
+    ...(waits.some((wait) => wait.challenges?.length)
+      ? { challenges: mergeChallenges(waits.flatMap((wait) => wait.challenges ?? [])) }
+      : {}),
   }
 }
 

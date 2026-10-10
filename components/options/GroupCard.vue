@@ -11,6 +11,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import AlertMessage from '@/components/ui/AlertMessage.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import { sortRulesByEvaluationOrder } from '@/utils/groupStatus'
@@ -71,6 +72,7 @@ const draft = ref<Group>(cloneGroup(props.group))
 const validationFeedback = useValidationFeedback()
 const invalidTextFields = ref<Set<string>>(new Set())
 
+const earlierDetails = ref<InstanceType<typeof BaseDialog> | null>(null)
 const isEditing = ref(props.readOnly ? false : (props.startInEdit ?? false))
 
 const draftErrors = computed(() => validateGroup(draft.value, { requireConfiguredSections: true }))
@@ -325,7 +327,113 @@ function setTextFieldValidity(field: string, valid: boolean): void {
       </AlertMessage>
     </div>
 
-    <fieldset :disabled="!isEditing" class="min-w-0 space-y-4 p-4 disabled:cursor-default">
+    <div
+      v-if="restorable || isFieldPending('patterns') || isFieldPending('rules')"
+      class="space-y-1 border-b border-warning/30 bg-warning/10 p-4"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="text-body-sm text-warning-text">
+          {{
+            t(
+              restorable
+                ? 'Deleted — restrictions remain active'
+                : 'Earlier rules also remain active.',
+            )
+          }}
+        </p>
+        <BaseButton type="button" variant="ghost" @click="earlierDetails?.open()">
+          {{ t('View details') }}
+        </BaseButton>
+      </div>
+      <p class="text-body-sm text-muted-foreground">
+        {{
+          appliesAfterLabel
+            ? t('Until the next reset ({time})', { time: appliesAfterLabel })
+            : t('Until the next reset')
+        }}
+      </p>
+    </div>
+
+    <BaseDialog
+      v-if="restorable || isFieldPending('patterns') || isFieldPending('rules')"
+      ref="earlierDetails"
+      :aria-label="t('Earlier active restrictions')"
+      class="w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto p-4"
+      @cancel="earlierDetails?.close()"
+    >
+      <h3 class="text-heading-md">{{ t('Earlier active restrictions') }}</h3>
+      <p class="mt-2 text-body-sm text-muted-foreground">
+        {{
+          appliesAfterLabel
+            ? t('Until the next reset ({time})', { time: appliesAfterLabel })
+            : t('Until the next reset')
+        }}
+      </p>
+      <section
+        v-if="effectiveGroup"
+        :aria-label="t('Earlier URL patterns currently active')"
+        class="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-3"
+      >
+        <h4 class="text-label-sm text-warning-text">
+          {{ t('Earlier URL patterns currently active') }}
+        </h4>
+        <div v-if="effectiveGroup.patterns.length > 0" class="mt-2 space-y-1">
+          <p
+            v-for="(pattern, index) in effectiveGroup.patterns"
+            :key="`${index}-${pattern}`"
+            class="text-mono-md break-all text-input-foreground"
+          >
+            {{ pattern }}
+          </p>
+        </div>
+        <p v-else class="mt-2 text-body-sm text-muted">
+          {{ t('No earlier URL patterns.') }}
+        </p>
+      </section>
+      <section
+        v-if="effectiveGroup"
+        :aria-label="t('Earlier rules currently active')"
+        class="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-3"
+      >
+        <h4 class="text-label-sm text-warning-text">
+          {{ t('Earlier rules currently active') }}
+        </h4>
+        <ol v-if="effectiveGroup.rules.length > 0" class="mt-2 space-y-2">
+          <li
+            v-for="(rule, index) in effectiveGroup.rules"
+            :key="rule.id"
+            :aria-label="t('Earlier rule {number}', { number: index + 1 })"
+            class="min-w-0 space-y-1 rounded-lg border border-border bg-surface p-3 text-body-md text-input-foreground"
+          >
+            <div data-rule-part="schedule" class="font-mono text-secondary-foreground">
+              {{ formatRule(rule).when }}
+            </div>
+            <div
+              data-rule-part="action"
+              class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+            >
+              <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
+              <span>{{ formatRule(rule).what }}</span>
+              <span v-if="formatRule(rule).destination" class="text-body-sm text-muted-foreground">
+                → {{ formatRule(rule).destination }}
+              </span>
+            </div>
+          </li>
+        </ol>
+        <p v-else class="mt-2 text-body-sm text-muted">
+          {{ t('No earlier rules.') }}
+        </p>
+      </section>
+      <div class="mt-4 flex justify-end">
+        <BaseButton type="button" @click="earlierDetails?.close()">{{ t('Close') }}</BaseButton>
+      </div>
+    </BaseDialog>
+
+    <fieldset
+      v-if="!restorable"
+      :disabled="!isEditing"
+      class="min-w-0 space-y-4 p-4 disabled:cursor-default"
+    >
       <legend class="sr-only">{{ t('Group details') }}</legend>
       <div>
         <PatternListEditor
@@ -335,30 +443,6 @@ function setTextFieldValidity(field: string, valid: boolean): void {
           :error="patternError"
           @touch="touchField"
         />
-        <PendingFieldNote v-if="isFieldPending('patterns')">
-          {{ t('Earlier URL patterns stay active {until}.', { until: pendingUntilLabel }) }}
-        </PendingFieldNote>
-        <section
-          v-if="isFieldPending('patterns') && effectiveGroup"
-          :aria-label="t('Earlier URL patterns currently active')"
-          class="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-3"
-        >
-          <h4 class="text-label-sm text-warning-text">
-            {{ t('Earlier URL patterns currently active') }}
-          </h4>
-          <div v-if="effectiveGroup.patterns.length > 0" class="mt-2 space-y-1">
-            <p
-              v-for="(pattern, index) in effectiveGroup.patterns"
-              :key="`${index}-${pattern}`"
-              class="text-mono-md break-all text-input-foreground"
-            >
-              {{ pattern }}
-            </p>
-          </div>
-          <p v-else class="mt-2 text-body-sm text-muted">
-            {{ t('No earlier URL patterns.') }}
-          </p>
-        </section>
       </div>
 
       <div>
@@ -372,50 +456,11 @@ function setTextFieldValidity(field: string, valid: boolean): void {
           @touch="touchField"
           @validity-change="setTextFieldValidity"
         />
-        <PendingFieldNote v-if="isFieldPending('rules')">
-          {{ t('Earlier rules stay active {until}.', { until: pendingUntilLabel }) }}
-        </PendingFieldNote>
-        <section
-          v-if="isFieldPending('rules') && effectiveGroup"
-          :aria-label="t('Earlier rules currently active')"
-          class="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-3"
-        >
-          <h4 class="text-label-sm text-warning-text">
-            {{ t('Earlier rules currently active') }}
-          </h4>
-          <ol v-if="effectiveGroup.rules.length > 0" class="mt-2 space-y-2">
-            <li
-              v-for="(rule, index) in effectiveGroup.rules"
-              :key="rule.id"
-              :aria-label="t('Earlier rule {number}', { number: index + 1 })"
-              class="min-w-0 space-y-1 rounded-lg border border-border bg-surface p-3 text-body-md text-input-foreground"
-            >
-              <div data-rule-part="schedule" class="font-mono text-secondary-foreground">
-                {{ formatRule(rule).when }}
-              </div>
-              <div
-                data-rule-part="action"
-                class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
-              >
-                <ArrowRightIcon aria-hidden="true" class="size-4 shrink-0 text-muted" />
-                <span>{{ formatRule(rule).what }}</span>
-                <span
-                  v-if="formatRule(rule).destination"
-                  class="text-body-sm text-muted-foreground"
-                >
-                  → {{ formatRule(rule).destination }}
-                </span>
-              </div>
-            </li>
-          </ol>
-          <p v-else class="mt-2 text-body-sm text-muted">
-            {{ t('No earlier rules.') }}
-          </p>
-        </section>
       </div>
     </fieldset>
 
     <GroupOptionsPanel
+      v-if="!restorable"
       v-model="draft"
       :group="group"
       :is-editing="isEditing"
