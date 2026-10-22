@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, provide, ref, watch } from 'vue'
-import { Cog6ToothIcon, ExclamationCircleIcon, QueueListIcon } from '@heroicons/vue/24/outline'
+import {
+  Cog6ToothIcon,
+  ExclamationCircleIcon,
+  LockClosedIcon,
+  QueueListIcon,
+} from '@heroicons/vue/24/outline'
 import {
   getNextEffectiveSettingsResetAt,
   getPendingEffectiveGroupIds,
@@ -40,6 +45,7 @@ import { validateGlobalSettings, validateGroup } from '@/utils/validation'
 import { useValidationFeedback } from '@/utils/useValidationFeedback'
 import type { Group, GroupPauseState, Settings, UsageCountersState } from '@/utils/types'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import BrowserLockdownSection from '@/components/options/BrowserLockdownSection.vue'
 import GlobalSettingsSection from '@/components/options/GlobalSettingsSection.vue'
 import GroupsSection from '@/components/options/GroupsSection.vue'
 import PauseCountdownDialog from '@/components/options/PauseCountdownDialog.vue'
@@ -63,7 +69,7 @@ const newGroupDrafts = ref<Group[]>([])
 const importError = ref<string | undefined>(undefined)
 const pauseCountdownDialogRef = ref<InstanceType<typeof PauseCountdownDialog> | null>(null)
 const pauseTargetGroupId = ref<string | undefined>(undefined)
-const activeSection = ref<'groups' | 'general'>('groups')
+const activeSection = ref<'groups' | 'general' | 'lockdown'>('groups')
 const globalValidationFeedback = useValidationFeedback()
 
 const globalErrors = computed(() => validateGlobalSettings(settings.value.global))
@@ -439,6 +445,23 @@ onMounted(async () => {
                   class="size-4 text-danger"
                 />
               </button>
+              <button
+                type="button"
+                :aria-label="t('Browser lockdown')"
+                class="flex min-w-max items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-label-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:w-full"
+                :class="
+                  activeSection === 'lockdown'
+                    ? 'border-primary bg-accent text-primary'
+                    : 'border-transparent text-secondary-foreground hover:border-border-hover hover:bg-background'
+                "
+                :aria-current="activeSection === 'lockdown' ? 'page' : undefined"
+                @click="activeSection = 'lockdown'"
+              >
+                <span class="flex items-center gap-2">
+                  <LockClosedIcon aria-hidden="true" class="size-4" />
+                  {{ t('Browser lockdown') }}
+                </span>
+              </button>
             </nav>
           </aside>
 
@@ -457,6 +480,8 @@ onMounted(async () => {
               @request-group-pause="requestGroupPause"
               @restore-group="restoreGroup"
             />
+
+            <BrowserLockdownSection v-else-if="activeSection === 'lockdown'" />
 
             <GlobalSettingsSection
               v-else

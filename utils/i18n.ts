@@ -350,6 +350,31 @@ export const jaMessages = {
   '{count} minute | {count} minutes': '{count}分',
   'Regex URL Guard - remaining {time}': 'Regex URL Guard - 残り {time}',
   'Regex URL Guard - paused {time}': 'Regex URL Guard - 一時停止中 残り {time}',
+  'Browser lockdown': 'ブラウザ制限',
+  'Use OS-level browser policies to keep this extension from being removed and to close common loopholes. Anyone with administrator rights can undo these settings.':
+    'OS のブラウザポリシーで、この拡張機能を削除できないようにし、抜け道をふさぎます。管理者権限があれば誰でも元に戻せます。',
+  'Operating system': 'OS',
+  Browser: 'ブラウザ',
+  'Policies to apply': '適用するポリシー',
+  'Prevent uninstalling and disabling this extension': 'この拡張機能の削除と無効化を禁止',
+  'Disable Incognito (InPrivate) windows': 'シークレット（InPrivate）ウィンドウを無効化',
+  'Disable guest mode': 'ゲストモードを無効化',
+  'Unless the device is joined to a domain or enrolled in MDM, Edge force-installs only extensions from the Edge Add-ons store, so this setting has no effect.':
+    'ドメイン参加または MDM 登録されていない端末では、Edge は Edge アドオンストアの拡張機能しか強制インストールしないため、この設定は効きません。',
+  'If ExtensionInstallForcelist already has entries, change /v 1 to the same unused number in both the apply and undo commands so they are not overwritten.':
+    'ExtensionInstallForcelist に既存の登録がある場合は、上書きしないよう適用・解除の両方のコマンドで /v 1 を同じ空き番号に変えてください。',
+  'Open Command Prompt as administrator.': 'コマンドプロンプトを管理者として実行します。',
+  'Paste and run the commands below.': '下のコマンドを貼り付けて実行します。',
+  'Restart the browser and check {page}.': 'ブラウザを再起動し、{page} で反映を確認します。',
+  'Commands to apply': '適用コマンド',
+  'Commands to undo': '解除コマンド',
+  Copy: 'コピー',
+  'Download the configuration profile and open it.': '構成プロファイルをダウンロードして開きます。',
+  'In System Settings, go to General > Device Management (or Privacy & Security > Profiles) and install it.':
+    'システム設定の「一般 > デバイス管理」（または「プライバシーとセキュリティ > プロファイル」）でインストールします。',
+  'Download profile': 'プロファイルをダウンロード',
+  'To undo, remove the profile in the same System Settings screen.':
+    '解除するには、同じシステム設定の画面でプロファイルを削除します。',
 } as const
 
 /** 英語カタログ。同じキー集合を英語原文へ写像する。 */
