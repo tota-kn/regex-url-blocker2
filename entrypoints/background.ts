@@ -374,15 +374,12 @@ async function enforceEvaluation(
 }
 
 /**
- * 残り秒数に応じた badge 背景色を返す。
- */
-/**
  * 指定タブの action badge/title を現在の判定結果に合わせて更新する。
  */
 async function updateActionForTab(tab: ActionTargetTab, now = new Date()): Promise<void> {
   if (typeof tab.id !== 'number') return
   const s = await currentSettings()
-  const next = buildActionState(currentPair(s), counters, tab.url, now)
+  const next = buildActionState(currentPair(s), counters, groupPauseState, tab.url, now)
 
   const chromeApi = getChromeApi()
   await Promise.all([

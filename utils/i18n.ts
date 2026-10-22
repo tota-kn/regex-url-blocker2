@@ -349,6 +349,7 @@ export const jaMessages = {
   '{group}: {minutes} remaining today.': '{group}：今日の残り時間は{minutes}です。',
   '{count} minute | {count} minutes': '{count}分',
   'Regex URL Guard - remaining {time}': 'Regex URL Guard - 残り {time}',
+  'Regex URL Guard - paused {time}': 'Regex URL Guard - 一時停止中 残り {time}',
 } as const
 
 /** 英語カタログ。同じキー集合を英語原文へ写像する。 */

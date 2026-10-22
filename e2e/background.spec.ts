@@ -748,6 +748,49 @@ test.describe('Badge display', () => {
       await server.close()
     }
   })
+
+  test('一時停止中のグループの対象サイトでだけ解除までの時間をバッジに表示する', async ({
+    page,
+    serviceWorker,
+  }) => {
+    const server = await startServer()
+    try {
+      await setExtensionStorage(
+        serviceWorker,
+        'sync',
+        buildSettingsFixture(
+          [
+            buildGroupFixture({
+              ...blockingGroup('paused', 'Paused', server.origin, {
+                type: 'redirect',
+                url: `${server.origin}/blocked`,
+              }),
+              patterns: [`^${server.origin.replaceAll('.', '\\.')}/target`],
+            }),
+          ],
+          { dailyResetHour: '00:00' },
+        ),
+      )
+      await waitForEffectiveSettings(serviceWorker)
+      await serviceWorker.evaluate(async () => {
+        await globalThis.chrome.storage.local.set({
+          groupPauseState: { paused: { pausedUntil: Date.now() + 9 * 60_000 + 30_000 } },
+        })
+      })
+
+      await page.goto(`${server.origin}/target`)
+      const tabId = await getTabIdByUrl(serviceWorker, `${server.origin}/target`)
+      expect(tabId).toBeDefined()
+      await expect
+        .poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 })
+        .toBe('10m')
+
+      await page.goto(`${server.origin}/other`)
+      await expect.poll(async () => getBadgeText(serviceWorker, tabId!), { timeout: 5000 }).toBe('')
+    } finally {
+      await server.close()
+    }
+  })
 })
 
 test.describe('Remaining time notifications', () => {
